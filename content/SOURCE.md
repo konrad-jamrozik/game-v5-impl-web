@@ -9,4 +9,4 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in
-`records/implementation-decisions.md`.
+`feedback/implementation-decisions.md`.

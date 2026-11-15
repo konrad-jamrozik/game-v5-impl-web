@@ -32,7 +32,7 @@ interface Entry {
 const errors: string[] = [];
 
 function parse(file: string, prefix: string, title: string): Entry[] {
-  const text = readFileSync(join(root, 'records', file), 'utf8').replaceAll('\r\n', '\n');
+  const text = readFileSync(join(root, 'feedback', file), 'utf8').replaceAll('\r\n', '\n');
   if (!text.startsWith(`# ${title}\n`)) {
     errors.push(`${file}: must start with the H1 "# ${title}"`);
   }
@@ -158,14 +158,14 @@ for (const specification of GUIDANCE_SPECIFICATIONS) {
 }
 
 // The tracking records; see Specification Tracking.
-const baseline = readFileSync(join(root, 'records', 'specification-baseline.md'), 'utf8').replaceAll(
+const baseline = readFileSync(join(root, 'tracking', 'specification-baseline.md'), 'utf8').replaceAll(
   '\r\n',
   '\n',
 );
 if (!/^# Specification baseline\n\nRevision: [0-9a-f]{40}\n$/.test(baseline)) {
   errors.push('specification-baseline.md: must hold the H1 and one line "Revision: <full commit hash>"');
 }
-const map = readFileSync(join(root, 'records', 'specification-map.md'), 'utf8').replaceAll('\r\n', '\n');
+const map = readFileSync(join(root, 'tracking', 'specification-map.md'), 'utf8').replaceAll('\r\n', '\n');
 if (!map.startsWith('# Specification map\n')) {
   errors.push('specification-map.md: must start with the H1 "# Specification map"');
 }

@@ -78,8 +78,8 @@ describe('PLACE: Repository root of an Implementation', () => {
   });
 
   it('keeps both record files', () => {
-    expect(existsSync(join(root, 'records', 'specification-problems.md'))).toBe(true);
-    expect(existsSync(join(root, 'records', 'implementation-decisions.md'))).toBe(true);
+    expect(existsSync(join(root, 'feedback', 'specification-problems.md'))).toBe(true);
+    expect(existsSync(join(root, 'feedback', 'implementation-decisions.md'))).toBe(true);
   });
 });
 

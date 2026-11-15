@@ -236,8 +236,8 @@ No files.
 
 ## RECORDS: Implementation Records
 
-- records/implementation-decisions.md
-- records/specification-problems.md
+- feedback/implementation-decisions.md
+- feedback/specification-problems.md
 - scripts/check-records.ts
 
 ## RECOVER: Agent Recovery
@@ -290,8 +290,8 @@ No files.
 
 ## TRACK: Specification Tracking
 
-- records/specification-baseline.md
-- records/specification-map.md
+- tracking/specification-baseline.md
+- tracking/specification-map.md
 - scripts/check-records.ts
 
 ## TURN: Turn Advancement
