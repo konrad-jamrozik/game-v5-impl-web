@@ -1,0 +1,356 @@
+/** Acceptance examples of ECON (Economy and Upgrades). */
+import { describe, expect, it } from 'vitest';
+import { fundingAfter } from '../../src/engine/mechanics/economy/economy.ts';
+import { createGameRules } from '../../src/engine/game-rules.ts';
+import type { CampaignState } from '../../src/engine/state/types.ts';
+import { currentStateView, historyView } from '../../src/engine/views/views.ts';
+import {
+  act,
+  addMissionSite,
+  advance,
+  agent,
+  agentIds,
+  agents,
+  expectDefective,
+  expectRejected,
+  funding,
+  gdrs,
+  losing,
+  money,
+  newCampaign,
+  setAssignment,
+  tweak,
+  winning,
+  withAgents,
+} from '../helpers/game.ts';
+
+const agency = (state: CampaignState) => currentStateView(state, gdrs).agency;
+const series = (state: CampaignState) => {
+  const { moneyAtStartOfTurn, moneyAtEndOfTurn } = historyView(state, gdrs).turnSeries;
+  return { start: moneyAtStartOfTurn.map((v) => v.value), end: moneyAtEndOfTurn.map((v) => v.value) };
+};
+const setMoney = (state: CampaignState, value: number, fund?: number) =>
+  tweak(state, (world) => {
+    world.agency.state.money = value;
+    if (fund !== undefined) {
+      world.agency.state.funding = fund;
+    }
+  });
+
+describe('ECON: Acceptance examples', () => {
+  it('Campaign creation', () => {
+    const state = newCampaign();
+    const view = agency(state);
+    expect(view).toMatchObject({
+      archetype: 'agency',
+      name: 'The Agency',
+      money: 500,
+      funding: 20,
+      agentCap: 20,
+      transportCap: 4,
+      trainingCap: 4,
+      projectedIncome: 20,
+      projectedUpkeep: 40,
+    });
+    expect(view.upgrades.map((u) => [u.id, u.acquisitions])).toEqual([
+      ['agent_cap', 0],
+      ['transport_cap', 0],
+      ['training_cap', 0],
+      ['weapon_damage', 0],
+    ]);
+    expect(series(state)).toEqual({ start: [500], end: [] });
+    expect(state.configuration).toEqual({ startingMoney: 500, startingFunding: 20 });
+    expect(agents(state).every((a) => a.state.weaponDamage === 10)).toBe(true);
+    const rules = createGameRules(gdrs);
+    const starting = rules.configurationValues.find((value) => value.key === 'startingMoney')!;
+    expect(starting.adjustable).toBe(false);
+    expect([800, 0, -1, 2.5].map((value) => starting.isPermitted(value))).toEqual([true, true, false, false]);
+    expect(money(newCampaign({ money: 800 }))).toBe(800);
+  });
+
+  it('The first three Advance turns', () => {
+    let state = newCampaign();
+    const [a1, a2, a3] = agentIds(state) as [string, string, string];
+    state = act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Contracting' });
+    state = act(state, 'assignAgents', { agents: [a3], assignment: 'Training' });
+    expect(agency(state)).toMatchObject({ projectedIncome: 20, projectedUpkeep: 40 });
+    state = advance(state);
+    expect(state.world.history.turnReport).toMatchObject({
+      income: { contractingAgents: 0, income: 20, moneyAfter: 520 },
+      upkeep: { servingAgents: 4, upkeep: 40, moneyAfter: 480 },
+    });
+    expect(money(state)).toBe(480);
+
+    state = act(state, 'hireAgent');
+    expect(money(state)).toBe(430);
+    const a5 = agentIds(state)[4]!;
+    expect(agency(state)).toMatchObject({ projectedIncome: 80, projectedUpkeep: 50 });
+    state = advance(state);
+    expect(state.world.history.turnReport).toMatchObject({
+      income: { contractingAgents: 2, income: 80, moneyAfter: 510 },
+      upkeep: { servingAgents: 5, upkeep: 50, moneyAfter: 460 },
+    });
+    expect(agent(state, a3).state.skill).toBe(101);
+
+    state = act(state, 'assignAgents', { agents: [a5], assignment: 'Contracting' });
+    state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
+    expect(agency(state)).toMatchObject({ projectedIncome: 50, projectedUpkeep: 50 });
+    state = advance(state);
+    expect(money(state)).toBe(460);
+    expect(series(state)).toEqual({ start: [500, 480, 460, 460], end: [500, 430, 460] });
+    expect(agency(state).projectedIncome).toBe(80);
+  });
+
+  it('Upkeep counts every Serving Agent', () => {
+    let state = withAgents(newCampaign(), 8);
+    const [a1, a2, a3, a4, a5, a6, a7, a8] = agentIds(state) as string[] as [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ];
+    state = setMoney(state, 300, 20);
+    state = setAssignment(state, [a2], 'Contracting', 'InTransit');
+    state = setAssignment(state, [a5], 'Contracting');
+    state = setAssignment(state, [a6], 'Training', 'InTransit');
+    state = tweak(state, (world) => {
+      world.agents[a4]!.state.currentHealth = 20;
+      world.agents[a4]!.state.assignment = { kind: 'Recovery' };
+      world.agents[a7]!.state.lifecycle = 'Killed';
+      world.agents[a7]!.state.currentHealth = 0;
+      world.agents[a7]!.state.assignment = null;
+      world.agents[a7]!.state.taskPhase = null;
+    });
+    state = act(state, 'dismissAgents', { agents: [a8] });
+    const site = addMissionSite(state, 'raid_hq');
+    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a3] });
+    expect(agency(state)).toMatchObject({ projectedIncome: 50, projectedUpkeep: 60 });
+    state = advance(state, losing(state, site.site));
+    expect(state.world.history.turnReport).toMatchObject({
+      income: { contractingAgents: 1, moneyAfter: 350 },
+      upkeep: { servingAgents: 6, moneyAfter: 290 },
+    });
+    expect(agent(state, a3).state.lifecycle).toBe('Killed');
+    expect(agency(state).projectedUpkeep).toBe(50);
+    void a1;
+  });
+
+  it('Negative money', () => {
+    let state = setMoney(newCampaign(), 15, 0);
+    state = tweak(advance(state), (world) => {
+      // Whether the Campaign ends is decided by Panic and Endings; clear the ending to check the rejections.
+      world.ending = null;
+      world.endingReasons = [];
+      world.endingTurn = null;
+    });
+    expect(money(state)).toBe(-25);
+    expect(series(state).start.at(-1)).toBe(-25);
+    expectRejected(state, 'hireAgent', {}, 'not_enough_money');
+    expectRejected(state, 'purchaseUpgrade', { upgrade: 'agent_cap' }, 'not_enough_money');
+    state = act(state, 'addMoney', { amount: 25 }, 'developer');
+    expect(money(state)).toBe(0);
+    state = act(state, 'addMoney', { amount: 75 }, 'developer');
+    state = act(state, 'hireAgent');
+    expect(money(state)).toBe(25);
+  });
+
+  it('Funding changes from Mission sites', () => {
+    expect(fundingAfter(3, [-10])).toBe(0);
+    expect(fundingAfter(3, [5, -10])).toBe(0);
+    expect(fundingAfter(3, [-10, 5])).toBe(0);
+    expect(fundingAfter(0, [5, -1])).toBe(4);
+    expect(fundingAfter(0, [-1])).toBe(0);
+
+    // Win: money +30 and funding 20 + 5, which the next Agency income step uses.
+    const site = addMissionSite(newCampaign(), 'foil_sabotage');
+    let state = act(site.state, 'deployAgents', { missionSite: site.site, agents: agentIds(site.state) });
+    state = advance(state, winning(state, site.site));
+    expect(state.world.history.turnReport!.income.funding).toBe(20);
+    expect(funding(state)).toBe(25);
+    expect(money(state)).toBe(500 + 20 - 40 + 30);
+    expect(agency(state).projectedIncome).toBe(25);
+
+    // Loss at the floor: an Expired Response Mission site with funding 0.
+    const expiring = addMissionSite(setMoney(newCampaign(), 500, 0), 'foil_sabotage', {
+      turnsUntilExpiry: 1,
+    });
+    expect(funding(advance(expiring.state))).toBe(0);
+  });
+
+  it('Hiring at the Agent cap', () => {
+    let state = withAgents(setMoney(newCampaign(), 500), 21);
+    const ids = agentIds(state);
+    state = tweak(state, (world) => {
+      const dead = world.agents[ids[20]!]!.state;
+      dead.lifecycle = 'Killed';
+      dead.currentHealth = 0;
+      dead.assignment = null;
+      dead.taskPhase = null;
+      world.agents[ids[0]!]!.state.taskPhase = 'InTransit';
+    });
+    expectRejected(state, 'hireAgent', {}, 'agent_cap');
+    state = act(state, 'purchaseUpgrade', { upgrade: 'agent_cap' });
+    expect(agency(state)).toMatchObject({ money: 300, agentCap: 24, servingAgents: 20 });
+    for (let i = 0; i < 4; i += 1) {
+      state = act(state, 'hireAgent');
+    }
+    expect(agency(state)).toMatchObject({ money: 100, servingAgents: 24 });
+    expectRejected(state, 'hireAgent', {}, 'agent_cap');
+
+    expect(money(act(setMoney(newCampaign(), 50), 'hireAgent'))).toBe(0);
+    expectRejected(setMoney(newCampaign(), 49), 'hireAgent', {}, 'not_enough_money');
+
+    let over = withAgents(newCampaign(), 20);
+    over = act(over, 'addAgents', { count: 3 }, 'developer');
+    expect(agency(over)).toMatchObject({ servingAgents: 23, agentCap: 20 });
+    expectRejected(over, 'hireAgent', {}, 'agent_cap');
+  });
+
+  it('Dismissing Agents', () => {
+    let state = withAgents(setMoney(newCampaign(), 120), 6);
+    const [a1, a2, a3, a4, a5, a6] = agentIds(state) as [string, string, string, string, string, string];
+    state = setAssignment(state, [a3], 'Standby', 'InTransit');
+    state = setAssignment(state, [a4], 'Contracting');
+    state = tweak(state, (world) => {
+      const dead = world.agents[a6]!.state;
+      dead.lifecycle = 'Killed';
+      dead.currentHealth = 0;
+      dead.assignment = null;
+      dead.taskPhase = null;
+    });
+    const site = addMissionSite(state, 'apprehend_member');
+    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a5] });
+    expect(agency(state).projectedUpkeep).toBe(50);
+    const reject = (list: string[], reason: string) =>
+      expectRejected(state, 'dismissAgents', { agents: list }, reason);
+    reject([], 'agents_empty');
+    reject([a1, a1], 'agents_duplicate');
+    reject([a3], 'agents_in_transit');
+    reject([a4], 'agents_not_on_standby');
+    reject([a5], 'agents_not_on_standby');
+    reject([a6], 'agents_not_serving');
+    reject([a1, a3], 'agents_in_transit');
+    const next = act(state, 'dismissAgents', { agents: [a1, a2] });
+    expect(agent(next, a1).state).toMatchObject({
+      lifecycle: 'Dismissed',
+      assignment: null,
+      taskPhase: null,
+    });
+    expect(agency(next)).toMatchObject({ money: 120, projectedUpkeep: 30 });
+    expect(historyView(next, gdrs).retained.agents.map((a) => a.id)).toEqual([a1, a2, a6]);
+  });
+
+  it('Transport cap', () => {
+    let state = withAgents(setMoney(newCampaign(), 1000), 9);
+    const ids = agentIds(state);
+    const s1 = addMissionSite(state, 'foil_recruitment_push');
+    const s2 = addMissionSite(s1.state, 'apprehend_member');
+    state = act(s2.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, 3) });
+    expectRejected(state, 'deployAgents', { missionSite: s2.site, agents: ids.slice(3, 5) }, 'transport_cap');
+    state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
+    expect(agency(state)).toMatchObject({ money: 0, transportCap: 6 });
+    state = act(state, 'deployAgents', { missionSite: s2.site, agents: ids.slice(3, 6) });
+    expect(agency(state).deployedAgents).toBe(6);
+    state = advance(state);
+    expect(agency(state).deployedAgents).toBe(0);
+  });
+
+  it('Training cap', () => {
+    let state = withAgents(setMoney(newCampaign(), 250), 9);
+    const [t1, t2, t3, a1, a2, a3, a4, a5, a6] = agentIds(state) as string[] as [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ];
+    state = setAssignment(state, [t1, t2, t3], 'Training');
+    expectRejected(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' }, 'training_cap');
+    state = act(state, 'assignAgents', { agents: [a1], assignment: 'Training' });
+    expect(agency(state).trainingAgents).toBe(4);
+    expectRejected(state, 'assignAgents', { agents: [a2], assignment: 'Training' }, 'training_cap');
+    state = act(state, 'assignAgents', { agents: [a2], assignment: 'Contracting' });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'training_cap' });
+    expect(agency(state)).toMatchObject({ money: 50, trainingCap: 8 });
+    state = act(state, 'assignAgents', { agents: [a3, a4, a5, a6], assignment: 'Training' });
+    expect(agency(state).trainingAgents).toBe(8);
+    state = act(state, 'assignAgents', { agents: [t1], assignment: 'Standby' });
+    expect(agency(state).trainingAgents).toBe(7);
+    expectRejected(state, 'purchaseUpgrade', { upgrade: 'training_cap' }, 'not_enough_money');
+  });
+
+  it('Weapon damage Upgrade', () => {
+    let state = withAgents(setMoney(newCampaign(), 600), 6);
+    const [a1, a2, a3, a4, a5, a6] = agentIds(state) as [string, string, string, string, string, string];
+    state = setAssignment(state, [a1], 'Contracting');
+    state = setAssignment(state, [a4], 'Standby', 'InTransit');
+    state = act(state, 'dismissAgents', { agents: [a6] });
+    state = tweak(state, (world) => {
+      world.agents[a3]!.state.currentHealth = 10;
+      world.agents[a3]!.state.assignment = { kind: 'Recovery' };
+      world.agents[a3]!.state.taskPhase = 'InTransit';
+      const dead = world.agents[a5]!.state;
+      dead.lifecycle = 'Killed';
+      dead.currentHealth = 0;
+      dead.assignment = null;
+      dead.taskPhase = null;
+    });
+    const site = addMissionSite(state, 'apprehend_member');
+    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a2] });
+    const damages = (s: CampaignState) =>
+      [a1, a2, a3, a4, a5, a6].map((id) => agent(s, id).state.weaponDamage);
+
+    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
+    expect(money(state)).toBe(100);
+    expect(damages(state)).toEqual([11, 11, 11, 11, 10, 10]);
+    expectRejected(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' }, 'not_enough_money');
+    state = act(state, 'addMoney', { amount: 900 }, 'developer');
+    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
+    expect(money(state)).toBe(500);
+    expect(damages(state)).toEqual([12, 12, 12, 12, 10, 10]);
+    state = act(state, 'hireAgent');
+    state = act(state, 'addAgents', { count: 1 }, 'developer');
+    expect(money(state)).toBe(450);
+    expect(
+      agents(state)
+        .slice(6)
+        .map((a) => a.state.weaponDamage),
+    ).toEqual([12, 12]);
+    expect(Object.values(state.world.current.enemies).every((e) => e.state.weaponDamage === 10)).toBe(true);
+    expect(gdrs.weapons.get('sidearm')!.damage).toBe(10);
+  });
+
+  it('Purchase rejections and exact affordability', () => {
+    let state = setMoney(newCampaign(), 199);
+    expectRejected(state, 'purchaseUpgrade', { upgrade: 'training_cap' }, 'not_enough_money');
+    expectRejected(state, 'purchaseUpgrade', { upgrade: 'agent_health' }, 'unknown_upgrade');
+    expectRejected(state, 'purchaseUpgrade', { upgrade: 'sidearm' }, 'unknown_upgrade');
+    for (const amount of [0, -5, 2.5]) {
+      expectRejected(state, 'addMoney', { amount }, 'invalid_amount', 'developer');
+    }
+    state = act(state, 'addMoney', { amount: 1 }, 'developer');
+    state = act(state, 'purchaseUpgrade', { upgrade: 'training_cap' });
+    expect(agency(state)).toMatchObject({ money: 0, trainingCap: 8 });
+  });
+
+  it('GDR validation', () => {
+    expectDefective((raw) => (raw.get('weapon_damage')['effect'] = 'agent_health'));
+    expectDefective((raw) => delete raw.get('transport_cap')['increment']);
+    expectDefective((raw) => (raw.get('agent_cap')['max_acquisitions'] = 3));
+    expectDefective((raw) => (raw.get('training_cap')['price'] = -1));
+    expectDefective((raw) => (raw.get('economy')['hire_cost'] = { $decimal: '12.5' }));
+    expectDefective((raw) =>
+      raw.add('economy-and-upgrades/economy_parameters.yaml', { ...raw.get('economy'), id: 'economy_two' }),
+    );
+    expectDefective((raw) => (raw.get('standard')['starting_money'] = -100));
+    expectDefective((raw) => (raw.get('configuration_parameters')['default_preset'] = 'hard'));
+  });
+});

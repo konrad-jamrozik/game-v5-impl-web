@@ -1,0 +1,51 @@
+{
+  "name": "game-v5-impl-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A browser and terminal implementation of the Game v5 specifications.",
+  "type": "module",
+  "engines": {
+    "node": "26.13.1"
+  },
+  "scripts": {
+    "gdr:build": "node scripts/build-gdr.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
+    "check:records": "node scripts/check-records.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run gdr:build && npm run format:check && npm run lint && npm run typecheck && npm run check:records && npm run test",
+    "cli": "node src/cli/main.ts",
+    "web:dev": "vite",
+    "web:build": "vite build",
+    "web:preview": "vite preview",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "@tanstack/react-table": "8.21.3",
+    "immer": "11.2.10",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.65.1",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "eslint": "10.15.0",
+    "fake-indexeddb": "6.2.8",
+    "fast-check": "4.10.2",
+    "globals": "17.14.0",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0",
+    "yaml": "2.9.1"
+  }
+}
