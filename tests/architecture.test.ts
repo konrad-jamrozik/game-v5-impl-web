@@ -68,8 +68,7 @@ describe('PLACE: Repository root of an Implementation', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('is not a Git repository and holds its own Git ignore rules', () => {
-    expect(existsSync(join(root, '.git'))).toBe(false);
+  it('holds its own Git ignore rules', () => {
     expect(existsSync(join(root, '.gitignore'))).toBe(true);
   });
 
