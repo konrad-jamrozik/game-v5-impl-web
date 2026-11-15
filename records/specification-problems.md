@@ -11,6 +11,7 @@
   therefore unbounded, and no specification says whether an implementation may reject a Player action that would take
   a stored quantity beyond a large bound.
 - **Links:** DEC-004
+- **Resolution:** Open
 
 ## PROB-002: No inventory of Global configuration settings
 
@@ -21,6 +22,7 @@
   specification lists the settings a Game build has, their permitted values, or their Game build defaults, other than
   the Autosave limit.
 - **Links:** DEC-011
+- **Resolution:** Open
 
 ## PROB-003: Execution budget of an Autopilot AI is a TODO
 
@@ -29,6 +31,7 @@
   Autopilot AI."
 - **Description:** Disengaging as AI failed needs the limits of the budget, which the specification leaves open.
 - **Links:** DEC-012
+- **Resolution:** Open
 
 ## PROB-004: Changing Campaign configuration during play has no operation
 
@@ -39,6 +42,7 @@
 - **Description:** The rules for changing Campaign configuration during play are stated, but no value is adjustable
   and no operation is named, so an implementer cannot tell whether to expose an operation.
 - **Links:** DEC-013
+- **Resolution:** Open
 
 ## PROB-005: GDR identifier format and YAML property naming are TODOs
 
@@ -49,6 +53,7 @@
 - **Description:** Validating and resolving GDR references needs the identifier format and its uniqueness scope, and
   reading the YAML files needs the property naming; both are left open.
 - **Links:** DEC-014
+- **Resolution:** Open
 
 ## PROB-006: No query returns retained Campaign instances, Turn series, or GDR properties
 
@@ -56,7 +61,7 @@
 - **Affected specifications:** ENG, Current state, Turn report, and history: "`getCurrentState()` returns nothing
   that is retained only in World history" and `getHistory()` returns "The Player-visible information of every History
   entry". AGENT, Player-visible information: "for every Agent whatever its lifecycle state". MISSION, Player-visible
-  information: "for every Mission site and every Mission whatever its lifecycle state". CSTATE, Turn series: "Player
+  information: "for every Mission site and every Mission whatever its lifecycle state". WHIST, Turn series: "Player
   API returns a Player-visible Turn series in full". COMBAT, Player-visible information: "Every property of each
   EnemyArchetype, Weapon, and CombatParameters GDR".
 - **Description:** The three queries are stated to be complete, but none of them is stated to return the
@@ -64,6 +69,7 @@
   that Lead progression references, of a Turn series, or of the GDR properties that several specifications declare
   Player-visible. No specification says which query returns them.
 - **Links:** DEC-015
+- **Resolution:** Open
 
 ## PROB-007: Contents of the Turn report and of a History entry are a TODO
 
@@ -73,6 +79,7 @@
 - **Description:** Only the Combat report is specified as part of the Turn report. What else the Turn report holds,
   and what the reduced form in a History entry holds, is left open.
 - **Links:** DEC-016
+- **Resolution:** Open
 
 ## PROB-008: An Attempted Mission site is final yet still takes part in a Combat
 
@@ -84,6 +91,7 @@
   Enemies fight the Combat of its Deployed Mission in the next Advance turn and its Mission is in Current world
   state. Under the first statement `getCurrentState()` would not return the Mission site of a Deployed Mission.
 - **Links:** DEC-017
+- **Resolution:** Open
 
 ## PROB-009: Developer Access is a Stub
 
@@ -97,6 +105,7 @@
 - **Description:** Full Campaign state inspection and random outcome overrides are required, but their result shape,
   operations, validation, and errors are left open.
 - **Links:** DEC-019, DEC-020
+- **Resolution:** Open
 
 ## PROB-010: The Type CampaignConfiguration has no property table
 
@@ -109,6 +118,7 @@
   GDR Types have, or a display name for a preset, so it is open whether a property other than `starting_money` and
   `starting_funding` is valid and what an interface shows as the name of a preset.
 - **Links:** DEC-022
+- **Resolution:** Open
 
 ## PROB-011: Whether the Agent reserve may be deployed
 
@@ -120,6 +130,7 @@
   that only urgent income may touch it. Both cannot hold when a team for an urgent Mission site needs Agents of the
   Agent reserve.
 - **Links:** DEC-024
+- **Resolution:** Open
 
 ## PROB-012: A new or closed Campaign has no Campaign save, yet always has a Current Autosave
 
@@ -132,6 +143,7 @@
   Campaign is created and after every change. LIFE states that a new Campaign has no Campaign save and that none
   exists after creating a Campaign, committing an action, and closing it.
 - **Links:** DEC-025
+- **Resolution:** Open
 
 ## PROB-013: No way for an interface to learn that the Committed state changed
 
@@ -145,6 +157,7 @@
   something a query reports has changed, so an interface cannot show the progress of an engagement except by asking
   again and again.
 - **Links:** DEC-026
+- **Resolution:** Open
 
 ## PROB-014: The physical layout of Game storage is a TODO
 
@@ -153,3 +166,4 @@
 - **Description:** Storing the Global configuration and the Campaign saves needs a physical layout, in files for the
   terminal CLI and in the browser for the web UI, and the document leaves it open.
 - **Links:** DEC-023
+- **Resolution:** Open

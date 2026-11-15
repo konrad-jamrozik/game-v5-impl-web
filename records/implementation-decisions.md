@@ -251,7 +251,7 @@
 ## DEC-016: Contents of the Turn report and of a History entry
 
 - **Category:** Gap resolution
-- **Affected specifications:** CSTATE, Turn report and history: "What the Turn report and each History entry hold of
+- **Affected specifications:** WHIST, Turn report and history: "What the Turn report and each History entry hold of
   a value is stated by the specification owning that value."
 - **Description:** The Turn report holds, for the Advance turn that ended Turn t: the Agents that arrived; the
   income and upkeep with the money after each; each skill gained by Training; for each Active Investigation its
@@ -269,7 +269,7 @@
   funding afterwards, and the Campaign ending.
 - **Options considered:** A History entry that repeats the whole Turn report; a reduced History entry.
 - **Option chosen:** A reduced History entry without the Combat log.
-- **Why:** The Combat log is the large part of a Turn report, and CSTATE requires a History entry to bound what is
+- **Why:** The Combat log is the large part of a Turn report, and WHIST requires a History entry to bound what is
   retained.
 - **Links:** PROB-007
 
@@ -531,4 +531,23 @@
 - **Option chosen:** Follow the guidance.
 - **Why:** Every pushed change is checked on a clean machine before players reach it, with no step left to the
   implementer.
+- **Links:** None.
+
+## DEC-031: Specification Updates followed
+
+- **Category:** Treatment of guidance
+- **Affected specifications:** UPDATES, Finding what changed: "The difference between the Specification baseline and
+  the target Specification revision is the complete list of changes to apply, so it is suggested to be computed first
+  and read before anything else."
+- **Description:** Used as is. An update of the Implementation computes the difference of `docs/specs` and `content`
+  between the Specification baseline and the target Specification revision, sorts each changed passage into editorial
+  or normative, reaches the affected files through the Specification map, and moves the Specification baseline in the
+  same commit that brings the Implementation into conformance. `npm run check:records` checks the two tracking
+  records: the form of the Specification baseline, the order of the Specification map sections, and that every listed
+  path exists.
+- **Options considered:** Following the guidance; reviewing the whole Implementation against the specifications at
+  every update.
+- **Option chosen:** Following the guidance.
+- **Why:** Most changes to the specifications are editorial, and the difference shows that without reading any
+  unchanged specification.
 - **Links:** None.

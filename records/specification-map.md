@@ -38,6 +38,17 @@
 - src/gdr/generated/
 - tests/foundation/final-review.test.ts
 
+## CINST: Campaign Instances
+
+- src/engine/state/types.ts
+- src/engine/state/create.ts
+- src/engine/state/invariants.ts
+- src/engine/turn/advance.ts
+- src/engine/views/views.ts
+- src/kernel/identifiers.ts
+- tests/engine/campaign.test.ts
+- tests/mechanics/review-gaps.test.ts
+
 ## COMBAT: Combat
 
 - src/engine/mechanics/combat/
@@ -67,7 +78,8 @@ No files.
 
 ## CSTATE: Campaign State
 
-- src/engine/state/
+- src/engine/state/types.ts
+- src/engine/state/create.ts
 - src/engine/views/views.ts
 - src/engine/rules.ts
 - tests/engine/campaign.test.ts
@@ -158,6 +170,11 @@ No files.
 - scripts/build-gdr.ts
 - content/
 - tests/helpers/game.ts
+
+## GHPAGES: GitHub Pages Deployment
+
+- .github/workflows/deploy-pages.yml
+- vite.config.ts
 
 ## INDEX: Game Specification Index
 
@@ -271,12 +288,32 @@ No files.
 
 No files.
 
+## TRACK: Specification Tracking
+
+- records/specification-baseline.md
+- records/specification-map.md
+- scripts/check-records.ts
+
 ## TURN: Turn Advancement
 
 - src/engine/turn/
 - src/engine/game-rules.ts
 - tests/mechanics/turn-advancement.test.ts
 
+## UPDATES: Specification Updates
+
+No files.
+
 ## WEB: Web UI
 
 No files.
+
+## WHIST: World History
+
+- src/engine/state/types.ts
+- src/engine/state/summary.ts
+- src/engine/turn/advance.ts
+- src/engine/views/views.ts
+- tests/engine/campaign.test.ts
+- tests/foundation/timeline.test.ts
+- tests/mechanics/turn-advancement.test.ts

@@ -1,8 +1,10 @@
 /**
  * Checks the two record files that Implementation Records requires: their entry format, their numbering, the
- * categories, and the links between Specification problems and Implementation decisions.
+ * categories, the Resolution of each Specification problem, and the links between Specification problems and
+ * Implementation decisions. It also checks the two tracking records that Specification Tracking requires: the form of
+ * the Specification baseline, and that the Specification map has its sections in order and lists only existing paths.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = join(import.meta.dirname, '..');
@@ -15,7 +17,9 @@ const DECISION_CATEGORIES = [
   'Treatment of guidance',
 ];
 /** Each Guidance specification must have a Treatment of guidance decision naming it. */
-const GUIDANCE_SPECIFICATIONS = ['Tech Stack Suggestion', 'DEPDIR', 'SCHEMA'];
+const GUIDANCE_SPECIFICATIONS = ['Tech Stack Suggestion', 'DEPDIR', 'SCHEMA', 'GHPAGES', 'UPDATES'];
+/** A Resolved or Declined Specification problem names a commit of the specifications by its full hash. */
+const FULL_HASH = /\b[0-9a-f]{40}\b/;
 
 interface Entry {
   id: string;
@@ -69,7 +73,7 @@ const decisionById = new Map(decisions.map((d) => [d.id, d]));
 const problemById = new Map(problems.map((p) => [p.id, p]));
 
 for (const problem of problems) {
-  for (const field of ['Category', 'Affected specifications', 'Description', 'Links']) {
+  for (const field of ['Category', 'Affected specifications', 'Description', 'Links', 'Resolution']) {
     if (!problem.fields.get(field)) {
       errors.push(`${problem.id}: missing "${field}"`);
     }
@@ -77,6 +81,13 @@ for (const problem of problems) {
   const category = problem.fields.get('Category') ?? '';
   if (!PROBLEM_CATEGORIES.includes(category)) {
     errors.push(`${problem.id}: unknown category "${category}"`);
+  }
+  const resolution = problem.fields.get('Resolution') ?? '';
+  const kind = /^(Open|Resolved|Declined)\b/.exec(resolution)?.[1];
+  if (kind === undefined) {
+    errors.push(`${problem.id}: its Resolution must be Open, Resolved, or Declined`);
+  } else if (kind !== 'Open' && !FULL_HASH.test(resolution)) {
+    errors.push(`${problem.id}: a ${kind} Resolution must name a commit by its full hash`);
   }
   const wanted =
     category === 'Conflict' || category === 'Duplicate' ? 'Conflict resolution' : 'Gap resolution';
@@ -146,8 +157,50 @@ for (const specification of GUIDANCE_SPECIFICATIONS) {
   }
 }
 
+// The tracking records; see Specification Tracking.
+const baseline = readFileSync(join(root, 'records', 'specification-baseline.md'), 'utf8').replaceAll(
+  '\r\n',
+  '\n',
+);
+if (!/^# Specification baseline\n\nRevision: [0-9a-f]{40}\n$/.test(baseline)) {
+  errors.push('specification-baseline.md: must hold the H1 and one line "Revision: <full commit hash>"');
+}
+const map = readFileSync(join(root, 'records', 'specification-map.md'), 'utf8').replaceAll('\r\n', '\n');
+if (!map.startsWith('# Specification map\n')) {
+  errors.push('specification-map.md: must start with the H1 "# Specification map"');
+}
+const mapSections = map.split(/^## /m).slice(1);
+const specIds: string[] = [];
+for (const mapSection of mapSections) {
+  const heading = mapSection.slice(0, mapSection.indexOf('\n'));
+  const specId = /^([A-Z]+): .+$/.exec(heading)?.[1];
+  if (specId === undefined) {
+    errors.push(`specification-map.md: heading "## ${heading}" is not "<Spec ID>: <title>"`);
+    continue;
+  }
+  specIds.push(specId);
+  const lines = mapSection
+    .slice(heading.length)
+    .split('\n')
+    .filter((line) => line.trim() !== '');
+  const paths = lines.filter((line) => line.startsWith('- ')).map((line) => line.slice(2).trim());
+  if (paths.length !== lines.length && !(lines.length === 1 && lines[0] === 'No files.')) {
+    errors.push(`specification-map.md: ${specId} must hold a list of paths or the single line "No files."`);
+  }
+  for (const path of paths) {
+    if (!existsSync(join(root, path))) {
+      errors.push(`specification-map.md: ${specId} lists ${path}, which does not exist`);
+    }
+  }
+}
+if (specIds.join() !== [...specIds].sort().join() || new Set(specIds).size !== specIds.length) {
+  errors.push('specification-map.md: sections must be in alphabetical order of Spec ID, each once');
+}
+
 if (errors.length > 0) {
   console.error(errors.join('\n'));
   process.exit(1);
 }
-console.log(`records ok: ${problems.length} problems, ${decisions.length} decisions`);
+console.log(
+  `records ok: ${problems.length} problems, ${decisions.length} decisions, ${specIds.length} mapped specifications`,
+);
