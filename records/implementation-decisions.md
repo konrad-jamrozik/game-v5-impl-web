@@ -517,3 +517,18 @@
 - **Option chosen:** Tuned values.
 - **Why:** With the suggested values the roster grew without bound and no team could win the last Mission site.
 - **Links:** None.
+
+## DEC-030: GitHub Pages Deployment followed
+
+- **Category:** Treatment of guidance
+- **Affected specifications:** GHPAGES, Continuous integration workflow: "The CI workflow is what turns a push into a
+  deployment: it repeats the Implementation's checks on a clean machine and deploys only their result."
+- **Description:** Used as is. The Engine designer asked for a public repository under their personal GitHub account,
+  and the web Game build is static files, so both Deployment prerequisites hold. The repository is
+  `konrad-jamrozik/game-v5-impl-web`; `.github/workflows/deploy-pages.yml` runs `npm ci`, `npm run check`, and
+  `npm run web:build` on each push to `main` and deploys `dist/` to GitHub Pages; the Vite `base` is `./`.
+- **Options considered:** Follow the guidance; deploy by hand from the implementer's machine.
+- **Option chosen:** Follow the guidance.
+- **Why:** Every pushed change is checked on a clean machine before players reach it, with no step left to the
+  implementer.
+- **Links:** None.
