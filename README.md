@@ -22,6 +22,12 @@ node scripts/simulate.ts 200   # 200 Campaigns played by the Basic Autopilot AI
 node scripts/measure.ts        # Campaign save size and Advance turn time
 ```
 
+## Deployment
+
+Each push to `main` runs `.github/workflows/deploy-pages.yml`: `npm ci`, `npm run check`, and `npm run web:build`;
+when they pass it deploys `dist/` to GitHub Pages at https://konrad-jamrozik.github.io/game-v5-impl-web/. The Vite
+`base` is `./`, so the build runs under any path.
+
 ## Layout
 
 Each layer imports only from the layers before it; ESLint and `tests/architecture.test.ts` enforce it.
