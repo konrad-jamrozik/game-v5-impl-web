@@ -17,6 +17,7 @@ import {
   type FactionOperationOccurrence,
 } from '../mechanics/factions/factions.ts';
 import { completionProbability } from '../mechanics/investigations/investigations.ts';
+import { leadDiscovered } from '../mechanics/leads/leads.ts';
 import {
   consequencesOf,
   createMissionSite,
@@ -48,10 +49,11 @@ export type ProcessingOrder = <T>(items: readonly T[]) => T[];
 
 const stateOrder: ProcessingOrder = (items) => [...items];
 
+/** CINST, Campaign instance identity: each Campaign instance Type numbers its Campaign instances from 1. */
 export function newInstanceId(current: CurrentWorldState, type: string): string {
-  const id = formatInstanceId(type, current.nextInstanceNumber);
-  current.nextInstanceNumber += 1;
-  return id;
+  const number = current.nextInstanceNumbers[type] ?? 1;
+  current.nextInstanceNumbers[type] = number + 1;
+  return formatInstanceId(type, number);
 }
 
 /**
@@ -482,6 +484,10 @@ export function applyAdvanceTurn(
     investigations: investigationReports,
     missions: missionReports,
     combatReports: missionReports.map((item) => must(combatReports.get(item.mission), 'Combat report')),
+    // LEAD, Turn report: the Leads discovered in the committed state and not in the one before this Advance turn.
+    discoveredLeads: gdrs.leads
+      .filter((lead) => leadDiscovered(lead, world) && !leadDiscovered(lead, before))
+      .map((lead) => lead.id),
     cancelledMissionSites,
     expiredMissionSites,
     factionActivity,
@@ -551,6 +557,7 @@ function reduceReport(
       completedInvestigations: report.investigations
         .filter((item) => item.completed)
         .map((item) => item.investigation),
+      discoveredLeads: [...report.discoveredLeads],
       createdMissionSites: [...createdMissionSites],
       expiredMissionSites: report.expiredMissionSites.map((item) => item.missionSite),
       cancelledMissionSites: report.cancelledMissionSites,

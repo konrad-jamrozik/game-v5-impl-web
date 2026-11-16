@@ -80,7 +80,7 @@ from Google Fonts; DEC-034 gives the light theme.
 - **Panels.** On the right, one of five:
   - Mission sites: each with its Enemies, rewards, and penalties, the Combat rating of the selected team against
     the Enemies, and a Deploy button.
-  - Leads: a tree in which each Lead is under the Leads it requires, with what blocks it, its Investigation
+  - Leads: a tree in which each discovered Lead is under the Leads it requires, with its Lead status, what blocks it, its Investigation
     progress, and buttons that start an Investigation or add the selected Agents to it.
   - Agency: caps, Upgrades with Buy buttons, Factions, and a field manual of the Player-visible GDR values.
   - Turn report: what the last Advance turn did, with every Combat report and its Combat log.
@@ -106,7 +106,7 @@ Developer drawer, `?` list the shortcuts.
 
 One command per line; `help` lists them. The CLI follows Command-Line Interface, and DEC-027 settles what it leaves
 open. Each command is one engine API operation, e.g. `new my-seed`, `agents`,
-`assign Contracting agent-2 agent-3`, `investigate locate_red_dawn_member agent-4`, `deploy missionsite-12 agent-2`,
+`assign Contracting agent-2 agent-3`, `investigate locate_red_dawn_member agent-4`, `deploy mission-site-1 agent-2`,
 `next`, `undo`, `auto basic turns 10`, `dev on`, `inspect`. Each prints the whole result of its operation: as
 indented `key: value` lines and tables, or with `--json` as one line of JSON. Game storage is the directory `.data`, or the one that
 `--data <dir>` names.

@@ -30,8 +30,8 @@ export function seedFromNumbers(numbers: readonly number[]): string {
 }
 
 /**
- * The Campaign-scoped identifier of a Campaign instance: its Type and a number taken from one counter that all
- * Campaign instance Types share, so that Instance IDs are unique across the Types; see DEC-006.
+ * The Campaign-scoped identifier of a Campaign instance under CINST, Campaign instance identity: the Type's name in
+ * lowercase with each space replaced by a hyphen, e.g. `mission-site`, a hyphen, and the Type's creation count.
  */
 export function formatInstanceId(type: string, sequence: number): string {
   return `${type}-${sequence}`;

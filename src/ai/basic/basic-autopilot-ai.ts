@@ -8,6 +8,7 @@ import type {
   AutopilotAi,
   CurrentStateView,
   GameDataView,
+  LeadView,
   MissionSiteView,
   PlayerApi,
   Result,
@@ -313,15 +314,29 @@ class Turn {
         this.player.actions.assignAgentsToInvestigation(active.id, team),
       );
     }
-    // A Lead whose Won Mission site makes further Leads available or makes a Faction Eliminated comes first.
-    const opensMore = (site: string): boolean =>
-      state.leads.some((other) => other.requires.some((required) => required.missionWon === site)) ||
+    // A Lead whose Won Mission site makes a Faction Eliminated comes first, then the one furthest along its Faction's
+    // chain: the one with the longest chain of discovered Leads behind it, each creating the MissionSiteArchetype a
+    // prerequisite of the next names. Only discovered Leads are Player-visible, so the chain reads nothing hidden.
+    const eliminates = (site: string): boolean =>
       this.data.missionSiteArchetypes.find((item) => item.id === site)?.onWin?.eliminatesTargetFaction ===
-        true;
-    const leads = [
-      ...state.leads.filter((lead) => opensMore(lead.createsMissionSite)),
-      ...state.leads.filter((lead) => !opensMore(lead.createsMissionSite)),
-    ];
+      true;
+    const chainLength = (lead: LeadView, trail: readonly string[]): number => {
+      let longest = 0;
+      for (const behind of state.leads) {
+        if (
+          behind.factionArchetype === lead.factionArchetype &&
+          !trail.includes(behind.id) &&
+          lead.requires.some((required) => required.missionWon === behind.createsMissionSite)
+        ) {
+          longest = Math.max(longest, 1 + chainLength(behind, [...trail, behind.id]));
+        }
+      }
+      return longest;
+    };
+    const eliminatesFirst = (lead: LeadView): number => (eliminates(lead.createsMissionSite) ? 1 : 0);
+    const leads = [...state.leads].sort(
+      (a, b) => eliminatesFirst(b) - eliminatesFirst(a) || chainLength(b, [b.id]) - chainLength(a, [a.id]),
+    );
     for (const lead of leads) {
       if (!lead.canBeInvestigatedNow || !winnable(lead.id)) {
         continue;

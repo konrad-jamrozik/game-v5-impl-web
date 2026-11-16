@@ -240,10 +240,12 @@ function purchaseUpgrade(world: CurrentWorldState, args: Args, gdrs: GdrCatalog)
 /** INVSTG, Starting an Investigation. */
 function startInvestigation(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
   const lead = gdrs.leads.find((item) => item.id === args['lead']);
-  if (lead === undefined) {
-    return reject('unknown_lead', 'That identifier names no Lead.');
+  const availability = lead === undefined ? null : leadAvailability(lead, world);
+  // Condition 1: an undiscovered Lead is rejected with the same error as an unknown one, so that the rejection does
+  // not reveal whether it exists; see LEAD, Lead discovery.
+  if (lead === undefined || availability === null || !availability.prerequisitesHold) {
+    return reject('unknown_lead', 'That identifier names no discovered Lead.');
   }
-  const availability = leadAvailability(lead, world);
   if (!availability.available) {
     return reject(
       'lead_not_available',
@@ -395,7 +397,7 @@ function addAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Reje
   if (!isWhole(count) || count < 1) {
     return reject('invalid_count', 'The count must be a whole number of at least 1.', 'invalid_input');
   }
-  if (!Number.isSafeInteger(world.nextInstanceNumber + count)) {
+  if (!Number.isSafeInteger((world.nextInstanceNumbers['agent'] ?? 1) + count)) {
     return reject(
       'count_too_large',
       'That count would take Instance IDs beyond the supported range.',

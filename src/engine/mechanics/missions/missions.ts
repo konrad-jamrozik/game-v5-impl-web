@@ -36,7 +36,7 @@ export function createEnemy(
  * authored order of the MissionSiteArchetype's `enemies`.
  */
 export function createMissionSite(input: {
-  newId: (type: 'missionsite' | 'enemy') => string;
+  newId: (type: 'mission-site' | 'enemy') => string;
   archetype: MissionSiteArchetypeGdr;
   origin: MissionSiteOrigin;
   targetFaction: string;
@@ -44,7 +44,7 @@ export function createMissionSite(input: {
   enemyArchetypes: ReadonlyMap<string, EnemyArchetypeGdr>;
   weapons: ReadonlyMap<string, WeaponGdr>;
 }): { site: MissionSite; enemies: Enemy[] } {
-  const siteId = input.newId('missionsite');
+  const siteId = input.newId('mission-site');
   const enemies: Enemy[] = [];
   for (const [archetypeId, count] of input.archetype.enemies) {
     const archetype = must(input.enemyArchetypes.get(archetypeId), `EnemyArchetype ${archetypeId}`);

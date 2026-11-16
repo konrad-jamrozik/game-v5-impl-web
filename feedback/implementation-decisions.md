@@ -84,19 +84,23 @@
 
 ## DEC-006: Identifier formats
 
-- **Category:** Asked by the specifications
+- **Category:** Conflict resolution
 - **Affected specifications:** DETERM, Unique identifiers: "The format of every identifier is the Implementer's
-  choice."
-- **Description:** An Instance ID is the Campaign instance Type in lowercase, a hyphen, and a number, e.g.
-  `agent-7`. All seven Campaign instance Types take their numbers from one counter in Campaign state, so Instance IDs
-  are unique across the Types. Campaign IDs, Campaign save IDs, and Autopilot engagement IDs are Independent
-  identifiers that the adapter's identifier source supplies, e.g. a random UUID. A Campaign seed the engine chooses
-  has 10 characters taken from the letters and digits without the look-alikes `I`, `O`, `l`, `0`, and `1`, picked
-  by whole numbers that the adapter's random source supplies.
-- **Options considered:** One counter for each Type; one shared counter; random identifiers.
-- **Option chosen:** One shared counter for Instance IDs; adapter-supplied identifiers for Independent identifiers.
-- **Why:** A shared counter makes uniqueness across Types hold by construction and is reproduced by replay.
-- **Links:** None.
+  choice." CINST, Campaign instance identity: "It is the Type's name in lowercase with each space replaced by a hyphen,
+  then a hyphen, then a number. Each Campaign instance Type numbers its Campaign instances from 1 in the order they are
+  created".
+- **Description:** An Instance ID follows CINST: the Type's name in lowercase with each space replaced by a hyphen, a
+  hyphen, and that Type's creation count, e.g. `agent-7` or `mission-site-1`. Campaign state holds one counter for
+  each Campaign instance Type, so an undone creation frees its number when the Timeline restores the earlier Committed
+  state. Campaign IDs, Campaign save IDs, and Autopilot engagement IDs are Independent identifiers that the adapter's
+  identifier source supplies, e.g. a random UUID. A Campaign seed the engine chooses has 10 characters taken from the
+  letters and digits without the look-alikes `I`, `O`, `l`, `0`, and `1`, picked by whole numbers that the
+  adapter's random source supplies.
+- **Options considered:** Following DETERM and keeping one shared counter; following CINST for Instance IDs.
+- **Option chosen:** Following CINST for Instance IDs, and DETERM for every other identifier.
+- **Why:** CINST owns Campaign instance identity and states the format exactly, so DETERM's general freedom can only
+  still apply to the identifiers CINST does not cover.
+- **Links:** PROB-019
 
 ## DEC-007: The screens of the web UI
 
@@ -106,7 +110,10 @@
 - **Description:** The web UI opens at the Main menu, which offers New-Campaign setup, the list of Campaign saves
   grouped by Campaign with Load, Delete, and Delete Campaign buttons, each deletion confirmed first, and the Global
   configuration settings. The Campaign whose Campaign saves reach the latest Turn is the one the Player most likely
-  wants under VIS, Panels and cards, because the list reports no time at which a Campaign save was written. While a Campaign is current it shows a status bar with Advance turn, Timeline
+  wants under VIS, Panels and cards, because the list reports no time at which a Campaign save was written. The
+  Leads panel shows only discovered Leads, each with its Lead status, as a tree whose roots are the Leads that no
+  listed Lead leads to, since a Won Response Mission can discover a Lead that no discovered Lead creates the
+  MissionSiteArchetype of. While a Campaign is current it shows a status bar with Advance turn, Timeline
   navigation, and saving; the Agents grid; one of five panels, Mission sites, Leads, Agency, Turn report, and History;
   an Autopilot bar; and a Developer drawer, as the README describes. It follows ENG, API hierarchy, and PAPI,
   Information boundary: it is an adapter over the engine API and shows no gameplay information that the engine API
@@ -605,3 +612,33 @@
 - **Why:** The theme setting is part of the Global configuration of this Game build, and VIS states that the Settings
   panel lets the Player choose a light theme, so removing it would drop a setting the specifications still expect.
 - **Links:** PROB-018
+
+## DEC-035: Leads discovered in an Advance turn are listed in Game build order
+
+- **Category:** Gap resolution
+- **Affected specifications:** LEAD, Turn report: "holds the Leads discovered in it: every Lead that is discovered in
+  the Committed state that Advance turn commits and is not discovered in the Committed state before it, each by its
+  GDR identifier."
+- **Description:** The Turn report and the History entry list the Leads discovered in an Advance turn in the order of
+  the Lead GDRs in the Game build's catalog.
+- **Options considered:** Game build order; order of GDR identifiers; order of the Missions whose wins discovered them.
+- **Option chosen:** Game build order.
+- **Why:** It is fixed by the Game build, so the list is the same on every replay, and it is the order in which every
+  other view lists Leads.
+- **Links:** PROB-020
+
+## DEC-036: How the Basic Autopilot AI measures a Lead's place in its Faction's chain
+
+- **Category:** Gap resolution
+- **Affected specifications:** BASICAI, Keep Mission sites coming: "Among such Leads, one whose Won Mission site makes
+  a Faction Eliminated comes first, then the one furthest along its Faction's chain, i.e. the one with the longest
+  chain of discovered Leads behind it, each creating the MissionSiteArchetype a prerequisite of the next names."
+- **Description:** The Basic Autopilot AI sorts the Leads it could win on two keys: a Lead whose Won Mission site
+  makes a Faction Eliminated first, then the length of the longest path of discovered Leads of the same Faction behind
+  it, not counting the Lead itself, longest first. Equal Leads keep the order Player API lists them in.
+- **Options considered:** Counting the Lead itself or not; Leads of every Faction or of the same Faction; the longest
+  path or the number of Leads behind it.
+- **Option chosen:** The longest path of discovered Leads of the same Faction, not counting the Lead itself.
+- **Why:** "behind it" and "its Faction's chain" read most directly that way, and only the order matters, so counting
+  the Lead itself would change nothing.
+- **Links:** PROB-021

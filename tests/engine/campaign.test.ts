@@ -269,7 +269,7 @@ describe('ENG: Information boundary with the real game', () => {
       for (const result of results) {
         const text = JSON.stringify(result);
         expect(text).not.toContain(seed);
-        expect(text).not.toMatch(/turnsUntilNext|rng|randomOverrides|nextInstanceNumber|pendingPanic/);
+        expect(text).not.toMatch(/turnsUntilNext|rng|randomOverrides|nextInstanceNumbers|pendingPanic/);
       }
     }
   });

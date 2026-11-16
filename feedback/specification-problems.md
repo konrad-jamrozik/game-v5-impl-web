@@ -211,3 +211,36 @@
   must use colours that no specification states.
 - **Links:** DEC-034
 - **Resolution:** Open
+
+## PROB-019: Determinism and Randomness leaves the Instance ID format free, Campaign Instances fixes it
+
+- **Category:** Conflict
+- **Affected specifications:** DETERM, Unique identifiers: "The format of every identifier is the Implementer's
+  choice." CINST, Campaign instance identity: "It is the Type's name in lowercase with each space replaced by a hyphen,
+  then a hyphen, then a number."
+- **Description:** An Instance ID is a Campaign-scoped identifier, so DETERM leaves its format to the Implementer
+  while CINST states it exactly.
+- **Links:** DEC-006
+- **Resolution:** Open
+
+## PROB-020: The order of the Leads discovered in an Advance turn is unstated
+
+- **Category:** Implicit gap
+- **Affected specifications:** LEAD, Turn report: "holds the Leads discovered in it: every Lead that is discovered in
+  the Committed state that Advance turn commits and is not discovered in the Committed state before it, each by its
+  GDR identifier."
+- **Description:** The list is Player-visible information and one Advance turn can discover several Leads, but no
+  order is stated, so two Implementations can report the same Turn differently.
+- **Links:** DEC-035
+- **Resolution:** Open
+
+## PROB-021: How far along its Faction's chain a Lead is, is not exactly defined
+
+- **Category:** Implicit gap
+- **Affected specifications:** BASICAI, Keep Mission sites coming: "then the one furthest along its Faction's chain,
+  i.e. the one with the longest chain of discovered Leads behind it, each creating the MissionSiteArchetype a
+  prerequisite of the next names."
+- **Description:** It is open whether the chain counts the Lead itself, whether Leads of other Factions count, how a
+  Lead with several prerequisites is measured, and how equal Leads are ordered.
+- **Links:** DEC-036
+- **Resolution:** Open

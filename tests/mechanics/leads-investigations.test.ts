@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { completionProbability } from '../../src/engine/mechanics/investigations/investigations.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import { isServing, type CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView, historyView } from '../../src/engine/views/views.ts';
+import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
 import type { GdrCatalog } from '../../src/gdr/index.ts';
 import {
   act,
@@ -21,6 +21,7 @@ import {
   newCampaign,
   onlyFaction,
   setAssignment,
+  tryAct,
   tweak,
   winning,
   withAgents,
@@ -32,6 +33,14 @@ const blocking = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
   Object.fromEntries(
     currentStateView(state, catalog).leads.map((lead) => [lead.id, lead.blockingConditions]),
   );
+const statuses = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
+  Object.fromEntries(currentStateView(state, catalog).leads.map((lead) => [lead.id, lead.status]));
+/** LEAD, Turn report: the Leads discovered in the most recent Advance turn, and the same list in its History entry. */
+const discovered = (state: CampaignState) => {
+  const listed = turnReportView(state)?.discoveredLeads;
+  expect(state.world.history.historyEntries.at(-1)?.report.discoveredLeads).toEqual(listed);
+  return listed;
+};
 const investigations = (state: CampaignState) => Object.values(state.world.current.investigations);
 const sites = (state: CampaignState) => Object.values(state.world.current.missionSites);
 const completes = (id: string, value: boolean) => ({ [`investigation.completion.${id}`]: [value] });
@@ -75,26 +84,23 @@ describe('LEAD: Acceptance examples', () => {
     const state = newCampaign();
     // Leads add nothing to Campaign state.
     expect(state.world.current).not.toHaveProperty('leadProgression');
-    expect(blocking(state)).toEqual({ [MEMBER]: [], [SAFEHOUSE]: [1], [HQ]: [1] });
+    // Only member is discovered: the query returns nothing about safehouse or hq, not even that they exist.
+    expect(blocking(state)).toEqual({ [MEMBER]: [] });
     const view = leads(state);
     expect(view[MEMBER]).toMatchObject({
       available: true,
       canBeInvestigatedNow: true,
       requires: [],
-    });
-    expect(view[HQ]).toMatchObject({
-      available: false,
-      difficulty: 10,
-      factionArchetype: 'red_dawn',
-      createsMissionSite: 'raid_hq',
-      requires: [{ missionWon: 'raid_safehouse', holds: false }],
       conditions: {
-        prerequisitesHold: false,
+        prerequisitesHold: true,
         noMissionWon: true,
         noMissionSiteInProgress: true,
         factionNotEliminated: true,
       },
+      status: 'Available',
     });
+    expect(JSON.stringify(currentStateView(state, gdrs))).not.toMatch(/safehouse|locate_red_dawn_hq/);
+    expect(turnReportView(state)).toBeNull();
   });
 
   it('The first Mission Won', () => {
@@ -118,16 +124,42 @@ describe('LEAD: Acceptance examples', () => {
     const s1 = sites(state)[0]!;
     expect(s1).toMatchObject({ archetype: 'apprehend_member', state: { lifecycle: 'Active' } });
     expect(s1.constants.targetFaction).toBe(onlyFaction(state).id);
-    expect(blocking(state)).toEqual({ [MEMBER]: [3], [SAFEHOUSE]: [1], [HQ]: [1] });
+    expect(blocking(state)).toEqual({ [MEMBER]: [3] });
+    expect(statuses(state)).toEqual({ [MEMBER]: 'Inactive' });
+    expect(discovered(state)).toEqual([]);
 
     state = act(arrive(state), 'deployAgents', { missionSite: s1.id, agents: ids });
     expect(blocking(state)[MEMBER]).toEqual([3]);
     state = advance(state, winning(state, s1.id));
     const m1 = missionAt(state, s1.id);
     expect(state.world.current.missions[m1]!.state.lifecycle).toBe('Won');
-    expect(blocking(state)).toEqual({ [MEMBER]: [2], [SAFEHOUSE]: [], [HQ]: [1] });
+    expect(blocking(state)).toEqual({ [MEMBER]: [2], [SAFEHOUSE]: [] });
+    expect(statuses(state)).toEqual({ [MEMBER]: 'Archived', [SAFEHOUSE]: 'Available' });
     expect(leads(state)[MEMBER]).toMatchObject({ available: false, conditions: { noMissionWon: false } });
-    expect(leads(state)[HQ]!.requires).toEqual([{ missionWon: 'raid_safehouse', holds: false }]);
+    expect(discovered(state)).toEqual([SAFEHOUSE]);
+    // Player-visible information: exactly member and safehouse, with every property of safehouse; nothing of hq.
+    expect(leads(state)[SAFEHOUSE]).toEqual({
+      id: SAFEHOUSE,
+      name: expect.any(String),
+      description: expect.any(String),
+      factionArchetype: 'red_dawn',
+      faction: onlyFaction(state).id,
+      difficulty: 6,
+      requires: [{ missionWon: 'apprehend_member', holds: true }],
+      createsMissionSite: 'raid_safehouse',
+      available: true,
+      conditions: {
+        prerequisitesHold: true,
+        noMissionWon: true,
+        noMissionSiteInProgress: true,
+        factionNotEliminated: true,
+      },
+      blockingConditions: [],
+      status: 'Available',
+      canBeInvestigatedNow: true,
+      activeInvestigation: null,
+    });
+    expect(JSON.stringify(currentStateView(state, gdrs))).not.toContain(HQ);
     expectRejected(
       arrive(state),
       'startInvestigation',
@@ -144,10 +176,13 @@ describe('LEAD: Acceptance examples', () => {
     state = advance(arrive(state), completes(investigations(state).at(-1)!.id, true));
     const s2 = sites(state).at(-1)!.id;
     expect(blocking(state)[SAFEHOUSE]).toEqual([3]);
+    expect(statuses(state)[SAFEHOUSE]).toBe('Inactive');
     state = act(arrive(state), 'deployAgents', { missionSite: s2, agents: [ids[1]] });
     state = advance(state, losing(state, s2));
     expect(state.world.current.missions[missionAt(state, s2)]!.state.lifecycle).toBe('Lost');
-    expect(blocking(state)).toMatchObject({ [SAFEHOUSE]: [], [HQ]: [1] });
+    expect(blocking(state)).toEqual({ [MEMBER]: [2], [SAFEHOUSE]: [] });
+    expect(statuses(state)[SAFEHOUSE]).toBe('Available');
+    expect(discovered(state)).toEqual([]);
 
     // Expired: the new Mission site does not count down in the Advance turn that creates it.
     state = tweak(arrive(state), (world) => {
@@ -181,6 +216,8 @@ describe('LEAD: Acceptance examples', () => {
     expect(wins).toHaveLength(1);
     expect(wins[0]!.id).not.toBe(missionAt(state, s2));
     expect(blocking(state)).toEqual({ [MEMBER]: [2], [SAFEHOUSE]: [2], [HQ]: [] });
+    expect(statuses(state)).toEqual({ [MEMBER]: 'Archived', [SAFEHOUSE]: 'Archived', [HQ]: 'Available' });
+    expect(discovered(state)).toEqual([HQ]);
   });
 
   it('The last Lead and the elimination of Red Dawn', () => {
@@ -191,6 +228,7 @@ describe('LEAD: Acceptance examples', () => {
     state = winLead(winLead(winLead(state, MEMBER), SAFEHOUSE), HQ);
     expect(onlyFaction(state).state.eliminated).toBe(true);
     expect(blocking(state)).toEqual({ [MEMBER]: [2, 4], [SAFEHOUSE]: [2, 4], [HQ]: [2, 4] });
+    expect(statuses(state)).toEqual({ [MEMBER]: 'Archived', [SAFEHOUSE]: 'Archived', [HQ]: 'Archived' });
     expect(leads(state)[HQ]!.requires).toEqual([{ missionWon: 'raid_safehouse', holds: true }]);
     expect(state.world.current.ending).toBe('Victory');
   });
@@ -241,8 +279,41 @@ describe('LEAD: Acceptance examples', () => {
     const s7 = sites(state).at(-1)!;
     expect(s7).toMatchObject({ archetype: 'apprehend_member', state: { lifecycle: 'Cancelled' } });
     expect(blocking(state, catalog)['test_lead']).toEqual([4]);
+    expect(statuses(state, catalog)['test_lead']).toBe('Archived');
     expect(state.world.current.missions[missionAt(state, hq.site)]!.state.lifecycle).toBe('Won');
     expect(currentStateView(state, catalog).missionSites).toHaveLength(0);
+  });
+
+  it('Faction Eliminated in the Advance turn that discovers a Lead', () => {
+    const catalog = catalogWith((raw) => {
+      raw.add('missions/mission_site_archetypes.yaml', { ...raw.get('raid_safehouse'), id: 'test_site' });
+      raw.add('leads-and-progression/leads.yaml', {
+        ...raw.get(SAFEHOUSE),
+        id: 'test_lead',
+        requires: [{ $entries: [['mission_won', 'raid_hq']] }],
+        on_completion: { $entries: [['create_mission_site', 'test_site']] },
+      });
+    });
+    let state = withAgents(newCampaign({ money: 100_000, catalog }), 12);
+    state = tweak(state, (world) => {
+      world.agency.state.acquisitions['transport_cap'] = 4;
+    });
+    const hq = addMissionSite(state, 'raid_hq', { catalog });
+    state = act(
+      hq.state,
+      'deployAgents',
+      { missionSite: hq.site, agents: agentIds(hq.state).slice(0, 8) },
+      'player',
+      catalog,
+    );
+    state = advance(state, winning(state, hq.site), catalog);
+    expect(onlyFaction(state).state.eliminated).toBe(true);
+    // The win discovers test_lead and eliminates its Faction in the same Advance turn: it is discovered, Archived.
+    expect(discovered(state)).toEqual(['test_lead']);
+    expect(blocking(state, catalog)).toEqual({ [MEMBER]: [4], test_lead: [4] });
+    expect(statuses(state, catalog)).toEqual({ [MEMBER]: 'Archived', test_lead: 'Archived' });
+    // safehouse and hq stay undiscovered: no Mission against Red Dawn can be Won any more.
+    expect(JSON.stringify(currentStateView(state, catalog))).not.toMatch(/locate_red_dawn_(safehouse|hq)/);
   });
 
   it('Two Leads requiring the same MissionSiteArchetype', () => {
@@ -252,7 +323,7 @@ describe('LEAD: Acceptance examples', () => {
       }
     });
     let state = newCampaign({ catalog });
-    expect(blocking(state, catalog)).toMatchObject({ test_lead_a: [1], test_lead_b: [1] });
+    expect(blocking(state, catalog)).toEqual({ [MEMBER]: [] });
     const site = addMissionSite(state, 'apprehend_member', { catalog });
     state = act(
       site.state,
@@ -263,6 +334,7 @@ describe('LEAD: Acceptance examples', () => {
     );
     state = advance(state, winning(state, site.site), catalog);
     expect(blocking(state, catalog)).toMatchObject({ test_lead_a: [], test_lead_b: [], [SAFEHOUSE]: [] });
+    expect([...(discovered(state) ?? [])].sort()).toEqual([SAFEHOUSE, 'test_lead_a', 'test_lead_b'].sort());
     const [, , a3, a4] = agentIds(state) as [string, string, string, string];
     state = act(state, 'startInvestigation', { lead: 'test_lead_a', agents: [a3] }, 'player', catalog);
     expect(blocking(state, catalog)['test_lead_b']).toEqual([]);
@@ -279,7 +351,7 @@ describe('LEAD: Acceptance examples', () => {
       }),
     );
     let state = withAgents(newCampaign({ catalog }), 4);
-    expect(blocking(state, catalog)['test_lead']).toEqual([1]);
+    expect(leads(state, catalog)['test_lead']).toBeUndefined();
     const site = addMissionSite(state, 'foil_sabotage', { catalog });
     state = act(
       site.state,
@@ -291,12 +363,13 @@ describe('LEAD: Acceptance examples', () => {
     state = advance(state, winning(state, site.site), catalog);
     expect(state.world.current.missions[missionAt(state, site.site)]!.state.lifecycle).toBe('Won');
     expect(blocking(state, catalog)['test_lead']).toEqual([]);
+    expect(discovered(state)).toEqual(['test_lead']);
     // The same Won Mission at a Mission site that targets another Faction makes no prerequisite hold.
     const elsewhere = tweak(state, (world) => {
       (world.missionSites[site.site]!.constants as { targetFaction: string }).targetFaction =
         'no_such_faction';
     });
-    expect(blocking(elsewhere, catalog)['test_lead']).toEqual([1]);
+    expect(leads(elsewhere, catalog)['test_lead']).toBeUndefined();
   });
 
   it('GDR validation', () => {
@@ -598,7 +671,11 @@ describe('INVSTG: Acceptance examples', () => {
       expectRejected(state, 'startInvestigation', { lead, agents: list }, reason);
     reject('no_such_lead', [a1], 'unknown_lead');
     reject(SAFEHOUSE, [a1], 'lead_has_active_investigation');
-    reject(HQ, [a1], 'lead_not_available');
+    reject(MEMBER, [a1], 'lead_not_available');
+    // hq is not discovered: it is rejected with the same error as an unknown Lead, revealing nothing of it.
+    reject(HQ, [a1], 'unknown_lead');
+    const unknown = tryAct(state, 'startInvestigation', { lead: 'no_such_lead', agents: [a1] });
+    expect(tryAct(state, 'startInvestigation', { lead: HQ, agents: [a1] })).toEqual(unknown);
     expectRejected(
       state,
       'assignAgentsToInvestigation',

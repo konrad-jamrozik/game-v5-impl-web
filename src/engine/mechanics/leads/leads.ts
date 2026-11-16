@@ -89,6 +89,27 @@ export function leadAvailability(lead: LeadGdr, world: LeadWorld): LeadAvailabil
   };
 }
 
+/**
+ * LEAD, Lead discovery: a Lead is discovered exactly when condition 1 of Lead availability holds for it. A Derived
+ * value, never stored; only a discovered Lead is Player-visible.
+ */
+export function leadDiscovered(lead: LeadGdr, world: LeadWorld): boolean {
+  return leadAvailability(lead, world).prerequisitesHold;
+}
+
+export type LeadStatus = 'Available' | 'Inactive' | 'Archived';
+
+/**
+ * LEAD, Lead status of a discovered Lead, decided by its Blocking conditions in the order of the table: Archived when
+ * condition 2 or 4 does not hold, otherwise Inactive when condition 3 does not hold, otherwise Available.
+ */
+export function leadStatus(availability: LeadAvailability): LeadStatus {
+  if (!availability.noMissionWon || !availability.factionNotEliminated) {
+    return 'Archived';
+  }
+  return availability.noMissionSiteInProgress ? 'Available' : 'Inactive';
+}
+
 /** The Active Investigation of a Lead, if any; see INVSTG, One Active Investigation per Lead. */
 export function activeInvestigationOf(
   leadId: string,

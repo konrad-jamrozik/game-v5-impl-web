@@ -21,7 +21,12 @@ import {
   completionProbability,
   progressToCertainCompletion,
 } from '../mechanics/investigations/investigations.ts';
-import { activeInvestigationOf, leadAvailability, leadOfMissionSite } from '../mechanics/leads/leads.ts';
+import {
+  activeInvestigationOf,
+  leadAvailability,
+  leadOfMissionSite,
+  leadStatus,
+} from '../mechanics/leads/leads.ts';
 import { consequencesOf, type ConsequenceAmounts } from '../mechanics/missions/missions.ts';
 import { healthRecoveryRate, recoveryTurnsRemaining } from '../mechanics/recovery/recovery.ts';
 import type {
@@ -201,9 +206,13 @@ function investigationView(
   };
 }
 
+/** LEAD, Player-visible information: only discovered Leads; an undiscovered Lead is left out of every result. */
 function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
-  return gdrs.leads.map((lead) => {
+  return gdrs.leads.flatMap((lead) => {
     const availability = leadAvailability(lead, world);
+    if (!availability.prerequisitesHold) {
+      return [];
+    }
     const active = activeInvestigationOf(lead.id, world.investigations);
     return {
       id: lead.id,
@@ -223,9 +232,10 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
         factionNotEliminated: availability.factionNotEliminated,
       },
       blockingConditions: [...availability.blockingConditions],
+      status: leadStatus(availability),
       canBeInvestigatedNow: availability.available && active === null,
       activeInvestigation: active?.id ?? null,
-    };
+    } satisfies LeadView;
   });
 }
 
@@ -604,7 +614,7 @@ export function inspectCampaignState(state: CampaignState): unknown {
         currentWorldState: {
           campaignSeed: world.seed,
           randomGenerator: world.rng,
-          nextInstanceNumber: world.nextInstanceNumber,
+          nextInstanceNumbers: world.nextInstanceNumbers,
           pendingRandomOutcomeOverrides: world.randomOverrides,
           turn: world.turn,
           panic: world.panic,

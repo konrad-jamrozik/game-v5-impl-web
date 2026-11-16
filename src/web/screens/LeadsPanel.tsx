@@ -21,6 +21,9 @@ function blockers(lead: LeadView, siteName: (archetype: string) => string): stri
   return texts;
 }
 
+/** LEAD, Lead status, as a Badge tone. */
+const STATUS_TONES = { Available: 'good', Inactive: 'warn', Archived: 'muted' } as const;
+
 export function LeadsPanel(props: {
   snapshot: Snapshot;
   state: CurrentStateView;
@@ -53,13 +56,8 @@ export function LeadsPanel(props: {
             <h4>{lead.name}</h4>
             <Badge>difficulty {lead.difficulty}</Badge>
             {!lead.conditions.noMissionWon ? <Badge tone="good">Mission won</Badge> : null}
-            {investigation !== undefined ? (
-              <Badge tone="accent">Investigating</Badge>
-            ) : lead.available ? (
-              <Badge tone="good">Available</Badge>
-            ) : (
-              <Badge tone="muted">Not available</Badge>
-            )}
+            <Badge tone={STATUS_TONES[lead.status]}>{lead.status}</Badge>
+            {investigation !== undefined ? <Badge tone="accent">Investigating</Badge> : null}
           </header>
           <p className="muted small">{lead.description}</p>
           <p className="small">
@@ -131,7 +129,14 @@ export function LeadsPanel(props: {
     );
   };
 
-  const roots = state.leads.filter((lead) => lead.requires.length === 0);
+  // Only discovered Leads are listed. A Lead is a root when no listed Lead creates a MissionSiteArchetype it requires,
+  // e.g. a Lead discovered by a Won Response Mission.
+  const roots = state.leads.filter(
+    (lead) =>
+      !lead.requires.some((required) =>
+        state.leads.some((other) => other.createsMissionSite === required.missionWon),
+      ),
+  );
   return (
     <ul className="tree" data-testid="leads-tree">
       {roots.map((lead) => node(lead, 0, []))}

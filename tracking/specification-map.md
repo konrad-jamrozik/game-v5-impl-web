@@ -48,6 +48,8 @@
 - src/kernel/identifiers.ts
 - tests/engine/campaign.test.ts
 - tests/mechanics/review-gaps.test.ts
+- src/engine/saves/encoding.ts
+- tests/foundation/instance-ids.test.ts
 
 ## CLI: Command-Line Interface
 
@@ -130,6 +132,9 @@ No files.
 - src/engine/game-rules.ts
 - tests/helpers/game.ts
 - tests/mechanics/review-gaps.test.ts
+- src/engine/mechanics/missions/missions.ts
+- src/engine/actions/actions.ts
+- tests/foundation/instance-ids.test.ts
 
 ## ECON: Economy and Upgrades
 
@@ -231,6 +236,12 @@ No files.
 - src/gdr/catalog.ts
 - src/gdr/types.ts
 - tests/mechanics/leads-investigations.test.ts
+- src/engine/player-api.ts
+- src/engine/state/types.ts
+- src/engine/turn/advance.ts
+- src/web/screens/LeadsPanel.tsx
+- src/web/screens/TurnReportPanel.tsx
+- src/web/screens/HistoryPanel.tsx
 
 ## LIFE: Campaign Lifecycle
 

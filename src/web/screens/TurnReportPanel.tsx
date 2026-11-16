@@ -247,6 +247,18 @@ export function TurnReportPanel({ snapshot }: { snapshot: Snapshot }) {
         </Section>
       )}
 
+      {report.discoveredLeads.length === 0 ? null : (
+        <Section title="Leads discovered">
+          <p data-testid="discovered-leads">
+            {report.discoveredLeads.map((lead) => (
+              <Badge key={lead} tone="accent">
+                {snapshot.state?.leads.find((item) => item.id === lead)?.name ?? lead}
+              </Badge>
+            ))}
+          </p>
+        </Section>
+      )}
+
       <Section title="Other events">
         <Lines report={report} />
       </Section>

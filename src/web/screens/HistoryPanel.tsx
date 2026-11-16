@@ -70,6 +70,12 @@ export function HistoryPanel({ snapshot }: { snapshot: Snapshot }) {
                       {entry.report.completedInvestigations.length > 0 ? (
                         <Badge tone="accent">Lead completed</Badge>
                       ) : null}
+                      {entry.report.discoveredLeads.length > 0 ? (
+                        <Badge tone="accent">
+                          {entry.report.discoveredLeads.length} Lead
+                          {entry.report.discoveredLeads.length === 1 ? '' : 's'} discovered
+                        </Badge>
+                      ) : null}
                       {entry.report.expiredMissionSites.length > 0 ? (
                         <Badge tone="warn">{entry.report.expiredMissionSites.length} expired</Badge>
                       ) : null}

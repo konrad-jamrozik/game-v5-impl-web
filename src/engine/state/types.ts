@@ -231,8 +231,12 @@ export interface CurrentWorldState {
   /** The Campaign seed; never Player-visible. */
   readonly seed: string;
   rng: RngState;
-  /** The next number of the counter that all Instance IDs share. */
-  nextInstanceNumber: number;
+  /**
+   * For each Campaign instance Type, by its Instance ID prefix, e.g. `mission-site`, the number its next Campaign
+   * instance takes; a Type with no Campaign instance yet is absent and starts at 1. See CINST, Campaign instance
+   * identity.
+   */
+  nextInstanceNumbers: Record<string, number>;
   /** Pending random outcome overrides; see DEV, Random outcome overrides. */
   randomOverrides: RandomOverride[];
   turn: number;
@@ -296,6 +300,8 @@ export interface TurnReport {
   }[];
   readonly missions: readonly MissionResultRecord[];
   readonly combatReports: readonly CombatReport[];
+  /** LEAD, Turn report: the Leads discovered in this Advance turn, by GDR identifier, in Game build order. */
+  readonly discoveredLeads: readonly string[];
   readonly cancelledMissionSites: readonly string[];
   readonly expiredMissionSites: readonly {
     readonly missionSite: string;
@@ -360,6 +366,8 @@ export interface HistoryEntry {
       readonly unharmed: readonly string[];
     }[];
     readonly completedInvestigations: readonly string[];
+    /** LEAD, Turn report: the same list as the Turn report, unreduced. */
+    readonly discoveredLeads: readonly string[];
     readonly createdMissionSites: readonly string[];
     readonly expiredMissionSites: readonly string[];
     readonly cancelledMissionSites: readonly string[];

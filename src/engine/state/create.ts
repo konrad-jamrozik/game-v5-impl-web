@@ -19,7 +19,7 @@ export function createCampaignState(
   const world: CurrentWorldState = {
     seed,
     rng: seedRng(seed),
-    nextInstanceNumber: 1,
+    nextInstanceNumbers: {},
     randomOverrides: [],
     turn: 1,
     panic: 0,

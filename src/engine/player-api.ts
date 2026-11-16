@@ -135,6 +135,7 @@ export interface InvestigationView {
   readonly projectedCompletionProbability: ProbabilityPair | null;
 }
 
+/** Only a discovered Lead has a LeadView; an undiscovered Lead is absent from every result (LEAD). */
 export interface LeadView {
   readonly id: string;
   readonly name: string;
@@ -156,6 +157,8 @@ export interface LeadView {
   };
   /** The numbers, 1 to 4, of the conditions of Lead availability that do not hold. */
   readonly blockingConditions: readonly number[];
+  /** LEAD, Lead status: the summary of the Lead's availability. */
+  readonly status: 'Available' | 'Inactive' | 'Archived';
   readonly canBeInvestigatedNow: boolean;
   /** The Lead's Active Investigation, when it has one. */
   readonly activeInvestigation: string | null;
