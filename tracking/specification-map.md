@@ -304,6 +304,10 @@ No files.
 ## SAVES: Saves
 
 - src/engine/session/core.ts
+- src/engine/index.ts
+- src/engine/result.ts
+- src/web/screens/MainMenu.tsx
+- e2e/web.spec.ts
 - src/engine/saves/
 - src/engine/timeline/campaign-runtime.ts
 - src/cli/file-storage.ts

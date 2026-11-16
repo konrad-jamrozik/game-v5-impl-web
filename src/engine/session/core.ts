@@ -714,6 +714,87 @@ export class EngineCore<S extends ShellState> {
     });
   }
 
+  /** SAVES, Deleting Campaign saves: one Campaign save, whatever its kind. */
+  deleteSaveById(principal: Principal, saveId: string): Promise<Result<null>> {
+    return this.runExclusive(async () => {
+      const denied = this.checkSession(principal, { needsCampaign: false, duringAutopilot: false });
+      if (denied) {
+        return denied;
+      }
+      if (typeof saveId !== 'string') {
+        return fail('invalid_input', 'A Campaign save is named by its Campaign save ID.');
+      }
+      return this.deleteSaves((header) => header.saveId === saveId, `Campaign save ${saveId}`);
+    });
+  }
+
+  /** SAVES, Deleting Campaign saves: every Campaign save of one Campaign, including its Autosaves. */
+  deleteCampaignSaves(principal: Principal, campaignId: string): Promise<Result<null>> {
+    return this.runExclusive(async () => {
+      const denied = this.checkSession(principal, { needsCampaign: false, duringAutopilot: false });
+      if (denied) {
+        return denied;
+      }
+      if (typeof campaignId !== 'string') {
+        return fail('invalid_input', 'A Campaign is named by its Campaign ID.');
+      }
+      return this.deleteSaves((header) => header.campaignId === campaignId, `Campaign ${campaignId}`);
+    });
+  }
+
+  /**
+   * Deletes the matching Campaign saves, or none: each body is read first, and a deletion that Game storage refuses
+   * writes back the Campaign saves already deleted, so a failed delete deletes no Campaign save.
+   */
+  private async deleteSaves(matches: (header: SaveHeader) => boolean, name: string): Promise<Result<null>> {
+    try {
+      await this.refreshHeaders();
+    } catch {
+      return fail('undeletable_campaign_save', `Could not delete ${name}: Game storage is unavailable.`);
+    }
+    const targets = [...this.headers.values()].filter(matches);
+    if (targets.length === 0) {
+      return fail('unknown_campaign_save', `Could not delete ${name}: it does not exist.`);
+    }
+    if (this.campaign !== null && targets.some((header) => header.campaignId === this.campaign?.campaignId)) {
+      return fail(
+        'current_campaign',
+        `Could not delete ${name}: it belongs to the Current campaign; close it first.`,
+      );
+    }
+    const bodies: { header: SaveHeader; body: string | null }[] = [];
+    try {
+      for (const header of targets) {
+        bodies.push({ header, body: await this.env.storage.readSave(header.saveId) });
+      }
+    } catch {
+      return fail('undeletable_campaign_save', `Could not delete ${name}: Game storage is unavailable.`);
+    }
+    const deleted: { header: SaveHeader; body: string | null }[] = [];
+    for (const target of bodies) {
+      try {
+        await this.env.storage.deleteSave(target.header.saveId);
+        deleted.push(target);
+      } catch {
+        for (const restored of deleted) {
+          if (restored.body !== null) {
+            await this.env.storage.writeSave(restored.header, restored.body).catch(() => undefined);
+          }
+        }
+        return fail(
+          'undeletable_campaign_save',
+          `Could not delete ${name}: Game storage refused the deletion.`,
+        );
+      }
+    }
+    for (const header of targets) {
+      this.headers.delete(header.saveId);
+      this.lineCache.delete(header.saveId);
+    }
+    this.changed();
+    return ok(null);
+  }
+
   private headerFor(campaign: CampaignRuntime<S>, saveId: string, kind: SaveKind): SaveHeader {
     return {
       saveId,

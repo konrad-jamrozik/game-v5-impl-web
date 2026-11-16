@@ -37,6 +37,7 @@ export class MemoryStorage implements GameStorage {
   /** Test hooks: make a write or a read fail for a matching Campaign save. */
   failWrite: ((header: SaveHeader) => boolean) | null = null;
   failRead: ((saveId: string) => boolean) | null = null;
+  failDelete: ((saveId: string) => boolean) | null = null;
   writeCount = 0;
 
   readGlobalConfiguration(): Promise<string | null> {
@@ -69,6 +70,9 @@ export class MemoryStorage implements GameStorage {
   }
 
   deleteSave(saveId: string): Promise<void> {
+    if (this.failDelete?.(saveId) === true) {
+      return Promise.reject(new Error('Game storage refused the deletion.'));
+    }
     this.saves.delete(saveId);
     return Promise.resolve();
   }

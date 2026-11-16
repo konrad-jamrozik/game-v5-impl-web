@@ -216,7 +216,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                 </tr>
               </thead>
               <tbody>
-                {saves.map((save) => (
+                {saves.map((save, index) => (
                   <tr key={save.saveId}>
                     <td title={save.campaignId}>{save.campaignId.slice(0, 8)}</td>
                     <td>
@@ -235,7 +235,48 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                         }}
                       >
                         Load
+                      </Button>{' '}
+                      <Button
+                        testId={`delete-save-${save.saveId}`}
+                        onClick={() => {
+                          const kind =
+                            save.autosaveKind === null
+                              ? 'manual save'
+                              : (KIND_NAMES[save.autosaveKind] ?? save.autosaveKind);
+                          // GUI, Main menu: deleting cannot be undone, so the Player confirms it first.
+                          if (
+                            window.confirm(
+                              `Delete the ${kind} of Turn ${save.turn} of Campaign ${save.campaignId.slice(0, 8)}? This removes 1 Campaign save and cannot be undone.`,
+                            )
+                          ) {
+                            void run(() => session.saves.delete(save.saveId));
+                          }
+                        }}
+                      >
+                        Delete
                       </Button>
+                      {index === 0 || saves[index - 1]?.campaignId !== save.campaignId ? (
+                        <>
+                          {' '}
+                          <Button
+                            testId={`delete-campaign-${save.campaignId}`}
+                            onClick={() => {
+                              const count = saves.filter(
+                                (item) => item.campaignId === save.campaignId,
+                              ).length;
+                              if (
+                                window.confirm(
+                                  `Delete Campaign ${save.campaignId.slice(0, 8)} with all its ${count} Campaign saves? This cannot be undone.`,
+                                )
+                              ) {
+                                void run(() => session.saves.deleteCampaign(save.campaignId));
+                              }
+                            }}
+                          >
+                            Delete Campaign
+                          </Button>
+                        </>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

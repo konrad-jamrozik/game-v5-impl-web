@@ -31,6 +31,12 @@ export type ErrorCode =
   | 'save_size_limit_exceeded'
   /** Save reason: the Campaign save cannot be written. */
   | 'unwritable_campaign_save'
+  /** Delete reason: the Campaign save, or the Campaign, belongs to the Current campaign. */
+  | 'current_campaign'
+  /** Delete reason: no Campaign save has that Campaign save ID, or none has that Campaign ID. */
+  | 'unknown_campaign_save'
+  /** Delete reason: Game storage cannot delete the Campaign save. */
+  | 'undeletable_campaign_save'
   /** The engine or the data of the Game build is defective. */
   | 'engine_defect';
 

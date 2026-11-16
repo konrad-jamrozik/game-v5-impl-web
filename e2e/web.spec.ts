@@ -170,3 +170,30 @@ test('Autopilot plays a Campaign to its ending and the interface stays usable', 
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
+
+test('the Main menu deletes a Campaign save and a whole Campaign after a confirmation', async ({ page }) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('deleting');
+  await id(page, 'new-campaign').click();
+  await id(page, 'advance-turn').click();
+  await id(page, 'to-menu').click();
+  const rows = id(page, 'saves-table').locator('tbody tr');
+  await expect(rows).not.toHaveCount(0);
+  const before = await rows.count();
+
+  // A declined confirmation deletes nothing.
+  page.once('dialog', (dialog) => void dialog.dismiss());
+  await rows.first().getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(rows).toHaveCount(before);
+
+  page.once('dialog', (dialog) => {
+    expect(dialog.message()).toContain('cannot be undone');
+    void dialog.accept();
+  });
+  await rows.first().getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(rows).toHaveCount(before - 1);
+
+  page.once('dialog', (dialog) => void dialog.accept());
+  await rows.first().getByRole('button', { name: 'Delete Campaign' }).click();
+  await expect(id(page, 'saves-table')).toHaveCount(0);
+});

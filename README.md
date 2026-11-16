@@ -66,7 +66,8 @@ loading replays.
 The web UI follows Graphical User Interface, and DEC-007 settles the screens that it leaves open.
 
 - **Main menu.** New-Campaign setup with the preset, its values and Preset edits, and an optional Campaign seed; the
-  list of Campaign saves with a Load button each; and the Global configuration settings, i.e. the Autosave limit and
+  list of Campaign saves with a Load and a Delete button each and a Delete Campaign button for each Campaign, every
+  deletion confirmed first; and the Global configuration settings, i.e. the Autosave limit and
   the theme, dark or light.
 - **Status bar.** Turn, money, funding, projected income and upkeep, Agents against the Agent cap, a Panic meter,
   each Faction with its Faction activity level, and the buttons Undo, Redo, earlier and later Autosave, Save, Main

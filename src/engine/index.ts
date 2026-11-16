@@ -83,6 +83,8 @@ export interface Engine {
       load(save: string): Promise<Result<null>>;
       save(): Promise<Result<{ saveId: string }>>;
       saveAsNew(): Promise<Result<{ saveId: string }>>;
+      delete(save: string): Promise<Result<null>>;
+      deleteCampaign(campaign: string): Promise<Result<null>>;
     };
     readonly newCampaignSetup: {
       listPresets(): Result<PresetListEntry[]>;
@@ -228,6 +230,8 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
         load: (save) => core.load(CONTROLLER, save),
         save: () => core.save(CONTROLLER),
         saveAsNew: () => core.saveAsNew(CONTROLLER),
+        delete: (save) => core.deleteSaveById(CONTROLLER, save),
+        deleteCampaign: (campaign) => core.deleteCampaignSaves(CONTROLLER, campaign),
       },
       newCampaignSetup: {
         listPresets: () => core.listPresets(CONTROLLER),

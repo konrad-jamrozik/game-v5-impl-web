@@ -103,8 +103,9 @@
 - **Category:** Gap resolution
 - **Affected specifications:** GUI, Main menu: "The GUI opens at the Main menu, the Session state with no Current
   campaign". GUI, TODOs: "list the screens the Player needs while a Campaign is current".
-- **Description:** The web UI opens at the Main menu, which offers New-Campaign setup, the list of Campaign saves,
-  and the Global configuration settings. While a Campaign is current it shows a status bar with Advance turn, Timeline
+- **Description:** The web UI opens at the Main menu, which offers New-Campaign setup, the list of Campaign saves
+  with Load, Delete, and Delete Campaign buttons, each deletion confirmed first, and the Global configuration
+  settings. While a Campaign is current it shows a status bar with Advance turn, Timeline
   navigation, and saving; the Agents grid; one of five panels, Mission sites, Leads, Agency, Turn report, and History;
   an Autopilot bar; and a Developer drawer, as the README describes. It follows ENG, API hierarchy, and PAPI,
   Information boundary: it is an adapter over the engine API and shows no gameplay information that the engine API
@@ -471,7 +472,7 @@
   their arguments, and how a caller discovers the available ones".
 - **Description:** The CLI reads one command per line, and each command is one engine API operation: the Session
   commands `status`, `new`, `close`, `presets`, `preset`, `setup`, `select`, `edit`, `unedit`, `saves`,
-  `load`, `save`, `saveas`, `config`, `set`, `reset`; the queries `state`, `report`, `history`, `actions`,
+  `load`, `save`, `saveas`, `delete`, `deletecampaign`, `config`, `set`, `reset`; the queries `state`, `report`, `history`, `actions`,
   `gamedata`, `preview`, and `agents`, `leads`, `investigations`, `sites`, `missions`, `factions`,
   `upgrades`, `retained`, which each print that part of the current state or of the history; the Player actions
   `assign`, `hire`, `dismiss`, `buy`, `investigate`, `join`, `deploy`, `next`; the navigation commands

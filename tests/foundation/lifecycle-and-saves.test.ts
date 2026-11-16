@@ -276,6 +276,63 @@ describe('SAVES: Acceptance examples', () => {
     expect(after.find((save) => save.saveId === first)!.isCurrentSave).toBe(false);
   });
 
+  it('Deleting a Campaign save and a Campaign', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const first = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expectOk(await h.core.advanceTurn(CONTROLLER));
+    const second = expectOk(await h.core.saveAsNew(CONTROLLER)).saveId;
+    const campaignId = (await list(h)).find((save) => save.saveId === first)!.campaignId;
+    expectOk(await h.core.closeCampaign(CONTROLLER));
+    expectOk(await h.core.deleteSaveById(CONTROLLER, first));
+    const after = await list(h);
+    expect(after.some((save) => save.saveId === first)).toBe(false);
+    expect(after.some((save) => save.saveId === second)).toBe(true);
+    expect(after.some((save) => save.isAutosave)).toBe(true);
+    expectOk(await h.core.deleteCampaignSaves(CONTROLLER, campaignId));
+    expect((await list(h)).filter((save) => save.campaignId === campaignId)).toEqual([]);
+    expect(h.storage.saves.size).toBe(0);
+    const again = await h.core.deleteSaveById(CONTROLLER, second);
+    expect(!again.ok && again.error.code).toBe('unknown_campaign_save');
+  });
+
+  it('Deleting while playing', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const other = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const own = expectOk(await h.core.save(CONTROLLER)).saveId;
+    const saves = await list(h);
+    const ownCampaign = saves.find((save) => save.saveId === own)!.campaignId;
+    const before = saves.length;
+    const rejected = await h.core.deleteSaveById(CONTROLLER, own);
+    expect(!rejected.ok && rejected.error.code).toBe('current_campaign');
+    const rejectedCampaign = await h.core.deleteCampaignSaves(CONTROLLER, ownCampaign);
+    expect(!rejectedCampaign.ok && rejectedCampaign.error.code).toBe('current_campaign');
+    expect(await list(h)).toHaveLength(before);
+    expectOk(await h.core.deleteSaveById(CONTROLLER, other));
+    expect(await list(h)).toHaveLength(before - 1);
+  });
+
+  it('A delete that Game storage refuses deletes no Campaign save', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    expectOk(await h.core.save(CONTROLLER));
+    expectOk(await h.core.advanceTurn(CONTROLLER));
+    const saves = await list(h);
+    expectOk(await h.core.closeCampaign(CONTROLLER));
+    const campaignId = saves[0]!.campaignId;
+    let deletions = 0;
+    // The second deletion is refused, after the first already succeeded.
+    h.storage.failDelete = () => (deletions += 1) === 2;
+    const result = await h.core.deleteCampaignSaves(CONTROLLER, campaignId);
+    expect(!result.ok && result.error.code).toBe('undeletable_campaign_save');
+    h.storage.failDelete = null;
+    expect((await list(h)).map((save) => save.saveId).sort()).toEqual(
+      saves.map((save) => save.saveId).sort(),
+    );
+  });
+
   it('Resuming without saving', async () => {
     const h = await startHarness();
     expectOk(await h.core.createCampaign(CONTROLLER));
