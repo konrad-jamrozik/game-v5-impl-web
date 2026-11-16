@@ -7,6 +7,8 @@ export function Button(props: {
   /** When present, the button is disabled and shows this as the reason. */
   disabledReason?: string | null;
   kind?: 'primary' | 'danger' | 'plain';
+  /** VIS, Buttons: the main action of a screen is taller and set larger. */
+  main?: boolean;
   shortcut?: string;
   testId?: string;
 }) {
@@ -14,7 +16,7 @@ export function Button(props: {
   return (
     <button
       type="button"
-      className={`btn btn-${props.kind ?? 'plain'}`}
+      className={`btn btn-${props.kind ?? 'plain'}${props.main === true ? ' btn-main' : ''}`}
       disabled={disabled}
       title={
         disabled
@@ -32,17 +34,21 @@ export function Button(props: {
   );
 }
 
-/** A horizontal meter: the filled share of `value` in `max`. */
-export function Meter(props: {
-  value: number;
-  max: number;
-  tone?: 'good' | 'warn' | 'bad' | 'accent';
-  label?: string;
-}) {
-  const share = props.max <= 0 ? 0 : Math.max(0, Math.min(1, props.value / props.max));
+/**
+ * VIS, Meters: `value` against its limit `max` as 10 equal segments. Each full tenth fills a segment, a remaining
+ * part of a tenth fills the next one dimmed, and the rest stay empty.
+ */
+export function Meter(props: { value: number; max: number; label?: string }) {
+  const tenths = props.max <= 0 ? 0 : Math.max(0, Math.min(10, (props.value * 10) / props.max));
+  const full = Math.floor(tenths);
   return (
     <span className="meter" role="img" aria-label={props.label ?? `${props.value} of ${props.max}`}>
-      <span className={`meter-fill tone-${props.tone ?? 'accent'}`} style={{ width: `${share * 100}%` }} />
+      {Array.from({ length: 10 }, (_, index) => (
+        <span
+          key={index}
+          className={`meter-segment${index < full ? ' full' : index === full && tenths > full ? ' part' : ''}`}
+        />
+      ))}
     </span>
   );
 }
@@ -105,9 +111,9 @@ export function Fact(props: { label: string; children: ReactNode; testId?: strin
   );
 }
 
-export function Section(props: { title: string; children: ReactNode; aside?: ReactNode }) {
+export function Section(props: { title: string; children: ReactNode; aside?: ReactNode; testId?: string }) {
   return (
-    <section className="section">
+    <section className="section" data-testid={props.testId}>
       <header className="section-head">
         <h3>{props.title}</h3>
         {props.aside}

@@ -63,11 +63,13 @@ loading replays.
 
 ## The web UI
 
-The web UI follows Graphical User Interface, and DEC-007 settles the screens that it leaves open.
+The web UI follows Graphical User Interface, and DEC-007 settles the screens that it leaves open. It looks as Visual
+Design states: the Field HUD direction, with its Design tokens in `src/web/styles.css` and its three typefaces loaded
+from Google Fonts; DEC-034 gives the light theme.
 
-- **Main menu.** New-Campaign setup with the preset, its values and Preset edits, and an optional Campaign seed; the
-  list of Campaign saves with a Load and a Delete button each and a Delete Campaign button for each Campaign, every
-  deletion confirmed first; and the Global configuration settings, i.e. the Autosave limit and
+- **Main menu.** The Campaign saves grouped by Campaign, with a Load and a Delete button on each Campaign save and a
+  Delete Campaign button on each Campaign, every deletion confirmed first; New-Campaign setup with the preset, its
+  values and Preset edits, and an optional Campaign seed; and the Global configuration settings, i.e. the Autosave limit and
   the theme, dark or light.
 - **Status bar.** Turn, money, funding, projected income and upkeep, Agents against the Agent cap, a Panic meter,
   each Faction with its Faction activity level, and the buttons Undo, Redo, earlier and later Autosave, Save, Main

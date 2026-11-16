@@ -12,27 +12,27 @@ export function HistoryPanel({ snapshot }: { snapshot: Snapshot }) {
   const panicLimit = snapshot.state?.panicLimit;
   return (
     <div className="stack" data-testid="history">
-      <Section title="Over the Campaign">
-        <div className="charts">
-          <LineChart title="Money at the start of each Turn" points={history.turnSeries.moneyAtStartOfTurn} />
-          <LineChart
-            title="Panic after each Turn"
-            unit="%"
-            points={entries.map((entry) => ({ turn: entry.turn, value: entry.report.panicAfter }))}
-            {...(panicLimit === undefined ? {} : { limit: panicLimit })}
-          />
-          <LineChart
-            title="Serving Agents at the end of each Turn"
-            points={entries.map((entry) => ({ turn: entry.turn, value: entry.turnEnd.servingAgents }))}
-          />
-          <LineChart
-            title="Funding after each Turn"
-            points={entries.map((entry) => ({ turn: entry.turn, value: entry.report.fundingAfter }))}
-          />
-        </div>
-      </Section>
+      {/* VIS, Charts: the History tab leads with Panic, because Panic is how a Campaign is lost. */}
+      <LineChart
+        headline
+        title="Panic after each Turn"
+        unit="%"
+        points={entries.map((entry) => ({ turn: entry.turn, value: entry.report.panicAfter }))}
+        {...(panicLimit === undefined ? {} : { limit: panicLimit, valueNote: `of ${panicLimit}% limit` })}
+      />
+      <div className="charts">
+        <LineChart title="Money at the start of each Turn" points={history.turnSeries.moneyAtStartOfTurn} />
+        <LineChart
+          title="Serving Agents at the end of each Turn"
+          points={entries.map((entry) => ({ turn: entry.turn, value: entry.turnEnd.servingAgents }))}
+        />
+        <LineChart
+          title="Funding after each Turn"
+          points={entries.map((entry) => ({ turn: entry.turn, value: entry.report.fundingAfter }))}
+        />
+      </div>
 
-      <Section title="Turn by Turn">
+      <Section title="Turn by Turn" aside={<span className="label">Newest first</span>}>
         {entries.length === 0 ? (
           <p className="muted">No Turn has ended yet.</p>
         ) : (
@@ -56,8 +56,8 @@ export function HistoryPanel({ snapshot }: { snapshot: Snapshot }) {
                     <td className="num">{entry.turn}</td>
                     <td className="num">{entry.turnStart.money}</td>
                     <td className="num">{entry.turnEnd.money}</td>
-                    <td className="num">+{entry.report.income}</td>
-                    <td className="num">−{entry.report.upkeep}</td>
+                    <td className="num tone-good">+{entry.report.income}</td>
+                    <td className="num tone-bad">−{entry.report.upkeep}</td>
                     <td className="num">{entry.report.panicAfter}%</td>
                     <td className="num">{entry.turnEnd.servingAgents}</td>
                     <td>

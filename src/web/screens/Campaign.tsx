@@ -129,8 +129,6 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     };
   });
 
-  const panicTone =
-    state.panic * 4 >= state.panicLimit * 3 ? 'bad' : state.panic * 2 >= state.panicLimit ? 'warn' : 'good';
   const target = (t: AutosaveStatus['undoToAutosave']) =>
     t === null ? null : `${t.autosaveKind === 'turnEnd' ? 'end' : t.autosaveKind} of Turn ${t.turn}`;
 
@@ -141,30 +139,38 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           <Fact label="Turn" testId="turn">
             {state.turn}
           </Fact>
-          <Fact label="Money" testId="money">
-            {state.agency.money}
-          </Fact>
+          <div className="fact">
+            <span className="fact-label">Money</span>
+            <span className="fact-value">
+              <span data-testid="money">{state.agency.money}</span>
+              {/* VIS, Status bar: the projected change of a value follows it in Positive or Danger. */}
+              <span className="fact-change tone-good" title="Projected income">
+                +{state.agency.projectedIncome}
+              </span>
+              <span className="fact-change tone-bad" title="Projected upkeep">
+                −{state.agency.projectedUpkeep}
+              </span>
+            </span>
+          </div>
           <Fact label="Funding">{state.agency.funding}</Fact>
-          <Fact label="Income / upkeep">
-            +{state.agency.projectedIncome} / −{state.agency.projectedUpkeep}
-          </Fact>
           <Fact label="Agents">
-            {state.agency.servingAgents} / {state.agency.agentCap}
+            {state.agency.servingAgents}/{state.agency.agentCap}
           </Fact>
-          <Fact label={`Panic ${state.panic}% of ${state.panicLimit}%`} testId="panic">
-            <Meter
-              value={state.panic}
-              max={state.panicLimit}
-              tone={panicTone}
-              label={`Panic ${state.panic}%`}
-            />
-          </Fact>
+          <div className="fact">
+            <span className="fact-label">Panic</span>
+            <span className="meter-figure" data-testid="panic">
+              <span>
+                {state.panic} / {state.panicLimit}%
+              </span>
+              <Meter value={state.panic} max={state.panicLimit} label={`Panic ${state.panic}%`} />
+            </span>
+          </div>
           <div className="fact">
             <span className="fact-label">Factions</span>
             <span className="fact-value factions">
               {state.factions.map((faction) => (
                 <Badge key={faction.id} tone={faction.eliminated ? 'good' : 'warn'}>
-                  {faction.name}: {faction.eliminated ? 'eliminated' : faction.activityLevel.name}
+                  {faction.name} · {faction.eliminated ? 'eliminated' : faction.activityLevel.name}
                 </Badge>
               ))}
             </span>
@@ -231,6 +237,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           </Button>
           <Button
             kind="primary"
+            main
             shortcut="N"
             testId="advance-turn"
             disabledReason={

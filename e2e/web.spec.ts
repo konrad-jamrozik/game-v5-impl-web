@@ -194,6 +194,6 @@ test('the Main menu deletes a Campaign save and a whole Campaign after a confirm
   await expect(rows).toHaveCount(before - 1);
 
   page.once('dialog', (dialog) => void dialog.accept());
-  await rows.first().getByRole('button', { name: 'Delete Campaign' }).click();
+  await id(page, 'saves-table').getByRole('button', { name: 'Delete Campaign' }).first().click();
   await expect(id(page, 'saves-table')).toHaveCount(0);
 });

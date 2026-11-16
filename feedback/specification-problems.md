@@ -200,3 +200,14 @@
   leaves the rest open.
 - **Links:** DEC-007
 - **Resolution:** Open
+
+## PROB-018: The light theme's Design tokens are a TODO
+
+- **Category:** Needed TODO
+- **Affected specifications:** VIS, TODOs: "TODO: Define the light theme's Design tokens under Colours, since the
+  Settings panel lets the Player choose a light theme". VIS, Design tokens: "a screen uses these values and no other
+  colours, fonts, or radii".
+- **Description:** The Settings panel offers a light theme, but VIS defines only dark colour values, so a light theme
+  must use colours that no specification states.
+- **Links:** DEC-034
+- **Resolution:** Open

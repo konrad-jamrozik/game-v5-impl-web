@@ -360,6 +360,17 @@ No files.
 
 No files.
 
+## VIS: Visual Design
+
+- index.html
+- src/web/styles.css
+- src/web/ui.tsx
+- src/web/screens/AgentsGrid.tsx
+- src/web/screens/Campaign.tsx
+- src/web/screens/HistoryPanel.tsx
+- src/web/screens/LineChart.tsx
+- src/web/screens/MainMenu.tsx
+
 ## WHIST: World History
 
 - src/engine/index.ts

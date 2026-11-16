@@ -3,9 +3,9 @@
 ## DEC-001: Implementation name
 
 - **Category:** Asked by the specifications
-- **Affected specifications:** PLACE, Implementation directory: "Which name an Implementation uses within these
+- **Affected specifications:** PLACE, Implementation repo: "Which name an Implementation uses within these
   constraints is the Implementer's choice."
-- **Description:** The Implementation directory is named `game-v5-impl-web`.
+- **Description:** The Implementation repo is named `game-v5-impl-web`.
 - **Options considered:** `game-v5-impl-web`; `game-v5-impl-ts`; `game-v5-impl-1`.
 - **Option chosen:** `game-v5-impl-web`.
 - **Why:** It follows the recommended `game-v5-impl-` prefix, matches no other directory in the parent directory, and
@@ -104,8 +104,9 @@
 - **Affected specifications:** GUI, Main menu: "The GUI opens at the Main menu, the Session state with no Current
   campaign". GUI, TODOs: "list the screens the Player needs while a Campaign is current".
 - **Description:** The web UI opens at the Main menu, which offers New-Campaign setup, the list of Campaign saves
-  with Load, Delete, and Delete Campaign buttons, each deletion confirmed first, and the Global configuration
-  settings. While a Campaign is current it shows a status bar with Advance turn, Timeline
+  grouped by Campaign with Load, Delete, and Delete Campaign buttons, each deletion confirmed first, and the Global
+  configuration settings. The Campaign whose Campaign saves reach the latest Turn is the one the Player most likely
+  wants under VIS, Panels and cards, because the list reports no time at which a Campaign save was written. While a Campaign is current it shows a status bar with Advance turn, Timeline
   navigation, and saving; the Agents grid; one of five panels, Mission sites, Leads, Agency, Turn report, and History;
   an Autopilot bar; and a Developer drawer, as the README describes. It follows ENG, API hierarchy, and PAPI,
   Information boundary: it is an adapter over the engine API and shows no gameplay information that the engine API
@@ -589,3 +590,18 @@
 - **Why:** Agents owns Agent status and its invariant, which a Recovery Agent that is At assignment would break; the
   step table of Turn Advancement restates the Transit rule of Agents and links to it.
 - **Links:** PROB-015
+
+## DEC-034: The light theme keeps the roles of the dark Design tokens
+
+- **Category:** Gap resolution
+- **Affected specifications:** VIS, Design tokens: "The interface has a dark theme only; the light theme is a TODO."
+  VIS, TODOs: "TODO: Define the light theme's Design tokens under Colours, since the Settings panel lets the Player
+  choose a light theme".
+- **Description:** The web UI draws the dark theme with exactly the Design tokens of VIS. The light theme, which the
+  theme setting of DEC-011 selects, gives every colour token of VIS a light value of the same role in
+  `src/web/styles.css`, e.g. a light Background and a darker orange Accent, and keeps every font, size, and spacing.
+- **Options considered:** Removing the light theme; keeping it with values of the same roles.
+- **Option chosen:** Keeping it with values of the same roles.
+- **Why:** The theme setting is part of the Global configuration of this Game build, and VIS states that the Settings
+  panel lets the Player choose a light theme, so removing it would drop a setting the specifications still expect.
+- **Links:** PROB-018

@@ -10,7 +10,21 @@ import {
 import { useMemo, useState } from 'react';
 import type { AgentView, CurrentStateView } from '../../engine/index.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import { Badge, Button, Meter } from '../ui.tsx';
+import { Badge, Button } from '../ui.tsx';
+
+/** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
+const NUMERIC = new Set(['skill', 'effectiveSkill', 'currentHealth', 'exhaustion', 'weaponDamage']);
+
+/** VIS, Tables: text that encodes a state takes the colour of that state. */
+function assignmentTone(agent: AgentView): string {
+  if (agent.agentStatus === 'Recovering') {
+    return 'tone-warn';
+  }
+  if (agent.agentStatus === 'InTransit' || agent.assignment?.kind === 'Standby') {
+    return 'tone-muted-text';
+  }
+  return 'tone-good';
+}
 
 function assignmentName(agent: AgentView): string {
   const assignment = agent.assignment;
@@ -55,15 +69,9 @@ export function AgentsGrid(props: {
         header: 'Health',
         cell: (cell) => {
           const agent = cell.row.original;
-          const tone =
-            agent.currentHealth * 2 < agent.baseHealth
-              ? 'bad'
-              : agent.currentHealth < agent.baseHealth
-                ? 'warn'
-                : 'good';
+          // VIS, Colours: a low health value is Accent text.
           return (
-            <span className="with-meter">
-              <Meter value={agent.currentHealth} max={agent.baseHealth} tone={tone} />
+            <span className={agent.currentHealth < agent.baseHealth ? 'tone-warn' : ''}>
               {agent.currentHealth}/{agent.baseHealth}
             </span>
           );
@@ -78,7 +86,7 @@ export function AgentsGrid(props: {
           const agent = cell.row.original;
           return (
             <>
-              {cell.getValue()}
+              <span className={assignmentTone(agent)}>{cell.getValue()}</span>{' '}
               {agent.agentStatus === 'InTransit' ? <Badge tone="accent">In transit</Badge> : null}
               {agent.agentStatus === 'Recovering' ? <Badge tone="warn">Recovering</Badge> : null}
               {agent.recoveryTurnsRemaining === null ? null : (
@@ -119,9 +127,10 @@ export function AgentsGrid(props: {
   return (
     <section className="agents" aria-label="Agents">
       <header className="section-head">
-        <h3>
-          Agents <span className="muted">({count} selected)</span>
-        </h3>
+        <h3>Agents</h3>
+        <span className="label">
+          {state.agents.length} serving · {count} selected
+        </span>
         <div className="chips">
           <button
             type="button"
@@ -204,7 +213,7 @@ export function AgentsGrid(props: {
                 {group.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="sortable"
+                    className={NUMERIC.has(header.column.id) ? 'sortable num' : 'sortable'}
                     aria-sort={
                       header.column.getIsSorted() === 'asc'
                         ? 'ascending'
@@ -249,7 +258,9 @@ export function AgentsGrid(props: {
                   />
                 </td>
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
+                  <td key={cell.id} className={NUMERIC.has(cell.column.id) ? 'num' : undefined}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
                 ))}
               </tr>
             ))}
