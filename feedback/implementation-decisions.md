@@ -98,19 +98,23 @@
 - **Why:** A shared counter makes uniqueness across Types hold by construction and is reproduced by replay.
 - **Links:** None.
 
-## DEC-007: The web UI is the implementer's own design
+## DEC-007: The screens of the web UI
 
-- **Category:** Treatment of guidance
-- **Affected specifications:** The UI family (non-behavioural guidance), all documents. Their wording is not quoted
-  because the documents were not read.
-- **Description:** Used a different approach. On the project owner's instruction the implementer did not read any UI
-  family document. The web UI is the implementer's own design, described in the README, and the Implementation makes
-  no claim to conform to the UI family. It follows ENG, API hierarchy, and PAPI, Information boundary: it is an
-  adapter over the engine API and shows no gameplay information that the engine API does not return.
-- **Options considered:** Read and follow the UI family; design the UI independently.
-- **Option chosen:** An independent design.
-- **Why:** The project owner instructed the implementer never to read the UI family.
-- **Links:** None.
+- **Category:** Gap resolution
+- **Affected specifications:** GUI, Main menu: "The GUI opens at the Main menu, the Session state with no Current
+  campaign". GUI, TODOs: "list the screens the Player needs while a Campaign is current".
+- **Description:** The web UI opens at the Main menu, which offers New-Campaign setup, the list of Campaign saves,
+  and the Global configuration settings. While a Campaign is current it shows a status bar with Advance turn, Timeline
+  navigation, and saving; the Agents grid; one of five panels, Mission sites, Leads, Agency, Turn report, and History;
+  an Autopilot bar; and a Developer drawer, as the README describes. It follows ENG, API hierarchy, and PAPI,
+  Information boundary: it is an adapter over the engine API and shows no gameplay information that the engine API
+  does not return.
+- **Options considered:** One screen per game concept, reached through a menu; one Campaign screen with the Agents
+  always visible beside a chosen panel.
+- **Option chosen:** One Campaign screen with the Agents always visible.
+- **Why:** Most Player actions combine Agents with a Mission site, a Lead, or an Assignment, so the Agents stay in
+  view while the Player picks the other part.
+- **Links:** PROB-017
 
 ## DEC-008: Storage Schema followed for the Timeline and Campaign saves
 
@@ -460,25 +464,29 @@
 
 ## DEC-027: The terminal CLI
 
-- **Category:** Asked by the specifications
-- **Affected specifications:** ENG, API hierarchy: "Every user interface, e.g. a command-line or graphical interface, is
-  an adapter over the same API".
-- **Description:** Beside the web UI the Implementation has a terminal CLI. It reads one command per line, and each
-  command is one engine API operation: the Session commands `status`, `new`, `close`, `presets`, `preset`, `select`,
-  `edit`, `unedit`, `saves`, `load`, `save`, `saveas`, `config`, `set`, `reset`; the queries `state`, `agents`,
-  `leads`, `investigations`, `sites`, `missions`, `factions`, `upgrades`, `report`, `history`, `retained`, `actions`,
-  `gamedata`, `preview`; the Player actions `assign`, `hire`, `dismiss`, `buy`, `investigate`, `join`, `deploy`,
-  `next`; the navigation commands `timeline`, `undo`, `redo`, `undoall`, `redoall`, `autosaves`, `back`, `forward`;
-  `ais` and `auto` for Autopilot, where `auto` waits for the disengagement; and `dev`, `inspect`, `addmoney`,
-  `addagents`, `override` for Developer access. It prints tables for a person, or with `--json` one line of JSON for
-  each result, which is the result object of the operation. It shows the Campaign seed only while Dev mode is
-  enabled. A line it cannot turn into an operation is answered with the code `invalid_command` and calls nothing.
-  The keyboard shortcuts of the web UI are listed in the README.
-- **Options considered:** A web UI only; a web UI and a terminal CLI.
-- **Option chosen:** Both.
-- **Why:** A terminal with JSON results lets a script or an LLM player play a whole Campaign, and comparing it with
-  the web UI tests that both are equivalent to the engine API.
-- **Links:** None.
+- **Category:** Gap resolution
+- **Affected specifications:** CLI, Reach of the CLI: "Every Session API and Player API operation under API hierarchy
+  is reachable through the CLI, and so is every Developer API operation while Dev mode is enabled." CLI, Output forms:
+  "Both forms carry exactly what the engine API returns". CLI, TODOs: "TODO: State how the CLI names operations and
+  their arguments, and how a caller discovers the available ones".
+- **Description:** The CLI reads one command per line, and each command is one engine API operation: the Session
+  commands `status`, `new`, `close`, `presets`, `preset`, `setup`, `select`, `edit`, `unedit`, `saves`,
+  `load`, `save`, `saveas`, `config`, `set`, `reset`; the queries `state`, `report`, `history`, `actions`,
+  `gamedata`, `preview`, and `agents`, `leads`, `investigations`, `sites`, `missions`, `factions`,
+  `upgrades`, `retained`, which each print that part of the current state or of the history; the Player actions
+  `assign`, `hire`, `dismiss`, `buy`, `investigate`, `join`, `deploy`, `next`; the navigation commands
+  `timeline`, `undo`, `redo`, `undoall`, `redoall`, `autosaves`, `back`, `forward`; `ais`, `engage`,
+  `autostatus`, `disengage`, and `wait` for Autopilot, with `auto` engaging and waiting in one command; and `dev`,
+  `inspect`, `addmoney`, `addagents`, `override` for Developer access. `help` lists the commands. The readable
+  form prints the whole result as indented `key: value` lines, with a list of flat records as a table; `--json`
+  prints each result as one line of JSON, the result object of the operation with the command name. Both forms carry
+  every value of the result. The CLI shows the Campaign seed only while Dev mode is enabled. A line it cannot turn
+  into an operation is answered with the code `invalid_command` and calls nothing.
+- **Options considered:** Readable output as hand-picked summaries and tables; readable output as the whole result.
+- **Option chosen:** The whole result in both forms.
+- **Why:** A person reading the terminal and a script reading JSON then learn the same, and no rule of what to leave
+  out has to be kept in step with the engine API.
+- **Links:** PROB-016
 
 ## DEC-028: Error codes and results of operations the specifications leave open
 

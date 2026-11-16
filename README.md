@@ -63,8 +63,7 @@ loading replays.
 
 ## The web UI
 
-The web UI is the implementer's own design; see DEC-007. It makes no claim to conform to the UI family, which was
-not read.
+The web UI follows Graphical User Interface, and DEC-007 settles the screens that it leaves open.
 
 - **Main menu.** New-Campaign setup with the preset, its values and Preset edits, and an optional Campaign seed; the
   list of Campaign saves with a Load button each; and the Global configuration settings, i.e. the Autosave limit and
@@ -102,9 +101,11 @@ Developer drawer, `?` list the shortcuts.
 
 ## The terminal CLI
 
-One command per line; `help` lists them. Each command is one engine API operation, e.g. `new my-seed`, `agents`,
+One command per line; `help` lists them. The CLI follows Command-Line Interface, and DEC-027 settles what it leaves
+open. Each command is one engine API operation, e.g. `new my-seed`, `agents`,
 `assign Contracting agent-2 agent-3`, `investigate locate_red_dawn_member agent-4`, `deploy missionsite-12 agent-2`,
-`next`, `undo`, `auto basic turns 10`, `dev on`, `inspect`. Game storage is the directory `.data`, or the one that
+`next`, `undo`, `auto basic turns 10`, `dev on`, `inspect`. Each prints the whole result of its operation: as
+indented `key: value` lines and tables, or with `--json` as one line of JSON. Game storage is the directory `.data`, or the one that
 `--data <dir>` names.
 
 ## Measurements

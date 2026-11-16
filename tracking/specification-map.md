@@ -51,7 +51,9 @@
 
 ## CLI: Command-Line Interface
 
-No files.
+- src/cli/
+- tests/cli/
+- e2e/web.spec.ts
 
 ## COMBAT: Combat
 
@@ -195,7 +197,10 @@ No files.
 
 ## GUI: Graphical User Interface
 
-No files.
+- src/web/
+- index.html
+- tests/web/
+- e2e/web.spec.ts
 
 ## HEADLESS: Headless First
 

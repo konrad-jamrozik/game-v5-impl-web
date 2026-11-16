@@ -155,9 +155,9 @@ describe('Terminal CLI', () => {
       ['new full-campaign', 'auto basic turns 400', 'state', 'agents', 'factions'],
       false,
     );
-    expect(lines[1]).toMatch(/^Autopilot disengaged: campaignEnded/);
-    expect(lines[2]).toMatch(/Campaign ending: (Victory|Defeat)/);
-    expect(lines[3]).toMatch(/^id\s+skill/);
+    expect(lines[1]).toMatch(/^reason: campaignEnded$/m);
+    expect(lines[2]).toMatch(/^ending:\n {2}ending: (Victory|Defeat)$/m);
+    expect(lines[3]).toMatch(/^-\n {2}id: agent-/);
     expect(ok(engine.session.getStatus()).campaignEnded).toBe(true);
     const after = await run(engine, ['next'], false);
     expect(after[0]).toMatch(/^error \(/);
@@ -179,5 +179,39 @@ describe('Terminal CLI', () => {
     expect(parse(lines[4]).ok).toBe(true);
     expect(parse(lines[5]).value.worldState).toBeDefined();
     expect(ok(engine.player.queries.getCurrentState()).agency.money).toBe(505);
+  });
+
+  it('prints the whole result in both Output forms', async () => {
+    const engine = await start(new MemoryStorage());
+    await run(engine, ['new forms']);
+    const [json] = await run(engine, ['agents']);
+    const [text] = await run(engine, ['agents'], false);
+    const agents = parse(json).value as Record<string, unknown>[];
+    expect(agents).toHaveLength(ok(engine.player.queries.getCurrentState()).agents.length);
+    // Every scalar of every Agent appears in the readable form, under its own key.
+    for (const agent of agents) {
+      for (const [key, value] of Object.entries(agent)) {
+        if (value === null || typeof value !== 'object') {
+          expect(text).toContain(
+            `${key}: ${value === null ? '-' : String(value as string | number | boolean)}`,
+          );
+        }
+      }
+    }
+  });
+
+  it('reaches the New-Campaign setup and an Autopilot engagement while it runs', async () => {
+    const engine = await start(new MemoryStorage());
+    const lines = await run(engine, ['setup', 'new reach', 'engage basic turns 50']);
+    expect(parse(lines[0]).ok).toBe(true);
+    const engagement = parse(lines[2]).value.engagementId as string;
+    const after = await run(engine, [
+      `autostatus ${engagement}`,
+      `disengage ${engagement}`,
+      `wait ${engagement}`,
+    ]);
+    expect(parse(after[0]).ok).toBe(true);
+    expect(parse(after[1]).ok).toBe(true);
+    expect(parse(after[2]).value.reason).toBeDefined();
   });
 });

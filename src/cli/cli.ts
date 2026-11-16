@@ -1,16 +1,10 @@
 /**
  * The terminal adapter: one command per line over the engine API. It implements no gameplay rule: every figure it
- * prints comes from a query, and every command is one engine API operation; see ENG, API hierarchy.
+ * prints comes from a query, and every command is one engine API operation; see ENG, API hierarchy, and CLI, Reach of
+ * the CLI. Each result is printed in one of the two Output forms of CLI, readable text or one line of JSON, and both
+ * carry the whole value the operation returned; see DEC-027.
  */
-import type { AgentStatus, AutopilotLimit, Engine, Result } from '../engine/index.ts';
-
-const STATUS_NAMES: Record<AgentStatus, string> = {
-  AtAssignment: 'At assignment',
-  InTransit: 'In transit',
-  Recovering: 'Recovering',
-  Killed: 'Killed',
-  Dismissed: 'Dismissed',
-};
+import type { AutopilotLimit, Engine, Result } from '../engine/index.ts';
 
 export interface CliOutput {
   /** Whether to print each result as one line of JSON, for scripts and LLM players. */
@@ -18,38 +12,90 @@ export interface CliOutput {
   write(text: string): void;
 }
 
-type Row = Record<string, string | number | boolean | null>;
+type Scalar = string | number | boolean | null | undefined;
 
-function table(rows: readonly Row[]): string {
-  const [first] = rows;
-  if (first === undefined) {
-    return '(none)';
-  }
-  const columns = Object.keys(first);
-  const cell = (value: Row[string]) => (value === null ? '-' : String(value));
+function isScalar(value: unknown): value is Scalar {
+  return value === null || value === undefined || typeof value !== 'object';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function scalarText(value: Scalar): string {
+  return value === null || value === undefined ? '-' : String(value);
+}
+
+/** A table of rows whose every value is a scalar, with one column for every key any row has. */
+function table(rows: readonly Record<string, Scalar>[]): string {
+  const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))];
   const widths = columns.map((column) =>
-    Math.max(column.length, ...rows.map((row) => cell(row[column] ?? null).length)),
+    Math.max(column.length, ...rows.map((row) => scalarText(row[column]).length)),
   );
   const line = (values: string[]) =>
-    values.map((value, index) => value.padEnd(widths[index] ?? 0)).join('  ');
+    values
+      .map((value, index) => value.padEnd(widths[index] ?? 0))
+      .join('  ')
+      .trimEnd();
   return [
     line(columns),
     line(widths.map((width) => '-'.repeat(width))),
-    ...rows.map((row) => line(columns.map((column) => cell(row[column] ?? null)))),
+    ...rows.map((row) => line(columns.map((column) => scalarText(row[column])))),
   ].join('\n');
 }
 
+/**
+ * The readable form of a value: every scalar, every key, and every list item it holds, so that it carries exactly what
+ * its structured form carries. A list of flat records becomes a table.
+ */
+export function readable(value: unknown, indent = ''): string {
+  if (isScalar(value)) {
+    return indent + scalarText(value);
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return `${indent}(none)`;
+    }
+    if (value.every((item) => isRecord(item) && Object.values(item).every(isScalar))) {
+      return table(value as Record<string, Scalar>[])
+        .split('\n')
+        .map((text) => indent + text)
+        .join('\n');
+    }
+    return value
+      .map((item) =>
+        isScalar(item) ? `${indent}- ${scalarText(item)}` : `${indent}-\n${readable(item, `${indent}  `)}`,
+      )
+      .join('\n');
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) {
+    return `${indent}(empty)`;
+  }
+  return entries
+    .map(([key, item]) =>
+      isScalar(item)
+        ? `${indent}${key}: ${scalarText(item)}`
+        : `${indent}${key}:\n${readable(item, `${indent}  `)}`,
+    )
+    .join('\n');
+}
+
 const HELP = `Commands
-  Session    status | new [seed] | close | presets | preset <id> | edit <preset> <key> <value> | unedit <preset> <key>
-             select <preset> | saves | load <saveId> | save | saveas | config | set <setting> <value> | reset <setting>
+  Session    status | new [seed] | close | presets | preset <id> | setup | select <preset>
+             edit <preset> <key> <value> | unedit <preset> <key>
+             saves | load <saveId> | save | saveas | config | set <setting> <value> | reset <setting>
   Look       state | agents | leads | investigations | sites | missions | factions | upgrades
              report | history | retained | actions | gamedata | preview <site> <agent...>
   Act        assign <Standby|Contracting|Training> <agent...> | hire | dismiss <agent...> | buy <upgrade>
              investigate <lead> <agent...> | join <investigation> <agent...> | deploy <site> <agent...> | next
   Timeline   timeline | undo | redo | undoall | redoall | autosaves | back | forward
-  Autopilot  ais | auto <ai> single | auto <ai> turn | auto <ai> turns <count>
+  Autopilot  ais | auto <ai> <limit> | engage <ai> <limit> | autostatus <engagement> | disengage <engagement>
+             wait <engagement>; <limit> is single, turn, or turns <count>; auto engages and waits
   Developer  dev on | dev off | inspect | addmoney <amount> | addagents <count> | override <outcome> <value>
-  Other      help | quit`;
+  Other      help | quit
+Each command prints the whole result of its operation; --json prints it as one line of JSON. The commands agents,
+leads, investigations, sites, missions, factions, and upgrades print that part of state; retained that part of history.`;
 
 function parseValue(text: string): string | number | boolean {
   if (text === 'true' || text === 'false') {
@@ -58,16 +104,34 @@ function parseValue(text: string): string | number | boolean {
   return /^-?\d+$/.test(text) ? Number(text) : text;
 }
 
+function parseLimit(words: readonly string[]): AutopilotLimit | null {
+  switch (words[0]) {
+    case 'single':
+      return { kind: 'singleAction' };
+    case 'turn':
+      return { kind: 'untilTurnAdvanced' };
+    case 'turns':
+      return { kind: 'turnAdvancements', count: Number(words[1]) };
+    default:
+      return null;
+  }
+}
+
+/** One part of a successful result, e.g. the Agents of the current state; a failure stays as it is. */
+function part<T, P>(result: Result<T>, pick: (value: T) => P): Result<P> {
+  return result.ok ? { ...result, value: pick(result.value) } : result;
+}
+
 export function createCli(engine: Engine, out: CliOutput) {
   const { session, player, developer } = engine;
 
-  /** Prints a result: as JSON, or through `show` for a person; a failure prints the engine's own message. */
-  function print<T>(command: string, result: Result<T>, show: (value: T) => string): Result<T> {
+  /** Prints a result in the chosen Output form; a failure prints the engine's own code and message. */
+  function print<T>(command: string, result: Result<T>): Result<T> {
     if (out.json) {
       out.write(JSON.stringify({ command, ...result }));
     } else if (result.ok) {
       const failures = result.autosaveFailures.map((failure) => `warning: ${failure.message}`);
-      out.write([show(result.value), ...failures].filter((text) => text !== '').join('\n'));
+      out.write([result.value === null ? 'ok' : readable(result.value), ...failures].join('\n'));
     } else {
       out.write(`error (${result.error.code}): ${result.error.message}`);
     }
@@ -84,8 +148,9 @@ export function createCli(engine: Engine, out: CliOutput) {
     return null;
   }
 
-  const done = (text: string) => () => text;
   const state = () => player.queries.getCurrentState();
+  const autopilotUsage = (command: string) =>
+    usage(command, `usage: ${command} <ai> single | ${command} <ai> turn | ${command} <ai> turns <count>`);
 
   async function execute(line: string): Promise<Result<unknown> | null> {
     const [command = '', ...args] = line.trim().split(/\s+/);
@@ -100,363 +165,175 @@ export function createCli(engine: Engine, out: CliOutput) {
       case 'status': {
         // The Campaign seed is a hidden value: the CLI shows it only while Dev mode is enabled.
         const status = session.getStatus();
-        const shown =
+        return print(
+          command,
           status.ok && !status.value.devMode
-            ? { ...status, value: { ...status.value, campaignSeed: null } }
-            : status;
-        return print(command, shown, (s) =>
-          s.hasCurrentCampaign
-            ? `Campaign ${s.campaignId ?? ''} | Turn ${s.turn ?? 0}${s.devMode ? ` | seed "${s.campaignSeed ?? ''}"` : ''} | Dev mode ${s.devMode ? 'on' : 'off'}` +
-              ` | save ${s.currentSaveId ?? '(none)'}${s.campaignEnded ? ' | ended' : ''}`
-            : 'Main menu: no Current campaign.',
+            ? part(status, (value) => ({ ...value, campaignSeed: null }))
+            : status,
         );
       }
       case 'new':
-        return print(
-          command,
-          await session.campaign.create(first === '' ? {} : { seed: args.join(' ') }),
-          done('Campaign created.'),
-        );
+        return print(command, await session.campaign.create(first === '' ? {} : { seed: args.join(' ') }));
       case 'close':
-        return print(command, await session.campaign.close(), done('Campaign closed.'));
+        return print(command, await session.campaign.close());
       case 'presets':
-        return print(command, session.newCampaignSetup.listPresets(), (rows) =>
-          table(rows as unknown as Row[]),
-        );
+        return print(command, session.newCampaignSetup.listPresets());
       case 'preset':
-        return print(command, session.newCampaignSetup.getPreset(first), (rows) =>
-          table(rows as unknown as Row[]),
-        );
+        return print(command, session.newCampaignSetup.getPreset(first));
+      case 'setup':
+        return print(command, session.newCampaignSetup.getSetup());
       case 'select':
-        return print(
-          command,
-          session.newCampaignSetup.selectPreset(first),
-          done(`Preset ${first} selected.`),
-        );
+        return print(command, session.newCampaignSetup.selectPreset(first));
       case 'edit':
         return print(
           command,
           session.newCampaignSetup.setPresetEdit(first, { key: rest[0] ?? '', value: Number(rest[1]) }),
-          done('Preset edit set.'),
         );
       case 'unedit':
-        return print(
-          command,
-          session.newCampaignSetup.removePresetEdit(first, rest[0] ?? ''),
-          done('Preset edit removed.'),
-        );
+        return print(command, session.newCampaignSetup.removePresetEdit(first, rest[0] ?? ''));
       case 'saves':
-        return print(command, await session.saves.list(), (rows) => table(rows as unknown as Row[]));
+        return print(command, await session.saves.list());
       case 'load':
-        return print(command, await session.saves.load(first), done('Campaign save loaded.'));
+        return print(command, await session.saves.load(first));
       case 'save':
-        return print(command, await session.saves.save(), (v) => `Saved as ${v.saveId}.`);
+        return print(command, await session.saves.save());
       case 'saveas':
-        return print(command, await session.saves.saveAsNew(), (v) => `Saved as ${v.saveId}.`);
+        return print(command, await session.saves.saveAsNew());
       case 'config':
-        return print(command, session.globalConfiguration.get(), (v) =>
-          [table(v.settings as unknown as Row[]), ...v.problems].join('\n'),
-        );
+        return print(command, session.globalConfiguration.get());
       case 'set':
-        return print(
-          command,
-          await session.globalConfiguration.set(first, parseValue(rest[0] ?? '')),
-          done('Setting stored.'),
-        );
+        return print(command, await session.globalConfiguration.set(first, parseValue(rest[0] ?? '')));
       case 'reset':
-        return print(command, await session.globalConfiguration.reset(first), done('Setting reset.'));
+        return print(command, await session.globalConfiguration.reset(first));
 
       case 'state':
-        return print(command, state(), (v) =>
-          [
-            `Turn ${v.turn} | money ${v.agency.money} | funding ${v.agency.funding}` +
-              ` | income ${v.agency.projectedIncome} | upkeep ${v.agency.projectedUpkeep} | Panic ${v.panic}% of ${v.panicLimit}%`,
-            `Agents ${v.agency.servingAgents}/${v.agency.agentCap} | deployed ${v.agency.deployedAgents}/${v.agency.transportCap}` +
-              ` | training ${v.agency.trainingAgents}/${v.agency.trainingCap}`,
-            v.ending === null
-              ? ''
-              : `Campaign ending: ${v.ending.ending} (${v.ending.reasons.join(', ')}) in Turn ${v.ending.turn}`,
-          ]
-            .filter((text) => text !== '')
-            .join('\n'),
-        );
+        return print(command, state());
       case 'agents':
-        return print(command, state(), (v) =>
-          table(
-            v.agents.map((a) => ({
-              id: a.id,
-              skill: a.skill,
-              effective: a.effectiveSkill,
-              health: `${a.currentHealth}/${a.baseHealth}`,
-              exhaustion: a.exhaustion,
-              damage: a.weaponDamage,
-              assignment:
-                a.assignment === null
-                  ? null
-                  : a.assignment.kind === 'Investigation'
-                    ? `Investigation ${a.assignment.investigation}`
-                    : a.assignment.kind === 'Deployed'
-                      ? `Deployed ${a.assignment.mission}`
-                      : a.assignment.kind,
-              status: STATUS_NAMES[a.agentStatus],
-              assignable: a.canBeAssigned,
-              recovery: a.recoveryTurnsRemaining,
-            })),
-          ),
+        return print(
+          command,
+          part(state(), (v) => v.agents),
         );
       case 'leads':
-        return print(command, state(), (v) =>
-          table(
-            v.leads.map((l) => ({
-              id: l.id,
-              name: l.name,
-              difficulty: l.difficulty,
-              available: l.available,
-              blocking: l.blockingConditions.join(',') || null,
-              investigable: l.canBeInvestigatedNow,
-              investigation: l.activeInvestigation,
-              won: !l.conditions.noMissionWon,
-              creates: l.createsMissionSite,
-            })),
-          ),
+        return print(
+          command,
+          part(state(), (v) => v.leads),
         );
       case 'investigations':
-        return print(command, state(), (v) =>
-          table(
-            v.investigations.map((i) => ({
-              id: i.id,
-              lead: i.lead,
-              progress: `${i.progress}/${i.progressForCertainCompletion}`,
-              completion:
-                i.projectedCompletionProbability === null
-                  ? null
-                  : `${i.projectedCompletionProbability.n}/${i.projectedCompletionProbability.d}`,
-              team: i.currentTeam.map((m) => m.agent).join(' '),
-            })),
-          ),
+        return print(
+          command,
+          part(state(), (v) => v.investigations),
         );
       case 'sites':
-        return print(command, state(), (v) =>
-          table(
-            v.missionSites.map((s) => ({
-              id: s.id,
-              name: s.name,
-              kind: s.kind,
-              state: s.lifecycle,
-              expires: s.turnsUntilExpiration,
-              enemies: s.enemies.length,
-              rating: s.enemiesCombatRating,
-              reward:
-                `money ${s.rewards.money}, funding ${s.rewards.fundingChange}, panic -${s.rewards.panicReduction}` +
-                (s.rewards.eliminatesTargetFaction ? ', eliminates Faction' : ''),
-              penalty: `panic +${s.penalties.panicIncrease}, funding ${s.penalties.fundingChange}`,
-              mission: s.mission,
-            })),
-          ),
+        return print(
+          command,
+          part(state(), (v) => v.missionSites),
         );
       case 'missions':
-        return print(command, state(), (v) =>
-          table(
-            v.missions.map((m) => ({
-              id: m.id,
-              site: m.missionSite,
-              kind: m.kind,
-              state: m.lifecycle,
-              team: m.currentTeam.join(' '),
-            })),
-          ),
+        return print(
+          command,
+          part(state(), (v) => v.missions),
         );
       case 'factions':
-        return print(command, state(), (v) =>
-          table(
-            v.factions.map((f) => ({
-              id: f.id,
-              name: f.name,
-              activity: f.activityLevel.name,
-              next: f.activityLevel.next,
-              eliminated: f.eliminated,
-              eliminatedTurn: f.eliminatedTurn,
-            })),
-          ),
+        return print(
+          command,
+          part(state(), (v) => v.factions),
         );
       case 'upgrades':
-        return print(command, state(), (v) => table(v.agency.upgrades as unknown as Row[]));
+        return print(
+          command,
+          part(state(), (v) => v.agency.upgrades),
+        );
       case 'report':
-        return print(command, player.queries.getTurnReport(), (r) =>
-          r === null
-            ? 'No Turn report yet.'
-            : [
-                `Turn ${r.turn}: income ${r.income.income}, upkeep ${r.upkeep.upkeep}, money ${r.money.turnEnd} -> ${r.money.after},` +
-                  ` Panic ${r.panic.before} -> ${r.panic.after}, funding ${r.funding.before} -> ${r.funding.after}`,
-                ...r.investigations.map(
-                  (i) =>
-                    `Investigation ${i.investigation}: +${i.progressGain} = ${i.progressAfter}${i.completed ? `, completed, created ${i.createdMissionSite ?? 'nothing'}` : ''}`,
-                ),
-                ...r.missions.map(
-                  (m, index) =>
-                    `Mission ${m.mission} at ${m.missionSite}: ${m.result} (${r.combatReports[index]?.outcome ?? '-'}, ` +
-                    `${r.combatReports[index]?.rounds ?? 0} rounds), killed ${m.killed.length}, to Recovery ${m.toRecovery.length}`,
-                ),
-                ...r.expiredMissionSites.map(
-                  (s) => `Mission site ${s.missionSite} expired: Panic +${s.consequence.panicIncrease}`,
-                ),
-                ...r.cancelledMissionSites.map((s) => `Mission site ${s} cancelled`),
-                ...r.factionActivity.map(
-                  (f) =>
-                    `Faction ${f.faction}:${f.escalatedTo ? ` escalated to ${f.escalatedTo}` : ''}${f.createdMissionSite ? ` created ${f.createdMissionSite}` : ''}`,
-                ),
-                r.ending === null ? '' : `Campaign ending: ${r.ending.ending}`,
-              ]
-                .filter((text) => text !== '')
-                .join('\n'),
-        );
+        return print(command, player.queries.getTurnReport());
       case 'history':
-        return print(command, player.queries.getHistory(), (h) =>
-          table(
-            h.entries.map((e) => ({
-              turn: e.turn,
-              moneyStart: e.turnStart.money,
-              moneyEnd: e.turnEnd.money,
-              panic: e.report.panicAfter,
-              missions: e.report.missions.map((m) => m.result).join(' ') || null,
-              expired: e.report.expiredMissionSites.length,
-            })),
-          ),
-        );
+        return print(command, player.queries.getHistory());
       case 'retained':
-        return print(command, player.queries.getHistory(), (h) =>
-          [
-            `Agents: ${h.retained.agents.map((a) => `${a.id} ${a.agentStatus}`).join(', ') || '(none)'}`,
-            `Missions: ${h.retained.missions.map((m) => `${m.id} ${m.lifecycle}`).join(', ') || '(none)'}`,
-            `Mission sites: ${h.retained.missionSites.map((s) => `${s.id} ${s.lifecycle}`).join(', ') || '(none)'}`,
-            `Investigations: ${h.retained.investigations.map((i) => `${i.id} ${i.lifecycle}`).join(', ') || '(none)'}`,
-          ].join('\n'),
+        return print(
+          command,
+          part(player.queries.getHistory(), (h) => h.retained),
         );
       case 'actions':
-        return print(command, player.queries.getAvailableActions(), (a) => JSON.stringify(a, null, 2));
+        return print(command, player.queries.getAvailableActions());
       case 'gamedata':
-        return print(command, player.queries.getGameData(), (g) => JSON.stringify(g, null, 2));
+        return print(command, player.queries.getGameData());
       case 'preview':
-        return print(
-          command,
-          player.queries.previewDeployment(first, rest),
-          (p) =>
-            `Team Combat rating ${p.teamCombatRating} against ${p.enemiesCombatRating ?? '-'}; ` +
-            (p.accepted ? 'deployAgents would be accepted.' : `rejected: ${p.message ?? ''}`),
-        );
+        return print(command, player.queries.previewDeployment(first, rest));
 
       case 'assign':
-        return print(
-          command,
-          await player.actions.assignAgents(rest, first as 'Standby'),
-          done('Agents assigned.'),
-        );
+        return print(command, await player.actions.assignAgents(rest, first as 'Standby'));
       case 'hire':
-        return print(command, await player.actions.hireAgent(), done('Agent hired.'));
+        return print(command, await player.actions.hireAgent());
       case 'dismiss':
-        return print(command, await player.actions.dismissAgents(args), done('Agents dismissed.'));
+        return print(command, await player.actions.dismissAgents(args));
       case 'buy':
-        return print(command, await player.actions.purchaseUpgrade(first), done('Upgrade purchased.'));
+        return print(command, await player.actions.purchaseUpgrade(first));
       case 'investigate':
-        return print(
-          command,
-          await player.actions.startInvestigation(first, rest),
-          done('Investigation started.'),
-        );
+        return print(command, await player.actions.startInvestigation(first, rest));
       case 'join':
-        return print(
-          command,
-          await player.actions.assignAgentsToInvestigation(first, rest),
-          done('Agents added.'),
-        );
+        return print(command, await player.actions.assignAgentsToInvestigation(first, rest));
       case 'deploy':
-        return print(command, await player.actions.deployAgents(first, rest), done('Agents deployed.'));
+        return print(command, await player.actions.deployAgents(first, rest));
       case 'next':
-        return print(command, await player.actions.advanceTurn(), done('Turn advanced.'));
+        return print(command, await player.actions.advanceTurn());
 
       case 'timeline':
-        return print(
-          command,
-          session.timeline.getStatus(),
-          (t) => `${t.timelineEntries} Timeline entries, ${t.undoneActions} Undone actions.`,
-        );
+        return print(command, session.timeline.getStatus());
       case 'undo':
-        return print(command, await session.timeline.undoAction(), done('Action undone.'));
+        return print(command, await session.timeline.undoAction());
       case 'redo':
-        return print(command, await session.timeline.redoAction(), done('Action redone.'));
+        return print(command, await session.timeline.redoAction());
       case 'undoall':
-        return print(command, await session.timeline.undoAllActions(), done('All actions undone.'));
+        return print(command, await session.timeline.undoAllActions());
       case 'redoall':
-        return print(command, await session.timeline.redoAllActions(), done('All actions redone.'));
+        return print(command, await session.timeline.redoAllActions());
       case 'autosaves':
-        return print(
-          command,
-          await session.timeline.getAutosaveStatus(),
-          (s) =>
-            `back: ${s.undoToAutosave ? `${s.undoToAutosave.autosaveKind} of Turn ${s.undoToAutosave.turn}` : 'unavailable'} | ` +
-            `forward: ${s.redoToAutosave ? `${s.redoToAutosave.autosaveKind} of Turn ${s.redoToAutosave.turn}` : 'unavailable'}`,
-        );
+        return print(command, await session.timeline.getAutosaveStatus());
       case 'back':
-        return print(
-          command,
-          await session.timeline.undoToAutosave(),
-          (t) => `Loaded the ${t.autosaveKind} Autosave of Turn ${t.turn}.`,
-        );
+        return print(command, await session.timeline.undoToAutosave());
       case 'forward':
-        return print(
-          command,
-          await session.timeline.redoToAutosave(),
-          (t) => `Loaded the ${t.autosaveKind} Autosave of Turn ${t.turn}.`,
-        );
+        return print(command, await session.timeline.redoToAutosave());
 
       case 'ais':
-        return print(command, session.autopilot.listAutopilotAis(), (rows) =>
-          table(rows as unknown as Row[]),
-        );
+        return print(command, session.autopilot.listAutopilotAis());
+      case 'engage': {
+        const limit = parseLimit(rest);
+        return limit === null
+          ? autopilotUsage(command)
+          : print(command, await session.autopilot.engage(first, limit));
+      }
       case 'auto': {
-        const limit: AutopilotLimit | null =
-          rest[0] === 'single'
-            ? { kind: 'singleAction' }
-            : rest[0] === 'turn'
-              ? { kind: 'untilTurnAdvanced' }
-              : rest[0] === 'turns'
-                ? { kind: 'turnAdvancements', count: Number(rest[1]) }
-                : null;
+        const limit = parseLimit(rest);
         if (limit === null) {
-          return usage(command, 'usage: auto <ai> single | auto <ai> turn | auto <ai> turns <count>');
+          return autopilotUsage(command);
         }
         const engaged = await session.autopilot.engage(first, limit);
         if (!engaged.ok) {
-          return print(command, engaged, done(''));
+          return print(command, engaged);
         }
-        return print(
-          command,
-          await session.autopilot.whenDisengaged(engaged.value.engagementId),
-          (r) =>
-            `Autopilot disengaged: ${r.reason}; ${r.progress.playerActions} Player actions, ${r.progress.turnAdvancements} turn advancements.`,
-        );
+        return print(command, await session.autopilot.whenDisengaged(engaged.value.engagementId));
       }
+      case 'autostatus':
+        return print(command, session.autopilot.getStatus(first));
+      case 'disengage':
+        return print(command, await session.autopilot.disengage(first));
+      case 'wait':
+        return print(command, await session.autopilot.whenDisengaged(first));
 
       case 'dev':
         if (first !== 'on' && first !== 'off') {
           return usage(command, 'usage: dev on | dev off');
         }
-        return print(
-          command,
-          first === 'on' ? session.developer.enable() : session.developer.disable(),
-          done(`Dev mode ${first}.`),
-        );
+        return print(command, first === 'on' ? session.developer.enable() : session.developer.disable());
       case 'inspect':
-        return print(command, developer.queries.getCampaignState(), (v) => JSON.stringify(v, null, 2));
+        return print(command, developer.queries.getCampaignState());
       case 'addmoney':
-        return print(command, await developer.actions.addMoney(Number(first)), done('Money added.'));
+        return print(command, await developer.actions.addMoney(Number(first)));
       case 'addagents':
-        return print(command, await developer.actions.addAgents(Number(first)), done('Agents added.'));
+        return print(command, await developer.actions.addAgents(Number(first)));
       case 'override':
         return print(
           command,
           await developer.actions.overrideRandomOutcome(first, parseValue(rest[0] ?? '')),
-          done('Override set.'),
         );
       default:
         return usage(command, `Unknown command "${command}". Type help.`);

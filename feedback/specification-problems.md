@@ -178,3 +178,25 @@
   requires an Agent whose Assignment is Recovery and that is not In transit to be Recovering.
 - **Links:** DEC-033
 - **Resolution:** Open
+
+## PROB-016: How the Command-Line Interface names operations and chooses its Output form is a TODO
+
+- **Category:** Needed TODO
+- **Affected specifications:** CLI, TODOs: "TODO: State how the CLI names operations and their arguments, and how a
+  caller discovers the available ones" and "TODO: State how a caller chooses between readable and structured output,
+  and what the structured output looks like".
+- **Description:** A CLI needs command names, argument syntax, a way to list the commands, a way to choose the Output
+  form, and a format for structured output, and the specification leaves all of them open.
+- **Links:** DEC-027
+- **Resolution:** Open
+
+## PROB-017: What the Main menu and the Campaign screens of the Graphical User Interface show is a TODO
+
+- **Category:** Needed TODO
+- **Affected specifications:** GUI, TODOs: "TODO: State what the Main menu offers by default", "list the screens the Player needs while a
+  Campaign is current", and "state how the GUI reaches Advance turn, Timeline navigation, saving, and Autopilot".
+- **Description:** A GUI needs screens for the Main menu and for playing a Campaign, and a way to reach Advance turn,
+  Timeline navigation, saving, and Autopilot. The specification states only that the GUI opens at the Main menu and
+  leaves the rest open.
+- **Links:** DEC-007
+- **Resolution:** Open
