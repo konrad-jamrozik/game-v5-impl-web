@@ -127,15 +127,9 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
         typeof current['turn'] === 'number' &&
         isRecord(current['rng']) &&
         isRecord(current['agency']) &&
-        [
-          'agents',
-          'factions',
-          'investigations',
-          'missionSites',
-          'missions',
-          'enemies',
-          'leadProgression',
-        ].every((key) => isRecord(current[key])) &&
+        ['agents', 'factions', 'investigations', 'missionSites', 'missions', 'enemies'].every((key) =>
+          isRecord(current[key]),
+        ) &&
         Array.isArray(current['randomOverrides']) &&
         Array.isArray(current['endingReasons']) &&
         Array.isArray(history['historyEntries']) &&

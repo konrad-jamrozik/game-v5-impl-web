@@ -65,7 +65,7 @@ export function createMissionSite(input: {
       },
       state: {
         lifecycle: 'Active',
-        turnsUntilExpiry: input.archetype.expiresInTurns,
+        turnsUntilExpiration: input.archetype.expiresInTurns,
         enemies: enemies.map((enemy) => enemy.id),
       },
     },
@@ -102,7 +102,7 @@ export interface ConsequenceAmounts {
   readonly fundingChange: number;
   readonly panicIncrease: number;
   readonly panicReduction: number;
-  readonly defeatTargetFaction: boolean;
+  readonly eliminateTargetFaction: boolean;
 }
 
 const NO_CONSEQUENCE: ConsequenceAmounts = {
@@ -110,7 +110,7 @@ const NO_CONSEQUENCE: ConsequenceAmounts = {
   fundingChange: 0,
   panicIncrease: 0,
   panicReduction: 0,
-  defeatTargetFaction: false,
+  eliminateTargetFaction: false,
 };
 
 /**
@@ -134,7 +134,7 @@ export function consequencesOf(
       fundingChange: archetype.onWin.funding,
       panicIncrease: 0,
       panicReduction: archetype.onWin.panicReductionPct,
-      defeatTargetFaction: archetype.onWin.defeatTargetFaction,
+      eliminateTargetFaction: archetype.onWin.eliminateTargetFaction,
     };
   }
   const level = must(operationLevel, 'FactionOperationLevel of a Response Mission site');

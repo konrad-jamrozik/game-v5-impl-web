@@ -39,7 +39,7 @@ const schemas = {
       id,
       type: z.literal('AgentArchetype'),
       name,
-      skill: whole(0),
+      base_skill: whole(0),
       base_health: whole(1),
       weapon: id,
     })
@@ -47,7 +47,7 @@ const schemas = {
       type: g.type,
       id: g.id,
       name: g.name,
-      skill: g.skill,
+      skill: g.base_skill,
       baseHealth: g.base_health,
       weapon: g.weapon,
     })),
@@ -74,13 +74,15 @@ const schemas = {
       exhaustionPerDefense: g.exhaustion_per_defense,
       trainingSkillGainPerTurn: g.training_skill_gain_per_turn,
     })),
-  Weapon: z.strictObject({ id, type: z.literal('Weapon'), name, damage: whole(1) }),
+  Weapon: z
+    .strictObject({ id, type: z.literal('Weapon'), name, base_weapon_damage: whole(1) })
+    .transform((g) => ({ type: g.type, id: g.id, name: g.name, damage: g.base_weapon_damage })),
   EnemyArchetype: z
     .strictObject({
       id,
       type: z.literal('EnemyArchetype'),
       name,
-      skill: whole(0),
+      base_skill: whole(0),
       base_health: whole(1),
       weapon: id,
     })
@@ -88,7 +90,7 @@ const schemas = {
       type: g.type,
       id: g.id,
       name: g.name,
-      skill: g.skill,
+      skill: g.base_skill,
       baseHealth: g.base_health,
       weapon: g.weapon,
     })),
@@ -238,14 +240,14 @@ const schemas = {
       on_completion: entries(z.unknown()),
     })
     .transform((g, context) => {
-      const requires: { missionWonFromLead: string }[] = [];
+      const requires: { missionWon: string }[] = [];
       for (const entry of g.requires) {
         const [only] = entry;
-        if (entry.length !== 1 || only?.[0] !== 'mission_won_from_lead' || typeof only[1] !== 'string') {
+        if (entry.length !== 1 || only?.[0] !== 'mission_won' || typeof only[1] !== 'string') {
           context.addIssue({ code: 'custom', message: 'Prerequisite kinds are known' });
           return z.NEVER;
         }
-        requires.push({ missionWonFromLead: only[1] });
+        requires.push({ missionWon: only[1] });
       }
       const [effect] = g.on_completion;
       if (
@@ -285,7 +287,7 @@ const schemas = {
           money: whole(0).optional(),
           funding: whole(0).optional(),
           panic_reduction_pct: whole(0).optional(),
-          defeat_target_faction: z.boolean().optional(),
+          eliminate_target_faction: z.boolean().optional(),
         })
         .safeParse(Object.fromEntries(g.on_win ?? []));
       if (!onWin.success || (g.kind === 'response' && g.on_win !== undefined)) {
@@ -311,7 +313,7 @@ const schemas = {
           money: onWin.data.money ?? 0,
           funding: onWin.data.funding ?? 0,
           panicReductionPct: onWin.data.panic_reduction_pct ?? 0,
-          defeatTargetFaction: onWin.data.defeat_target_faction ?? false,
+          eliminateTargetFaction: onWin.data.eliminate_target_faction ?? false,
         },
         operationLevel: g.operation_level ?? null,
       };
@@ -507,13 +509,13 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   }
 
   // LEAD, Lead GDR validation.
-  const leadById = new Map(leads.map((lead) => [lead.id, lead]));
+  const siteIds = new Set(missionSiteArchetypes.map((site) => site.id));
   for (const lead of leads) {
     if (!factionArchetypes.some((archetype) => archetype.id === lead.faction)) {
       problems.push(`Lead ${lead.id}: Faction resolves`);
     }
-    const required = lead.requires.map((entry) => entry.missionWonFromLead);
-    if (required.some((other) => !leadById.has(other)) || new Set(required).size !== required.length) {
+    const required = lead.requires.map((entry) => entry.missionWon);
+    if (required.some((site) => !siteIds.has(site)) || new Set(required).size !== required.length) {
       problems.push(`Lead ${lead.id}: Prerequisite references resolve`);
     }
     const created = missionSiteArchetypes.find((site) => site.id === lead.onCompletion.createMissionSite);
@@ -526,10 +528,10 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
         return true;
       }
       visiting.add(current.id);
-      const found = current.requires.some((entry) => {
-        const next = leadById.get(entry.missionWonFromLead);
-        return next !== undefined && hasCycle(next);
-      });
+      // Each Lead points to every Lead whose create_mission_site names a MissionSiteArchetype its requires names.
+      const found = current.requires.some((entry) =>
+        leads.some((next) => next.onCompletion.createMissionSite === entry.missionWon && hasCycle(next)),
+      );
       visiting.delete(current.id);
       return found;
     };

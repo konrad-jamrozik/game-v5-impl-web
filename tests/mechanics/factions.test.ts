@@ -57,8 +57,8 @@ describe('FACTION: Acceptance examples', () => {
       activityLevel: 'faint',
       turnsUntilNextLevel: 60,
       turnsUntilNextOperation: 15,
-      defeated: false,
-      defeatedTurn: null,
+      eliminated: false,
+      eliminatedTurn: null,
     });
     expect(created.constants).toEqual({});
 
@@ -86,7 +86,7 @@ describe('FACTION: Acceptance examples', () => {
         targetFaction: f,
         turnCreated: 15,
       },
-      state: { lifecycle: 'Active', turnsUntilExpiry: 3 },
+      state: { lifecycle: 'Active', turnsUntilExpiration: 3 },
     });
 
     // Second operation, Advance turn ending turn 40.
@@ -118,7 +118,7 @@ describe('FACTION: Acceptance examples', () => {
       turnsUntilNextOperation: 11,
     });
     expect(sites(used)).toHaveLength(3);
-    expect(sites(used)[2]!.state.turnsUntilExpiry).toBe(4);
+    expect(sites(used)[2]!.state.turnsUntilExpiration).toBe(4);
     // An Operation interval of 11 is outside `faint`'s 15 to 25, so it proves the new level was read.
     expect(used.world.current.turn).toBe(61);
   });
@@ -162,7 +162,7 @@ describe('FACTION: Acceptance examples', () => {
     expect(sites(state)).toHaveLength(2);
   });
 
-  it('Defeat stops escalation and operations', () => {
+  it('Elimination stops escalation and operations', () => {
     let state = withAgents(newCampaign({ money: 100_000 }), 12);
     for (let i = 0; i < 4; i += 1) {
       state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
@@ -178,8 +178,8 @@ describe('FACTION: Acceptance examples', () => {
       activityLevel: 'active',
       turnsUntilNextLevel: 1,
       turnsUntilNextOperation: 1,
-      defeated: true,
-      defeatedTurn: 120,
+      eliminated: true,
+      eliminatedTurn: 120,
     });
     expect(sites(state)).toHaveLength(1);
     expect(state.world.current.ending).toBe('Victory');
@@ -242,8 +242,8 @@ describe('FACTION: Acceptance examples', () => {
         ],
         next: 'active',
       },
-      defeated: false,
-      defeatedTurn: null,
+      eliminated: false,
+      eliminatedTurn: null,
     });
     const text = JSON.stringify(currentStateView(state, gdrs));
     expect(text).not.toMatch(/turnsUntilNext|"45"|:45[,}]/);
@@ -255,8 +255,8 @@ describe('FACTION: Acceptance examples', () => {
       'archetype',
       'name',
       'activityLevel',
-      'defeated',
-      'defeatedTurn',
+      'eliminated',
+      'eliminatedTurn',
     ]);
   });
 

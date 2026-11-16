@@ -4,7 +4,6 @@ import type { Faction, Investigation, Mission, MissionSite } from '../../state/t
 
 /** The parts of Current world state that Lead availability reads. */
 export interface LeadWorld {
-  readonly leadProgression: Readonly<Record<string, readonly string[]>>;
   readonly missionSites: Readonly<Record<string, MissionSite>>;
   readonly missions: Readonly<Record<string, Mission>>;
   readonly investigations: Readonly<Record<string, Investigation>>;
@@ -15,13 +14,13 @@ export interface LeadAvailability {
   readonly available: boolean;
   /** Condition 1, with each prerequisite and whether it holds. */
   readonly prerequisitesHold: boolean;
-  readonly prerequisites: readonly { readonly lead: string; readonly holds: boolean }[];
+  readonly prerequisites: readonly { readonly missionWon: string; readonly holds: boolean }[];
   /** Condition 2. */
-  readonly noWinRecorded: boolean;
+  readonly noMissionWon: boolean;
   /** Condition 3. */
   readonly noMissionSiteInProgress: boolean;
   /** Condition 4. */
-  readonly factionNotDefeated: boolean;
+  readonly factionNotEliminated: boolean;
   /** The numbers of the conditions that do not hold. */
   readonly blockingConditions: readonly number[];
 }
@@ -37,18 +36,28 @@ export function leadOfMissionSite(
   return investigations[site.constants.origin.investigation]?.constants.lead ?? null;
 }
 
-export function hasRecordedWin(leadId: string, world: Pick<LeadWorld, 'leadProgression'>): boolean {
-  return (world.leadProgression[leadId]?.length ?? 0) > 0;
+/** The Mission sites that have a Won Mission. */
+function sitesWithWonMission(world: Pick<LeadWorld, 'missions' | 'missionSites'>): MissionSite[] {
+  return Object.values(world.missions).flatMap((mission) => {
+    const site = world.missionSites[mission.constants.missionSite];
+    return mission.state.lifecycle === 'Won' && site !== undefined ? [site] : [];
+  });
 }
 
 /** LEAD, Lead availability: the four conditions, each read from the given Committed state. */
 export function leadAvailability(lead: LeadGdr, world: LeadWorld): LeadAvailability {
+  const faction = Object.values(world.factions).find((item) => item.archetype === lead.faction);
+  const won = sitesWithWonMission(world);
+  // LEAD, Prerequisites: a Won Mission at a Mission site of the named MissionSiteArchetype that targets the Faction of
+  // the Lead, whichever Lead, if any, created the Mission site.
   const prerequisites = lead.requires.map((entry) => ({
-    lead: entry.missionWonFromLead,
-    holds: hasRecordedWin(entry.missionWonFromLead, world),
+    missionWon: entry.missionWon,
+    holds: won.some(
+      (site) => site.archetype === entry.missionWon && site.constants.targetFaction === faction?.id,
+    ),
   }));
   const prerequisitesHold = prerequisites.every((entry) => entry.holds);
-  const noWinRecorded = !hasRecordedWin(lead.id, world);
+  const noMissionWon = !won.some((site) => leadOfMissionSite(site, world.investigations) === lead.id);
 
   let inProgress = false;
   for (const site of Object.values(world.missionSites)) {
@@ -65,18 +74,17 @@ export function leadAvailability(lead: LeadGdr, world: LeadWorld): LeadAvailabil
     }
   }
 
-  const faction = Object.values(world.factions).find((item) => item.archetype === lead.faction);
-  const factionNotDefeated = faction !== undefined && !faction.state.defeated;
+  const factionNotEliminated = faction !== undefined && !faction.state.eliminated;
 
-  const conditions = [prerequisitesHold, noWinRecorded, !inProgress, factionNotDefeated];
+  const conditions = [prerequisitesHold, noMissionWon, !inProgress, factionNotEliminated];
   const blockingConditions = conditions.flatMap((holds, index) => (holds ? [] : [index + 1]));
   return {
     available: blockingConditions.length === 0,
     prerequisitesHold,
     prerequisites,
-    noWinRecorded,
+    noMissionWon,
     noMissionSiteInProgress: !inProgress,
-    factionNotDefeated,
+    factionNotEliminated,
     blockingConditions,
   };
 }

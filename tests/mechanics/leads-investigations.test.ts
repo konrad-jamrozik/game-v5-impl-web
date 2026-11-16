@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { completionProbability } from '../../src/engine/mechanics/investigations/investigations.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
-import type { CampaignState } from '../../src/engine/state/types.ts';
+import { isServing, type CampaignState } from '../../src/engine/state/types.ts';
 import { currentStateView, historyView } from '../../src/engine/views/views.ts';
 import type { GdrCatalog } from '../../src/gdr/index.ts';
 import {
@@ -11,6 +11,7 @@ import {
   advance,
   agent,
   agentIds,
+  arriveAgent,
   catalogWith,
   expectDefective,
   expectRejected,
@@ -37,9 +38,7 @@ const completes = (id: string, value: boolean) => ({ [`investigation.completion.
 const arrive = (state: CampaignState) =>
   tweak(state, (world) => {
     for (const item of Object.values(world.agents)) {
-      if (item.state.lifecycle === 'Serving') {
-        item.state.taskPhase = 'AtAssignment';
-      }
+      arriveAgent(item.state);
     }
   });
 const MEMBER = 'locate_red_dawn_member';
@@ -48,7 +47,7 @@ const HQ = 'locate_red_dawn_hq';
 
 /** Plays the Victory path up to a Won Mission from the given Lead, with every outcome injected. */
 function winLead(state: CampaignState, lead: string): CampaignState {
-  const ids = agentIds(state).filter((id) => agent(state, id).state.lifecycle === 'Serving');
+  const ids = agentIds(state).filter((id) => isServing(agent(state, id).state));
   let next = act(arrive(state), 'startInvestigation', { lead, agents: ids.slice(0, 1) });
   const investigation = investigations(next).at(-1)!.id;
   next = tweak(arrive(next), (world) => {
@@ -62,7 +61,7 @@ function winLead(state: CampaignState, lead: string): CampaignState {
   expect(next.world.current.missions[missionAt(next, site)]!.state.lifecycle).toBe('Won');
   return tweak(arrive(next), (world) => {
     for (const item of Object.values(world.agents)) {
-      if (item.state.lifecycle === 'Serving') {
+      if (isServing(item.state)) {
         item.state.currentHealth = item.state.baseHealth;
         item.state.exhaustion = 0;
         item.state.assignment = { kind: 'Standby' };
@@ -74,26 +73,26 @@ function winLead(state: CampaignState, lead: string): CampaignState {
 describe('LEAD: Acceptance examples', () => {
   it('Campaign creation', () => {
     const state = newCampaign();
-    expect(state.world.current.leadProgression).toEqual({ [MEMBER]: [], [SAFEHOUSE]: [], [HQ]: [] });
+    // Leads add nothing to Campaign state.
+    expect(state.world.current).not.toHaveProperty('leadProgression');
     expect(blocking(state)).toEqual({ [MEMBER]: [], [SAFEHOUSE]: [1], [HQ]: [1] });
     const view = leads(state);
     expect(view[MEMBER]).toMatchObject({
       available: true,
       canBeInvestigatedNow: true,
       requires: [],
-      recordedWins: [],
     });
     expect(view[HQ]).toMatchObject({
       available: false,
       difficulty: 10,
       factionArchetype: 'red_dawn',
       createsMissionSite: 'raid_hq',
-      requires: [{ lead: SAFEHOUSE, holds: false }],
+      requires: [{ missionWon: 'raid_safehouse', holds: false }],
       conditions: {
         prerequisitesHold: false,
-        noWinRecorded: true,
+        noMissionWon: true,
         noMissionSiteInProgress: true,
-        factionNotDefeated: true,
+        factionNotEliminated: true,
       },
     });
   });
@@ -120,16 +119,15 @@ describe('LEAD: Acceptance examples', () => {
     expect(s1).toMatchObject({ archetype: 'apprehend_member', state: { lifecycle: 'Active' } });
     expect(s1.constants.targetFaction).toBe(onlyFaction(state).id);
     expect(blocking(state)).toEqual({ [MEMBER]: [3], [SAFEHOUSE]: [1], [HQ]: [1] });
-    expect(state.world.current.leadProgression[MEMBER]).toEqual([]);
 
     state = act(arrive(state), 'deployAgents', { missionSite: s1.id, agents: ids });
     expect(blocking(state)[MEMBER]).toEqual([3]);
     state = advance(state, winning(state, s1.id));
     const m1 = missionAt(state, s1.id);
-    expect(state.world.current.leadProgression[MEMBER]).toEqual([m1]);
+    expect(state.world.current.missions[m1]!.state.lifecycle).toBe('Won');
     expect(blocking(state)).toEqual({ [MEMBER]: [2], [SAFEHOUSE]: [], [HQ]: [1] });
-    expect(leads(state)[MEMBER]).toMatchObject({ recordedWins: [m1], available: false });
-    expect(leads(state)[HQ]!.requires).toEqual([{ lead: SAFEHOUSE, holds: false }]);
+    expect(leads(state)[MEMBER]).toMatchObject({ available: false, conditions: { noMissionWon: false } });
+    expect(leads(state)[HQ]!.requires).toEqual([{ missionWon: 'raid_safehouse', holds: false }]);
     expectRejected(
       arrive(state),
       'startInvestigation',
@@ -149,23 +147,22 @@ describe('LEAD: Acceptance examples', () => {
     state = act(arrive(state), 'deployAgents', { missionSite: s2, agents: [ids[1]] });
     state = advance(state, losing(state, s2));
     expect(state.world.current.missions[missionAt(state, s2)]!.state.lifecycle).toBe('Lost');
-    expect(state.world.current.leadProgression[SAFEHOUSE]).toEqual([]);
     expect(blocking(state)).toMatchObject({ [SAFEHOUSE]: [], [HQ]: [1] });
 
     // Expired: the new Mission site does not count down in the Advance turn that creates it.
     state = tweak(arrive(state), (world) => {
       for (const item of Object.values(world.agents)) {
-        if (item.state.lifecycle === 'Serving') {
+        if (isServing(item.state)) {
           item.state.currentHealth = item.state.baseHealth;
           item.state.assignment = { kind: 'Standby' };
         }
       }
     });
-    const serving = agentIds(state).filter((id) => agent(state, id).state.lifecycle === 'Serving');
+    const serving = agentIds(state).filter((id) => isServing(agent(state, id).state));
     state = act(state, 'startInvestigation', { lead: SAFEHOUSE, agents: [serving[0]] });
     state = advance(arrive(state), completes(investigations(state).at(-1)!.id, true));
     const s3 = sites(state).at(-1)!;
-    expect(s3.state.turnsUntilExpiry).toBe(8);
+    expect(s3.state.turnsUntilExpiration).toBe(8);
     for (let i = 0; i < 8; i += 1) {
       expect(blocking(state)[SAFEHOUSE]).toEqual([3]);
       state = advance(state);
@@ -173,23 +170,28 @@ describe('LEAD: Acceptance examples', () => {
     expect(state.world.current.missionSites[s3.id]!.state.lifecycle).toBe('Expired');
     expect(blocking(state)[SAFEHOUSE]).toEqual([]);
 
-    // Won: recorded for the Lead; the Lost Mission stays unrecorded.
+    // Won: the prerequisite of hq holds; the Lost Mission did not make it hold.
     state = winLead(state, SAFEHOUSE);
-    const wins = state.world.current.leadProgression[SAFEHOUSE]!;
+    const wins = Object.values(state.world.current.missions).filter(
+      (mission) =>
+        mission.state.lifecycle === 'Won' &&
+        sites(state).find((site) => site.id === mission.constants.missionSite)?.archetype ===
+          'raid_safehouse',
+    );
     expect(wins).toHaveLength(1);
-    expect(wins[0]).not.toBe(missionAt(state, s2));
+    expect(wins[0]!.id).not.toBe(missionAt(state, s2));
     expect(blocking(state)).toEqual({ [MEMBER]: [2], [SAFEHOUSE]: [2], [HQ]: [] });
   });
 
-  it('The last Lead and the defeat of Red Dawn', () => {
+  it('The last Lead and the elimination of Red Dawn', () => {
     let state = withAgents(newCampaign({ money: 100_000 }), 12);
     for (let i = 0; i < 4; i += 1) {
       state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
     }
     state = winLead(winLead(winLead(state, MEMBER), SAFEHOUSE), HQ);
-    expect(onlyFaction(state).state.defeated).toBe(true);
+    expect(onlyFaction(state).state.eliminated).toBe(true);
     expect(blocking(state)).toEqual({ [MEMBER]: [2, 4], [SAFEHOUSE]: [2, 4], [HQ]: [2, 4] });
-    expect(leads(state)[HQ]!.requires).toEqual([{ lead: SAFEHOUSE, holds: true }]);
+    expect(leads(state)[HQ]!.requires).toEqual([{ missionWon: 'raid_safehouse', holds: true }]);
     expect(state.world.current.ending).toBe('Victory');
   });
 
@@ -211,7 +213,7 @@ describe('LEAD: Acceptance examples', () => {
     expect(investigations(state)[1]!.id).not.toBe(i1);
   });
 
-  it('A Mission site Cancelled by the defeat of its Faction', () => {
+  it('A Mission site Cancelled by the elimination of its Faction', () => {
     const catalog = catalogWith((raw) =>
       raw.add('leads-and-progression/leads.yaml', {
         ...raw.get(MEMBER),
@@ -239,12 +241,11 @@ describe('LEAD: Acceptance examples', () => {
     const s7 = sites(state).at(-1)!;
     expect(s7).toMatchObject({ archetype: 'apprehend_member', state: { lifecycle: 'Cancelled' } });
     expect(blocking(state, catalog)['test_lead']).toEqual([4]);
-    expect(state.world.current.leadProgression['test_lead']).toEqual([]);
-    expect(state.world.current.leadProgression[HQ]).toHaveLength(1);
+    expect(state.world.current.missions[missionAt(state, hq.site)]!.state.lifecycle).toBe('Won');
     expect(currentStateView(state, catalog).missionSites).toHaveLength(0);
   });
 
-  it('Two Leads requiring the same Lead', () => {
+  it('Two Leads requiring the same MissionSiteArchetype', () => {
     const catalog = catalogWith((raw) => {
       for (const id of ['test_lead_a', 'test_lead_b']) {
         raw.add('leads-and-progression/leads.yaml', { ...raw.get(SAFEHOUSE), id, difficulty: 1 });
@@ -269,12 +270,44 @@ describe('LEAD: Acceptance examples', () => {
     expect(checkInvariants(state, catalog)).toEqual([]);
   });
 
+  it('Prerequisites: a Won Response Mission counts; a Mission site of another Faction does not', () => {
+    const catalog = catalogWith((raw) =>
+      raw.add('leads-and-progression/leads.yaml', {
+        ...raw.get(SAFEHOUSE),
+        id: 'test_lead',
+        requires: [{ $entries: [['mission_won', 'foil_sabotage']] }],
+      }),
+    );
+    let state = withAgents(newCampaign({ catalog }), 4);
+    expect(blocking(state, catalog)['test_lead']).toEqual([1]);
+    const site = addMissionSite(state, 'foil_sabotage', { catalog });
+    state = act(
+      site.state,
+      'deployAgents',
+      { missionSite: site.site, agents: agentIds(site.state).slice(0, 4) },
+      'player',
+      catalog,
+    );
+    state = advance(state, winning(state, site.site), catalog);
+    expect(state.world.current.missions[missionAt(state, site.site)]!.state.lifecycle).toBe('Won');
+    expect(blocking(state, catalog)['test_lead']).toEqual([]);
+    // The same Won Mission at a Mission site that targets another Faction makes no prerequisite hold.
+    const elsewhere = tweak(state, (world) => {
+      (world.missionSites[site.site]!.constants as { targetFaction: string }).targetFaction =
+        'no_such_faction';
+    });
+    expect(blocking(elsewhere, catalog)['test_lead']).toEqual([1]);
+  });
+
   it('GDR validation', () => {
-    const requires = (lead: string) => ({ $entries: [['mission_won_from_lead', lead]] });
-    expectDefective((raw) => raw.get(MEMBER)['requires'].push(requires(HQ)));
-    expectDefective((raw) => (raw.get(SAFEHOUSE)['requires'] = [requires(SAFEHOUSE)]));
-    expectDefective((raw) => (raw.get(HQ)['requires'] = [requires('no_such_lead')]));
-    expectDefective((raw) => raw.get(HQ)['requires'].push(requires(SAFEHOUSE)));
+    const requires = (site: string) => ({ $entries: [['mission_won', site]] });
+    expectDefective((raw) => raw.get(MEMBER)['requires'].push(requires('raid_hq')));
+    expectDefective((raw) => (raw.get(SAFEHOUSE)['requires'] = [requires('raid_safehouse')]));
+    expectDefective((raw) => (raw.get(HQ)['requires'] = [requires('no_such_site')]));
+    expectDefective((raw) => raw.get(HQ)['requires'].push(requires('raid_safehouse')));
+    expectDefective(
+      (raw) => (raw.get(SAFEHOUSE)['requires'] = [{ $entries: [['mission_won_from_lead', MEMBER]] }]),
+    );
     expectDefective((raw) => (raw.get(MEMBER)['faction'] = 'apprehend_member'));
     expectDefective((raw) => (raw.get(MEMBER)['difficulty'] = 0));
     expectDefective((raw) => (raw.get(MEMBER)['difficulty'] = { $decimal: '2.5' }));
@@ -282,7 +315,7 @@ describe('LEAD: Acceptance examples', () => {
     expectDefective((raw) => raw.get(MEMBER)['on_completion'].$entries.push(['second_effect', 1]));
     expectDefective((raw) => (raw.get(MEMBER)['on_completion'].$entries[0][0] = 'create_mission'));
     expectDefective(
-      (raw) => (raw.get(SAFEHOUSE)['requires'] = [{ $entries: [['mission_lost_from_lead', MEMBER]] }]),
+      (raw) => (raw.get(SAFEHOUSE)['requires'] = [{ $entries: [['mission_lost', 'apprehend_member']] }]),
     );
     expectDefective((raw) => (raw.get(MEMBER)['repeatable'] = true));
   });
@@ -304,7 +337,7 @@ describe('INVSTG: Acceptance examples', () => {
     });
     expect(agent(state, a1).state).toMatchObject({
       assignment: { kind: 'Investigation', investigation: i1.id },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
     });
     expect(projected(state)).toEqual({ n: '0', d: '1' });
     state = advance(state);
@@ -325,7 +358,7 @@ describe('INVSTG: Acceptance examples', () => {
     expect(sites(state)[0]!.archetype).toBe('apprehend_member');
     expect(agent(state, a1).state).toMatchObject({
       assignment: { kind: 'Standby' },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
       exhaustion: 0,
       participationHistory: [{ kind: 'Investigation', id: i1.id }],
     });
@@ -399,8 +432,8 @@ describe('INVSTG: Acceptance examples', () => {
     expect(investigation().progress).toBe(300);
     state = act(state, 'assignAgentsToInvestigation', { investigation: i4, agents: [a3] });
     expect(view().currentTeam).toEqual([
-      { agent: a1, taskPhase: 'AtAssignment' },
-      { agent: a3, taskPhase: 'InTransit' },
+      { agent: a1, agentStatus: 'AtAssignment' },
+      { agent: a3, agentStatus: 'InTransit' },
     ]);
     expect(view().projectedCompletionProbability).toEqual({ n: '2', d: '3' });
     state = advance(state, completes(i4, true));
@@ -409,7 +442,7 @@ describe('INVSTG: Acceptance examples', () => {
     for (const id of [a1, a3]) {
       expect(agent(state, id).state).toMatchObject({
         assignment: { kind: 'Standby' },
-        taskPhase: 'InTransit',
+        status: 'InTransit',
       });
       expect(agent(state, id).state.participationHistory.at(-1)).toEqual({ kind: 'Investigation', id: i4 });
     }
@@ -521,15 +554,15 @@ describe('INVSTG: Acceptance examples', () => {
     expect(sites(forward)).toHaveLength(1);
   });
 
-  it('An Investigation whose Faction is Defeated', () => {
+  it('An Investigation whose Faction is Eliminated', () => {
     let state = newCampaign({ money: 100_000 });
     const [a1, a2] = agentIds(state) as [string, string];
     state = arrive(act(state, 'startInvestigation', { lead: MEMBER, agents: [a1] }));
     const i10 = investigations(state)[0]!.id;
     state = tweak(state, (world) => {
       const faction = Object.values(world.factions)[0]!;
-      faction.state.defeated = true;
-      faction.state.defeatedTurn = 1;
+      faction.state.eliminated = true;
+      faction.state.eliminatedTurn = 1;
     });
     expect(state.world.current.investigations[i10]!.state.lifecycle).toBe('Active');
     expectRejected(state, 'startInvestigation', { lead: MEMBER, agents: [a2] }, 'lead_not_available');
@@ -557,6 +590,7 @@ describe('INVSTG: Acceptance examples', () => {
     state = tweak(state, (world) => {
       world.agents[a3]!.state.currentHealth = 5;
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
+      world.agents[a3]!.state.status = 'Recovering';
     });
     const site = addMissionSite(state, 'foil_recruitment_push');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a4] });

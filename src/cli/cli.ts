@@ -2,7 +2,15 @@
  * The terminal adapter: one command per line over the engine API. It implements no gameplay rule: every figure it
  * prints comes from a query, and every command is one engine API operation; see ENG, API hierarchy.
  */
-import type { AutopilotLimit, Engine, Result } from '../engine/index.ts';
+import type { AgentStatus, AutopilotLimit, Engine, Result } from '../engine/index.ts';
+
+const STATUS_NAMES: Record<AgentStatus, string> = {
+  AtAssignment: 'At assignment',
+  InTransit: 'In transit',
+  Recovering: 'Recovering',
+  Killed: 'Killed',
+  Dismissed: 'Dismissed',
+};
 
 export interface CliOutput {
   /** Whether to print each result as one line of JSON, for scripts and LLM players. */
@@ -190,8 +198,8 @@ export function createCli(engine: Engine, out: CliOutput) {
                     : a.assignment.kind === 'Deployed'
                       ? `Deployed ${a.assignment.mission}`
                       : a.assignment.kind,
-              phase: a.taskPhase === 'InTransit' ? 'In transit' : 'At assignment',
-              orderable: a.canBeOrdered,
+              status: STATUS_NAMES[a.agentStatus],
+              assignable: a.canBeAssigned,
               recovery: a.recoveryTurnsRemaining,
             })),
           ),
@@ -207,7 +215,7 @@ export function createCli(engine: Engine, out: CliOutput) {
               blocking: l.blockingConditions.join(',') || null,
               investigable: l.canBeInvestigatedNow,
               investigation: l.activeInvestigation,
-              wins: l.recordedWins.length,
+              won: !l.conditions.noMissionWon,
               creates: l.createsMissionSite,
             })),
           ),
@@ -235,12 +243,12 @@ export function createCli(engine: Engine, out: CliOutput) {
               name: s.name,
               kind: s.kind,
               state: s.lifecycle,
-              expires: s.turnsUntilExpiry,
+              expires: s.turnsUntilExpiration,
               enemies: s.enemies.length,
               rating: s.enemiesCombatRating,
               reward:
                 `money ${s.rewards.money}, funding ${s.rewards.fundingChange}, panic -${s.rewards.panicReduction}` +
-                (s.rewards.defeatsTargetFaction ? ', defeats Faction' : ''),
+                (s.rewards.eliminatesTargetFaction ? ', eliminates Faction' : ''),
               penalty: `panic +${s.penalties.panicIncrease}, funding ${s.penalties.fundingChange}`,
               mission: s.mission,
             })),
@@ -266,8 +274,8 @@ export function createCli(engine: Engine, out: CliOutput) {
               name: f.name,
               activity: f.activityLevel.name,
               next: f.activityLevel.next,
-              defeated: f.defeated,
-              defeatedTurn: f.defeatedTurn,
+              eliminated: f.eliminated,
+              eliminatedTurn: f.eliminatedTurn,
             })),
           ),
         );
@@ -318,7 +326,7 @@ export function createCli(engine: Engine, out: CliOutput) {
       case 'retained':
         return print(command, player.queries.getHistory(), (h) =>
           [
-            `Agents: ${h.retained.agents.map((a) => `${a.id} ${a.lifecycle}`).join(', ') || '(none)'}`,
+            `Agents: ${h.retained.agents.map((a) => `${a.id} ${a.agentStatus}`).join(', ') || '(none)'}`,
             `Missions: ${h.retained.missions.map((m) => `${m.id} ${m.lifecycle}`).join(', ') || '(none)'}`,
             `Mission sites: ${h.retained.missionSites.map((s) => `${s.id} ${s.lifecycle}`).join(', ') || '(none)'}`,
             `Investigations: ${h.retained.investigations.map((i) => `${i.id} ${i.lifecycle}`).join(', ') || '(none)'}`,
@@ -341,7 +349,7 @@ export function createCli(engine: Engine, out: CliOutput) {
         return print(
           command,
           await player.actions.assignAgents(rest, first as 'Standby'),
-          done('Agents ordered.'),
+          done('Agents assigned.'),
         );
       case 'hire':
         return print(command, await player.actions.hireAgent(), done('Agent hired.'));

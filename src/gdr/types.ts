@@ -131,7 +131,7 @@ export interface LeadGdr {
   /** The identifier of a FactionArchetype. */
   readonly faction: string;
   readonly difficulty: number;
-  readonly requires: readonly { readonly missionWonFromLead: string }[];
+  readonly requires: readonly { readonly missionWon: string }[];
   readonly onCompletion: { readonly createMissionSite: string };
 }
 
@@ -154,7 +154,7 @@ export interface MissionSiteArchetypeGdr {
     readonly money: number;
     readonly funding: number;
     readonly panicReductionPct: number;
-    readonly defeatTargetFaction: boolean;
+    readonly eliminateTargetFaction: boolean;
   };
   /** Only for the `response` kind: the `level` of the Faction operation level it serves. */
   readonly operationLevel: number | null;

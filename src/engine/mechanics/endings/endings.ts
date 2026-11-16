@@ -13,16 +13,16 @@ export interface EndingDecision {
 
 /**
  * ENDING, Ending check step: Victory is tried first and holds when the Campaign has at least one Faction and every
- * Faction is Defeated; otherwise Defeat holds when Panic is at the Panic limit or money is below zero.
+ * Faction is Eliminated; otherwise Defeat holds when Panic is at the Panic limit or money is below zero.
  */
 export function checkEnding(input: {
-  factionsDefeated: readonly boolean[];
+  factionsEliminated: readonly boolean[];
   panic: number;
   panicLimit: number;
   money: number;
 }): EndingDecision | null {
-  if (input.factionsDefeated.length >= 1 && input.factionsDefeated.every((defeated) => defeated)) {
-    return { ending: 'Victory', reasons: ['EveryFactionDefeated'] };
+  if (input.factionsEliminated.length >= 1 && input.factionsEliminated.every((eliminated) => eliminated)) {
+    return { ending: 'Victory', reasons: ['EveryFactionEliminated'] };
   }
   const reasons: EndingReason[] = [];
   if (input.panic >= input.panicLimit) {

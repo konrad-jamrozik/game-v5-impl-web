@@ -6,7 +6,7 @@
 import { deepFreeze, detach, must, q, toProbabilityPair } from '../../kernel/index.ts';
 import { GAME_BUILD, type GdrCatalog, type MissionSiteArchetypeGdr } from '../../gdr/index.ts';
 import { applyGameAction } from '../actions/actions.ts';
-import { canBeOrdered, effectiveSkill } from '../mechanics/agents/agents.ts';
+import { canBeAssigned, effectiveSkill } from '../mechanics/agents/agents.ts';
 import { combatRating, isAbleToFight } from '../mechanics/combat/combat.ts';
 import {
   agencyCaps,
@@ -43,6 +43,7 @@ import type {
   MissionView,
 } from '../player-api.ts';
 import type { Rejection } from '../result.ts';
+import { isServing } from '../state/types.ts';
 import type {
   Agent,
   CampaignState,
@@ -56,14 +57,14 @@ import type {
 
 function agentView(agent: Agent, gdrs: GdrCatalog): AgentView {
   const s = agent.state;
-  const serving = s.lifecycle === 'Serving';
+  const serving = isServing(s);
   return {
     id: agent.id,
     archetype: agent.archetype,
     archetypeName: gdrs.agentArchetype.name,
     agency: agent.constants.agency,
     turnHired: agent.constants.turnHired,
-    lifecycle: s.lifecycle,
+    agentStatus: s.status,
     skill: s.skill,
     effectiveSkill: effectiveSkill(s, gdrs.agentParameters),
     currentHealth: s.currentHealth,
@@ -73,8 +74,7 @@ function agentView(agent: Agent, gdrs: GdrCatalog): AgentView {
     weaponName: gdrs.weapons.get(s.weapon)?.name ?? s.weapon,
     weaponDamage: s.weaponDamage,
     assignment: s.assignment === null ? null : { ...s.assignment },
-    taskPhase: s.taskPhase,
-    canBeOrdered: canBeOrdered(s),
+    canBeAssigned: canBeAssigned(s),
     ableToFight: serving && isAbleToFight(s, gdrs.combatParameters, gdrs.agentParameters),
     participationHistory: s.participationHistory.map((item) => ({ ...item })),
     healthRecoveryRate: serving ? healthRecoveryRate(s.baseHealth, gdrs.recoveryParameters) : null,
@@ -109,7 +109,7 @@ function consequenceView(amounts: ConsequenceAmounts): ConsequenceView {
     fundingChange: amounts.fundingChange,
     panicIncrease: amounts.panicIncrease,
     panicReduction: amounts.panicReduction,
-    defeatsTargetFaction: amounts.defeatTargetFaction,
+    eliminatesTargetFaction: amounts.eliminateTargetFaction,
   };
 }
 
@@ -139,7 +139,7 @@ function missionSiteView(site: MissionSite, world: CurrentWorldState, gdrs: GdrC
     targetFaction: site.constants.targetFaction,
     turnCreated: site.constants.turnCreated,
     lifecycle: site.state.lifecycle,
-    turnsUntilExpiry: site.state.turnsUntilExpiry,
+    turnsUntilExpiration: site.state.turnsUntilExpiration,
     enemies: enemies.map((enemy) => enemyView(enemy, gdrs)),
     enemiesCombatRating: combatRating(
       enemies.map((enemy) => enemy.state),
@@ -181,7 +181,7 @@ function investigationView(
       ? completionProbability(
           investigation.state.progress +
             members
-              .filter((agent) => agent.state.taskPhase === 'AtAssignment')
+              .filter((agent) => agent.state.status === 'AtAssignment')
               .reduce((sum, agent) => sum + effectiveSkill(agent.state, gdrs.agentParameters), 0),
           lead.difficulty,
         )
@@ -196,7 +196,7 @@ function investigationView(
     lifecycle: investigation.state.lifecycle,
     progress: investigation.state.progress,
     progressForCertainCompletion: progressToCertainCompletion(lead.difficulty),
-    currentTeam: members.map((agent) => ({ agent: agent.id, taskPhase: agent.state.taskPhase })),
+    currentTeam: members.map((agent) => ({ agent: agent.id, agentStatus: agent.state.status })),
     projectedCompletionProbability: projected === null ? null : toProbabilityPair(projected),
   };
 }
@@ -215,13 +215,12 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
       difficulty: lead.difficulty,
       requires: availability.prerequisites.map((item) => ({ ...item })),
       createsMissionSite: lead.onCompletion.createMissionSite,
-      recordedWins: [...(world.leadProgression[lead.id] ?? [])],
       available: availability.available,
       conditions: {
         prerequisitesHold: availability.prerequisitesHold,
-        noWinRecorded: availability.noWinRecorded,
+        noMissionWon: availability.noMissionWon,
         noMissionSiteInProgress: availability.noMissionSiteInProgress,
-        factionNotDefeated: availability.factionNotDefeated,
+        factionNotEliminated: availability.factionNotEliminated,
       },
       blockingConditions: [...availability.blockingConditions],
       canBeInvestigatedNow: availability.available && active === null,
@@ -248,8 +247,8 @@ function factionViews(world: CurrentWorldState, gdrs: GdrCatalog): FactionView[]
     archetype: faction.archetype,
     name: gdrs.factionArchetypes.find((item) => item.id === faction.archetype)?.name ?? faction.archetype,
     activityLevel: activityLevelView(faction.state.activityLevel, gdrs),
-    defeated: faction.state.defeated,
-    defeatedTurn: faction.state.defeatedTurn,
+    eliminated: faction.state.eliminated,
+    eliminatedTurn: faction.state.eliminatedTurn,
   }));
 }
 
@@ -307,7 +306,7 @@ export function currentStateView(state: CampaignState, gdrs: GdrCatalog): Curren
     },
     agency: agencyView(world, gdrs),
     agents: Object.values(world.agents)
-      .filter((agent) => agent.state.lifecycle === 'Serving')
+      .filter((agent) => isServing(agent.state))
       .map((agent) => agentView(agent, gdrs)),
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle === 'Active')
@@ -340,7 +339,7 @@ export function historyView(state: CampaignState, gdrs: GdrCatalog): HistoryView
     },
     retained: {
       agents: Object.values(world.agents)
-        .filter((agent) => agent.state.lifecycle !== 'Serving')
+        .filter((agent) => !isServing(agent.state))
         .map((agent) => agentView(agent, gdrs)),
       investigations: Object.values(world.investigations)
         .filter((investigation) => investigation.state.lifecycle !== 'Active')
@@ -402,9 +401,9 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
               : null,
           )),
     })),
-    orderableAgents: ended
+    assignableAgents: ended
       ? []
-      : agents.filter((agent) => canBeOrdered(agent.state)).map((agent) => agent.id),
+      : agents.filter((agent) => canBeAssigned(agent.state)).map((agent) => agent.id),
     assignAgents: {
       assignments: ['Standby', 'Contracting', 'Training'],
       trainingPlacesLeft: ended ? 0 : Math.max(0, caps.trainingCap - countTraining(states)),
@@ -413,10 +412,7 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
       ? []
       : agents
           .filter(
-            (agent) =>
-              agent.state.lifecycle === 'Serving' &&
-              agent.state.taskPhase === 'AtAssignment' &&
-              agent.state.assignment?.kind === 'Standby',
+            (agent) => agent.state.status === 'AtAssignment' && agent.state.assignment?.kind === 'Standby',
           )
           .map((agent) => agent.id),
     startInvestigation: ended
@@ -584,7 +580,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
  */
 export function inspectCampaignState(state: CampaignState): unknown {
   const world = state.world.current;
-  const retainedAgent = (agent: Agent) => agent.state.lifecycle !== 'Serving';
+  const retainedAgent = (agent: Agent) => !isServing(agent.state);
   const retainedInvestigation = (item: Investigation) => item.state.lifecycle !== 'Active';
   const retainedSite = (site: MissionSite) => !siteIsCurrent(site, world);
   const retainedMission = (mission: Mission) => mission.state.lifecycle !== 'Deployed';
@@ -615,7 +611,6 @@ export function inspectCampaignState(state: CampaignState): unknown {
           campaignEnding: world.ending,
           endingReasons: world.endingReasons,
           endingTurn: world.endingTurn,
-          leadProgression: world.leadProgression,
           agency: world.agency,
           agents: agents.current,
           factions: Object.values(world.factions),

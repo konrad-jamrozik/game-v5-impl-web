@@ -100,7 +100,7 @@ describe('TURN: Acceptance examples', () => {
 
   it('Deployment, Combat, return, and recovery', () => {
     const created = addMissionSite(set(newCampaign({ money: 5000 }), { turn: 5 }), 'apprehend_member', {
-      turnsUntilExpiry: 4,
+      turnsUntilExpiration: 4,
     });
     let state = created.state;
     const [a1, a2] = agentIds(state) as [string, string];
@@ -127,21 +127,21 @@ describe('TURN: Acceptance examples', () => {
     expect(agent(state, wounded).state).toMatchObject({
       currentHealth: 18,
       assignment: { kind: 'Recovery' },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
     });
     expect(agent(state, unharmed).state).toMatchObject({
       assignment: { kind: 'Standby' },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
     });
     expect(report.recovery).toEqual([]);
-    expect(state.world.current.missionSites[created.site]!.state.turnsUntilExpiry).toBe(4);
+    expect(state.world.current.missionSites[created.site]!.state.turnsUntilExpiration).toBe(4);
     const exhaustion = agent(state, wounded).state.exhaustion;
 
     state = advance(state); // both arrive; nothing recovers
     expect(agent(state, wounded).state).toMatchObject({
       currentHealth: 18,
       exhaustion,
-      taskPhase: 'AtAssignment',
+      status: 'Recovering',
     });
     expect(currentStateView(state, gdrs).agents.find((a) => a.id === wounded)!.recoveryTurnsRemaining).toBe(
       12,
@@ -162,7 +162,7 @@ describe('TURN: Acceptance examples', () => {
     expect(agent(state, wounded).state).toMatchObject({
       currentHealth: 30,
       assignment: { kind: 'Standby' },
-      taskPhase: 'AtAssignment',
+      status: 'AtAssignment',
     });
   });
 
@@ -175,14 +175,14 @@ describe('TURN: Acceptance examples', () => {
     const ids = agentIds(state);
     const s3 = addMissionSite(state, 'raid_hq');
     const s4 = addMissionSite(s3.state, 'foil_sabotage');
-    const s5 = addMissionSite(s4.state, 'foil_recruitment_push', { turnsUntilExpiry: 1 });
+    const s5 = addMissionSite(s4.state, 'foil_recruitment_push', { turnsUntilExpiration: 1 });
     state = act(s5.state, 'deployAgents', { missionSite: s3.site, agents: ids.slice(0, 8) });
     state = act(state, 'deployAgents', { missionSite: s4.site, agents: ids.slice(8, 9) });
     state = setAssignment(state, ids.slice(9, 12), 'Contracting');
     return { state, s3: s3.site, s4: s4.site, s5: s5.site, ids };
   }
 
-  it('The last Faction Defeated while Panic reaches the limit', () => {
+  it('The last Faction Eliminated while Panic reaches the limit', () => {
     const { state, s3, s4, s5, ids } = lastTurnState();
     const a9 = ids[8]!;
     const responseEnemies = state.world.current.missionSites[s4]!.state.enemies;
@@ -206,21 +206,20 @@ describe('TURN: Acceptance examples', () => {
     expect(agent(forward, a9).state).toMatchObject({
       currentHealth: 9,
       assignment: { kind: 'Recovery' },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
     });
     expect(report.cancelledMissionSites).toEqual([s5]);
     expect(report.expiredMissionSites).toEqual([]);
     expect(report.factionActivity).toEqual([]);
     expect(onlyFaction(forward).state).toMatchObject({
-      defeated: true,
-      defeatedTurn: 150,
+      eliminated: true,
+      eliminatedTurn: 150,
       turnsUntilNextOperation: 1,
     });
-    expect(forward.world.current.leadProgression['locate_red_dawn_hq']).toHaveLength(1);
     expect([money(forward), funding(forward), forward.world.current.panic]).toEqual([995, 24, 100]);
     expect(forward.world.current).toMatchObject({
       ending: 'Victory',
-      endingReasons: ['EveryFactionDefeated'],
+      endingReasons: ['EveryFactionEliminated'],
       endingTurn: 150,
       turn: 151,
     });
@@ -231,7 +230,7 @@ describe('TURN: Acceptance examples', () => {
     expect(currentStateView(forward, gdrs).turn).toBe(151);
   });
 
-  it('The last Faction Defeated while Panic reaches the limit: the raid fails', () => {
+  it('The last Faction Eliminated while Panic reaches the limit: the raid fails', () => {
     const { state, s3, s4, s5, ids } = lastTurnState();
     const f = onlyFaction(state).id;
     const a9 = ids[8]!;
@@ -255,7 +254,7 @@ describe('TURN: Acceptance examples', () => {
     const s6 = next.world.current.missionSites[report.factionActivity[0]!.createdMissionSite!]!;
     expect(s6).toMatchObject({
       archetype: 'foil_sabotage',
-      state: { lifecycle: 'Active', turnsUntilExpiry: 4 },
+      state: { lifecycle: 'Active', turnsUntilExpiration: 4 },
     });
     expect(funding(next)).toBe(24);
     expect(next.world.current).toMatchObject({
@@ -279,7 +278,7 @@ describe('TURN: Acceptance examples', () => {
     state = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [a1] });
     const i2 = Object.keys(state.world.current.investigations)[0]!;
     state = tweak(state, (world) => {
-      world.agents[a1]!.state.taskPhase = 'AtAssignment';
+      world.agents[a1]!.state.status = 'AtAssignment';
       world.investigations[i2]!.state.progress = 200;
     });
     state = advance(state, {
@@ -288,45 +287,45 @@ describe('TURN: Acceptance examples', () => {
       [`mission.archetypeSelection.${f}`]: ['foil_recruitment_push'],
     });
     const [sA, sB] = Object.values(state.world.current.missionSites);
-    expect([sA!.archetype, sA!.state.turnsUntilExpiry]).toEqual(['apprehend_member', 5]);
-    expect([sB!.archetype, sB!.state.turnsUntilExpiry, sB!.constants.turnCreated]).toEqual([
+    expect([sA!.archetype, sA!.state.turnsUntilExpiration]).toEqual(['apprehend_member', 5]);
+    expect([sB!.archetype, sB!.state.turnsUntilExpiration, sB!.constants.turnCreated]).toEqual([
       'foil_recruitment_push',
       3,
       30,
     ]);
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 39, turnsUntilNextOperation: 20 });
-    expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, taskPhase: 'InTransit' });
-    const expiry = () =>
+    expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
+    const expiration = () =>
       [sA!.id, sB!.id].map((id) => {
         const site = state.world.current.missionSites[id]!.state;
-        return site.lifecycle === 'Expired' ? 'Expired' : site.turnsUntilExpiry;
+        return site.lifecycle === 'Expired' ? 'Expired' : site.turnsUntilExpiration;
       });
     state = advance(state);
-    expect(expiry()).toEqual([4, 2]);
+    expect(expiration()).toEqual([4, 2]);
     state = advance(state);
-    expect(expiry()).toEqual([3, 1]);
+    expect(expiration()).toEqual([3, 1]);
     state = advance(state);
-    expect(expiry()).toEqual([2, 'Expired']);
+    expect(expiration()).toEqual([2, 'Expired']);
     expect([state.world.current.panic, funding(state)]).toEqual([13, 20]);
     state = advance(state);
     state = advance(state);
-    expect(expiry()).toEqual(['Expired', 'Expired']);
+    expect(expiration()).toEqual(['Expired', 'Expired']);
     expect(state.world.current.panic).toBe(13);
     expect(currentStateView(state, gdrs).leads[0]!.blockingConditions).toEqual([]);
   });
 
   it('Money below zero, Defeat, and Turn close', () => {
     const base = set(newCampaign(), { money: 15, funding: 0, panic: 30, turn: 20 });
-    const defeated = advance(base);
-    expect(defeated.world.current).toMatchObject({
+    const eliminated = advance(base);
+    expect(eliminated.world.current).toMatchObject({
       ending: 'Defeat',
       endingReasons: ['MoneyBelowZero'],
       endingTurn: 20,
       turn: 21,
       panic: 30,
     });
-    expect(money(defeated)).toBe(-25);
-    expect(series(defeated)).toEqual({ start: [500, -25], end: [15] });
+    expect(money(eliminated)).toBe(-25);
+    expect(series(eliminated)).toEqual({ start: [500, -25], end: [15] });
 
     const zero = advance(set(base, { money: 40 }));
     expect([money(zero), zero.world.current.ending]).toEqual([0, null]);
@@ -348,7 +347,7 @@ describe('TURN: Acceptance examples', () => {
     const ids = agentIds(state);
     const s8 = addMissionSite(state, 'raid_safehouse');
     const s9 = addMissionSite(s8.state, 'foil_sabotage');
-    const s10 = addMissionSite(s9.state, 'foil_sabotage', { turnsUntilExpiry: 1 });
+    const s10 = addMissionSite(s9.state, 'foil_sabotage', { turnsUntilExpiration: 1 });
     state = act(s10.state, 'deployAgents', { missionSite: s8.site, agents: ids.slice(0, 7) });
     state = act(state, 'deployAgents', { missionSite: s9.site, agents: ids.slice(7, 8) });
     const enemies9 = state.world.current.missionSites[s9.site]!.state.enemies;
@@ -464,7 +463,7 @@ describe('TURN: Values a step uses, as a property', () => {
     run('startInvestigation', { lead: 'lead_c', agents: ids.slice(10, 11) });
     state = tweak(state, (world) => {
       for (const item of Object.values(world.agents)) {
-        item.state.taskPhase = 'AtAssignment';
+        item.state.status = 'AtAssignment';
       }
       for (const investigation of Object.values(world.investigations)) {
         investigation.state.progress = 150;
@@ -474,10 +473,12 @@ describe('TURN: Values a step uses, as a property', () => {
       const hurt = world.agents[ids[18]!]!.state;
       hurt.currentHealth = 29;
       hurt.assignment = { kind: 'Recovery' };
+      hurt.status = 'Recovering';
       const hurt2 = world.agents[ids[17]!]!.state;
       hurt2.currentHealth = 12;
       hurt2.exhaustion = 30;
       hurt2.assignment = { kind: 'Recovery' };
+      hurt2.status = 'Recovering';
     });
     for (const [archetype, team] of [
       ['apprehend_member', ids.slice(11, 13)],
@@ -487,9 +488,9 @@ describe('TURN: Values a step uses, as a property', () => {
       const site = addMissionSite(state, archetype, { catalog });
       state = act(site.state, 'deployAgents', { missionSite: site.site, agents: team }, 'player', catalog);
     }
-    state = addMissionSite(state, 'foil_sabotage', { catalog, turnsUntilExpiry: 1 }).state;
-    state = addMissionSite(state, 'foil_recruitment_push', { catalog, turnsUntilExpiry: 1 }).state;
-    state = addMissionSite(state, 'raid_safehouse', { catalog, turnsUntilExpiry: 2 }).state;
+    state = addMissionSite(state, 'foil_sabotage', { catalog, turnsUntilExpiration: 1 }).state;
+    state = addMissionSite(state, 'foil_recruitment_push', { catalog, turnsUntilExpiration: 1 }).state;
+    state = addMissionSite(state, 'raid_safehouse', { catalog, turnsUntilExpiration: 2 }).state;
     return state;
   }
 

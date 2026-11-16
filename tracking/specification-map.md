@@ -49,6 +49,10 @@
 - tests/engine/campaign.test.ts
 - tests/mechanics/review-gaps.test.ts
 
+## CLI: Command-Line Interface
+
+No files.
+
 ## COMBAT: Combat
 
 - src/engine/mechanics/combat/
@@ -83,6 +87,10 @@ No files.
 - src/engine/views/views.ts
 - src/engine/rules.ts
 - tests/engine/campaign.test.ts
+
+## DCONV: Design Specification Conventions
+
+No files.
 
 ## DEPDIR: Gameplay Dependency Direction
 
@@ -141,7 +149,6 @@ No files.
 ## ENG: Engine Contract
 
 - src/engine/index.ts
-- src/engine/player-api.ts
 - src/engine/result.ts
 - src/engine/rules.ts
 - src/engine/game-rules.ts
@@ -164,6 +171,12 @@ No files.
 - src/gdr/types.ts
 - tests/mechanics/factions.test.ts
 
+## FEEDBACK: Implementation Feedback
+
+- feedback/implementation-decisions.md
+- feedback/specification-problems.md
+- scripts/check-records.ts
+
 ## GDR: Game Data Records
 
 - src/gdr/
@@ -175,6 +188,24 @@ No files.
 
 - .github/workflows/deploy-pages.yml
 - vite.config.ts
+
+## GLOSS: Glossary Conventions
+
+No files.
+
+## GUI: Graphical User Interface
+
+No files.
+
+## HEADLESS: Headless First
+
+- src/cli/
+- tests/cli/
+- e2e/web.spec.ts
+
+## ICONV: Implementation Specification Conventions
+
+No files.
 
 ## INDEX: Game Specification Index
 
@@ -202,6 +233,10 @@ No files.
 - src/engine/index.ts
 - tests/foundation/lifecycle-and-saves.test.ts
 
+## LOOP: Development Loop
+
+No files.
+
 ## MISSION: Missions
 
 - src/engine/mechanics/missions/
@@ -222,6 +257,20 @@ No files.
 - src/gdr/catalog.ts
 - tests/kernel/numbers.test.ts
 
+## OVW: Overview Conventions
+
+No files.
+
+## PAPI: Player API
+
+- src/engine/player-api.ts
+- src/engine/index.ts
+- src/engine/session/core.ts
+- src/engine/views/views.ts
+- src/engine/actions/actions.ts
+- tests/engine/campaign.test.ts
+- tests/foundation/autopilot.test.ts
+
 ## PLACE: Implementation Placement
 
 - content/SOURCE.md
@@ -233,12 +282,6 @@ No files.
 ## PLAN: Specification Work Plan and Backlog
 
 No files.
-
-## RECORDS: Implementation Records
-
-- feedback/implementation-decisions.md
-- feedback/specification-problems.md
-- scripts/check-records.ts
 
 ## RECOVER: Agent Recovery
 
@@ -277,6 +320,10 @@ No files.
 
 No files.
 
+## TERM: Terminology Conventions
+
+No files.
+
 ## TIMELINE: Timeline
 
 - src/engine/session/core.ts
@@ -304,12 +351,9 @@ No files.
 
 No files.
 
-## WEB: Web UI
-
-No files.
-
 ## WHIST: World History
 
+- src/engine/index.ts
 - src/engine/state/types.ts
 - src/engine/state/summary.ts
 - src/engine/turn/advance.ts

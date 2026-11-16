@@ -22,7 +22,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]['id'];
 
 const REASONS: Record<string, string> = {
-  EveryFactionDefeated: 'every Faction is defeated',
+  EveryFactionEliminated: 'every Faction is eliminated',
   PanicAtTheLimit: 'Panic reached its limit',
   MoneyBelowZero: 'money fell below zero',
 };
@@ -32,8 +32,8 @@ const SHORTCUTS = [
   ['U / R', 'Undo / redo one action'],
   ['1 to 5', 'Open a panel'],
   ['H', 'Hire an Agent'],
-  ['S / C / T', 'Order the selected Agents to Standby, Contracting, Training'],
-  ['A', 'Select every Agent that can be ordered'],
+  ['S / C / T', 'Assign the selected Agents to Standby, Contracting, Training'],
+  ['A', 'Select every Agent that can be assigned'],
   ['Esc', 'Clear the selection'],
   ['`', 'Developer drawer'],
   ['?', 'This list'],
@@ -101,7 +101,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         setPicked(new Set());
         setHelp(false);
       } else if (key === 'a') {
-        setPicked(new Set(actions?.orderableAgents ?? []));
+        setPicked(new Set(actions?.assignableAgents ?? []));
       } else if (autopilotActive) {
         return;
       } else if (key === 'n') {
@@ -163,8 +163,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             <span className="fact-label">Factions</span>
             <span className="fact-value factions">
               {state.factions.map((faction) => (
-                <Badge key={faction.id} tone={faction.defeated ? 'good' : 'warn'}>
-                  {faction.name}: {faction.defeated ? 'defeated' : faction.activityLevel.name}
+                <Badge key={faction.id} tone={faction.eliminated ? 'good' : 'warn'}>
+                  {faction.name}: {faction.eliminated ? 'eliminated' : faction.activityLevel.name}
                 </Badge>
               ))}
             </span>

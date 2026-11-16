@@ -3,7 +3,7 @@
  * receives only the values it needs; see DEC-003.
  */
 import type { EconomyParametersGdr, UpgradeEffect, UpgradeGdr } from '../../../gdr/index.ts';
-import type { AgentState } from '../../state/types.ts';
+import { isServing, type AgentState } from '../../state/types.ts';
 
 type Acquisitions = Readonly<Record<string, number>>;
 
@@ -41,32 +41,26 @@ export function agencyCaps(
   };
 }
 
-type AgentLike = Pick<AgentState, 'lifecycle' | 'assignment' | 'taskPhase'>;
+type AgentLike = Pick<AgentState, 'status' | 'assignment'>;
 
 export function countServing(agents: readonly AgentLike[]): number {
-  return agents.filter((agent) => agent.lifecycle === 'Serving').length;
+  return agents.filter((agent) => isServing(agent)).length;
 }
 
 /** Serving Agents whose Current assignment is Training, At assignment or In transit. */
 export function countTraining(agents: readonly AgentLike[]): number {
-  return agents.filter((agent) => agent.lifecycle === 'Serving' && agent.assignment?.kind === 'Training')
-    .length;
+  return agents.filter((agent) => isServing(agent) && agent.assignment?.kind === 'Training').length;
 }
 
 /** Serving Agents whose Current assignment is Deployed, over every Mission together. */
 export function countDeployed(agents: readonly AgentLike[]): number {
-  return agents.filter((agent) => agent.lifecycle === 'Serving' && agent.assignment?.kind === 'Deployed')
-    .length;
+  return agents.filter((agent) => isServing(agent) && agent.assignment?.kind === 'Deployed').length;
 }
 
 /** Serving Agents on Contracting and At assignment. */
 export function countContractingAtAssignment(agents: readonly AgentLike[]): number {
-  return agents.filter(
-    (agent) =>
-      agent.lifecycle === 'Serving' &&
-      agent.assignment?.kind === 'Contracting' &&
-      agent.taskPhase === 'AtAssignment',
-  ).length;
+  return agents.filter((agent) => agent.status === 'AtAssignment' && agent.assignment?.kind === 'Contracting')
+    .length;
 }
 
 /** ECON, Agency income: income = funding + contracting_income_per_agent × C. */

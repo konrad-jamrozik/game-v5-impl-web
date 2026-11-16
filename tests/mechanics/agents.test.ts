@@ -1,7 +1,7 @@
 /** Acceptance examples of AGENT (Agents). */
 import { describe, expect, it } from 'vitest';
 import {
-  canBeOrdered,
+  canBeAssigned,
   clampExhaustion,
   clampHealth,
   effectiveSkill,
@@ -28,6 +28,40 @@ import {
 } from '../helpers/game.ts';
 
 const p = gdrs.agentParameters;
+
+describe('AGENT: Agent status', () => {
+  it('is Recovering exactly when the Assignment is Recovery and the Agent is not In transit', () => {
+    const state = newCampaign();
+    const [a1] = agentIds(state) as [string];
+    const withStatus = (kind: 'Standby' | 'Recovery', status: 'AtAssignment' | 'InTransit' | 'Recovering') =>
+      checkInvariants(
+        tweak(state, (world) => {
+          world.agents[a1]!.state.currentHealth = 20;
+          world.agents[a1]!.state.assignment = { kind };
+          world.agents[a1]!.state.status = status;
+        }),
+        gdrs,
+      );
+    expect(withStatus('Recovery', 'Recovering')).toEqual([]);
+    expect(withStatus('Recovery', 'InTransit')).toEqual([]);
+    expect(withStatus('Standby', 'AtAssignment')).toEqual([]);
+    expect(withStatus('Recovery', 'AtAssignment').length).toBeGreaterThan(0);
+    expect(withStatus('Standby', 'Recovering').length).toBeGreaterThan(0);
+  });
+
+  it('Transit: an In transit Agent on Recovery arrives Recovering', () => {
+    let state = newCampaign();
+    const [a1] = agentIds(state) as [string];
+    state = setAssignment(state, [a1], 'Recovery', 'InTransit');
+    state = tweak(state, (world) => (world.agents[a1]!.state.currentHealth = 20));
+    state = advance(state);
+    expect(agent(state, a1).state).toMatchObject({
+      currentHealth: 20,
+      assignment: { kind: 'Recovery' },
+      status: 'Recovering',
+    });
+  });
+});
 
 describe('AGENT: Acceptance examples', () => {
   it('Effective skill computations', () => {
@@ -66,7 +100,6 @@ describe('AGENT: Acceptance examples', () => {
       expect(a.archetype).toBe('field_agent');
       expect(a.constants).toEqual({ agency: state.world.current.agency.id, turnHired: 1 });
       expect(a.state).toEqual({
-        lifecycle: 'Serving',
         skill: 100,
         currentHealth: 30,
         baseHealth: 30,
@@ -74,14 +107,14 @@ describe('AGENT: Acceptance examples', () => {
         weapon: 'sidearm',
         weaponDamage: 10,
         assignment: { kind: 'Standby' },
-        taskPhase: 'AtAssignment',
+        status: 'AtAssignment',
         participationHistory: [],
       });
       expect(effectiveSkill(a.state, p)).toBe(100);
-      expect(canBeOrdered(a.state)).toBe(true);
+      expect(canBeAssigned(a.state)).toBe(true);
     }
     const view = currentStateView(state, gdrs);
-    expect(view.agents.every((a) => a.canBeOrdered && a.effectiveSkill === 100)).toBe(true);
+    expect(view.agents.every((a) => a.canBeAssigned && a.effectiveSkill === 100)).toBe(true);
   });
 
   it('Transit: ordered to Contracting', () => {
@@ -90,7 +123,7 @@ describe('AGENT: Acceptance examples', () => {
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Contracting' });
     expect(agent(state, a1).state).toMatchObject({
       assignment: { kind: 'Contracting' },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
     });
     expectRejected(
       state,
@@ -100,10 +133,10 @@ describe('AGENT: Acceptance examples', () => {
     );
     const before = money(state);
     state = advance(state);
-    expect(agent(state, a1).state.taskPhase).toBe('AtAssignment');
+    expect(agent(state, a1).state.status).toBe('AtAssignment');
     // Income from funding only; upkeep for all 4 Serving Agents.
     expect(money(state)).toBe(before + 20 - 40);
-    expect(canBeOrdered(agent(state, a1).state)).toBe(true);
+    expect(canBeAssigned(agent(state, a1).state)).toBe(true);
     const second = money(state);
     state = advance(state);
     expect(money(state)).toBe(second + 20 + 30 - 40);
@@ -121,7 +154,7 @@ describe('AGENT: Acceptance examples', () => {
       weapon: 'sidearm',
       weaponDamage: 10,
       assignment: { kind: 'Standby' },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
     });
     expectRejected(
       state,
@@ -134,12 +167,12 @@ describe('AGENT: Acceptance examples', () => {
     expect(money(state)).toBe(before + 20 - 50);
     expect(agent(state, a5).state).toMatchObject({
       assignment: { kind: 'Standby' },
-      taskPhase: 'AtAssignment',
+      status: 'AtAssignment',
     });
   });
 
   it('Transit: returning survivors; Deployed at once', () => {
-    const created = addMissionSite(newCampaign(), 'apprehend_member', { turnsUntilExpiry: 1 });
+    const created = addMissionSite(newCampaign(), 'apprehend_member', { turnsUntilExpiration: 1 });
     let state = created.state;
     const [a1, a2] = agentIds(state) as [string, string];
     state = act(state, 'deployAgents', { missionSite: created.site, agents: [a1, a2] });
@@ -147,7 +180,7 @@ describe('AGENT: Acceptance examples', () => {
     for (const id of [a1, a2]) {
       expect(agent(state, id).state).toMatchObject({
         assignment: { kind: 'Deployed', mission },
-        taskPhase: 'AtAssignment',
+        status: 'AtAssignment',
       });
     }
     expectRejected(
@@ -165,12 +198,12 @@ describe('AGENT: Acceptance examples', () => {
       [`combat.hit.${enemies[2]}`]: [false],
     });
     expect(state.world.current.missions[mission]!.state.lifecycle).toBe('Won');
-    expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, taskPhase: 'InTransit' });
+    expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
     expect(agent(state, a1).state.participationHistory).toEqual([{ kind: 'Mission', id: mission }]);
-    expect(canBeOrdered(agent(state, a1).state)).toBe(false);
+    expect(canBeAssigned(agent(state, a1).state)).toBe(false);
     state = advance(state);
-    expect(agent(state, a1).state.taskPhase).toBe('AtAssignment');
-    expect(canBeOrdered(agent(state, a1).state)).toBe(true);
+    expect(agent(state, a1).state.status).toBe('AtAssignment');
+    expect(canBeAssigned(agent(state, a1).state)).toBe(true);
   });
 
   it('Training growth', () => {
@@ -178,7 +211,7 @@ describe('AGENT: Acceptance examples', () => {
     const [a1, a2] = agentIds(state) as [string, string];
     state = act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' });
     state = advance(state);
-    expect(agent(state, a1).state).toMatchObject({ skill: 100, taskPhase: 'AtAssignment' });
+    expect(agent(state, a1).state).toMatchObject({ skill: 100, status: 'AtAssignment' });
     state = advance(state);
     expect([agent(state, a1).state.skill, agent(state, a2).state.skill]).toEqual([101, 101]);
     state = advance(state);
@@ -210,16 +243,16 @@ describe('AGENT: Acceptance examples', () => {
     state = tweak(state, (world) => {
       world.agents[a3]!.state.currentHealth = 20;
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
-      world.agents[a6]!.state.lifecycle = 'Killed';
+      world.agents[a3]!.state.status = 'Recovering';
+      world.agents[a6]!.state.status = 'Killed';
       world.agents[a6]!.state.currentHealth = 0;
       world.agents[a6]!.state.assignment = null;
-      world.agents[a6]!.state.taskPhase = null;
     });
     state = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [a7, a8] });
     const investigation = Object.keys(state.world.current.investigations)[0]!;
     state = tweak(state, (world) => {
-      world.agents[a7]!.state.taskPhase = 'AtAssignment';
-      world.agents[a8]!.state.taskPhase = 'AtAssignment';
+      world.agents[a7]!.state.status = 'AtAssignment';
+      world.agents[a8]!.state.status = 'AtAssignment';
     });
     const site = addMissionSite(state, 'foil_recruitment_push');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a4] });
@@ -240,13 +273,13 @@ describe('AGENT: Acceptance examples', () => {
     const recalled = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
     expect(agent(recalled, a1).state).toMatchObject({
       assignment: { kind: 'Standby' },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
     });
 
     const moved = act(state, 'assignAgents', { agents: [a7], assignment: 'Training' });
     expect(agent(moved, a7).state).toMatchObject({
       assignment: { kind: 'Training' },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
     });
     expect(agent(moved, a7).state.participationHistory).toEqual([
       { kind: 'Investigation', id: investigation },
@@ -271,12 +304,11 @@ describe('AGENT: Acceptance examples', () => {
     for (const a of added) {
       expect(a.constants.turnHired).toBe(3);
       expect(a.state).toMatchObject({
-        lifecycle: 'Serving',
         skill: 100,
         currentHealth: 30,
         weaponDamage: 10,
         assignment: { kind: 'Standby' },
-        taskPhase: 'InTransit',
+        status: 'InTransit',
       });
     }
     expect(money(next)).toBe(0);
@@ -285,16 +317,17 @@ describe('AGENT: Acceptance examples', () => {
     expect(agents(many)).toHaveLength(36);
   });
 
-  it('Lifecycle and Current assignment structure: invalid variants', () => {
+  it('Agent status and Assignment structure: invalid variants', () => {
     const state = newCampaign();
     const [a1] = agentIds(state) as [string];
     const invalid = (change: Parameters<typeof tweak>[1]) =>
       expect(checkInvariants(tweak(state, change), gdrs).length).toBeGreaterThan(0);
-    invalid((world) => (world.agents[a1]!.state.lifecycle = 'Killed'));
+    invalid((world) => (world.agents[a1]!.state.status = 'Killed'));
     invalid((world) => (world.agents[a1]!.state.currentHealth = 0));
     invalid((world) => (world.agents[a1]!.state.exhaustion = 101));
     invalid((world) => (world.agents[a1]!.state.assignment = null));
     invalid((world) => (world.agents[a1]!.state.assignment = { kind: 'Deployed', mission: 'nowhere' }));
+    invalid((world) => (world.agents[a1]!.state.status = 'Recovering'));
     expect(checkInvariants(state, gdrs)).toEqual([]);
   });
 

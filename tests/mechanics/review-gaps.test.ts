@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { damageBounds, fightCombat } from '../../src/engine/mechanics/combat/combat.ts';
-import { defeatFaction } from '../../src/engine/mechanics/factions/factions.ts';
+import { eliminateFaction } from '../../src/engine/mechanics/factions/factions.ts';
 import { injectedRandom } from '../../src/engine/random.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
@@ -50,7 +50,7 @@ describe('AGENT: gaps', () => {
     state = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [a1] });
     const i2 = Object.keys(state.world.current.investigations)[0]!;
     state = tweak(state, (world) => {
-      world.agents[a1]!.state.taskPhase = 'AtAssignment';
+      world.agents[a1]!.state.status = 'AtAssignment';
       world.investigations[i2]!.state.progress = 200;
     });
     state = act(state, 'assignAgentsToInvestigation', { investigation: i2, agents: [a3] });
@@ -63,21 +63,21 @@ describe('AGENT: gaps', () => {
     for (const id of [a1, a3]) {
       expect(agent(state, id).state).toMatchObject({
         assignment: { kind: 'Standby' },
-        taskPhase: 'InTransit',
+        status: 'InTransit',
         participationHistory: [{ kind: 'Investigation', id: i2 }],
       });
     }
     state = advance(state);
-    expect(agent(state, a3).state.taskPhase).toBe('AtAssignment');
+    expect(agent(state, a3).state.status).toBe('AtAssignment');
   });
 
-  it('Lifecycle and Current assignment structure: a Deployed Agent In transit is invalid', () => {
+  it('Agent status and Assignment structure: a Deployed Agent In transit is invalid', () => {
     const site = addMissionSite(newCampaign(), 'apprehend_member');
     const [a2] = agentIds(site.state) as [string];
     const state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a2] });
-    invalid(state, (world) => (world.agents[a2]!.state.taskPhase = 'InTransit'));
+    invalid(state, (world) => (world.agents[a2]!.state.status = 'InTransit'));
     invalid(state, (world) => {
-      world.agents[a2]!.state.lifecycle = 'Killed';
+      world.agents[a2]!.state.status = 'Killed';
       world.agents[a2]!.state.currentHealth = 0;
     });
   });
@@ -214,11 +214,11 @@ describe('COMBAT: gaps', () => {
 });
 
 describe('FACTION: gaps', () => {
-  it('Defeat: applying the effect to a Defeated Faction changes nothing', () => {
+  it('Elimination: applying the effect to a Eliminated Faction changes nothing', () => {
     const faction = { ...onlyFaction(newCampaign()).state };
-    defeatFaction(faction, 120);
-    defeatFaction(faction, 130);
-    expect(faction).toMatchObject({ defeated: true, defeatedTurn: 120 });
+    eliminateFaction(faction, 120);
+    eliminateFaction(faction, 130);
+    expect(faction).toMatchObject({ eliminated: true, eliminatedTurn: 120 });
   });
 
   it('A level change does not reset the operation countdown: the occurrence reads the new level', () => {
@@ -257,6 +257,7 @@ describe('ECON and MISSION: gaps', () => {
     state = tweak(state, (world) => {
       world.agents[ids[0]!]!.state.currentHealth = 10;
       world.agents[ids[0]!]!.state.assignment = { kind: 'Recovery' };
+      world.agents[ids[0]!]!.state.status = 'Recovering';
     });
     const site = addMissionSite(state, 'apprehend_member');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: ids.slice(1, 3) });
@@ -271,7 +272,7 @@ describe('ECON and MISSION: gaps', () => {
     expect(agents(state).map((a) => a.state.weaponDamage)).toEqual([12, 12, 12, 12, 12]);
   });
 
-  it('Structure of an Attempted Mission site: an Expired Mission site with Turns until expiry 1 is invalid', () => {
+  it('Structure of an Attempted Mission site: an Expired Mission site with Turns until expiration 1 is invalid', () => {
     const site = addMissionSite(newCampaign(), 'apprehend_member');
     invalid(site.state, (world) => (world.missionSites[site.site]!.state.lifecycle = 'Expired'));
   });
@@ -302,7 +303,7 @@ describe('RECOVER: gaps', () => {
     state = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [c4] });
     const investigation = Object.keys(state.world.current.investigations)[0]!;
     state = tweak(state, (world) => {
-      world.agents[c4]!.state.taskPhase = 'AtAssignment';
+      world.agents[c4]!.state.status = 'AtAssignment';
       world.agents[c4]!.state.exhaustion = 14;
       world.agents[deployed]!.state.exhaustion = 14;
       world.investigations[investigation]!.state.progress = 250;
@@ -314,7 +315,7 @@ describe('RECOVER: gaps', () => {
     expect(agent(state, c4).state).toMatchObject({
       exhaustion: 14,
       assignment: { kind: 'Standby' },
-      taskPhase: 'InTransit',
+      status: 'InTransit',
     });
     expect(agent(state, deployed).state.exhaustion).toBeGreaterThanOrEqual(14);
   });
@@ -329,7 +330,7 @@ describe('RECOVER: gaps', () => {
       currentHealth: 30,
       exhaustion: 7,
       assignment: { kind: 'Standby' },
-      taskPhase: 'AtAssignment',
+      status: 'AtAssignment',
     });
   });
 
@@ -350,9 +351,10 @@ describe('INVSTG and LEAD: gaps', () => {
     state = run(state, 'startInvestigation', { lead: 'other_lead', agents: [a7] });
     const i11 = Object.keys(state.world.current.investigations)[0]!;
     state = tweak(state, (world) => {
-      world.agents[a7]!.state.taskPhase = 'AtAssignment';
+      world.agents[a7]!.state.status = 'AtAssignment';
       world.agents[a3]!.state.currentHealth = 5;
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
+      world.agents[a3]!.state.status = 'Recovering';
     });
     state = setAssignment(state, [a1], 'Contracting');
     state = setAssignment(state, [a2], 'Standby', 'InTransit');
@@ -374,12 +376,11 @@ describe('INVSTG and LEAD: gaps', () => {
     expect(Object.values(started.world.current.investigations)[1]!.state.currentTeam).toEqual([a1, a7]);
   });
 
-  it('Game build without a Lead: Lead progression is empty and a Campaign is created', () => {
+  it('Game build without a Lead: a Campaign is created', () => {
     const catalog = catalogWith((raw) => {
       raw.files.find((file) => file.path.endsWith('leads.yaml'))!.gdrs.length = 0;
     });
     const state = advance(newCampaign({ catalog }), {}, catalog);
-    expect(state.world.current.leadProgression).toEqual({});
     expect(currentStateView(state, catalog).leads).toEqual([]);
   });
 });

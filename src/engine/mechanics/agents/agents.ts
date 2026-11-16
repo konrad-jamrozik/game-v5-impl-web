@@ -37,9 +37,9 @@ export function clampHealth(value: number, baseHealth: number): number {
   return Math.min(baseHealth, Math.max(0, value));
 }
 
-/** AGENT, Agents that can be ordered. */
-export function canBeOrdered(agent: Pick<AgentState, 'lifecycle' | 'taskPhase' | 'assignment'>): boolean {
-  if (agent.lifecycle !== 'Serving' || agent.taskPhase !== 'AtAssignment' || agent.assignment === null) {
+/** AGENT, Agents that can be assigned. */
+export function canBeAssigned(agent: Pick<AgentState, 'status' | 'assignment'>): boolean {
+  if (agent.status !== 'AtAssignment' || agent.assignment === null) {
     return false;
   }
   const kind = agent.assignment.kind;
@@ -62,7 +62,6 @@ export function createAgent(input: {
     archetype: input.archetype.id,
     constants: { agency: input.agencyId, turnHired: input.turn },
     state: {
-      lifecycle: 'Serving',
       skill: input.archetype.skill,
       currentHealth: input.archetype.baseHealth,
       baseHealth: input.archetype.baseHealth,
@@ -70,7 +69,7 @@ export function createAgent(input: {
       weapon: input.weapon.id,
       weaponDamage: input.weapon.damage + input.weaponDamageBonus,
       assignment: { kind: 'Standby' },
-      taskPhase: input.initialRoster ? 'AtAssignment' : 'InTransit',
+      status: input.initialRoster ? 'AtAssignment' : 'InTransit',
       participationHistory: [],
     },
   };

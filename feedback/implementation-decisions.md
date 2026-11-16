@@ -55,7 +55,7 @@
 - **Description:** Every stored quantity is a JavaScript number holding a whole number from -(2^53 - 1) to 2^53 - 1.
   Every formula is evaluated on exact `bigint` rationals of unlimited size and rounded only where the formula names a
   rounding, so no intermediate result is limited. A result that is to be stored and lies outside that range is
-  reported as an engine defect, never wrapped, saturated, or approximated, and a cheat operation whose input would
+  reported as an engine defect, never wrapped, saturated, or approximated, and a Player cheat action whose input would
   take a stored quantity outside the range is rejected. Every commit checks that Campaign state holds no number that
   is not a safe whole number.
 - **Options considered:** Store every quantity as `bigint`; store quantities as safe integers and report overflow as
@@ -105,8 +105,8 @@
   because the documents were not read.
 - **Description:** Used a different approach. On the project owner's instruction the implementer did not read any UI
   family document. The web UI is the implementer's own design, described in the README, and the Implementation makes
-  no claim to conform to the UI family. It follows ENG, API hierarchy and Information boundary: it is an adapter over
-  the engine API and shows nothing Player API does not return.
+  no claim to conform to the UI family. It follows ENG, API hierarchy, and PAPI, Information boundary: it is an
+  adapter over the engine API and shows no gameplay information that the engine API does not return.
 - **Options considered:** Read and follow the UI family; design the UI independently.
 - **Option chosen:** An independent design.
 - **Why:** The project owner instructed the implementer never to read the UI family.
@@ -230,10 +230,10 @@
 ## DEC-015: Queries for retained Campaign instances, Turn series, and GDR properties
 
 - **Category:** Gap resolution
-- **Affected specifications:** ENG, Current state, Turn report, and history: "Player API returns what is true now
+- **Affected specifications:** WHIST, Current state, Turn report, and history: "Player API returns what is true now
   and what happened earlier through three queries."
 - **Description:** `getCurrentState()` returns the Campaign instances that participate in current gameplay: the
-  Agency, Serving Agents, Factions, Active Investigations, Leads with Lead progression, Mission sites that are Active
+  Agency, Serving Agents, Factions, Active Investigations, Leads with whether each prerequisite holds, Mission sites that are Active
   or whose Mission is Deployed, and Deployed Missions. `getHistory()` returns the rest of World history that is
   Player-visible: the History entries, both Turn series of money in full, and the retained Campaign instances, i.e.
   Killed and Dismissed Agents, Completed and Abandoned Investigations, the other Mission sites with their Enemies,
@@ -317,10 +317,10 @@
 - **Description:** `developer.queries.getCampaignState()` returns a detached copy of Campaign state in its conceptual
   hierarchy: `campaignConfiguration` and `worldState`, the latter divided into `currentWorldState` and
   `worldHistory`. Current world state holds the Campaign seed, the generator state, the pending random outcome
-  overrides, the turn number, Panic and the Campaign ending values, Lead progression, and the Campaign instances that
+  overrides, the turn number, Panic and the Campaign ending values, and the Campaign instances that
   participate in current gameplay. World history holds the Turn report, the History entries, the Turn series, and the
   retained Campaign instances. Every Campaign instance is an object with exactly `id`, `archetype`, `constants`, and
-  `state`. With Dev mode disabled the query and every cheat operation fail with the error code `dev_mode_disabled`,
+  `state`. With Dev mode disabled the query and every Player cheat action fail with the error code `dev_mode_disabled`,
   during an Autopilot engagement with `autopilot_active`, without a Current campaign with `no_current_campaign`, and
   for an Autopilot AI with `unauthorized`. Disabling Dev mode revokes access at once, because every call checks it.
 - **Options considered:** Returning the stored layout; returning the conceptual hierarchy.
@@ -333,7 +333,7 @@
 - **Category:** Gap resolution
 - **Affected specifications:** DEV, Random outcome overrides: "the Session controller names a random outcome and one
   of its possible values, and when that random outcome is next decided it takes the supplied value".
-- **Description:** The cheat operation `developer.actions.overrideRandomOutcome(outcome, value)` takes the name of a
+- **Description:** The Player cheat action `developer.actions.overrideRandomOutcome(outcome, value)` takes the name of a
   random outcome under DEC-018 and a value: true or false for a hit or an Investigation completion outcome, a whole
   number for a damage, Level duration, Operation interval, or Operation level outcome, and a MissionSiteArchetype
   identifier for a MissionSiteArchetype selection outcome. It is rejected when the name matches no random outcome,
@@ -461,8 +461,8 @@
 ## DEC-027: The terminal CLI
 
 - **Category:** Asked by the specifications
-- **Affected specifications:** ENG, API hierarchy: "Every user interface, e.g. a terminal or browser interface, is an
-  adapter over the same API".
+- **Affected specifications:** ENG, API hierarchy: "Every user interface, e.g. a command-line or graphical interface, is
+  an adapter over the same API".
 - **Description:** Beside the web UI the Implementation has a terminal CLI. It reads one command per line, and each
   command is one engine API operation: the Session commands `status`, `new`, `close`, `presets`, `preset`, `select`,
   `edit`, `unedit`, `saves`, `load`, `save`, `saveas`, `config`, `set`, `reset`; the queries `state`, `agents`,
@@ -551,3 +551,32 @@
 - **Why:** Most changes to the specifications are editorial, and the difference shows that without reading any
   unchanged specification.
 - **Links:** None.
+
+## DEC-032: Headless First followed
+
+- **Category:** Treatment of guidance
+- **Affected specifications:** HEADLESS, Headless milestone: "The Headless milestone is reached when each of the
+  following can be done through the Command-Line Interface alone."
+- **Description:** Used as is. The terminal CLI reaches the Headless milestone: `new` creates a Campaign and `next`
+  plays it to its end, `save` and `load` save and load it, `undo`, `redo`, `back`, and `forward` undo and redo
+  within and across Turns, `auto` engages Autopilot, and `dev on` with `inspect`, `addmoney`, `addagents`, and
+  `override` uses the Developer API. A change to the engine API is made reachable through the CLI in the same change,
+  and `e2e/web.spec.ts` plays the same Campaign through the engine API, the CLI, and the web UI.
+- **Options considered:** Following the guidance; keeping the web UI as the only complete interface.
+- **Option chosen:** Following the guidance.
+- **Why:** The CLI already covers every engine API operation, so the whole game stays playable headlessly at no
+  extra cost.
+- **Links:** None.
+
+## DEC-033: An Agent on Recovery arrives Recovering
+
+- **Category:** Conflict resolution
+- **Affected specifications:** AGENT, Transit rule: "or Recovering when its Assignment is Recovery". TURN, The steps,
+  step 1 Transit: "The Agent becomes At assignment and keeps its Assignment."
+- **Description:** In the Transit step an In transit Agent whose Assignment is Recovery becomes Recovering; every other
+  In transit Agent becomes At assignment. Both keep their Assignment.
+- **Options considered:** Following Agents; following Turn Advancement.
+- **Option chosen:** Following Agents.
+- **Why:** Agents owns Agent status and its invariant, which a Recovery Agent that is At assignment would break; the
+  step table of Turn Advancement restates the Transit rule of Agents and links to it.
+- **Links:** PROB-015

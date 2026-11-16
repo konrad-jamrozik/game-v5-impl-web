@@ -7,7 +7,7 @@
   compute exactly for every value that can arise in a Campaign." NUMBERS, Whole-number quantities: "its size is
   limited only by a range stated for its quantity."
 - **Description:** No Mechanics specification states an upper bound for stored quantities such as money, funding, or
-  skill, and the cheat operation `addMoney(amount)` accepts any amount. Which values "can arise in a Campaign" is
+  skill, and the Player cheat action `addMoney(amount)` accepts any amount. Which values "can arise in a Campaign" is
   therefore unbounded, and no specification says whether an implementation may reject a Player action that would take
   a stored quantity beyond a large bound.
 - **Links:** DEC-004
@@ -37,7 +37,7 @@
 
 - **Category:** Needed TODO
 - **Affected specifications:** CONFIG, TODOs: "TODO: Define the inventory of Campaign configuration values that are
-  adjustable during play ... and the Engine API operations that change them." and "TODO: Define the public command
+  adjustable during play ... and the Engine API operations that change them." and "TODO: Define the public Player action
   and report signatures for Changing Campaign configuration during play."
 - **Description:** The rules for changing Campaign configuration during play are stated, but no value is adjustable
   and no operation is named, so an implementer cannot tell whether to expose an operation.
@@ -58,15 +58,14 @@
 ## PROB-006: No query returns retained Campaign instances, Turn series, or GDR properties
 
 - **Category:** Implicit gap
-- **Affected specifications:** ENG, Current state, Turn report, and history: "`getCurrentState()` returns nothing
+- **Affected specifications:** WHIST, Current state, Turn report, and history: "`getCurrentState()` returns nothing
   that is retained only in World history" and `getHistory()` returns "The Player-visible information of every History
-  entry". AGENT, Player-visible information: "for every Agent whatever its lifecycle state". MISSION, Player-visible
+  entry". AGENT, Player-visible information: "for every Agent whatever its Agent status". MISSION, Player-visible
   information: "for every Mission site and every Mission whatever its lifecycle state". WHIST, Turn series: "Player
   API returns a Player-visible Turn series in full". COMBAT, Player-visible information: "Every property of each
   EnemyArchetype, Weapon, and CombatParameters GDR".
 - **Description:** The three queries are stated to be complete, but none of them is stated to return the
-  Player-visible information of Campaign instances retained in World history, e.g. a Killed Agent or a Won Mission
-  that Lead progression references, of a Turn series, or of the GDR properties that several specifications declare
+  Player-visible information of Campaign instances retained in World history, e.g. a Killed Agent or a Won Mission, of a Turn series, or of the GDR properties that several specifications declare
   Player-visible. No specification says which query returns them.
 - **Links:** DEC-015
 - **Resolution:** Open
@@ -166,4 +165,16 @@
 - **Description:** Storing the Global configuration and the Campaign saves needs a physical layout, in files for the
   terminal CLI and in the browser for the web UI, and the document leaves it open.
 - **Links:** DEC-023
+- **Resolution:** Open
+
+## PROB-015: Turn Advancement and Agents disagree on where an Agent on Recovery arrives
+
+- **Category:** Conflict
+- **Affected specifications:** TURN, The steps, step 1 Transit: "The Agent becomes At assignment and keeps its
+  Assignment." AGENT, Transit rule: "becomes At assignment in the Transit step of that Advance turn, or Recovering
+  when its Assignment is Recovery."
+- **Description:** An Agent whose Assignment is Recovery and that is In transit arrives in the Transit step. Turn
+  Advancement says it becomes At assignment, while Agents says it becomes Recovering, and the invariant of Agent status
+  requires an Agent whose Assignment is Recovery and that is not In transit to be Recovering.
+- **Links:** DEC-033
 - **Resolution:** Open

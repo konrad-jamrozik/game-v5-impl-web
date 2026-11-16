@@ -96,15 +96,15 @@ export function AgencyPanel(props: { snapshot: Snapshot; state: CurrentStateView
               <tr key={faction.id}>
                 <th scope="row">{faction.name}</th>
                 <td>
-                  {faction.defeated ? (
-                    <Badge tone="good">Defeated in Turn {faction.defeatedTurn}</Badge>
+                  {faction.eliminated ? (
+                    <Badge tone="good">Eliminated in Turn {faction.eliminatedTurn}</Badge>
                   ) : (
                     faction.activityLevel.name
                   )}
                 </td>
                 <td>
                   {faction.activityLevel.lastsTurns === null
-                    ? 'until defeated'
+                    ? 'until eliminated'
                     : faction.activityLevel.lastsTurns.join(' to ')}
                 </td>
                 <td>{faction.activityLevel.operationEveryTurns.join(' to ')}</td>

@@ -13,11 +13,10 @@ import { fundingAfter, income, upkeep } from '../mechanics/economy/economy.ts';
 import { applyPendingPanicChange, checkEnding } from '../mechanics/endings/endings.ts';
 import {
   applyFactionActivity,
-  defeatFaction,
+  eliminateFaction,
   type FactionOperationOccurrence,
 } from '../mechanics/factions/factions.ts';
 import { completionProbability } from '../mechanics/investigations/investigations.ts';
-import { leadOfMissionSite } from '../mechanics/leads/leads.ts';
 import {
   consequencesOf,
   createMissionSite,
@@ -26,15 +25,17 @@ import {
 import { recoverAgent } from '../mechanics/recovery/recovery.ts';
 import type { Random } from '../random.ts';
 import { summarize } from '../state/summary.ts';
-import type {
-  CampaignState,
-  CombatReport,
-  ConsequenceRecord,
-  CurrentWorldState,
-  HistoryEntry,
-  MissionResultRecord,
-  TurnReport,
-  WorldHistory,
+import {
+  isServing,
+  type AgentStatus,
+  type CampaignState,
+  type CombatReport,
+  type ConsequenceRecord,
+  type CurrentWorldState,
+  type HistoryEntry,
+  type MissionResultRecord,
+  type TurnReport,
+  type WorldHistory,
 } from '../state/types.ts';
 
 /** Campaign state while Advance turn changes it. No intermediate value of it is ever observable. */
@@ -68,11 +69,16 @@ export function applyAdvanceTurn(
   const turn = world.turn;
   const agentParameters = gdrs.agentParameters;
 
-  /** TURN, Transit across the steps: At assignment in the Turn-end state and still At assignment now. */
+  /** Serving and not In transit, that is At assignment or Recovering. */
+  const atItsAssignment = (
+    agent: { readonly state: { readonly status: AgentStatus } } | undefined,
+  ): boolean => agent?.state.status === 'AtAssignment' || agent?.state.status === 'Recovering';
+  /**
+   * TURN, Transit across the steps: at its Assignment (At assignment or Recovering) in the Turn-end state and still
+   * at it now.
+   */
   const worksNow = (agentId: string): boolean =>
-    before.agents[agentId]?.state.taskPhase === 'AtAssignment' &&
-    world.agents[agentId]?.state.lifecycle === 'Serving' &&
-    world.agents[agentId].state.taskPhase === 'AtAssignment';
+    atItsAssignment(before.agents[agentId]) && atItsAssignment(world.agents[agentId]);
 
   let pendingPanicChange = 0;
   const panicBefore = world.panic;
@@ -81,8 +87,8 @@ export function applyAdvanceTurn(
   // Step 1: Transit.
   const arrived: string[] = [];
   for (const agent of Object.values(world.agents)) {
-    if (agent.state.lifecycle === 'Serving' && agent.state.taskPhase === 'InTransit') {
-      agent.state.taskPhase = 'AtAssignment';
+    if (agent.state.status === 'InTransit') {
+      agent.state.status = agent.state.assignment?.kind === 'Recovery' ? 'Recovering' : 'AtAssignment';
       arrived.push(agent.id);
     }
   }
@@ -101,7 +107,7 @@ export function applyAdvanceTurn(
   };
 
   // Step 3: Upkeep.
-  const serving = Object.values(world.agents).filter((agent) => agent.state.lifecycle === 'Serving').length;
+  const serving = Object.values(world.agents).filter((agent) => isServing(agent.state)).length;
   const upkeepAmount = upkeep(serving, gdrs.economy);
   world.agency.state.money -= upkeepAmount;
   const upkeepReport = { servingAgents: serving, upkeep: upkeepAmount, moneyAfter: world.agency.state.money };
@@ -145,7 +151,7 @@ export function applyAdvanceTurn(
       for (const member of investigation.state.currentTeam) {
         const agent = must(world.agents[member], `Agent ${member}`);
         agent.state.assignment = { kind: 'Standby' };
-        agent.state.taskPhase = 'InTransit';
+        agent.state.status = 'InTransit';
         recordParticipation(agent.state, 'Investigation', investigation.id);
       }
       investigation.state.currentTeam = [];
@@ -236,17 +242,16 @@ export function applyAdvanceTurn(
     for (const agent of team) {
       recordParticipation(agent.state, 'Mission', mission.id);
       if (agent.state.currentHealth === 0) {
-        agent.state.lifecycle = 'Killed';
+        agent.state.status = 'Killed';
         agent.state.assignment = null;
-        agent.state.taskPhase = null;
         killed.push(agent.id);
       } else if (agent.state.currentHealth < agent.state.baseHealth) {
         agent.state.assignment = { kind: 'Recovery' };
-        agent.state.taskPhase = 'InTransit';
+        agent.state.status = 'InTransit';
         toRecovery.push(agent.id);
       } else {
         agent.state.assignment = { kind: 'Standby' };
-        agent.state.taskPhase = 'InTransit';
+        agent.state.status = 'InTransit';
         toStandby.push(agent.id);
       }
     }
@@ -264,21 +269,13 @@ export function applyAdvanceTurn(
     world.agency.state.money += amounts.money;
     missionFunding.push(amounts.fundingChange);
     pendingPanicChange += amounts.panicIncrease - amounts.panicReduction;
-    let defeatedFaction: string | null = null;
-    if (amounts.defeatTargetFaction) {
+    let eliminatedFaction: string | null = null;
+    if (amounts.eliminateTargetFaction) {
       const target = must(world.factions[site.constants.targetFaction], 'target Faction');
-      if (!target.state.defeated) {
-        defeatedFaction = target.id;
+      if (!target.state.eliminated) {
+        eliminatedFaction = target.id;
       }
-      defeatFaction(target.state, turn);
-    }
-    let recordedWinForLead: string | null = null;
-    if (result === 'Won' && site.constants.kind === 'Initiative') {
-      const lead = leadOfMissionSite(site, world.investigations);
-      if (lead !== null) {
-        (world.leadProgression[lead] ??= []).push(mission.id);
-        recordedWinForLead = lead;
-      }
+      eliminateFaction(target.state, turn);
     }
     missionResults.set(mission.id, {
       mission: mission.id,
@@ -289,23 +286,19 @@ export function applyAdvanceTurn(
       killed,
       toRecovery,
       toStandby,
-      consequence: toRecord(amounts, defeatedFaction),
-      recordedWinForLead,
+      consequence: toRecord(amounts, eliminatedFaction),
     });
   }
   world.agency.state.funding = fundingAfter(fundingAtStep6, missionFunding);
-  for (const wins of Object.values(world.leadProgression)) {
-    wins.sort((a, b) => missionIndex(world, a) - missionIndex(world, b));
-  }
   const cancelledMissionSites: string[] = [];
   for (const site of Object.values(world.missionSites)) {
-    if (site.state.lifecycle === 'Active' && world.factions[site.constants.targetFaction]?.state.defeated) {
+    if (site.state.lifecycle === 'Active' && world.factions[site.constants.targetFaction]?.state.eliminated) {
       site.state.lifecycle = 'Cancelled';
       cancelledMissionSites.push(site.id);
     }
   }
   // When two Won Missions defeat one Faction, the Turn report names the defeat once, on the first in state order.
-  const reportedDefeats = new Set<string>();
+  const reportedEliminations = new Set<string>();
   const missionReports: MissionResultRecord[] = [];
   for (const mission of Object.values(world.missions)) {
     const result = missionResults.get(mission.id);
@@ -317,18 +310,21 @@ export function applyAdvanceTurn(
       gdrs.missionSiteArchetypes.find((item) => item.id === site.archetype),
       'MissionSiteArchetype',
     );
-    const defeats =
+    const eliminates =
       result.result === 'Won' &&
       archetype.kind === 'initiative' &&
-      archetype.onWin.defeatTargetFaction &&
-      before.factions[site.constants.targetFaction]?.state.defeated === false &&
-      !reportedDefeats.has(site.constants.targetFaction);
-    if (defeats) {
-      reportedDefeats.add(site.constants.targetFaction);
+      archetype.onWin.eliminateTargetFaction &&
+      before.factions[site.constants.targetFaction]?.state.eliminated === false &&
+      !reportedEliminations.has(site.constants.targetFaction);
+    if (eliminates) {
+      reportedEliminations.add(site.constants.targetFaction);
     }
     missionReports.push({
       ...result,
-      consequence: { ...result.consequence, defeatedFaction: defeats ? site.constants.targetFaction : null },
+      consequence: {
+        ...result.consequence,
+        eliminatedFaction: eliminates ? site.constants.targetFaction : null,
+      },
     });
   }
 
@@ -340,8 +336,8 @@ export function applyAdvanceTurn(
     if (site.state.lifecycle !== 'Active' || before.missionSites[site.id] === undefined) {
       continue;
     }
-    site.state.turnsUntilExpiry -= 1;
-    if (site.state.turnsUntilExpiry !== 0) {
+    site.state.turnsUntilExpiration -= 1;
+    if (site.state.turnsUntilExpiration !== 0) {
       continue;
     }
     site.state.lifecycle = 'Expired';
@@ -372,7 +368,7 @@ export function applyAdvanceTurn(
   const occurrences = new Map<string, FactionOperationOccurrence | null>();
   const levelBefore = new Map<string, string>();
   for (const faction of order(Object.values(world.factions))) {
-    if (faction.state.defeated) {
+    if (faction.state.eliminated) {
       continue;
     }
     levelBefore.set(faction.id, faction.state.activityLevel);
@@ -460,7 +456,7 @@ export function applyAdvanceTurn(
 
   // Step 11: Ending check.
   const decision = checkEnding({
-    factionsDefeated: Object.values(world.factions).map((faction) => faction.state.defeated),
+    factionsEliminated: Object.values(world.factions).map((faction) => faction.state.eliminated),
     panic: world.panic,
     panicLimit: gdrs.endingParameters.defeatAtPanicPct,
     money: world.agency.state.money,
@@ -504,23 +500,19 @@ export function applyAdvanceTurn(
 
 function toRecord(
   amounts: ReturnType<typeof consequencesOf>,
-  defeatedFaction: string | null,
+  eliminatedFaction: string | null,
 ): ConsequenceRecord {
   return {
     money: amounts.money,
     fundingChange: amounts.fundingChange,
     panicIncrease: amounts.panicIncrease,
     panicReduction: amounts.panicReduction,
-    defeatedFaction,
+    eliminatedFaction,
   };
 }
 
 function agentIndex(world: CurrentWorldState, id: string): number {
   return Object.keys(world.agents).indexOf(id);
-}
-
-function missionIndex(world: CurrentWorldState, id: string): number {
-  return Object.keys(world.missions).indexOf(id);
 }
 
 function siteIndex(world: CurrentWorldState, id: string): number {

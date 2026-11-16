@@ -134,24 +134,24 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('BOOT: the Bootstrap GDRs', () => {
-  it('supplies 35 GDRs in 19 files, and a Victory path from the first Lead to the Faction defeat', () => {
+  it('supplies 35 GDRs in 19 files, and a Victory path from the first Lead to the Faction elimination', () => {
     expect(RAW_GDR_FILES).toHaveLength(19);
     expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(35);
     const catalog = bootstrapGdrCatalog();
     const leads = catalog.leads;
     const sites = catalog.missionSiteArchetypes;
-    // Follow the Leads from one without prerequisites to one whose Mission site defeats the Faction.
+    // Follow the Leads from one without prerequisites to one whose Mission site eliminates the Faction.
     let lead = leads.find((item) => item.requires.length === 0);
     const path: string[] = [];
     while (lead !== undefined) {
       const current = lead;
       path.push(current.id);
       const site = sites.find((item) => item.id === current.onCompletion.createMissionSite);
-      if (site?.onWin?.defeatTargetFaction === true) {
+      if (site?.onWin?.eliminateTargetFaction === true) {
         break;
       }
       lead = leads.find((item) =>
-        item.requires.some((required) => required.missionWonFromLead === current.id),
+        item.requires.some((required) => required.missionWon === current.onCompletion.createMissionSite),
       );
     }
     expect(path).toEqual(['locate_red_dawn_member', 'locate_red_dawn_safehouse', 'locate_red_dawn_hq']);

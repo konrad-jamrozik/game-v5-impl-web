@@ -5,8 +5,7 @@
 import { findNonWholeNumber } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import { progressToCertainCompletion } from '../mechanics/investigations/investigations.ts';
-import { leadOfMissionSite } from '../mechanics/leads/leads.ts';
-import type { CampaignState } from './types.ts';
+import { isServing, type CampaignState } from './types.ts';
 
 export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[] {
   const problems: string[] = [];
@@ -60,18 +59,18 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
   if (ended !== world.endingReasons.length > 0 || ended !== (world.endingTurn !== null)) {
     fail('ENDING: the Campaign ending, Ending reasons, and Ending turn do not agree');
   }
-  if (world.ending === 'Victory' && world.endingReasons.join() !== 'EveryFactionDefeated') {
-    fail('ENDING: Victory has an Ending reason other than Every Faction Defeated');
+  if (world.ending === 'Victory' && world.endingReasons.join() !== 'EveryFactionEliminated') {
+    fail('ENDING: Victory has an Ending reason other than Every Faction Eliminated');
   }
   if (
     world.ending === 'Defeat' &&
     (new Set(world.endingReasons).size !== world.endingReasons.length ||
-      world.endingReasons.some((reason) => reason === 'EveryFactionDefeated'))
+      world.endingReasons.some((reason) => reason === 'EveryFactionEliminated'))
   ) {
     fail('ENDING: Defeat has an invalid Ending reason');
   }
 
-  // AGENT, Agent lifecycle, Attribute ranges, Orders and Task phase.
+  // AGENT, Agent status, Attribute ranges and Orders.
   for (const agent of Object.values(world.agents)) {
     const s = agent.state;
     const where = `AGENT ${agent.id}`;
@@ -87,17 +86,19 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     if (s.exhaustion < 0 || s.exhaustion > gdrs.agentParameters.exhaustionCap) {
       fail(`${where}: exhaustion is outside its range`);
     }
-    const serving = s.lifecycle === 'Serving';
-    if (serving !== (s.assignment !== null) || serving !== (s.taskPhase !== null)) {
-      fail(`${where}: Current assignment and Task phase do not agree with the lifecycle state`);
+    if (isServing(s) !== (s.assignment !== null)) {
+      fail(`${where}: Current assignment is not present exactly when the Agent is Serving`);
     }
-    if ((s.lifecycle === 'Killed') !== (s.currentHealth === 0)) {
-      fail(`${where}: current health does not agree with the lifecycle state`);
+    if ((s.status === 'Recovering') !== (s.assignment?.kind === 'Recovery' && s.status !== 'InTransit')) {
+      fail(`${where}: Recovering does not agree with a Recovery assignment that is not In transit`);
+    }
+    if ((s.status === 'Killed') !== (s.currentHealth === 0)) {
+      fail(`${where}: current health does not agree with the Agent status`);
     }
     if (s.assignment?.kind === 'Deployed') {
       const mission = world.missions[s.assignment.mission];
       if (
-        s.taskPhase !== 'AtAssignment' ||
+        s.status !== 'AtAssignment' ||
         mission?.state.lifecycle !== 'Deployed' ||
         !mission.state.currentTeam.includes(agent.id)
       ) {
@@ -194,9 +195,9 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
       fail(`${where}: its origin does not resolve or does not match its kind`);
     }
     const expired = site.state.lifecycle === 'Expired';
-    const turns = site.state.turnsUntilExpiry;
+    const turns = site.state.turnsUntilExpiration;
     if (expired ? turns !== 0 : turns < 1 || turns > archetype.expiresInTurns) {
-      fail(`${where}: Turns until expiry is 0 exactly when Expired`);
+      fail(`${where}: Turns until expiration is 0 exactly when Expired`);
     }
     const missions = missionsBySite.get(site.id) ?? 0;
     if (missions !== (site.state.lifecycle === 'Attempted' ? 1 : 0)) {
@@ -249,43 +250,25 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     if (!gdrs.factionArchetypes.some((archetype) => archetype.id === faction.archetype)) {
       fail(`${where}: its FactionArchetype is not supplied by the Game build`);
     }
-    if (faction.state.defeatedTurn !== null && faction.state.defeatedTurn < 1) {
-      fail(`${where}: Defeated turn is below 1`);
+    if (faction.state.eliminatedTurn !== null && faction.state.eliminatedTurn < 1) {
+      fail(`${where}: Eliminated turn is below 1`);
     }
     const level = gdrs.factionActivityLevels.get(faction.state.activityLevel);
     if (level === undefined) {
       fail(`${where}: its Faction activity level does not resolve`);
       continue;
     }
-    if (faction.state.defeated !== (faction.state.defeatedTurn !== null)) {
-      fail(`${where}: Defeated turn is present exactly when Defeated`);
+    if (faction.state.eliminated !== (faction.state.eliminatedTurn !== null)) {
+      fail(`${where}: Eliminated turn is present exactly when Eliminated`);
     }
     if ((faction.state.turnsUntilNextLevel === null) !== (level.next === null)) {
       fail(`${where}: Turns until the next level is absent exactly at a final level`);
     }
     if (
-      !faction.state.defeated &&
+      !faction.state.eliminated &&
       (faction.state.turnsUntilNextOperation < 1 || (faction.state.turnsUntilNextLevel ?? 1) < 1)
     ) {
       fail(`${where}: a countdown is below 1`);
-    }
-  }
-
-  // LEAD, Lead progression.
-  const recorded = new Set<string>();
-  for (const [leadId, wins] of Object.entries(world.leadProgression)) {
-    for (const missionId of wins) {
-      const mission = world.missions[missionId];
-      const site = mission === undefined ? undefined : world.missionSites[mission.constants.missionSite];
-      if (
-        mission?.state.lifecycle !== 'Won' ||
-        site === undefined ||
-        leadOfMissionSite(site, world.investigations) !== leadId ||
-        recorded.has(missionId)
-      ) {
-        fail(`LEAD: the Recorded win ${missionId} of ${leadId} is not a Won Mission from that Lead`);
-      }
-      recorded.add(missionId);
     }
   }
 

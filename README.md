@@ -73,7 +73,7 @@ not read.
   each Faction with its Faction activity level, and the buttons Undo, Redo, earlier and later Autosave, Save, Main
   menu, and Advance turn.
 - **Agents grid.** Always visible on the left. A sortable table of the Serving Agents built with TanStack Table.
-  Clicking a row selects it. The toolbar above hires an Agent and orders the selected Agents to Standby, Contracting,
+  Clicking a row selects it. The toolbar above hires an Agent and assigns the selected Agents to Standby, Contracting,
   or Training, or dismisses them.
 - **Panels.** On the right, one of five:
   - Mission sites: each with its Enemies, rewards, and penalties, the Combat rating of the selected team against
@@ -97,7 +97,7 @@ After a reload the web UI continues the Campaign from its Current Autosave, incl
 DEC-023.
 
 Keyboard shortcuts: `N` Advance turn, `U` and `R` undo and redo, `1` to `5` open a panel, `H` hire, `S`, `C`, `T`
-order the selected Agents, `A` select every Agent that can be ordered, `Esc` clear the selection, `` ` `` open the
+assign the selected Agents, `A` select every Agent that can be assigned, `Esc` clear the selection, `` ` `` open the
 Developer drawer, `?` list the shortcuts.
 
 ## The terminal CLI

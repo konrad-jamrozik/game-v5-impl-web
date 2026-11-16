@@ -28,9 +28,9 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
       turns += 1;
     }
     const state = ok(engine.player.queries.getCurrentState());
-    expect(state.ending).toMatchObject({ ending: 'Victory', reasons: ['EveryFactionDefeated'] });
-    expect(state.factions.every((faction) => faction.defeated)).toBe(true);
-    expect(state.leads.every((lead) => lead.recordedWins.length === 1)).toBe(true);
+    expect(state.ending).toMatchObject({ ending: 'Victory', reasons: ['EveryFactionEliminated'] });
+    expect(state.factions.every((faction) => faction.eliminated)).toBe(true);
+    expect(state.leads.every((lead) => !lead.conditions.noMissionWon)).toBe(true);
     expect(ok(engine.session.getStatus())).toMatchObject({ devMode: false, campaignEnded: true });
     // After a Campaign ending every Player action is rejected and every query keeps answering.
     expect(errorCode(await engine.player.actions.advanceTurn())).toBe('campaign_ended');
@@ -179,7 +179,7 @@ describe('DETERM and TIMELINE with the real game', () => {
           for (const step of steps) {
             const view = ok(engine.player.queries.getCurrentState());
             const available = ok(engine.player.queries.getAvailableActions());
-            const [agent] = available.orderableAgents;
+            const [agent] = available.assignableAgents;
             let committed = false;
             if (step === 'undo') {
               const result = await engine.session.timeline.undoAction();

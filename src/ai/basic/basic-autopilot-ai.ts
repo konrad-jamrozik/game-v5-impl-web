@@ -108,7 +108,7 @@ class Turn {
 
   private isRested(agent: AgentView, limit = this.t.restedExhaustion): boolean {
     return (
-      agent.canBeOrdered &&
+      agent.canBeAssigned &&
       (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
       agent.exhaustion <= limit
     );
@@ -212,7 +212,7 @@ class Turn {
     const rate = this.data.economy['contractingIncomePerAgent'] ?? 0;
     for (const agent of state.agents) {
       const kind = agent.assignment?.kind;
-      if (!agent.canBeOrdered || agent.exhaustion <= this.t.restedExhaustion) {
+      if (!agent.canBeAssigned || agent.exhaustion <= this.t.restedExhaustion) {
         continue;
       }
       const recall =
@@ -238,7 +238,7 @@ class Turn {
       ? this.byPreference(
           state.agents.filter(
             (agent) =>
-              agent.canBeOrdered &&
+              agent.canBeAssigned &&
               (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
               agent.exhaustion <= this.t.urgentExhaustion,
           ),
@@ -265,7 +265,7 @@ class Turn {
       .sort(
         (a, b) =>
           urgency(a.site) - urgency(b.site) ||
-          a.site.turnsUntilExpiry - b.site.turnsUntilExpiry ||
+          a.site.turnsUntilExpiration - b.site.turnsUntilExpiration ||
           a.index - b.index,
       );
     const rested = this.byPreference(state.agents.filter((agent) => this.isRested(agent)));
@@ -313,13 +313,14 @@ class Turn {
         this.player.actions.assignAgentsToInvestigation(active.id, team),
       );
     }
-    // A Lead whose Won Mission site makes further Leads available or makes a Faction Defeated comes first.
-    const opensMore = (leadId: string, site: string): boolean =>
-      state.leads.some((other) => other.requires.some((required) => required.lead === leadId)) ||
-      this.data.missionSiteArchetypes.find((item) => item.id === site)?.onWin?.defeatsTargetFaction === true;
+    // A Lead whose Won Mission site makes further Leads available or makes a Faction Eliminated comes first.
+    const opensMore = (site: string): boolean =>
+      state.leads.some((other) => other.requires.some((required) => required.missionWon === site)) ||
+      this.data.missionSiteArchetypes.find((item) => item.id === site)?.onWin?.eliminatesTargetFaction ===
+        true;
     const leads = [
-      ...state.leads.filter((lead) => opensMore(lead.id, lead.createsMissionSite)),
-      ...state.leads.filter((lead) => !opensMore(lead.id, lead.createsMissionSite)),
+      ...state.leads.filter((lead) => opensMore(lead.createsMissionSite)),
+      ...state.leads.filter((lead) => !opensMore(lead.createsMissionSite)),
     ];
     for (const lead of leads) {
       if (!lead.canBeInvestigatedNow || !winnable(lead.id)) {

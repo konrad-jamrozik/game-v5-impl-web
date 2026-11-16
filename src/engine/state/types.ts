@@ -29,8 +29,13 @@ export type Agency = Instance<Record<string, never>, AgencyState>;
 
 // ---- Agent (AGENT) -------------------------------------------------------------------------------
 
-export type AgentLifecycle = 'Serving' | 'Killed' | 'Dismissed';
-export type TaskPhase = 'AtAssignment' | 'InTransit';
+/** AGENT, Agent status. An Agent is Serving exactly when it is At assignment, In transit, or Recovering. */
+export type AgentStatus = 'AtAssignment' | 'InTransit' | 'Recovering' | 'Killed' | 'Dismissed';
+
+/** AGENT, Agent statuses: Serving. */
+export function isServing(agent: { readonly status: AgentStatus }): boolean {
+  return agent.status === 'AtAssignment' || agent.status === 'InTransit' || agent.status === 'Recovering';
+}
 export type SimpleAssignment = 'Standby' | 'Contracting' | 'Training';
 
 export type Assignment =
@@ -52,7 +57,7 @@ export interface AgentConstants {
 }
 
 export interface AgentState {
-  lifecycle: AgentLifecycle;
+  status: AgentStatus;
   skill: number;
   currentHealth: number;
   baseHealth: number;
@@ -62,8 +67,6 @@ export interface AgentState {
   weaponDamage: number;
   /** Present exactly when the Agent is Serving. */
   assignment: Assignment | null;
-  /** Present exactly when the Agent is Serving. */
-  taskPhase: TaskPhase | null;
   participationHistory: Participation[];
 }
 export type Agent = Instance<AgentConstants, AgentState>;
@@ -77,8 +80,8 @@ export interface FactionState {
   turnsUntilNextLevel: number | null;
   /** Never Player-visible. */
   turnsUntilNextOperation: number;
-  defeated: boolean;
-  defeatedTurn: number | null;
+  eliminated: boolean;
+  eliminatedTurn: number | null;
 }
 export type Faction = Instance<Record<string, never>, FactionState>;
 
@@ -123,7 +126,7 @@ export interface MissionSiteConstants {
 
 export interface MissionSiteState {
   lifecycle: MissionSiteLifecycle;
-  turnsUntilExpiry: number;
+  turnsUntilExpiration: number;
   /** The Enemies present, in their creation order. */
   enemies: string[];
 }
@@ -222,7 +225,7 @@ export interface CombatReport {
 // ---- Campaign-wide values (ENDING, LEAD, TURN) ---------------------------------------------------
 
 export type CampaignEnding = 'Victory' | 'Defeat';
-export type EndingReason = 'EveryFactionDefeated' | 'PanicAtTheLimit' | 'MoneyBelowZero';
+export type EndingReason = 'EveryFactionEliminated' | 'PanicAtTheLimit' | 'MoneyBelowZero';
 
 export interface CurrentWorldState {
   /** The Campaign seed; never Player-visible. */
@@ -244,8 +247,6 @@ export interface CurrentWorldState {
   missionSites: Record<string, MissionSite>;
   missions: Record<string, Mission>;
   enemies: Record<string, Enemy>;
-  /** Lead progression: for each Lead GDR, the Won Missions at the Mission sites it created. */
-  leadProgression: Record<string, string[]>;
 }
 
 // ---- World history: Turn report, History entries, Turn series ------------------------------------
@@ -256,7 +257,7 @@ export interface ConsequenceRecord {
   readonly fundingChange: number;
   readonly panicIncrease: number;
   readonly panicReduction: number;
-  readonly defeatedFaction: string | null;
+  readonly eliminatedFaction: string | null;
 }
 
 export interface MissionResultRecord {
@@ -271,8 +272,6 @@ export interface MissionResultRecord {
   /** Survivors sent to Standby. */
   readonly toStandby: readonly string[];
   readonly consequence: ConsequenceRecord;
-  /** The Lead whose Lead progression recorded the win, if any. */
-  readonly recordedWinForLead: string | null;
 }
 
 export interface TurnReport {

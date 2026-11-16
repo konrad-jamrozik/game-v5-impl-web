@@ -17,8 +17,8 @@ function consequence(c: ConsequenceView, won: boolean): string {
   if (c.panicIncrease !== 0) {
     parts.push(`Panic +${c.panicIncrease}`);
   }
-  if (c.defeatsTargetFaction) {
-    parts.push('defeats the Faction');
+  if (c.eliminatesTargetFaction) {
+    parts.push('eliminates the Faction');
   }
   return parts.length === 0 ? (won ? 'nothing' : 'no penalty') : parts.join(', ');
 }
@@ -71,8 +71,8 @@ export function MissionSitesPanel(props: {
               <Badge tone={site.kind === 'Response' ? 'warn' : 'accent'}>{site.kind}</Badge>
               <Badge>{factionName(site.targetFaction)}</Badge>
               {site.lifecycle === 'Active' ? (
-                <Badge tone={site.turnsUntilExpiry <= 1 ? 'bad' : 'muted'}>
-                  expires in {site.turnsUntilExpiry} {site.turnsUntilExpiry === 1 ? 'turn' : 'turns'}
+                <Badge tone={site.turnsUntilExpiration <= 1 ? 'bad' : 'muted'}>
+                  expires in {site.turnsUntilExpiration} {site.turnsUntilExpiration === 1 ? 'turn' : 'turns'}
                 </Badge>
               ) : (
                 <Badge tone="good">Team deployed</Badge>

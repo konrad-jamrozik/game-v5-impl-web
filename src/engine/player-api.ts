@@ -7,7 +7,7 @@ import type { ProbabilityPair } from '../kernel/index.ts';
 import type { Result } from './result.ts';
 import type { CommitOutcome } from './session/core.ts';
 import type {
-  AgentLifecycle,
+  AgentStatus,
   Assignment,
   CampaignEnding,
   EndingReason,
@@ -19,7 +19,6 @@ import type {
   MissionSiteOrigin,
   Participation,
   SimpleAssignment,
-  TaskPhase,
   TurnReport,
   TurnSeriesValue,
 } from './state/types.ts';
@@ -40,7 +39,7 @@ export interface AgentView {
   readonly archetypeName: string;
   readonly agency: string;
   readonly turnHired: number;
-  readonly lifecycle: AgentLifecycle;
+  readonly agentStatus: AgentStatus;
   readonly skill: number;
   readonly effectiveSkill: number;
   readonly currentHealth: number;
@@ -51,8 +50,7 @@ export interface AgentView {
   readonly weaponDamage: number;
   /** Absent for a Killed or Dismissed Agent. */
   readonly assignment: Assignment | null;
-  readonly taskPhase: TaskPhase | null;
-  readonly canBeOrdered: boolean;
+  readonly canBeAssigned: boolean;
   /** Whether the Agent would be able to fight if a Combat began now. */
   readonly ableToFight: boolean;
   readonly participationHistory: readonly Participation[];
@@ -82,7 +80,7 @@ export interface ConsequenceView {
   readonly fundingChange: number;
   readonly panicIncrease: number;
   readonly panicReduction: number;
-  readonly defeatsTargetFaction: boolean;
+  readonly eliminatesTargetFaction: boolean;
 }
 
 export interface MissionSiteView {
@@ -98,7 +96,7 @@ export interface MissionSiteView {
   readonly targetFaction: string;
   readonly turnCreated: number;
   readonly lifecycle: MissionSiteLifecycle;
-  readonly turnsUntilExpiry: number;
+  readonly turnsUntilExpiration: number;
   readonly enemies: readonly EnemyView[];
   /** The Combat rating of its Enemies. */
   readonly enemiesCombatRating: number;
@@ -132,7 +130,7 @@ export interface InvestigationView {
   readonly progress: number;
   /** The Investigation progress at which it always completes: difficulty × 100. */
   readonly progressForCertainCompletion: number;
-  readonly currentTeam: readonly { readonly agent: string; readonly taskPhase: TaskPhase | null }[];
+  readonly currentTeam: readonly { readonly agent: string; readonly agentStatus: AgentStatus }[];
   /** Absent for a Completed or Abandoned Investigation. */
   readonly projectedCompletionProbability: ProbabilityPair | null;
 }
@@ -145,16 +143,16 @@ export interface LeadView {
   readonly factionArchetype: string;
   readonly faction: string | null;
   readonly difficulty: number;
-  readonly requires: readonly { readonly lead: string; readonly holds: boolean }[];
+  /** Each prerequisite: the MissionSiteArchetype its `mission_won` names, and whether it holds. */
+  readonly requires: readonly { readonly missionWon: string; readonly holds: boolean }[];
   /** The MissionSiteArchetype its completion effect creates. */
   readonly createsMissionSite: string;
-  readonly recordedWins: readonly string[];
   readonly available: boolean;
   readonly conditions: {
     readonly prerequisitesHold: boolean;
-    readonly noWinRecorded: boolean;
+    readonly noMissionWon: boolean;
     readonly noMissionSiteInProgress: boolean;
-    readonly factionNotDefeated: boolean;
+    readonly factionNotEliminated: boolean;
   };
   /** The numbers, 1 to 4, of the conditions of Lead availability that do not hold. */
   readonly blockingConditions: readonly number[];
@@ -177,8 +175,8 @@ export interface FactionView {
   readonly archetype: string;
   readonly name: string;
   readonly activityLevel: ActivityLevelView;
-  readonly defeated: boolean;
-  readonly defeatedTurn: number | null;
+  readonly eliminated: boolean;
+  readonly eliminatedTurn: number | null;
 }
 
 export interface UpgradeView {
@@ -269,7 +267,7 @@ export interface AvailableActionsView {
   readonly hireAgent: ActionAvailability;
   readonly purchaseUpgrade: readonly ({ readonly upgrade: string } & ActionAvailability)[];
   /** The Agents that can be ordered. */
-  readonly orderableAgents: readonly string[];
+  readonly assignableAgents: readonly string[];
   readonly assignAgents: {
     readonly assignments: readonly SimpleAssignment[];
     /** How many more Agents can be ordered to Training under the Training cap. */

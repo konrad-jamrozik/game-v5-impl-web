@@ -364,7 +364,7 @@ describe('COMBAT: Acceptance examples', () => {
       raw.get('agent_parameters')['exhaustion_per_attack'] = 0;
       raw.get('agent_parameters')['exhaustion_per_defense'] = 0;
     });
-    expectDefective((raw) => (raw.get('sidearm')['damage'] = 0));
+    expectDefective((raw) => (raw.get('sidearm')['base_weapon_damage'] = 0));
     expectDefective((raw) => (raw.get('combat_parameters')['weapon_damage_range'] = { $decimal: '1.5' }));
     expectDefective((raw) => (raw.get('sidearm')['range'] = 3));
     expectDefective((raw) => (raw.get('cult_leader')['weapon'] = 'laser'));

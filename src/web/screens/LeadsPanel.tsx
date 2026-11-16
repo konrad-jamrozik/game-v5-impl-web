@@ -3,20 +3,20 @@ import type { CurrentStateView, LeadView } from '../../engine/index.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { Badge, Button, Meter, percent } from '../ui.tsx';
 
-function blockers(lead: LeadView): string[] {
+function blockers(lead: LeadView, siteName: (archetype: string) => string): string[] {
   const texts: string[] = [];
   if (!lead.conditions.prerequisitesHold) {
-    const missing = lead.requires.filter((item) => !item.holds).map((item) => item.lead);
-    texts.push(`needs a won Mission from: ${missing.join(', ')}`);
+    const missing = lead.requires.filter((item) => !item.holds).map((item) => siteName(item.missionWon));
+    texts.push(`needs a won Mission at: ${missing.join(', ')}`);
   }
-  if (!lead.conditions.noWinRecorded) {
+  if (!lead.conditions.noMissionWon) {
     texts.push('its Mission is already won');
   }
   if (!lead.conditions.noMissionSiteInProgress) {
     texts.push('its Mission site is in progress');
   }
-  if (!lead.conditions.factionNotDefeated) {
-    texts.push('its Faction is defeated');
+  if (!lead.conditions.factionNotEliminated) {
+    texts.push('its Faction is eliminated');
   }
   return texts;
 }
@@ -38,7 +38,9 @@ export function LeadsPanel(props: {
     const investigation = state.investigations.find((item) => item.id === lead.activeInvestigation);
     const children = trail.includes(lead.id)
       ? []
-      : state.leads.filter((item) => item.requires.some((required) => required.lead === lead.id));
+      : state.leads.filter((item) =>
+          item.requires.some((required) => required.missionWon === lead.createsMissionSite),
+        );
     const canStart = actions?.startInvestigation.includes(lead.id) === true;
     return (
       <li key={`${trail.join('/')}/${lead.id}`}>
@@ -50,7 +52,7 @@ export function LeadsPanel(props: {
           <header className="card-head">
             <h4>{lead.name}</h4>
             <Badge>difficulty {lead.difficulty}</Badge>
-            {lead.recordedWins.length > 0 ? <Badge tone="good">Mission won</Badge> : null}
+            {!lead.conditions.noMissionWon ? <Badge tone="good">Mission won</Badge> : null}
             {investigation !== undefined ? (
               <Badge tone="accent">Investigating</Badge>
             ) : lead.available ? (
@@ -64,7 +66,7 @@ export function LeadsPanel(props: {
             Completing it creates the Mission site: {siteName(lead.createsMissionSite)}.
           </p>
           {!lead.available && investigation === undefined ? (
-            <p className="small muted">Not available because {blockers(lead).join('; ')}.</p>
+            <p className="small muted">Not available because {blockers(lead, siteName).join('; ')}.</p>
           ) : null}
           {investigation === undefined ? (
             lead.available ? (
@@ -98,7 +100,7 @@ export function LeadsPanel(props: {
                 Team:{' '}
                 {investigation.currentTeam
                   .map(
-                    (member) => `${member.agent}${member.taskPhase === 'InTransit' ? ' (in transit)' : ''}`,
+                    (member) => `${member.agent}${member.agentStatus === 'InTransit' ? ' (in transit)' : ''}`,
                   )
                   .join(', ') || 'nobody'}
               </p>

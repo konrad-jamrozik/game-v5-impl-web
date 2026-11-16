@@ -1,5 +1,5 @@
 /**
- * Checks the two record files that Implementation Records requires: their entry format, their numbering, the
+ * Checks the two feedback files that Implementation Feedback requires: their entry format, their numbering, the
  * categories, the Resolution of each Specification problem, and the links between Specification problems and
  * Implementation decisions. It also checks the two tracking records that Specification Tracking requires: the form of
  * the Specification baseline, and that the Specification map has its sections in order and lists only existing paths.
@@ -16,8 +16,15 @@ const DECISION_CATEGORIES = [
   'Gap resolution',
   'Treatment of guidance',
 ];
-/** Each Guidance specification must have a Treatment of guidance decision naming it. */
-const GUIDANCE_SPECIFICATIONS = ['Tech Stack Suggestion', 'DEPDIR', 'SCHEMA', 'GHPAGES', 'UPDATES'];
+/** Each Guidance or Recipes specification must have a Treatment of guidance decision naming it. */
+const GUIDANCE_SPECIFICATIONS = [
+  'Tech Stack Suggestion',
+  'DEPDIR',
+  'SCHEMA',
+  'HEADLESS',
+  'GHPAGES',
+  'UPDATES',
+];
 /** A Resolved or Declined Specification problem names a commit of the specifications by its full hash. */
 const FULL_HASH = /\b[0-9a-f]{40}\b/;
 

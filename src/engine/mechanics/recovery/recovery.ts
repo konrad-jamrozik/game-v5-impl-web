@@ -33,6 +33,6 @@ export function recoverAgent(agent: AgentState, parameters: RecoveryParametersGd
   agent.exhaustion = Math.max(0, agent.exhaustion - parameters.exhaustionRecoveryPerTurn);
   if (onRecovery && agent.currentHealth === agent.baseHealth) {
     agent.assignment = { kind: 'Standby' };
-    agent.taskPhase = 'AtAssignment';
+    agent.status = 'AtAssignment';
   }
 }

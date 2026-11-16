@@ -42,7 +42,7 @@ for (let t = 0; t < turns; t += 1) {
     ...report.value.expiredMissionSites.map((site) => `expired:${site.missionSiteArchetype}`),
     ...report.value.investigations.filter((item) => item.completed).map((item) => `completed:${item.lead}`),
   ];
-  const sites = view.missionSites.map((site) => `${site.archetype}:${site.turnsUntilExpiry}`).join(',');
+  const sites = view.missionSites.map((site) => `${site.archetype}:${site.turnsUntilExpiration}`).join(',');
   console.log(
     [
       `turn ${view.turn}`,

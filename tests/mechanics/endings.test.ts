@@ -40,7 +40,7 @@ describe('ENDING: Acceptance examples', () => {
   it('Panic is summed, clamped, and reaches Defeat', () => {
     let state = set(newCampaign(), { panic: 97, money: 40, funding: 0, turn: 12 });
     const raid = addMissionSite(state, 'raid_safehouse');
-    const response = addMissionSite(raid.state, 'foil_sabotage', { turnsUntilExpiry: 1 });
+    const response = addMissionSite(raid.state, 'foil_sabotage', { turnsUntilExpiration: 1 });
     state = act(response.state, 'deployAgents', { missionSite: raid.site, agents: agentIds(response.state) });
     state = advance(state, winning(state, raid.site));
     const report = state.world.history.turnReport!;
@@ -83,7 +83,7 @@ describe('ENDING: Acceptance examples', () => {
 
   it('The Panic limit is inclusive', () => {
     const check = (panic: number, panicLimit: number) =>
-      checkEnding({ factionsDefeated: [false], panic, panicLimit, money: 500 });
+      checkEnding({ factionsEliminated: [false], panic, panicLimit, money: 500 });
     expect(check(79, 80)).toBeNull();
     expect(check(80, 80)).toEqual({ ending: 'Defeat', reasons: ['PanicAtTheLimit'] });
     expect(check(99, 100)).toBeNull();
@@ -95,7 +95,7 @@ describe('ENDING: Acceptance examples', () => {
 
   it('Money below zero is Defeat; zero is not', () => {
     const check = (amount: number) =>
-      checkEnding({ factionsDefeated: [false], panic: 40, panicLimit: 100, money: amount });
+      checkEnding({ factionsEliminated: [false], panic: 40, panicLimit: 100, money: amount });
     expect(check(1)).toBeNull();
     expect(check(0)).toBeNull();
     expect(check(-1)).toEqual({ ending: 'Defeat', reasons: ['MoneyBelowZero'] });
@@ -106,12 +106,12 @@ describe('ENDING: Acceptance examples', () => {
   });
 
   it('Both Defeat conditions hold', () => {
-    expect(checkEnding({ factionsDefeated: [false], panic: 100, panicLimit: 100, money: -5 })).toEqual({
+    expect(checkEnding({ factionsEliminated: [false], panic: 100, panicLimit: 100, money: -5 })).toEqual({
       ending: 'Defeat',
       reasons: ['PanicAtTheLimit', 'MoneyBelowZero'],
     });
     let state = set(newCampaign(), { panic: 95, money: 35, funding: 0 });
-    state = advance(addMissionSite(state, 'foil_sabotage', { turnsUntilExpiry: 1 }).state);
+    state = advance(addMissionSite(state, 'foil_sabotage', { turnsUntilExpiration: 1 }).state);
     expect(state.world.current).toMatchObject({
       panic: 100,
       ending: 'Defeat',
@@ -140,13 +140,13 @@ describe('ENDING: Acceptance examples', () => {
     expect(report.missions.map((m) => m.result)).toEqual(['Won', 'Lost']);
     expect(state.world.current).toMatchObject({
       ending: 'Victory',
-      endingReasons: ['EveryFactionDefeated'],
+      endingReasons: ['EveryFactionEliminated'],
       endingTurn: 150,
       panic: 100,
     });
     expect(money(state)).toBe(-10);
     expect(funding(state)).toBe(0);
-    expect(Object.values(state.world.current.factions)[0]!.state.defeatedTurn).toBe(150);
+    expect(Object.values(state.world.current.factions)[0]!.state.eliminatedTurn).toBe(150);
   });
 
   it('Victory needs a Faction', () => {
@@ -158,8 +158,8 @@ describe('ENDING: Acceptance examples', () => {
     expect(Object.keys(state.world.current.factions)).toHaveLength(0);
     state = advance(state, {}, catalog);
     expect(state.world.current.ending).toBeNull();
-    expect(checkEnding({ factionsDefeated: [], panic: 0, panicLimit: 100, money: 500 })).toBeNull();
-    expect(checkEnding({ factionsDefeated: [], panic: 100, panicLimit: 100, money: 500 })?.ending).toBe(
+    expect(checkEnding({ factionsEliminated: [], panic: 0, panicLimit: 100, money: 500 })).toBeNull();
+    expect(checkEnding({ factionsEliminated: [], panic: 100, panicLimit: 100, money: 500 })?.ending).toBe(
       'Defeat',
     );
   });

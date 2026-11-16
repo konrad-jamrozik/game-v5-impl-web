@@ -44,7 +44,6 @@ export function createCampaignState(
     missions: {},
     enemies: {},
     // LEAD, Lead progression: an empty set of Recorded wins for every Lead.
-    leadProgression: Object.fromEntries(gdrs.leads.map((lead) => [lead.id, []])),
   };
   const agency = { ...world.agency, id: newInstanceId(world, 'agency') };
   world.agency = agency;

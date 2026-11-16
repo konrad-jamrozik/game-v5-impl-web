@@ -5,7 +5,7 @@
  */
 import { must } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
-import { canBeOrdered, createAgent, recordParticipation } from '../mechanics/agents/agents.ts';
+import { canBeAssigned, createAgent, recordParticipation } from '../mechanics/agents/agents.ts';
 import {
   agencyCaps,
   countDeployed,
@@ -17,7 +17,7 @@ import { activeInvestigationOf, leadAvailability } from '../mechanics/leads/lead
 import { reject, type Rejection } from '../result.ts';
 import type { ActionRecord } from '../rules.ts';
 import { newInstanceId } from '../turn/advance.ts';
-import type { Agent, CurrentWorldState, SimpleAssignment } from '../state/types.ts';
+import { isServing, type Agent, type CurrentWorldState, type SimpleAssignment } from '../state/types.ts';
 
 /** The names of the gameplay actions of `player.actions`, other than Advance turn. */
 export const PLAYER_ACTIONS = [
@@ -74,7 +74,7 @@ function isRejected(value: unknown): value is Rejection {
 }
 
 function requireOrderable(agents: readonly Agent[]): Rejection | null {
-  const blocked = agents.filter((agent) => !canBeOrdered(agent.state));
+  const blocked = agents.filter((agent) => !canBeAssigned(agent.state));
   return blocked.length > 0
     ? reject('agents_cannot_be_ordered', `These Agents cannot be ordered: ${list(blocked.map((a) => a.id))}.`)
     : null;
@@ -158,7 +158,7 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
   for (const agent of agents) {
     leaveCurrentTeam(world, agent, left);
     agent.state.assignment = { kind: assignment as SimpleAssignment };
-    agent.state.taskPhase = 'InTransit';
+    agent.state.status = 'InTransit';
   }
   abandonEmptied(world, left);
   return null;
@@ -188,14 +188,14 @@ function dismissAgents(world: CurrentWorldState, args: Args): Rejection | null {
   if (isRejected(agents)) {
     return agents;
   }
-  const notServing = agents.filter((agent) => agent.state.lifecycle !== 'Serving');
+  const notServing = agents.filter((agent) => !isServing(agent.state));
   if (notServing.length > 0) {
     return reject(
       'agents_not_serving',
       `These Agents are not Serving: ${list(notServing.map((a) => a.id))}.`,
     );
   }
-  const inTransit = agents.filter((agent) => agent.state.taskPhase === 'InTransit');
+  const inTransit = agents.filter((agent) => agent.state.status === 'InTransit');
   if (inTransit.length > 0) {
     return reject('agents_in_transit', `These Agents are In transit: ${list(inTransit.map((a) => a.id))}.`);
   }
@@ -207,9 +207,8 @@ function dismissAgents(world: CurrentWorldState, args: Args): Rejection | null {
     );
   }
   for (const agent of agents) {
-    agent.state.lifecycle = 'Dismissed';
+    agent.state.status = 'Dismissed';
     agent.state.assignment = null;
-    agent.state.taskPhase = null;
   }
   return null;
 }
@@ -230,7 +229,7 @@ function purchaseUpgrade(world: CurrentWorldState, args: Args, gdrs: GdrCatalog)
   world.agency.state.acquisitions[upgrade.id] = (world.agency.state.acquisitions[upgrade.id] ?? 0) + 1;
   if (upgrade.effect === 'agent_weapon_damage') {
     for (const agent of Object.values(world.agents)) {
-      if (agent.state.lifecycle === 'Serving') {
+      if (isServing(agent.state)) {
         agent.state.weaponDamage += upgrade.increment;
       }
     }
@@ -271,7 +270,7 @@ function startInvestigation(world: CurrentWorldState, args: Args, gdrs: GdrCatal
   for (const agent of agents) {
     leaveCurrentTeam(world, agent, left);
     agent.state.assignment = { kind: 'Investigation', investigation: id };
-    agent.state.taskPhase = 'InTransit';
+    agent.state.status = 'InTransit';
   }
   world.investigations[id] = {
     id,
@@ -316,7 +315,7 @@ function assignAgentsToInvestigation(world: CurrentWorldState, args: Args): Reje
   for (const agent of agents) {
     leaveCurrentTeam(world, agent, left);
     agent.state.assignment = { kind: 'Investigation', investigation: investigation.id };
-    agent.state.taskPhase = 'InTransit';
+    agent.state.status = 'InTransit';
     investigation.state.currentTeam.push(agent.id);
   }
   abandonEmptied(world, left);
@@ -365,7 +364,7 @@ function deployAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
   for (const agent of agents) {
     leaveCurrentTeam(world, agent, left);
     agent.state.assignment = { kind: 'Deployed', mission: id };
-    agent.state.taskPhase = 'AtAssignment';
+    agent.state.status = 'AtAssignment';
   }
   abandonEmptied(world, left);
   return null;

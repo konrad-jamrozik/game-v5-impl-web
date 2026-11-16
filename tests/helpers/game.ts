@@ -8,7 +8,15 @@ import { injectedRandom, seededRandom, type Random } from '../../src/engine/rand
 import { isRejection, type Rejection } from '../../src/engine/result.ts';
 import { createCampaignState } from '../../src/engine/state/create.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
-import type { Agent, CampaignState, CurrentWorldState, Faction } from '../../src/engine/state/types.ts';
+import {
+  isServing,
+  type Agent,
+  type AgentState,
+  type AgentStatus,
+  type CampaignState,
+  type CurrentWorldState,
+  type Faction,
+} from '../../src/engine/state/types.ts';
 import { newInstanceId, type ProcessingOrder } from '../../src/engine/turn/advance.ts';
 import { RAW_GDR_FILES, bootstrapGdrCatalog, buildGdrCatalog, type GdrCatalog } from '../../src/gdr/index.ts';
 import { seedRng } from '../../src/kernel/index.ts';
@@ -138,19 +146,31 @@ export function funding(state: CampaignState): number {
   return state.world.current.agency.state.funding;
 }
 
-/** Sets Agents' Current assignment and Task phase directly. */
+/** The Agent status of a Serving Agent that has arrived at its Current assignment: Recovering on Recovery. */
+export function arrivedStatus(agent: Pick<AgentState, 'assignment'>): AgentStatus {
+  return agent.assignment?.kind === 'Recovery' ? 'Recovering' : 'AtAssignment';
+}
+
+/** Lets a Serving Agent arrive at its Current assignment directly; other Agents are left unchanged. */
+export function arriveAgent(agent: AgentState): void {
+  if (isServing(agent)) {
+    agent.status = arrivedStatus(agent);
+  }
+}
+
+/** Sets Agents' Current assignment and Agent status directly; arrived means At assignment or Recovering. */
 export function setAssignment(
   state: CampaignState,
   ids: readonly string[],
   kind: 'Standby' | 'Contracting' | 'Training' | 'Recovery',
-  taskPhase: 'AtAssignment' | 'InTransit' = 'AtAssignment',
+  transit: 'Arrived' | 'InTransit' = 'Arrived',
 ): CampaignState {
   return tweak(state, (world) => {
     for (const id of ids) {
       const found = world.agents[id];
       if (found) {
         found.state.assignment = { kind };
-        found.state.taskPhase = taskPhase;
+        found.state.status = transit === 'InTransit' ? 'InTransit' : arrivedStatus(found.state);
       }
     }
   });
@@ -165,9 +185,7 @@ export function withAgents(state: CampaignState, total: number, catalog: GdrCata
   const added = act(state, 'addAgents', { count: missing }, 'developer', catalog);
   return tweak(added, (world) => {
     for (const item of Object.values(world.agents)) {
-      if (item.state.lifecycle === 'Serving') {
-        item.state.taskPhase = 'AtAssignment';
-      }
+      arriveAgent(item.state);
     }
   });
 }
@@ -176,7 +194,7 @@ export function withAgents(state: CampaignState, total: number, catalog: GdrCata
 export function addMissionSite(
   state: CampaignState,
   archetypeId: string,
-  options: { turnsUntilExpiry?: number; lead?: string; catalog?: GdrCatalog } = {},
+  options: { turnsUntilExpiration?: number; lead?: string; catalog?: GdrCatalog } = {},
 ): { state: CampaignState; site: string } {
   const catalog = options.catalog ?? gdrs;
   const archetype = catalog.missionSiteArchetypes.find((item) => item.id === archetypeId);
@@ -221,7 +239,7 @@ export function addMissionSite(
       enemyArchetypes: catalog.enemyArchetypes,
       weapons: catalog.weapons,
     });
-    site.state.turnsUntilExpiry = options.turnsUntilExpiry ?? archetype.expiresInTurns;
+    site.state.turnsUntilExpiration = options.turnsUntilExpiration ?? archetype.expiresInTurns;
     world.missionSites[site.id] = site;
     for (const enemy of enemies) {
       world.enemies[enemy.id] = enemy;

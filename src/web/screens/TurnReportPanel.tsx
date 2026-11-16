@@ -17,8 +17,8 @@ function consequenceText(c: ConsequenceRecord): string {
   if (c.panicReduction !== 0) {
     parts.push(`Panic −${c.panicReduction}`);
   }
-  if (c.defeatedFaction !== null) {
-    parts.push(`defeated ${c.defeatedFaction}`);
+  if (c.eliminatedFaction !== null) {
+    parts.push(`eliminated ${c.eliminatedFaction}`);
   }
   return parts.join(', ') || 'no consequence';
 }

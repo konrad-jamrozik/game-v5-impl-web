@@ -15,7 +15,7 @@ import { Badge, Button, Meter } from '../ui.tsx';
 function assignmentName(agent: AgentView): string {
   const assignment = agent.assignment;
   if (assignment === null) {
-    return agent.lifecycle;
+    return agent.agentStatus;
   }
   if (assignment.kind === 'Investigation') {
     return `Investigating (${assignment.investigation})`;
@@ -36,14 +36,14 @@ export function AgentsGrid(props: {
   const { state, selected, locked, onSelect } = props;
   const actions = props.snapshot.actions;
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [filter, setFilter] = useState<'all' | 'orderable'>('all');
+  const [filter, setFilter] = useState<'all' | 'assignable'>('all');
 
-  const orderable = useMemo(() => new Set(actions?.orderableAgents ?? []), [actions]);
+  const assignable = useMemo(() => new Set(actions?.assignableAgents ?? []), [actions]);
   const dismissable = useMemo(() => new Set(actions?.dismissableAgents ?? []), [actions]);
   const chosen = useMemo(() => new Set(selected), [selected]);
   const rows = useMemo(
-    () => (filter === 'all' ? [...state.agents] : state.agents.filter((agent) => orderable.has(agent.id))),
-    [state.agents, filter, orderable],
+    () => (filter === 'all' ? [...state.agents] : state.agents.filter((agent) => assignable.has(agent.id))),
+    [state.agents, filter, assignable],
   );
 
   const columns = useMemo(
@@ -79,7 +79,8 @@ export function AgentsGrid(props: {
           return (
             <>
               {cell.getValue()}
-              {agent.taskPhase === 'InTransit' ? <Badge tone="accent">In transit</Badge> : null}
+              {agent.agentStatus === 'InTransit' ? <Badge tone="accent">In transit</Badge> : null}
+              {agent.agentStatus === 'Recovering' ? <Badge tone="warn">Recovering</Badge> : null}
               {agent.recoveryTurnsRemaining === null ? null : (
                 <Badge tone="warn">{agent.recoveryTurnsRemaining} turns left</Badge>
               )}
@@ -103,8 +104,8 @@ export function AgentsGrid(props: {
 
   const count = selected.length;
   const none = count === 0 ? 'Select Agents first.' : null;
-  const allOrderable = selected.every((id) => orderable.has(id));
-  const orderReason = locked ?? none ?? (allOrderable ? null : 'A selected Agent cannot be ordered now.');
+  const allAssignable = selected.every((id) => assignable.has(id));
+  const orderReason = locked ?? none ?? (allAssignable ? null : 'A selected Agent cannot be assigned now.');
   const dismissReason =
     locked ??
     none ??
@@ -133,13 +134,13 @@ export function AgentsGrid(props: {
           </button>
           <button
             type="button"
-            className={filter === 'orderable' ? 'chip chip-on' : 'chip'}
-            data-testid="filter-orderable"
+            className={filter === 'assignable' ? 'chip chip-on' : 'chip'}
+            data-testid="filter-assignable"
             onClick={() => {
-              setFilter('orderable');
+              setFilter('assignable');
             }}
           >
-            Can be ordered {orderable.size}
+            Can be assigned {assignable.size}
           </button>
         </div>
       </header>
@@ -228,7 +229,7 @@ export function AgentsGrid(props: {
             {table.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
-                className={`${chosen.has(row.id) ? 'row-selected' : ''} ${orderable.has(row.id) ? '' : 'row-busy'}`}
+                className={`${chosen.has(row.id) ? 'row-selected' : ''} ${assignable.has(row.id) ? '' : 'row-busy'}`}
                 data-testid={`agent-${row.id}`}
                 onClick={() => {
                   toggle(row.id);

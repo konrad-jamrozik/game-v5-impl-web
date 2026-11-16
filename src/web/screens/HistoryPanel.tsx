@@ -95,7 +95,7 @@ export function HistoryPanel({ snapshot }: { snapshot: Snapshot }) {
           <dt>Agents</dt>
           <dd>
             {history.retained.agents
-              .map((agent) => `${agent.id} (${agent.lifecycle.toLowerCase()})`)
+              .map((agent) => `${agent.id} (${agent.agentStatus.toLowerCase()})`)
               .join(', ') || 'none'}
           </dd>
           <dt>Missions</dt>

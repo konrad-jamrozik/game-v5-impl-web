@@ -102,8 +102,8 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
       <header className="menu-head">
         <h1>Game v5</h1>
         <p className="muted">
-          Lead a covert agency: hire Agents, investigate Leads, win Missions, and defeat every Faction before
-          Panic reaches its limit.
+          Lead a covert agency: hire Agents, investigate Leads, win Missions, and eliminate every Faction
+          before Panic reaches its limit.
         </p>
         <p className="muted small">Game build {GAME_BUILD}</p>
       </header>

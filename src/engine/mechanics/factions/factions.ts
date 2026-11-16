@@ -1,5 +1,5 @@
 /**
- * FACTION (Factions): initial Factions, Escalation, Faction operation occurrence generation, and Defeat. Every
+ * FACTION (Factions): initial Factions, Escalation, Faction operation occurrence generation, and Elimination. Every
  * function receives one Faction, the GDRs it reads, and the random source; see DEC-003.
  */
 import { must } from '../../../kernel/index.ts';
@@ -42,8 +42,8 @@ export function createFaction(
       activityLevel: level.id,
       turnsUntilNextLevel: levelDuration(random, id, level),
       turnsUntilNextOperation: operationInterval(random, id, level),
-      defeated: false,
-      defeatedTurn: null,
+      eliminated: false,
+      eliminatedTurn: null,
     },
   };
 }
@@ -58,7 +58,7 @@ export interface FactionOperationOccurrence {
 
 /**
  * FACTION, Faction activity: Escalation and then Faction operation occurrence generation for one Faction whose
- * Defeated is no. Changes the Faction's State and returns the occurrence, if one happens.
+ * Eliminated is no. Changes the Faction's State and returns the occurrence, if one happens.
  */
 export function applyFactionActivity(
   factionId: string,
@@ -67,7 +67,7 @@ export function applyFactionActivity(
   levels: Levels,
   random: Random,
 ): FactionOperationOccurrence | null {
-  if (faction.defeated) {
+  if (faction.eliminated) {
     return null;
   }
   if (faction.turnsUntilNextLevel !== null) {
@@ -95,10 +95,10 @@ export function applyFactionActivity(
   return { initiatingFaction: factionId, operationLevel, turn };
 }
 
-/** FACTION, Defeat: permanent; applying it to a Defeated Faction changes nothing. */
-export function defeatFaction(faction: FactionState, turn: number): void {
-  if (!faction.defeated) {
-    faction.defeated = true;
-    faction.defeatedTurn = turn;
+/** FACTION, Elimination: permanent; applying it to a Eliminated Faction changes nothing. */
+export function eliminateFaction(faction: FactionState, turn: number): void {
+  if (!faction.eliminated) {
+    faction.eliminated = true;
+    faction.eliminatedTurn = turn;
   }
 }

@@ -120,10 +120,10 @@ describe('ECON: Acceptance examples', () => {
     state = tweak(state, (world) => {
       world.agents[a4]!.state.currentHealth = 20;
       world.agents[a4]!.state.assignment = { kind: 'Recovery' };
-      world.agents[a7]!.state.lifecycle = 'Killed';
+      world.agents[a4]!.state.status = 'Recovering';
+      world.agents[a7]!.state.status = 'Killed';
       world.agents[a7]!.state.currentHealth = 0;
       world.agents[a7]!.state.assignment = null;
-      world.agents[a7]!.state.taskPhase = null;
     });
     state = act(state, 'dismissAgents', { agents: [a8] });
     const site = addMissionSite(state, 'raid_hq');
@@ -134,7 +134,7 @@ describe('ECON: Acceptance examples', () => {
       income: { contractingAgents: 1, moneyAfter: 350 },
       upkeep: { servingAgents: 6, moneyAfter: 290 },
     });
-    expect(agent(state, a3).state.lifecycle).toBe('Killed');
+    expect(agent(state, a3).state.status).toBe('Killed');
     expect(agency(state).projectedUpkeep).toBe(50);
     void a1;
   });
@@ -176,7 +176,7 @@ describe('ECON: Acceptance examples', () => {
 
     // Loss at the floor: an Expired Response Mission site with funding 0.
     const expiring = addMissionSite(setMoney(newCampaign(), 500, 0), 'foil_sabotage', {
-      turnsUntilExpiry: 1,
+      turnsUntilExpiration: 1,
     });
     expect(funding(advance(expiring.state))).toBe(0);
   });
@@ -186,11 +186,10 @@ describe('ECON: Acceptance examples', () => {
     const ids = agentIds(state);
     state = tweak(state, (world) => {
       const dead = world.agents[ids[20]!]!.state;
-      dead.lifecycle = 'Killed';
+      dead.status = 'Killed';
       dead.currentHealth = 0;
       dead.assignment = null;
-      dead.taskPhase = null;
-      world.agents[ids[0]!]!.state.taskPhase = 'InTransit';
+      world.agents[ids[0]!]!.state.status = 'InTransit';
     });
     expectRejected(state, 'hireAgent', {}, 'agent_cap');
     state = act(state, 'purchaseUpgrade', { upgrade: 'agent_cap' });
@@ -217,10 +216,9 @@ describe('ECON: Acceptance examples', () => {
     state = setAssignment(state, [a4], 'Contracting');
     state = tweak(state, (world) => {
       const dead = world.agents[a6]!.state;
-      dead.lifecycle = 'Killed';
+      dead.status = 'Killed';
       dead.currentHealth = 0;
       dead.assignment = null;
-      dead.taskPhase = null;
     });
     const site = addMissionSite(state, 'apprehend_member');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a5] });
@@ -236,9 +234,8 @@ describe('ECON: Acceptance examples', () => {
     reject([a1, a3], 'agents_in_transit');
     const next = act(state, 'dismissAgents', { agents: [a1, a2] });
     expect(agent(next, a1).state).toMatchObject({
-      lifecycle: 'Dismissed',
+      status: 'Dismissed',
       assignment: null,
-      taskPhase: null,
     });
     expect(agency(next)).toMatchObject({ money: 120, projectedUpkeep: 30 });
     expect(historyView(next, gdrs).retained.agents.map((a) => a.id)).toEqual([a1, a2, a6]);
@@ -296,12 +293,11 @@ describe('ECON: Acceptance examples', () => {
     state = tweak(state, (world) => {
       world.agents[a3]!.state.currentHealth = 10;
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
-      world.agents[a3]!.state.taskPhase = 'InTransit';
+      world.agents[a3]!.state.status = 'InTransit';
       const dead = world.agents[a5]!.state;
-      dead.lifecycle = 'Killed';
+      dead.status = 'Killed';
       dead.currentHealth = 0;
       dead.assignment = null;
-      dead.taskPhase = null;
     });
     const site = addMissionSite(state, 'apprehend_member');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a2] });
