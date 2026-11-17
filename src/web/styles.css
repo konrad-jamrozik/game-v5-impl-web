@@ -395,8 +395,16 @@ input::placeholder {
   font-weight: 500;
 }
 
-.grid td:last-child .btn + .btn {
-  margin-left: 8px;
+/* VIS, Tables and Buttons: row actions sit in the last column, side by side in one row, 8 px apart (the .actions
+   gap); the action cell fits its buttons so that the buttons of every row line up in the same columns. */
+.grid td:has(> .actions),
+.grid td:has(> .btn) {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.grid td > .actions {
+  flex-wrap: nowrap;
 }
 
 .sortable {

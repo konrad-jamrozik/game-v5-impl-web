@@ -196,6 +196,40 @@ test('Autopilot plays a Campaign to its ending and the interface stays usable', 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
+test('the Main menu puts Load and Delete of every Campaign save side by side in the same two columns', async ({
+  page,
+}) => {
+  // MENU, Campaign saves; VIS, Buttons: one row, right-aligned, 8 px apart, 32 px tall inside a table row.
+  await page.goto('/');
+  await id(page, 'seed-input').fill('alignment');
+  await id(page, 'new-campaign').click();
+  await id(page, 'advance-turn').click();
+  await afterAdvance(page, '2');
+  await id(page, 'to-menu').click();
+  const rows = id(page, 'saves-table').locator('tbody tr');
+  await expect(rows).not.toHaveCount(0);
+  const count = await rows.count();
+  expect(count).toBeGreaterThan(1);
+  let columns: { load: number; del: number } | undefined;
+  for (let index = 0; index < count; index += 1) {
+    const row = rows.nth(index);
+    const load = await row.getByRole('button', { name: 'Load', exact: true }).boundingBox();
+    const del = await row.getByRole('button', { name: 'Delete', exact: true }).boundingBox();
+    if (load === null || del === null) {
+      throw new Error('Load and Delete must be visible on every Campaign save row');
+    }
+    expect(Math.abs(load.y - del.y)).toBeLessThan(1);
+    expect(Math.round(load.height)).toBe(32);
+    expect(Math.round(del.x - (load.x + load.width))).toBe(8);
+    if (columns === undefined) {
+      columns = { load: load.x, del: del.x };
+    } else {
+      expect(Math.abs(load.x - columns.load)).toBeLessThan(1);
+      expect(Math.abs(del.x - columns.del)).toBeLessThan(1);
+    }
+  }
+});
+
 test('the Main menu deletes a Campaign save and a whole Campaign after a confirmation', async ({ page }) => {
   await page.goto('/');
   await id(page, 'seed-input').fill('deleting');

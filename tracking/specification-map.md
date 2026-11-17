@@ -294,6 +294,7 @@ No files.
 ## MENU: Main Menu
 
 - src/web/screens/MainMenu.tsx
+- src/web/styles.css
 - e2e/web.spec.ts
 
 ## MISSION: Missions
@@ -444,6 +445,7 @@ No files.
 - src/web/screens/SituationPanel.tsx
 - src/web/screens/TurnSummary.tsx
 - src/web/progress-bar.ts
+- e2e/web.spec.ts
 
 ## WHIST: World History
 
