@@ -13,12 +13,15 @@ describe('MUSIC: Soundtrack', () => {
   it('titles a Track by its file name without the extension, with underscores as spaces', () => {
     expect(trackTitle('Silent_Contact.opus')).toBe('Silent Contact');
     expect(trackTitle('../../assets/music/Black_Orbit_Watch.opus')).toBe('Black Orbit Watch');
+    expect(trackTitle('../../assets/music/v03AI UFO 1.mp3')).toBe('v03AI UFO 1');
+    expect(trackTitle('Silent Contact.mp3')).toBe(trackTitle('Silent_Contact.opus'));
   });
 
-  it('holds a copy of the Soundtrack, every Track an Opus file with a distinct title', () => {
+  it('holds a copy of the Soundtrack, every Track an Ogg Opus or MP3 file with a distinct title', () => {
     const files = readdirSync(new URL('../../assets/music/', import.meta.url));
     expect(files.length).toBeGreaterThan(0);
-    expect(files.every((file) => file.endsWith('.opus'))).toBe(true);
+    expect(files.every((file) => file.endsWith('.opus') || file.endsWith('.mp3'))).toBe(true);
+    expect(files.some((file) => file.endsWith('.mp3'))).toBe(true);
     expect(new Set(files.map(trackTitle)).size).toBe(files.length);
   });
 });

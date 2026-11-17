@@ -12,7 +12,7 @@ interface Track {
 }
 
 /** PLACE, Music in an Implementation: the copy of the Soundtrack in assets/music/, served by the Game build. */
-const FILES = import.meta.glob<string>('../../assets/music/*.opus', {
+const FILES = import.meta.glob<string>('../../assets/music/*.{opus,mp3}', {
   eager: true,
   query: '?url',
   import: 'default',

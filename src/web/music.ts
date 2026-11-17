@@ -9,7 +9,10 @@ export const TRACK_FADE_SECONDS = 3;
 /** MUSIC, Fades: the rate of the fades when Music on changes; a full fade takes 1 second. */
 export const TOGGLE_FADE_PER_SECOND = 1;
 
-/** MUSIC, Soundtrack: the file name without its extension, with each underscore replaced by a space. */
+/**
+ * MUSIC, Soundtrack: the file name without its extension, with each underscore replaced by a space, so a file name may
+ * write its spaces either way.
+ */
 export function trackTitle(fileName: string): string {
   const base = fileName.slice(fileName.lastIndexOf('/') + 1);
   const dot = base.lastIndexOf('.');
