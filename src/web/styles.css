@@ -369,6 +369,24 @@ input::placeholder {
   background: var(--accent-dim);
 }
 
+/* VIS, Tallies: 12 px Accent squares with 3 px gaps, filled left to right in rows of 10. */
+.tally {
+  display: grid;
+  grid-template-columns: repeat(10, 12px);
+  gap: 3px;
+}
+
+.tally-square {
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+}
+
+/* UVIEW, Upgrade cards: the tally sits below the Buy button, so the button keeps its place as the tally grows. */
+.upgrade-card .tally {
+  margin-top: 12px;
+}
+
 .with-meter {
   display: inline-flex;
   align-items: center;

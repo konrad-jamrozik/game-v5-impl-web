@@ -127,6 +127,9 @@ async function viaWeb(page: Page): Promise<unknown> {
   await afterAdvance(page, '3');
   await id(page, 'nav-upgrades').click();
   await id(page, 'buy-training_cap').click();
+  // UVIEW, Upgrade cards: a tally of the Acquisitions below the Buy button.
+  await expect(id(page, 'tally-training_cap').locator('.tally-square')).toHaveCount(1);
+  await expect(id(page, 'tally-agent_cap')).toHaveCount(0);
   await page.keyboard.press('h');
   await page.keyboard.press('u');
   await expect(id(page, 'redo')).toBeEnabled();

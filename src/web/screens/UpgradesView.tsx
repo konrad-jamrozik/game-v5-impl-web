@@ -1,7 +1,7 @@
 /** UVIEW: the Upgrades View, one card per Upgrade with what one more purchase changes and whether it is affordable. */
 import type { CurrentStateView, UpgradeView } from '../../engine/index.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import { Button } from '../ui.tsx';
+import { Button, Tally } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 const CAPS: Record<string, { name: string; value: (state: CurrentStateView) => number }> = {
@@ -58,6 +58,11 @@ export function UpgradesView(props: {
                 </Button>
                 {missing > 0 ? <span className="tone-bad small">{missing} money missing</span> : null}
               </div>
+              <Tally
+                count={upgrade.acquisitions}
+                label={`Bought ${upgrade.acquisitions}×`}
+                testId={`tally-${upgrade.id}`}
+              />
             </article>
           );
         })}

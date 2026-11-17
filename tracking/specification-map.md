@@ -525,11 +525,15 @@ No files.
 ## UVIEW: Upgrades View
 
 - src/web/screens/UpgradesView.tsx
+- src/web/tally.ts
+- tests/web/tally.test.ts
 - e2e/web.spec.ts
 
 ## VIS: Visual Design
 
 - index.html
+- src/web/tally.ts
+- tests/web/tally.test.ts
 - src/web/styles.css
 - src/web/ui.tsx
 - src/web/screens/AgentsView.tsx

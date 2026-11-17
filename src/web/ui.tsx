@@ -1,6 +1,7 @@
 /** Small presentational pieces shared by the screens. */
 import { useState, type ReactNode } from 'react';
 import { TIER_OPACITY, type SortTier } from './table-sort.ts';
+import { tallySquares } from './tally.ts';
 
 export function Button(props: {
   children: ReactNode;
@@ -49,6 +50,19 @@ export function Meter(props: { value: number; max: number; label?: string }) {
           key={index}
           className={`meter-segment${index < full ? ' full' : index === full && tenths > full ? ' part' : ''}`}
         />
+      ))}
+    </span>
+  );
+}
+
+/** VIS, Tallies: one Accent square per counted item, 10 per row, up to 100 squares, and none for 0. */
+export function Tally(props: { count: number; label: string; testId?: string }) {
+  const squares = tallySquares(props.count);
+  if (squares === 0) return null;
+  return (
+    <span className="tally" role="img" aria-label={props.label} data-testid={props.testId}>
+      {Array.from({ length: squares }, (_, index) => (
+        <span key={index} className="tally-square" />
       ))}
     </span>
   );
