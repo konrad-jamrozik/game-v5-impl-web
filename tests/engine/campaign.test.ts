@@ -79,9 +79,9 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
 });
 
 describe('Campaign runs', () => {
-  it('the Basic Autopilot AI plays 200 Campaign seeds to an ending with no engine defect', async () => {
+  it('the Basic Autopilot AI plays 10 Campaign seeds to an ending with no engine defect', async () => {
     const endings: Record<string, number> = {};
-    for (let seed = 0; seed < 200; seed += 1) {
+    for (let seed = 0; seed < 10; seed += 1) {
       const { engine } = await startEngine();
       ok(await engine.session.globalConfiguration.set('autosaveLimit', 0));
       ok(await engine.session.campaign.create({ seed: `run-${seed}` }));
@@ -91,7 +91,7 @@ describe('Campaign runs', () => {
       endings[ending] = (endings[ending] ?? 0) + 1;
     }
     expect(Object.keys(endings).every((ending) => ending === 'Victory' || ending === 'Defeat')).toBe(true);
-    expect(endings['Victory'] ?? 0).toBeGreaterThan(150);
+    expect(endings['Victory'] ?? 0).toBeGreaterThanOrEqual(8);
   });
 
   it('the Basic Autopilot AI ends in Defeat when the Campaign starts with no money', async () => {

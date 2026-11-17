@@ -10,7 +10,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run web:build && npm run web:preview -- --host 127.0.0.1',
     url: 'http://127.0.0.1:5176',
-    reuseExistingServer: false,
+    reuseExistingServer: !process.env['CI'],
     timeout: 120_000,
   },
 });

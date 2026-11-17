@@ -17,6 +17,7 @@
     "check:records": "node scripts/check-records.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "fix": "npm run gdr:build && npm run format && eslint . --fix",
     "check": "npm run gdr:build && npm run format:check && npm run lint && npm run typecheck && npm run check:records && npm run test",
     "cli": "node src/cli/main.ts",
     "web:dev": "vite",
