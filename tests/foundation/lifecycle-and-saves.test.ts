@@ -333,6 +333,7 @@ describe('SAVES: Acceptance examples', () => {
     expect(saves.some((save) => save.autosaveKind === 'current')).toBe(true);
     expect(saves.some((save) => save.autosaveKind === 'turnEnd' && save.turn === 1)).toBe(true);
     expect(Object.keys(saves[0]!).sort()).toEqual([
+      'actions',
       'autosaveKind',
       'campaignId',
       'isAutosave',

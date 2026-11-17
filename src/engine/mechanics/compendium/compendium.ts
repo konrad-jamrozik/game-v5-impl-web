@@ -42,8 +42,8 @@ export function articleVisible(
         Object.values(world.missionSites).some((site) => site.archetype === subject) ||
         gdrs.leads.some((lead) => lead.onCompletion.createMissionSite === subject && discovered(lead.id))
       );
-    // Player API reports these GDRs in every Committed state: `getGameData()` and the Agency, Investigation, and
-    // Mission names, and the Panic limit of the current state.
+    // Player API reports these GDRs in every Committed state: `getGameData()`, with every BackgroundArtwork, and the
+    // Agency, Investigation, and Mission names, and the Panic limit of the current state.
     case 'AgentParameters':
     case 'CombatParameters':
     case 'RecoveryParameters':
@@ -55,6 +55,7 @@ export function articleVisible(
     case 'InvestigationArchetype':
     case 'MissionArchetype':
     case 'EndingParameters':
+    case 'BackgroundArtwork':
       return true;
     // No Player API value includes a Campaign configuration preset or the default-preset choice.
     case 'CampaignConfiguration':

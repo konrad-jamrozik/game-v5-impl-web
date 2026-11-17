@@ -1,13 +1,89 @@
-/** The Developer drawer: Dev mode, cheat operations, random outcome overrides, and full Campaign state inspection. */
-import { useState } from 'react';
+/**
+ * The Developer drawer: Dev mode, cheat operations, random outcome overrides, Artwork tuning, and full Campaign state
+ * inspection.
+ */
+import { useState, type CSSProperties } from 'react';
+import { detailViewName, fileName } from '../artwork-names.ts';
+import { resetTuning, shownTuning, tune, useTunings } from '../artwork.ts';
+import { sliderFill } from '../slider.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { Button, Section } from '../ui.tsx';
+import { DETAIL_VIEWS } from './DetailView.tsx';
 
 function parse(text: string): string | number | boolean {
   if (text === 'true' || text === 'false') {
     return text === 'true';
   }
   return /^-?\d+$/.test(text) ? Number(text) : text;
+}
+
+/** The Detail view names of DetailView, by the GDR name of each. */
+const VIEW_NAMES = new Map(DETAIL_VIEWS.map((view) => [detailViewName(view.id), view.name]));
+
+/**
+ * VIS, Artwork tuning: one row per BackgroundArtwork GDR with its opacity and image; available whether or not Dev mode
+ * is enabled, because it neither reveals hidden information nor changes Campaign state.
+ */
+function ArtworkTuning({ snapshot }: { snapshot: Snapshot }) {
+  const tunings = useTunings();
+  const artworks = snapshot.gameData?.backgroundArtworks ?? [];
+  return (
+    <Section title="Artwork tuning" testId="artwork-tuning">
+      {artworks.map((artwork) => {
+        const shown = shownTuning(artwork, tunings);
+        const name = VIEW_NAMES.get(artwork.detailView) ?? artwork.detailView;
+        return (
+          <div key={artwork.id} className="stack" data-testid={`tuning-${artwork.detailView}`}>
+            <div className="tuning-row">
+              <span>{name}</span>
+              <span
+                className="slider"
+                style={{ '--fill': sliderFill(shown.opacityPct, 0, 100) } as CSSProperties}
+              >
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={shown.opacityPct}
+                  aria-label={`${name} artwork opacity`}
+                  data-testid={`tuning-opacity-${artwork.detailView}`}
+                  onChange={(event) => {
+                    tune(artwork, { opacityPct: Number(event.target.value) });
+                  }}
+                />
+              </span>
+              <span className="figure">{shown.opacityPct}%</span>
+            </div>
+            {artwork.alternativeImages.length === 0 ? null : (
+              <label className="field">
+                <span>Image</span>
+                <select
+                  aria-label={`${name} artwork image`}
+                  data-testid={`tuning-image-${artwork.detailView}`}
+                  value={shown.image}
+                  onChange={(event) => {
+                    tune(artwork, { image: event.target.value });
+                  }}
+                >
+                  {[artwork.image, ...artwork.alternativeImages].map((image) => (
+                    <option key={image} value={image}>
+                      {fileName(image)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        );
+      })}
+      <div>
+        <Button testId="tuning-reset" onClick={resetTuning}>
+          Reset
+        </Button>
+      </div>
+    </Section>
+  );
 }
 
 export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
@@ -130,6 +206,8 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
           Set override
         </Button>
       </Section>
+
+      <ArtworkTuning snapshot={snapshot} />
 
       <Section title="Campaign state">
         <Button

@@ -738,6 +738,13 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         investigation: gdrs.investigationArchetype.name,
         mission: gdrs.missionArchetype.name,
       },
+      backgroundArtworks: gdrs.backgroundArtworks.map((artwork) => ({
+        id: artwork.id,
+        detailView: artwork.detailView,
+        image: artwork.image,
+        alternativeImages: [...artwork.alternativeImages],
+        opacityPct: artwork.opacityPct,
+      })),
     });
     gameDataCache.set(gdrs, view);
   }

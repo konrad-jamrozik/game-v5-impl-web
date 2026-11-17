@@ -200,6 +200,20 @@ export interface EncyclopediaArticleGdr {
   readonly subject: string | null;
 }
 
+/** VIS, Background artwork: Display content only; no game behavior reads it. */
+export interface BackgroundArtworkGdr {
+  readonly type: 'BackgroundArtwork';
+  readonly id: string;
+  /** The Detail view that shows the image, by its name in lowercase words joined by underscores, e.g. `missions`. */
+  readonly detailView: string;
+  /** The image path relative to the Spec repo root, e.g. `assets/images/chatgpt-agents-i2.png`. */
+  readonly image: string;
+  /** Further image paths that only Artwork tuning offers in place of `image`. */
+  readonly alternativeImages: readonly string[];
+  /** A whole number from 0 to 100. */
+  readonly opacityPct: number;
+}
+
 export type AnyGdr =
   | AgentArchetypeGdr
   | AgentParametersGdr
@@ -221,7 +235,8 @@ export type AnyGdr =
   | MissionSiteArchetypeGdr
   | MissionArchetypeGdr
   | EndingParametersGdr
-  | EncyclopediaArticleGdr;
+  | EncyclopediaArticleGdr
+  | BackgroundArtworkGdr;
 
 /** An Encyclopedia article with its subject resolved to the Type of the subject GDR. */
 export interface CatalogEncyclopediaArticle extends EncyclopediaArticleGdr {
@@ -253,4 +268,6 @@ export interface GdrCatalog {
   readonly missionSiteArchetypes: readonly MissionSiteArchetypeGdr[];
   /** COMP: every Encyclopedia article, in Game build order. */
   readonly encyclopediaArticles: readonly CatalogEncyclopediaArticle[];
+  /** VIS, Background artwork: every BackgroundArtwork, in Game build order. */
+  readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
 }

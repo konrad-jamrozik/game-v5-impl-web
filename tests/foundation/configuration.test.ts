@@ -80,16 +80,16 @@ describe('CONFIG: Acceptance examples', () => {
 
   it('Changing a setting without a Campaign', async () => {
     const h = await startHarness();
-    expectOk(await h.core.setGlobalSetting(CONTROLLER, 'theme', 'light'));
-    expect(setting(h, 'theme')).toMatchObject({
-      effectiveValue: 'light',
+    expectOk(await h.core.setGlobalSetting(CONTROLLER, 'musicVolume', 30));
+    expect(setting(h, 'musicVolume')).toMatchObject({
+      effectiveValue: 30,
       stored: true,
-      gameBuildDefault: 'dark',
+      gameBuildDefault: 50,
     });
     await h.restart();
-    expect(setting(h, 'theme')).toMatchObject({ effectiveValue: 'light', stored: true });
-    expectOk(await h.core.resetGlobalSetting(CONTROLLER, 'theme'));
-    expect(setting(h, 'theme')).toMatchObject({ effectiveValue: 'dark', stored: false });
+    expect(setting(h, 'musicVolume')).toMatchObject({ effectiveValue: 30, stored: true });
+    expectOk(await h.core.resetGlobalSetting(CONTROLLER, 'musicVolume'));
+    expect(setting(h, 'musicVolume')).toMatchObject({ effectiveValue: 50, stored: false });
     const invalid = await h.core.setGlobalSetting(CONTROLLER, 'autosaveLimit', -1);
     expect(!invalid.ok && invalid.error.code).toBe('invalid_input');
     expect(setting(h, 'autosaveLimit').effectiveValue).toBe(5);
@@ -121,10 +121,10 @@ describe('CONFIG: Acceptance examples', () => {
 
   it('Invalid stored value', async () => {
     const h = await startHarness();
-    await h.storage.writeGlobalConfiguration(JSON.stringify({ theme: 'neon', autosaveLimit: 3 }));
+    await h.storage.writeGlobalConfiguration(JSON.stringify({ musicVolume: 200, autosaveLimit: 3 }));
     await h.restart();
     const report = expectOk(h.core.getGlobalConfiguration(CONTROLLER));
-    expect(setting(h, 'theme')).toMatchObject({ effectiveValue: 'dark', stored: false });
+    expect(setting(h, 'musicVolume')).toMatchObject({ effectiveValue: 50, stored: false });
     expect(setting(h, 'autosaveLimit').effectiveValue).toBe(3);
     expect(report.problems).toHaveLength(1);
     await h.storage.writeGlobalConfiguration('not json');
@@ -137,10 +137,10 @@ describe('CONFIG: Acceptance examples', () => {
     expectOk(await h.core.createCampaign(CONTROLLER));
     const { saveId } = expectOk(await h.core.save(CONTROLLER));
     expectOk(await h.act('gain', { amount: 1 }));
-    expectOk(await h.core.setGlobalSetting(CONTROLLER, 'theme', 'light'));
+    expectOk(await h.core.setGlobalSetting(CONTROLLER, 'musicVolume', 30));
     expect(expectOk(h.core.getTimelineStatus(CONTROLLER)).timelineEntries).toBe(1);
     expectOk(await h.core.undoAction(CONTROLLER));
     expectOk(await h.core.load(CONTROLLER, saveId));
-    expect(setting(h, 'theme').effectiveValue).toBe('light');
+    expect(setting(h, 'musicVolume').effectiveValue).toBe(30);
   });
 });

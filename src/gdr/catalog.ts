@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { EngineDefect, Rational, q } from '../kernel/index.ts';
 import type {
   AnyGdr,
+  BackgroundArtworkGdr,
   CatalogEncyclopediaArticle,
   EncyclopediaArticleGdr,
   FactionActivityLevelGdr,
@@ -373,7 +374,37 @@ const schemas = {
       body: g.body,
       subject: g.subject ?? null,
     })),
+  // VIS, Background artwork: the exhaustive properties of a BackgroundArtwork.
+  BackgroundArtwork: z
+    .strictObject({
+      id,
+      type: z.literal('BackgroundArtwork'),
+      detail_view: z.string().regex(ID_PATTERN),
+      image: z.string().min(1),
+      alternative_images: z.array(z.string().min(1)).optional(),
+      opacity_pct: z.int().min(0).max(100),
+    })
+    .transform((g) => ({
+      type: g.type,
+      id: g.id,
+      detailView: g.detail_view,
+      image: g.image,
+      alternativeImages: g.alternative_images ?? [],
+      opacityPct: g.opacity_pct,
+    })),
 } as const;
+
+/** VIS, Background artwork: the Detail views of CSCR, by their names in lowercase words joined by underscores. */
+const DETAIL_VIEW_NAMES = [
+  'missions',
+  'leads',
+  'agents',
+  'upgrades',
+  'turn_report',
+  'history',
+  'charts',
+  'compendium',
+];
 
 type TypeName = keyof typeof schemas;
 
@@ -449,6 +480,23 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const leads = all<LeadGdr>('Lead');
   const missionSiteArchetypes = all<MissionSiteArchetypeGdr>('MissionSiteArchetype');
   const articles = all<EncyclopediaArticleGdr>('EncyclopediaArticle');
+  const backgroundArtworks = all<BackgroundArtworkGdr>('BackgroundArtwork');
+
+  // VIS, Background artwork: each names a Detail view, and no two name one Detail view.
+  const shownIn = new Set<string>();
+  for (const artwork of backgroundArtworks) {
+    if (!DETAIL_VIEW_NAMES.includes(artwork.detailView)) {
+      problems.push(
+        `BackgroundArtwork ${artwork.id}: detail_view ${artwork.detailView} is not a Detail view`,
+      );
+    }
+    if (shownIn.has(artwork.detailView)) {
+      problems.push(
+        `BackgroundArtwork ${artwork.id}: a second BackgroundArtwork names ${artwork.detailView}`,
+      );
+    }
+    shownIn.add(artwork.detailView);
+  }
 
   // AGENT, Agent GDR validation; COMBAT, Combat GDR validation.
   if (agentArchetype && !weapons.has(agentArchetype.weapon)) {
@@ -646,6 +694,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     leads,
     missionSiteArchetypes,
     encyclopediaArticles,
+    backgroundArtworks,
   };
 }
 

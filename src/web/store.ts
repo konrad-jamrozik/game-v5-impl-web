@@ -32,7 +32,6 @@ export interface Snapshot {
   readonly key: string;
   readonly status: SessionStatus;
   readonly configuration: GlobalConfigurationReport;
-  readonly theme: 'dark' | 'light';
   /** Absent without a Current campaign. */
   readonly state: CurrentStateView | null;
   readonly actions: AvailableActionsView | null;
@@ -46,6 +45,11 @@ export interface Snapshot {
   readonly notices: readonly Notice[];
   /** True while an operation of the Session controller is running. */
   readonly busy: boolean;
+  /**
+   * MENU, Layout: the Campaign the Player left from the Campaign screen to reach the Main menu, which its close button
+   * resumes; absent for a Main menu reached otherwise.
+   */
+  readonly leftCampaign: string | null;
 }
 
 const RESUME_KEY = 'game-v5-impl-web.campaign';
@@ -57,7 +61,19 @@ let notices: Notice[] = [];
 let nextNoticeId = 1;
 let pending = 0;
 let lastEngagementId: string | null = null;
+let leftCampaign: string | null = null;
 const listeners = new Set<() => void>();
+
+/** MENU, Layout: leaves the Current campaign for the Main menu from the Campaign screen, which then offers to close. */
+export async function leaveCampaign(): Promise<void> {
+  const campaignId = theEngine().session.getStatus();
+  const left = campaignId.ok ? campaignId.value.campaignId : null;
+  const closed = await run(() => theEngine().session.campaign.close());
+  if (closed !== null) {
+    leftCampaign = left;
+    changed();
+  }
+}
 
 function changed(): void {
   localRevision += 1;
@@ -142,8 +158,10 @@ function snapshot(): Snapshot {
     throw new Error('The Session status is unavailable');
   }
   const configuration = valueOf(game.session.globalConfiguration.get()) ?? { settings: [], problems: [] };
-  const theme = configuration.settings.find((setting) => setting.setting === 'theme')?.effectiveValue;
   const has = status.hasCurrentCampaign;
+  if (has) {
+    leftCampaign = null;
+  }
   if (status.autopilot !== null) {
     lastEngagementId = status.autopilot.engagementId;
   }
@@ -151,7 +169,6 @@ function snapshot(): Snapshot {
     key,
     status,
     configuration,
-    theme: theme === 'light' ? 'light' : 'dark',
     state: has ? valueOf(game.player.queries.getCurrentState()) : null,
     actions: has ? valueOf(game.player.queries.getAvailableActions()) : null,
     report: has ? valueOf(game.player.queries.getTurnReport()) : null,
@@ -163,6 +180,7 @@ function snapshot(): Snapshot {
       has && lastEngagementId !== null ? valueOf(game.session.autopilot.getStatus(lastEngagementId)) : null,
     notices,
     busy: pending > 0,
+    leftCampaign,
   };
   remember(status.campaignId);
   return cached;

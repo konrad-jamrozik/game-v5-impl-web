@@ -197,12 +197,13 @@
 - **Affected specifications:** CONFIG, Global configuration: "Interface preferences belong to Global configuration,
   e.g. volume, language, and tutorial popups. So does a setting that governs the engine without being consulted by
   game behavior, e.g. the Autosave limit".
-- **Description:** This Game build has exactly four Global configuration settings: the Autosave limit, a whole number
-  of at least 0 with the Game build default 5; Music on and Music volume, under MUSIC, Music settings, since
-  4594d57d7fd5629eb491f9749e7775a05395671a; and the interface theme, `dark` or `light` with the Game build default
-  `dark`. The game has one language, so it offers no language setting.
+- **Description:** This Game build has exactly three Global configuration settings: the Autosave limit, a whole
+  number of at least 0 with the Game build default 5; and Music on and Music volume, under MUSIC, Music settings, since
+  4594d57d7fd5629eb491f9749e7775a05395671a. The interface theme setting was removed under
+  741432de4c8152c73ac65baeda155412f847b01c, which makes any setting that switches themes out of scope, as DEC-034
+  records. The game has one language, so it offers no language setting.
 - **Options considered:** Only the Autosave limit; the Autosave limit and the settings the interfaces need.
-- **Option chosen:** The Autosave limit and the theme.
+- **Option chosen:** The Autosave limit and the settings the interfaces need, now Music on and Music volume.
 - **Why:** These are the settings this Implementation reads; a setting nothing reads would mislead the player.
 - **Links:** PROB-002
 
@@ -647,6 +648,9 @@
 - **Option chosen:** Keeping it with values of the same roles.
 - **Why:** The theme setting is part of the Global configuration of this Game build, and VIS states that the Settings
   panel lets the Player choose a light theme, so removing it would drop a setting the specifications still expect.
+  Specification commit 741432de4c8152c73ac65baeda155412f847b01c overrode this decision: VIS, Design tokens now
+  states that "a light theme, and any setting that switches themes, is out of scope", so the Implementation removed
+  its light theme and its Theme setting, and the web UI draws the dark theme only.
 - **Links:** PROB-018
 
 ## DEC-035: Leads discovered in an Advance turn are listed in Game build order

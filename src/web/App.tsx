@@ -8,10 +8,6 @@ import { dismissNotice, useSnapshot } from './store.ts';
 export function App() {
   const snapshot = useSnapshot();
 
-  useEffect(() => {
-    document.documentElement.dataset['theme'] = snapshot.theme;
-  }, [snapshot.theme]);
-
   // MUSIC, Playback: one player for the whole page, so changing screen never restarts the Current Track.
   const { on: musicOn, volume: musicVolume } = musicSettings(snapshot);
   useEffect(() => {

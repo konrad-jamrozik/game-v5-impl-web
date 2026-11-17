@@ -35,32 +35,6 @@
   line-height: 1.45;
 }
 
-/* DEC-034: the light theme keeps every role of the dark tokens with light values, until VIS defines them. */
-:root[data-theme='light'] {
-  color-scheme: light;
-  --background: #f4f2ec;
-  --surface: #fbfaf6;
-  --raised: #e9e6dc;
-  --divider: #dedad0;
-  --border: #c9c4b6;
-  --text: #1c1b17;
-  --text-secondary: #4d4a42;
-  --text-muted: #6b675d;
-  --axis: #6f6b61;
-  --accent: #d95f00;
-  --accent-dim: #f2c29a;
-  --accent-text: #b34d00;
-  --on-accent: #ffffff;
-  --positive: #4f6b12;
-  --danger: #b8322c;
-  --danger-border: #e3a9a5;
-  --warning: #8a6a00;
-  --danger-deep: #7a1a14;
-  --limit-band: rgb(229 72 77 / 12%);
-  --accent-fill: rgb(217 95 0 / 14%);
-  --scrim: rgb(13 13 11 / 72%);
-}
-
 * {
   box-sizing: border-box;
 }
@@ -1811,15 +1785,58 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 /* VIS, Background artwork: between the Surface fill and the content, below the top edge, covering the whole Detail
-   view, centred and cropped; it stays in place while the content scrolls over it. */
+   view, centred and cropped; it stays in place while the content scrolls over it. Its opacity is the opacity_pct
+   of its GDR, or its tuned value, set on the element. */
 .detail-artwork {
   position: absolute;
   inset: 0;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  opacity: 0.12;
   pointer-events: none;
+}
+
+/* VIS, Buttons: a weighty button has no fill, a Warning outline, and Warning text. */
+.btn-weighty {
+  background: none;
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.btn-weighty kbd {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+/* CSCR, Undo and redo: both labels share one cell, so the button keeps the width of the wider one. */
+.label-swap {
+  display: inline-grid;
+}
+
+.label-swap > span {
+  grid-area: 1 / 1;
+}
+
+.label-swap > .label-off {
+  visibility: hidden;
+}
+
+/* MENU, Layout: the close button at the upper right corner of a Main menu reached from the Campaign screen. */
+.menu-close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  padding: 0;
+  z-index: 2;
+}
+
+/* VIS, Artwork tuning: one row per BackgroundArtwork. */
+.tuning-row {
+  display: grid;
+  grid-template-columns: 96px 1fr 48px;
+  align-items: center;
+  gap: 8px;
 }
 
 .detail-view.with-artwork > .detail-head,

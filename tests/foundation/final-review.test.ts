@@ -134,9 +134,9 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('BOOT: the Bootstrap GDRs', () => {
-  it('supplies 62 GDRs in 21 files, and a Victory path from the first Lead to the Faction elimination', () => {
-    expect(RAW_GDR_FILES).toHaveLength(21);
-    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(62);
+  it('supplies 64 GDRs in 22 files, and a Victory path from the first Lead to the Faction elimination', () => {
+    expect(RAW_GDR_FILES).toHaveLength(22);
+    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(64);
     const catalog = bootstrapGdrCatalog();
     const leads = catalog.leads;
     const sites = catalog.missionSiteArchetypes;

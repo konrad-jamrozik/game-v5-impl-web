@@ -9,13 +9,36 @@ const turnEnds = async (h: Harness) =>
     .filter((save) => save.autosaveKind === 'turnEnd')
     .map((save) => save.turn);
 const hasReturn = async (h: Harness) =>
-  expectOk(await h.core.listSaves(CONTROLLER)).some((save) => save.autosaveKind === 'return');
+  expectOk(await h.core.listSaves(CONTROLLER)).some((save) => save.autosaveKind === 'furthestProgress');
 
 async function fresh(seed = 'timeline'): Promise<Harness> {
   const h = await startHarness();
   expectOk(await h.core.createCampaign(CONTROLLER, { seed }));
   return h;
 }
+
+describe('SAVES: Listing Campaign saves reports the Player actions of the saved Turn', () => {
+  it('counts the Player actions from the Turn start, not Undone actions, Advance turn, or cheats', async () => {
+    const h = await fresh();
+    const current = async () =>
+      expectOk(await h.core.listSaves(CONTROLLER)).find((save) => save.autosaveKind === 'current');
+    expect((await current())?.actions).toBe(0);
+    expectOk(await h.act('gain', { amount: 1 }));
+    expectOk(await h.act('gain', { amount: 1 }));
+    h.core.enableDevMode(CONTROLLER);
+    expectOk(await h.cheat('addMoney', { amount: 9 }));
+    h.core.disableDevMode(CONTROLLER);
+    expectOk(await h.act('gain', { amount: 1 }));
+    expectOk(await h.core.undoAction(CONTROLLER));
+    expect((await current())?.actions).toBe(2);
+    expectOk(await h.core.advanceTurn(CONTROLLER));
+    expect((await current())?.actions).toBe(0);
+    const turnEnd = expectOk(await h.core.listSaves(CONTROLLER)).find(
+      (save) => save.autosaveKind === 'turnEnd',
+    );
+    expect(turnEnd?.actions).toBe(2);
+  });
+});
 
 describe('TIMELINE: Acceptance examples', () => {
   it('Action undo and redo', async () => {
@@ -198,7 +221,7 @@ describe('TIMELINE: Acceptance examples', () => {
       turn: 3,
     });
     expect(expectOk(await h.core.redoToAutosave(CONTROLLER))).toMatchObject({
-      autosaveKind: 'return',
+      autosaveKind: 'furthestProgress',
       turn: 4,
     });
     expect(h.state()).toEqual(turn4);
@@ -336,11 +359,11 @@ describe('TIMELINE: Acceptance examples', () => {
     expect(timeline(h)).toEqual(startTimeline);
   });
 
-  it('A Return Autosave that cannot be written fails undoToAutosave and changes nothing', async () => {
+  it('A Furthest progress Autosave that cannot be written fails undoToAutosave and changes nothing', async () => {
     const h = await fresh();
     expectOk(await h.core.advanceTurn(CONTROLLER));
     const before = h.state();
-    h.storage.failWrite = (header) => header.kind === 'returnAutosave';
+    h.storage.failWrite = (header) => header.kind === 'furthestProgressAutosave';
     const result = await h.core.undoToAutosave(CONTROLLER);
     expect(!result.ok && result.error.code).toBe('unwritable_campaign_save');
     expect(h.state()).toEqual(before);

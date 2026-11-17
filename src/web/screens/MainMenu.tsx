@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { GAME_BUILD, type SaveListEntry } from '../../engine/index.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
-import { Button, NumberField, Section, Grid } from '../ui.tsx';
+import { Button, NumberField, Section, Grid, typingIn } from '../ui.tsx';
 import { MusicControl } from './MusicControl.tsx';
 
 /** MENU, Layout: Music on and Music volume are set through the Music control, not rows of their own. */
@@ -13,7 +13,7 @@ const KIND_NAMES: Record<string, string> = {
   turnEnd: 'Turn-end Autosave',
   engagement: 'Engagement Autosave',
   disengagement: 'Disengagement Autosave',
-  return: 'Return Autosave',
+  furthestProgress: 'Furthest progress Autosave',
 };
 
 interface CampaignGroup {
@@ -69,32 +69,18 @@ export function SettingsPanel({ snapshot }: { snapshot: Snapshot }) {
                   Reset to {String(setting.gameBuildDefault)}
                 </Button>
               ) : null}
-              {setting.setting === 'theme' ? (
-                <select
-                  aria-label={setting.name}
-                  data-testid="setting-theme"
-                  value={String(setting.effectiveValue)}
-                  onChange={(event) => {
-                    act(() => session.globalConfiguration.set(setting.setting, event.target.value));
-                  }}
-                >
-                  <option value="dark">Dark</option>
-                  <option value="light">Light</option>
-                </select>
-              ) : (
-                <NumberField
-                  label={setting.name}
-                  testId={`setting-${setting.setting}`}
-                  stored={String(setting.effectiveValue)}
-                  onCommit={(text) => {
-                    act(() =>
-                      text === ''
-                        ? session.globalConfiguration.reset(setting.setting)
-                        : session.globalConfiguration.set(setting.setting, Number(text)),
-                    );
-                  }}
-                />
-              )}
+              <NumberField
+                label={setting.name}
+                testId={`setting-${setting.setting}`}
+                stored={String(setting.effectiveValue)}
+                onCommit={(text) => {
+                  act(() =>
+                    text === ''
+                      ? session.globalConfiguration.reset(setting.setting)
+                      : session.globalConfiguration.set(setting.setting, Number(text)),
+                  );
+                }}
+              />
             </div>
           </div>
         ))}
@@ -105,6 +91,27 @@ export function SettingsPanel({ snapshot }: { snapshot: Snapshot }) {
       ))}
     </Section>
   );
+}
+
+/**
+ * MENU, Layout: Resume returns the Player to the Campaign where they left it, by loading its Current Autosave, or its
+ * most recent Campaign save when it has none.
+ */
+function resumeSave(group: CampaignGroup): SaveListEntry | null {
+  return (
+    group.saves.find((save) => save.autosaveKind === 'current') ??
+    group.saves.reduce<SaveListEntry | null>(
+      (latest, save) => (latest === null || save.writtenAt > latest.writtenAt ? save : latest),
+      null,
+    )
+  );
+}
+
+function resume(group: CampaignGroup): void {
+  const save = resumeSave(group);
+  if (save !== null) {
+    void run(() => theEngine().session.saves.load(save.saveId));
+  }
 }
 
 export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
@@ -137,8 +144,40 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
     null,
   );
 
+  // MENU, Layout: with a close button, the Escape key does what Resume does for the Campaign the Player left.
+  const left = campaigns.find((group) => group.campaignId === snapshot.leftCampaign) ?? null;
+  useEffect(() => {
+    if (left === null) {
+      return undefined;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !typingIn(event.target)) {
+        event.preventDefault();
+        resume(left);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  });
+
   return (
     <main className="menu">
+      {left === null ? null : (
+        <button
+          type="button"
+          className="btn menu-close"
+          aria-label="Close"
+          title="Back to the Campaign (Esc)"
+          data-testid="menu-close"
+          onClick={() => {
+            resume(left);
+          }}
+        >
+          ✕
+        </button>
+      )}
       <header className="menu-head">
         <div>
           <h1>Game v5</h1>
@@ -179,6 +218,15 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                     </div>
                     <div className="actions">
                       <Button
+                        kind={group === likely ? 'primary' : 'plain'}
+                        testId={`resume-${group.campaignId}`}
+                        onClick={() => {
+                          resume(group);
+                        }}
+                      >
+                        Resume
+                      </Button>
+                      <Button
                         kind="danger"
                         testId={`delete-campaign-${group.campaignId}`}
                         onClick={() => {
@@ -196,7 +244,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                       </Button>
                     </div>
                   </header>
-                  <Grid widths={['200px', '72px', '160px']}>
+                  <Grid widths={['200px', '96px', '160px']}>
                     <tbody>
                       {group.saves.map((save) => (
                         <tr key={save.saveId}>
@@ -209,7 +257,12 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                               (KIND_NAMES[save.autosaveKind] ?? save.autosaveKind)
                             )}
                           </td>
-                          <td className="num">T{save.turn}</td>
+                          <td
+                            className="num"
+                            title={`Turn ${save.turn}, ${save.actions} Player actions in it`}
+                          >
+                            T{save.turn} A{save.actions}
+                          </td>
                           <td>
                             <div className="actions">
                               <Button

@@ -222,7 +222,9 @@
   Timeline navigation, saving, and Autopilot. The specification states only that the GUI opens at the Main menu and
   leaves the rest open.
 - **Links:** DEC-007
-- **Resolution:** Open
+- **Resolution:** Open. Resolved in part in ddfc832151b01718f269431459ea7597f379a2d7: CSCR, Undo and redo now states
+  how the Campaign screen reaches Timeline navigation, and MENU, Layout adds Resume and the close button. The MENU
+  TODO and the CSCR TODO on Advance turn, saving, and Autopilot remain.
 
 ## PROB-018: The light theme's Design tokens are a TODO
 
@@ -234,7 +236,9 @@
 - **Description:** The Settings panel offers a light theme, but VIS defines only dark colour values, so a light theme
   must use colours that no specification states.
 - **Links:** DEC-034
-- **Resolution:** Open
+- **Resolution:** Resolved in 741432de4c8152c73ac65baeda155412f847b01c, which the Implementation follows since this
+  update: VIS, Design tokens now makes a light theme, and any setting that switches themes, out of scope, so the
+  Implementation removed its light theme and its Theme setting.
 
 ## PROB-019: Determinism and Randomness leaves the Instance ID format free, Campaign Instances fixes it
 

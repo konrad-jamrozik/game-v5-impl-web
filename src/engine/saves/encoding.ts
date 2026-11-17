@@ -100,7 +100,7 @@ const KINDS: readonly string[] = [
   'turnEndAutosave',
   'engagementAutosave',
   'disengagementAutosave',
-  'returnAutosave',
+  'furthestProgressAutosave',
 ];
 
 /** Reads the body of a Campaign save, or says why the Game build does not load it. */

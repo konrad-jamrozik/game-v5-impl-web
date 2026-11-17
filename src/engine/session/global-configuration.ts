@@ -38,13 +38,6 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     isPermitted: (value): value is SettingValue =>
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 100,
   },
-  {
-    setting: 'theme',
-    name: 'Theme',
-    gameBuildDefault: 'dark',
-    permitted: '"dark" or "light"',
-    isPermitted: (value): value is SettingValue => value === 'dark' || value === 'light',
-  },
 ];
 
 export interface SettingReport {

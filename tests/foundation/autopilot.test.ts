@@ -200,7 +200,7 @@ describe('AUTO: Acceptance examples', () => {
     // Allowed during an engagement: queries, statuses, Global configuration.
     expect(h.core.playerQuery(CONTROLLER, 'currentState').ok).toBe(true);
     expect(h.core.getTimelineStatus(CONTROLLER).ok).toBe(true);
-    expect((await h.core.setGlobalSetting(CONTROLLER, 'theme', 'light')).ok).toBe(true);
+    expect((await h.core.setGlobalSetting(CONTROLLER, 'musicVolume', 30)).ok).toBe(true);
     // Unavailable during an engagement.
     for (const result of [
       await h.act('gain', { amount: 1 }),

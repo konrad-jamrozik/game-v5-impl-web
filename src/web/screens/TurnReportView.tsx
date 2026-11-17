@@ -7,7 +7,8 @@ import type { CombatReport, CurrentStateView, MissionSiteView, TurnReport } from
 import { consequenceText, progressPoints } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import type { Snapshot } from '../store.ts';
-import { percent, Grid } from '../ui.tsx';
+import { turnSummaryHasContent } from '../turn-summary.ts';
+import { Button, percent, Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 const CONDITIONS = { ableToFight: 'able to fight', incapacitated: 'incapacitated', dead: 'dead' } as const;
@@ -33,14 +34,31 @@ export function TurnReportView(props: {
   snapshot: Snapshot;
   state: CurrentStateView;
   onOpen: (target: ReportTarget) => void;
+  onOpenSummary: () => void;
   onClose: () => void;
 }) {
   const { snapshot, state } = props;
   const report = snapshot.report;
   const [combat, setCombat] = useState<string | null>(null);
+  // TRVIEW: the Turn summary button is disabled, not hidden, when there is no Turn report or no group to show.
+  const summaryButton = (
+    <Button
+      testId="reopen-summary"
+      disabledReason={
+        report === null
+          ? 'There is no Turn report yet.'
+          : turnSummaryHasContent(report)
+            ? null
+            : 'This Turn report has nothing for the Turn summary.'
+      }
+      onClick={props.onOpenSummary}
+    >
+      Turn summary
+    </Button>
+  );
   if (report === null) {
     return (
-      <DetailView id="report" title="Turn report" onClose={props.onClose}>
+      <DetailView id="report" title="Turn report" actions={summaryButton} onClose={props.onClose}>
         <p className="muted" data-testid="turn-report">
           There is no Turn report yet. Advance the turn to get the first one.
         </p>
@@ -51,7 +69,13 @@ export function TurnReportView(props: {
   const shownCombat = report.combatReports.find((item) => item.mission === combat);
   if (shownCombat !== undefined) {
     return (
-      <DetailView id="report" title="Combat report" aside={heading} onClose={props.onClose}>
+      <DetailView
+        id="report"
+        title="Combat report"
+        aside={heading}
+        actions={summaryButton}
+        onClose={props.onClose}
+      >
         <CombatReportDetails
           combat={shownCombat}
           levels={exhaustionLevels(snapshot.gameData)}
@@ -63,7 +87,13 @@ export function TurnReportView(props: {
     );
   }
   return (
-    <DetailView id="report" title="Turn report" aside={heading} onClose={props.onClose}>
+    <DetailView
+      id="report"
+      title="Turn report"
+      aside={heading}
+      actions={summaryButton}
+      onClose={props.onClose}
+    >
       <div className="stack" data-testid="turn-report">
         {report.ending === null ? null : (
           <p className={report.ending.ending === 'Victory' ? 'tone-good' : 'tone-bad'}>

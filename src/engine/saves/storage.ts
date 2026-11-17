@@ -8,7 +8,7 @@ export type SaveKind =
   | 'turnEndAutosave'
   | 'engagementAutosave'
   | 'disengagementAutosave'
-  | 'returnAutosave';
+  | 'furthestProgressAutosave';
 
 /** What Game storage keeps beside the body of each Campaign save, so that listing reads no body. */
 export interface SaveHeader {
@@ -17,6 +17,11 @@ export interface SaveHeader {
   readonly kind: SaveKind;
   /** The Turn the saved Committed state belongs to. */
   readonly turn: number;
+  /**
+   * The number of Player actions from the start of that Turn to the saved Committed state; absent from a header that
+   * an earlier Game build wrote.
+   */
+  readonly actions?: number;
   /** The Game build that wrote the Campaign save. */
   readonly gameBuild: string;
   /** Identifies the saved Committed state on its line of play; see DEC-010. */

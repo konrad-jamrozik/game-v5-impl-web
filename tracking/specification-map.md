@@ -114,6 +114,7 @@
 - src/engine/game-rules.ts
 - src/engine/state/create.ts
 - tests/foundation/configuration.test.ts
+- src/web/screens/MainMenu.tsx
 
 ## CONV: Specification Conventions
 
@@ -132,6 +133,10 @@ No files.
 - src/web/screens/AutopilotBar.tsx
 - src/web/styles.css
 - e2e/web.spec.ts
+- src/web/undo-redo.ts
+- tests/web/undo-redo.test.ts
+- src/web/ui.tsx
+- src/web/store.ts
 
 ## CSTATE: Campaign State
 
@@ -368,6 +373,8 @@ No files.
 - src/web/screens/MainMenu.tsx
 - src/web/styles.css
 - e2e/web.spec.ts
+- src/web/store.ts
+- src/web/ui.tsx
 
 ## MISSION: Missions
 
@@ -476,6 +483,8 @@ No files.
 - tests/cli/cli.test.ts
 - tests/web/indexeddb-storage.test.ts
 - scripts/measure.ts
+- tests/foundation/timeline.test.ts
+- src/engine/saves/storage.ts
 
 ## SCHEMA: Storage Schema
 
@@ -507,6 +516,8 @@ No files.
 - src/engine/timeline/
 - tests/foundation/timeline.test.ts
 - tests/foundation/final-review.test.ts
+- src/engine/saves/
+- src/web/screens/MainMenu.tsx
 
 ## TODOS: Outstanding Work Items
 
@@ -522,6 +533,8 @@ No files.
 
 - src/web/screens/TurnReportView.tsx
 - src/web/format.ts
+- src/web/turn-summary.ts
+- src/web/screens/Campaign.tsx
 
 ## TSUM: Turn Summary
 
@@ -529,6 +542,8 @@ No files.
 - src/web/turn-summary.ts
 - src/web/styles.css
 - tests/web/situation-and-summary.test.ts
+- src/web/screens/Campaign.tsx
+- src/web/screens/TurnReportView.tsx
 
 ## TURN: Turn Advancement
 
@@ -586,6 +601,15 @@ No files.
 - tests/web/table-sort.test.ts
 - src/web/artwork.ts
 - assets/images/
+- content/visual-design/background_artworks.yaml
+- src/gdr/catalog.ts
+- src/gdr/types.ts
+- src/engine/views/views.ts
+- src/engine/player-api.ts
+- src/engine/mechanics/compendium/compendium.ts
+- src/web/screens/DeveloperDrawer.tsx
+- tests/web/artwork.test.ts
+- src/web/artwork-names.ts
 
 ## WHIST: World History
 

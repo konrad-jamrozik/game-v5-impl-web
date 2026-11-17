@@ -5,9 +5,10 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
+import { undoRedoStep } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
-import { act, run, theEngine, type Snapshot } from '../store.ts';
-import { showsTurnSummary, turnSummary } from '../turn-summary.ts';
+import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
+import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
 import { Badge, Button, Fact, Meter, typingIn, Grid } from '../ui.tsx';
 import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
@@ -33,7 +34,7 @@ const REASONS: Record<string, string> = {
 
 const SHORTCUTS = [
   ['N', 'Advance turn'],
-  ['U / R', 'Undo / redo one action'],
+  ['U / R', 'Undo / redo: one action, or one Turn when no action of this Turn is left'],
   ['1 to 8', 'Open or close a Detail view'],
   ['Esc', 'Close the open Detail view'],
   ['H', 'Hire an Agent'],
@@ -42,6 +43,12 @@ const SHORTCUTS = [
   ['`', 'Developer drawer'],
   ['?', 'This list'],
 ] as const;
+
+/** CSCR, Undo and redo: the label of each button for an Action step and for a Turn step. */
+const STEP_LABELS = {
+  undo: { action: 'Undo Action', turn: 'Undo Turn' },
+  redo: { action: 'Redo Action', turn: 'Redo Turn' },
+} as const;
 
 /** The open Detail view, and the item a Situation panel or Turn report item selected in it. */
 interface OpenView {
@@ -87,9 +94,15 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     };
   }, [session, snapshot.key]);
 
-  const summaryOpen = !autopilotActive && showsTurnSummary(requestedTurn, snapshot.report);
+  // TSUM, Showing and dismissing: the Player reopens the Turn summary from the Turn Report View, at any time.
+  const [reopened, setReopened] = useState(false);
+  const summaryOpen =
+    !autopilotActive &&
+    (showsTurnSummary(requestedTurn, snapshot.report) ||
+      (reopened && snapshot.report !== null && turnSummaryHasContent(snapshot.report)));
   const dismissSummary = () => {
     setRequestedTurn(null);
+    setReopened(false);
   };
 
   const advance = () => {
@@ -169,9 +182,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       } else if (key === 'n') {
         advance();
       } else if (key === 'u') {
-        act(() => session.timeline.undoAction());
+        takeStep('undo');
       } else if (key === 'r') {
-        act(() => session.timeline.redoAction());
+        takeStep('redo');
       } else if (key === 'h') {
         act(() => player.actions.hireAgent());
       } else if (key === 's') {
@@ -191,8 +204,25 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     };
   });
 
-  const target = (t: AutosaveStatus['undoToAutosave']) =>
-    t === null ? null : `${t.autosaveKind === 'turnEnd' ? 'end' : t.autosaveKind} of Turn ${t.turn}`;
+  /**
+   * CSCR, Undo and redo: each button takes an Action step while Action navigation is available, and otherwise a Turn
+   * step through Autosave navigation; null when neither is available.
+   */
+  const steps = {
+    undo: undoRedoStep('undo', timeline?.canUndoAction === true, autosaves?.undoToAutosave ?? null),
+    redo: undoRedoStep('redo', timeline?.canRedoAction === true, autosaves?.redoToAutosave ?? null),
+  };
+  const takeStep = (which: 'undo' | 'redo') => {
+    const step = steps[which];
+    if (step === null || autopilotActive) {
+      return;
+    }
+    if (which === 'undo') {
+      act(() => (step.form === 'action' ? session.timeline.undoAction() : session.timeline.undoToAutosave()));
+    } else {
+      act(() => (step.form === 'action' ? session.timeline.redoAction() : session.timeline.redoToAutosave()));
+    }
+  };
 
   /** CSCR, Detail views: the counts the navigation buttons show. */
   const counts: Partial<Record<DetailViewId, number>> = {
@@ -249,46 +279,34 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           </div>
         </div>
         <div className="status-actions">
-          <Button
-            shortcut="U"
-            testId="undo"
-            disabledReason={
-              locked ?? (timeline?.canUndoAction === true ? null : 'No action of this Turn to undo.')
-            }
-            onClick={() => {
-              act(() => session.timeline.undoAction());
-            }}
-          >
-            Undo
-          </Button>
-          <Button
-            shortcut="R"
-            testId="redo"
-            disabledReason={locked ?? (timeline?.canRedoAction === true ? null : 'No Undone action to redo.')}
-            onClick={() => {
-              act(() => session.timeline.redoAction());
-            }}
-          >
-            Redo
-          </Button>
-          <Button
-            testId="autosave-back"
-            disabledReason={locked ?? (autosaves?.undoToAutosave == null ? 'No earlier Autosave.' : null)}
-            onClick={() => {
-              act(() => session.timeline.undoToAutosave());
-            }}
-          >
-            ⏮ {target(autosaves?.undoToAutosave ?? null) ?? 'Earlier Autosave'}
-          </Button>
-          <Button
-            testId="autosave-forward"
-            disabledReason={locked ?? (autosaves?.redoToAutosave == null ? 'No later Autosave.' : null)}
-            onClick={() => {
-              act(() => session.timeline.redoToAutosave());
-            }}
-          >
-            {target(autosaves?.redoToAutosave ?? null) ?? 'Later Autosave'} ⏭
-          </Button>
+          {(['undo', 'redo'] as const).map((which) => {
+            const step = steps[which];
+            return (
+              <Button
+                key={which}
+                kind={step?.form === 'turn' ? 'weighty' : 'plain'}
+                className="undo-redo"
+                shortcut={which === 'undo' ? 'U' : 'R'}
+                testId={which}
+                tooltip={step?.tooltip}
+                disabledReason={
+                  locked ??
+                  (step === null ? (which === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.') : null)
+                }
+                onClick={() => {
+                  takeStep(which);
+                }}
+              >
+                {/* CSCR, Undo and redo: the button keeps the width of its wider label. */}
+                <span className="label-swap">
+                  <span className={step?.form === 'turn' ? 'label-off' : ''}>
+                    {STEP_LABELS[which].action}
+                  </span>
+                  <span className={step?.form === 'turn' ? '' : 'label-off'}>{STEP_LABELS[which].turn}</span>
+                </span>
+              </Button>
+            );
+          })}
           <Button
             testId="save"
             disabledReason={locked}
@@ -302,7 +320,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             testId="to-menu"
             disabledReason={locked}
             onClick={() => {
-              act(() => session.campaign.close());
+              void leaveCampaign();
             }}
           >
             Main menu
@@ -352,6 +370,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                 setPicked(new Set(ids));
               }}
               onShow={show}
+              onOpenSummary={() => {
+                setReopened(true);
+              }}
               onClose={close}
             />
           )}
@@ -469,6 +490,7 @@ function OpenDetailView(props: {
   selected: readonly string[];
   onSelect: (ids: readonly string[]) => void;
   onShow: (target: SituationTarget | ReportTarget) => void;
+  onOpenSummary: () => void;
   onClose: () => void;
 }) {
   const { open, snapshot, state, locked, onClose } = props;
@@ -501,7 +523,15 @@ function OpenDetailView(props: {
     case 'upgrades':
       return <UpgradesView snapshot={snapshot} state={state} locked={locked} onClose={onClose} />;
     case 'report':
-      return <TurnReportView snapshot={snapshot} state={state} onOpen={props.onShow} onClose={onClose} />;
+      return (
+        <TurnReportView
+          snapshot={snapshot}
+          state={state}
+          onOpen={props.onShow}
+          onOpenSummary={props.onOpenSummary}
+          onClose={onClose}
+        />
+      );
     case 'history':
       return <HistoryView snapshot={snapshot} onClose={onClose} />;
     case 'charts':

@@ -57,15 +57,15 @@ describe('IndexedDB storage', () => {
     ok(await first.player.actions.hireAgent());
     ok(await first.player.actions.advanceTurn());
     ok(await first.player.actions.hireAgent());
-    ok(await first.session.globalConfiguration.set('theme', 'light'));
+    ok(await first.session.globalConfiguration.set('musicVolume', 30));
     const before = ok(first.player.queries.getCurrentState());
     const campaignId = ok(first.session.getStatus()).campaignId;
 
     const second = await start(factory);
     const theme = ok(second.session.globalConfiguration.get()).settings.find(
-      (item) => item.setting === 'theme',
+      (item) => item.setting === 'musicVolume',
     );
-    expect(theme?.effectiveValue).toBe('light');
+    expect(theme?.effectiveValue).toBe(30);
     const saves = ok(await second.session.saves.list());
     const current = saves.find((save) => save.campaignId === campaignId && save.autosaveKind === 'current');
     expect(current).toBeDefined();

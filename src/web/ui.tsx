@@ -8,25 +8,29 @@ export function Button(props: {
   onClick: () => void;
   /** When present, the button is disabled and shows this as the reason. */
   disabledReason?: string | null;
-  kind?: 'primary' | 'danger' | 'plain';
+  /** VIS, Buttons: plain is the neutral kind; weighty marks a reversible step with a larger reach. */
+  kind?: 'primary' | 'danger' | 'plain' | 'weighty';
   /** VIS, Buttons: the main action of a screen is taller and set larger. */
   main?: boolean;
   shortcut?: string;
+  /** A tooltip for the enabled button, before its shortcut. */
+  tooltip?: string | undefined;
   testId?: string;
+  className?: string;
 }) {
   const disabled = props.disabledReason !== undefined && props.disabledReason !== null;
+  const enabledTitle = [
+    props.tooltip,
+    props.shortcut === undefined ? undefined : `Shortcut: ${props.shortcut}`,
+  ]
+    .filter((part) => part !== undefined)
+    .join(' · ');
   return (
     <button
       type="button"
-      className={`btn btn-${props.kind ?? 'plain'}${props.main === true ? ' btn-main' : ''}`}
+      className={`btn btn-${props.kind ?? 'plain'}${props.main === true ? ' btn-main' : ''}${props.className === undefined ? '' : ` ${props.className}`}`}
       disabled={disabled}
-      title={
-        disabled
-          ? (props.disabledReason ?? '')
-          : props.shortcut === undefined
-            ? undefined
-            : `Shortcut: ${props.shortcut}`
-      }
+      title={disabled ? (props.disabledReason ?? '') : enabledTitle === '' ? undefined : enabledTitle}
       onClick={props.onClick}
       data-testid={props.testId}
     >

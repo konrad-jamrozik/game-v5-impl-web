@@ -362,6 +362,16 @@ export interface GameDataView {
     readonly investigation: string;
     readonly mission: string;
   };
+  /** VIS, Background artwork: every BackgroundArtwork GDR; display content that no game behavior reads. */
+  readonly backgroundArtworks: readonly {
+    readonly id: string;
+    /** The Detail view, by its name in lowercase words joined by underscores, e.g. `missions`. */
+    readonly detailView: string;
+    /** The image path relative to the Spec repo root, e.g. `assets/images/chatgpt-agents-i2.png`. */
+    readonly image: string;
+    readonly alternativeImages: readonly string[];
+    readonly opacityPct: number;
+  }[];
 }
 
 /**

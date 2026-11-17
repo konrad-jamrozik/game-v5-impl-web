@@ -191,14 +191,10 @@ export function TurnSummary(props: {
           )}
           {model.leads.length === 0 ? null : (
             <Group title="Leads discovered" count={model.leads.length} testId="summary-leads">
+              {/* TSUM, Groups: a discovered Lead is never an Assessed Lead yet, so only its name is shown. */}
               {model.leads.map((lead) => (
                 <div key={lead.id} className="dialog-row sit-line">
                   <span>{lead.name}</span>
-                  <span className="muted small">
-                    {lead.requiredProgressRange === 'unknown'
-                      ? 'required unknown'
-                      : `required ${lead.requiredProgressRange.min}–${lead.requiredProgressRange.max}`}
-                  </span>
                 </div>
               ))}
             </Group>

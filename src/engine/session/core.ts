@@ -143,8 +143,13 @@ export interface SaveListEntry {
   readonly saveId: string;
   readonly campaignId: string;
   readonly isAutosave: boolean;
-  readonly autosaveKind: 'current' | 'turnEnd' | 'engagement' | 'disengagement' | 'return' | null;
+  readonly autosaveKind: 'current' | 'turnEnd' | 'engagement' | 'disengagement' | 'furthestProgress' | null;
   readonly turn: number;
+  /**
+   * SAVES, Listing Campaign saves: the number of Player actions that lead from the start of that Turn to the saved
+   * Committed state, not counting Advance turn or any Undone action.
+   */
+  readonly actions: number;
   /** When the Campaign save was last written, as an ISO 8601 UTC time; see SAVES, Listing Campaign saves. */
   readonly writtenAt: string;
 }
@@ -158,7 +163,7 @@ export interface TimelineStatus {
 
 export interface AutosaveTarget {
   readonly saveId: string;
-  readonly autosaveKind: 'turnEnd' | 'engagement' | 'disengagement' | 'return';
+  readonly autosaveKind: 'turnEnd' | 'engagement' | 'disengagement' | 'furthestProgress';
   readonly turn: number;
 }
 
@@ -209,8 +214,8 @@ function autosaveKindOf(kind: SaveKind): SaveListEntry['autosaveKind'] {
       return 'engagement';
     case 'disengagementAutosave':
       return 'disengagement';
-    case 'returnAutosave':
-      return 'return';
+    case 'furthestProgressAutosave':
+      return 'furthestProgress';
     case 'manual':
       return null;
   }
@@ -226,8 +231,8 @@ function describeSave(header: Pick<SaveHeader, 'kind' | 'turn' | 'saveId'>): str
       return `the Engagement Autosave (Turn ${header.turn})`;
     case 'disengagementAutosave':
       return `the Disengagement Autosave (Turn ${header.turn})`;
-    case 'returnAutosave':
-      return `the Return Autosave (Turn ${header.turn})`;
+    case 'furthestProgressAutosave':
+      return `the Furthest progress Autosave (Turn ${header.turn})`;
     case 'manual':
       return `Campaign save ${header.saveId} (Turn ${header.turn})`;
   }
@@ -723,6 +728,8 @@ export class EngineCore<S extends ShellState> {
         isAutosave: header.kind !== 'manual',
         autosaveKind: autosaveKindOf(header.kind),
         turn: header.turn,
+        // A header written before the count was kept reports none; such a Campaign save is of an earlier Game build.
+        actions: header.actions ?? 0,
         writtenAt: header.writtenAt,
       }));
       entries.sort((a, b) =>
@@ -821,6 +828,9 @@ export class EngineCore<S extends ShellState> {
       campaignId: campaign.campaignId,
       kind,
       turn: currentState(campaign).world.current.turn,
+      // The Timeline entries before the position are the Turn's actions that are not Undone; only Player actions count.
+      actions: campaign.entries.slice(0, campaign.position).filter((entry) => entry.surface === 'player')
+        .length,
       gameBuild: this.rules.gameBuild,
       stamp: currentStamp(campaign),
       writtenAt: new Date(this.env.now?.() ?? Date.now()).toISOString(),
@@ -873,8 +883,8 @@ export class EngineCore<S extends ShellState> {
         return `${campaignId}.engagement`;
       case 'disengagementAutosave':
         return `${campaignId}.disengagement`;
-      case 'returnAutosave':
-        return `${campaignId}.return`;
+      case 'furthestProgressAutosave':
+        return `${campaignId}.furthest-progress`;
     }
   }
 
@@ -892,7 +902,7 @@ export class EngineCore<S extends ShellState> {
     if (failure !== null) {
       await this.deleteSave(header.saveId);
       const autosave = autosaveKindOf(kind);
-      if (autosave === null || autosave === 'return') {
+      if (autosave === null || autosave === 'furthestProgress') {
         throw new EngineDefect(`${kind} is not an Autosave written under SAVES, Autosaves`);
       }
       failures.push({
@@ -1157,9 +1167,9 @@ export class EngineCore<S extends ShellState> {
       }
       const index = ancestors.lastIndexOf(header.stamp);
       if (index >= 0) {
-        // Of two targets holding the same Committed state, the Return Autosave is loaded; see TIMELINE, Autosave
+        // Of two targets holding the same Committed state, the Furthest progress Autosave is loaded; see TIMELINE, Autosave
         // navigation, Equal targets.
-        if (index > earlierIndex || (index === earlierIndex && header.kind === 'returnAutosave')) {
+        if (index > earlierIndex || (index === earlierIndex && header.kind === 'furthestProgressAutosave')) {
           earlier = header;
           earlierIndex = index;
         }
@@ -1167,12 +1177,15 @@ export class EngineCore<S extends ShellState> {
       }
       const line = await this.lineOf(header);
       if (line !== null && line.includes(here)) {
-        if (header.kind === 'returnAutosave') {
+        if (header.kind === 'furthestProgressAutosave') {
           laterReturn = true;
         }
-        // Of two targets holding the same Committed state, the Return Autosave is loaded; see TIMELINE, Autosave
+        // Of two targets holding the same Committed state, the Furthest progress Autosave is loaded; see TIMELINE, Autosave
         // navigation, Equal targets.
-        if (line.length < laterLength || (line.length === laterLength && header.kind === 'returnAutosave')) {
+        if (
+          line.length < laterLength ||
+          (line.length === laterLength && header.kind === 'furthestProgressAutosave')
+        ) {
           later = header;
           laterLength = line.length;
         }
@@ -1225,8 +1238,8 @@ export class EngineCore<S extends ShellState> {
         const turn = currentState(campaign).world.current.turn;
         const header = this.headerFor(
           campaign,
-          this.autosaveId(campaign.campaignId, 'returnAutosave', turn),
-          'returnAutosave',
+          this.autosaveId(campaign.campaignId, 'furthestProgressAutosave', turn),
+          'furthestProgressAutosave',
         );
         const failure = await this.writeSave(header, toSaved(campaign));
         if (failure !== null) {
@@ -1261,7 +1274,7 @@ export class EngineCore<S extends ShellState> {
         return loaded;
       }
       this.campaign = loaded.campaign;
-      if (targets.later.kind === 'returnAutosave') {
+      if (targets.later.kind === 'furthestProgressAutosave') {
         await this.deleteSave(targets.later.saveId);
       }
       const failures: AutosaveFailure[] = [];
