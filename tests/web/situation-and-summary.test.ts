@@ -91,7 +91,26 @@ describe('GUI: Completion estimate and Progress circle', () => {
       'ETA ≤ 3 T',
     );
     expect(completionEstimate(assessed, { progress: 400, projectedProgressGain: 0 }).text).toBe('stalled');
+    expect(
+      completionEstimate(assessed, {
+        progress: 400,
+        projectedProgressGain: 0,
+        currentTeam: [{ agent: 'agent-1', agentStatus: 'AtAssignment' }],
+      }).text,
+    ).toBe('stalled');
     expect(completionEstimate(hidden, { progress: 400, projectedProgressGain: 200 }).text).toBe('ETA ?');
+  });
+
+  it('writes "in transit" while g is 0 and a member of the Current team is In transit, before "ETA ?"', () => {
+    const team = [
+      { agent: 'agent-1', agentStatus: 'AtAssignment' },
+      { agent: 'agent-2', agentStatus: 'InTransit' },
+    ] as const;
+    for (const lead of [assessed, hidden]) {
+      expect(
+        completionEstimate(lead, { progress: 0, projectedProgressGain: 0, currentTeam: [...team] }),
+      ).toEqual({ text: 'in transit', tone: 'muted' });
+    }
   });
 
   it('fills the circle by the share of the Required progress, full once reached, and unknown while hidden', () => {

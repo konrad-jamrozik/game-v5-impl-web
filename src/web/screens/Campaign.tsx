@@ -8,7 +8,7 @@ import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary } from '../turn-summary.ts';
-import { Badge, Button, Fact, Meter, typingIn, Cols } from '../ui.tsx';
+import { Badge, Button, Fact, Meter, typingIn, Grid } from '../ui.tsx';
 import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
 import { ChartsView } from './ChartsView.tsx';
@@ -420,8 +420,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
 
       {help ? (
         <div className="help" role="dialog" aria-label="Keyboard shortcuts">
-          <table className="grid">
-            <Cols widths={['140px', undefined]} />
+          <Grid widths={['140px', '440px']}>
             <tbody>
               {SHORTCUTS.map(([keys, what]) => (
                 <tr key={keys}>
@@ -432,7 +431,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Grid>
         </div>
       ) : null}
 

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { GAME_BUILD, type SaveListEntry } from '../../engine/index.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
-import { Button, NumberField, Section, Cols } from '../ui.tsx';
+import { Button, NumberField, Section, Grid } from '../ui.tsx';
 import { MusicControl } from './MusicControl.tsx';
 
 /** MENU, Layout: Music on and Music volume are set through the Music control, not rows of their own. */
@@ -196,8 +196,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                       </Button>
                     </div>
                   </header>
-                  <table className="grid">
-                    <Cols widths={[undefined, '72px', '200px']} />
+                  <Grid widths={['200px', '72px', '160px']}>
                     <tbody>
                       {group.saves.map((save) => (
                         <tr key={save.saveId}>
@@ -246,7 +245,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Grid>
                 </article>
               ))}
             </div>

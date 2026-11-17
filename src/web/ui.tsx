@@ -1,5 +1,6 @@
 /** Small presentational pieces shared by the screens. */
 import { useState, type ReactNode } from 'react';
+import { TIER_OPACITY, type SortTier } from './table-sort.ts';
 
 export function Button(props: {
   children: ReactNode;
@@ -142,13 +143,91 @@ export function typingIn(target: EventTarget | null): boolean {
   );
 }
 
-/** VIS, Tables: each column's width is fixed by the table's design; a column given no width shares what is left. */
-export function Cols(props: { widths: readonly (string | undefined)[] }) {
+/**
+ * VIS, Tables: every column has a fixed width set by the table's design, and the columns sit side by side from the
+ * table's left edge, so the table is exactly as wide as its columns and spare width lies after the last one.
+ */
+export function Cols(props: { widths: readonly string[] }) {
   return (
     <colgroup>
       {props.widths.map((width, index) => (
-        <col key={index} style={width === undefined ? undefined : { width }} />
+        <col key={index} style={{ width }} />
       ))}
     </colgroup>
   );
+}
+
+/**
+ * VIS, Tables: a table with fixed column widths. Unless `scroll` is false, because the table already sits in a
+ * scrolling panel, a table narrower than its columns scrolls sideways within its own frame.
+ */
+export function Grid(props: {
+  widths: readonly string[];
+  className?: string;
+  testId?: string;
+  scroll?: boolean;
+  children: ReactNode;
+}) {
+  const table = (
+    <table
+      className={props.className === undefined ? 'grid' : `grid ${props.className}`}
+      data-testid={props.testId}
+    >
+      <Cols widths={props.widths} />
+      {props.children}
+    </table>
+  );
+  return props.scroll === false ? table : <div className="grid-scroll">{table}</div>;
+}
+
+/**
+ * VIS, Tables: the direction of a column's sort tier after its header label, ▲ for ascending or ▼ for descending, at
+ * the opacity of its tier; nothing for a column in no tier.
+ */
+export function SortMark<K extends string>(props: { tiers: readonly SortTier<K>[]; column: K }) {
+  const index = props.tiers.findIndex((tier) => tier.key === props.column);
+  if (index < 0) {
+    return null;
+  }
+  return (
+    <span className="sort-mark" style={{ opacity: TIER_OPACITY[index] }} aria-hidden="true">
+      {(props.tiers[index] as SortTier<K>).desc ? '▼' : '▲'}
+    </span>
+  );
+}
+
+/** The value of `aria-sort` for a column: only the first tier is announced as the table's sort. */
+export function ariaSort<K extends string>(
+  tiers: readonly SortTier<K>[],
+  column: K,
+): 'ascending' | 'descending' | 'none' {
+  const first = tiers[0];
+  return first?.key === column ? (first.desc ? 'descending' : 'ascending') : 'none';
+}
+
+/**
+ * VIS, Tables: a value of free text too long for its column is cut short with "…" and shown in full while the pointer
+ * rests on it. One listener serves every table: entering a cell whose text is cut short gives it its full text as a
+ * title.
+ */
+export function installTableOverflowTitles(root: Document = document): void {
+  root.addEventListener('mouseover', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const cell = target.closest('.grid td, .grid tbody th');
+    if (!(cell instanceof HTMLElement)) {
+      return;
+    }
+    if (cell.scrollWidth > cell.clientWidth) {
+      if (!cell.hasAttribute('title')) {
+        cell.setAttribute('title', (cell.textContent ?? '').trim());
+        cell.dataset['overflowTitle'] = '';
+      }
+    } else if (cell.dataset['overflowTitle'] !== undefined) {
+      cell.removeAttribute('title');
+      delete cell.dataset['overflowTitle'];
+    }
+  });
 }

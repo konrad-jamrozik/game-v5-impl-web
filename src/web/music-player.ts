@@ -39,6 +39,8 @@ class MusicPlayer {
   private previewVolume: number | null = null;
   /** The fade of Music on, from 0 to 1; f is the smaller of it and the Track's own fade. */
   private toggle = 1;
+  /** MUSIC, Playback, Skip: the fade of a skip under way, from its starting value to 0; null while no skip is. */
+  private skipFade: number | null = null;
   private paused = false;
   private configured = false;
   private waitingForInteraction = false;
@@ -90,6 +92,16 @@ class MusicPlayer {
     if (audio === null) {
       return;
     }
+    if (!on && this.skipFade !== null) {
+      // MUSIC, Playback, Skip: Music on becoming false during a skip ends the Current Track at once, and the next
+      // Track becomes the Current Track, paused at its beginning.
+      this.next();
+      audio.pause();
+      this.paused = true;
+      this.toggle = 0;
+      this.publish();
+      return;
+    }
     // A new fade starts from the current value of f.
     this.toggle = Math.min(this.toggle, this.trackFade());
     if (on) {
@@ -103,6 +115,24 @@ class MusicPlayer {
       }
     }
     this.publish();
+  }
+
+  /**
+   * MUSIC, Playback, Skip: the Current Track fades out over 1 second and then ends, so the next Track of the playing
+   * order starts; skipping again during that fade ends it at once. Does nothing while Music on is false or before the
+   * first Track starts.
+   */
+  skip(): void {
+    if (this.audio === null || !this.on || !this.started || this.dead || this.current === null) {
+      return;
+    }
+    if (this.skipFade !== null) {
+      this.next();
+      return;
+    }
+    // A new fade starts from the current value of f.
+    this.skipFade = Math.min(this.toggle, this.trackFade());
+    this.apply();
   }
 
   /** While the Player drags the Volume slider, the gain follows it before the Music volume is stored. */
@@ -133,6 +163,7 @@ class MusicPlayer {
     if (track === undefined) {
       return;
     }
+    this.skipFade = null;
     this.current = track;
     this.paused = false;
     this.toggle = 1;
@@ -203,6 +234,13 @@ class MusicPlayer {
       const seconds = (now - this.lastTick) / 1000;
       this.lastTick = now;
       this.toggle = stepToggleFade(this.toggle, this.on ? 1 : 0, seconds);
+      if (this.skipFade !== null) {
+        this.skipFade = stepToggleFade(this.skipFade, 0, seconds);
+        if (this.skipFade === 0) {
+          this.next();
+          return;
+        }
+      }
       this.apply();
       if (!this.on && !this.paused && this.toggle === 0 && this.audio !== null && this.current !== null) {
         this.audio.pause();
@@ -216,7 +254,7 @@ class MusicPlayer {
     if (audio === null) {
       return;
     }
-    const fade = Math.min(this.toggle, this.trackFade());
+    const fade = Math.min(this.toggle, this.trackFade(), this.skipFade ?? 1);
     audio.volume = gain(fade, this.previewVolume ?? this.volume);
   }
 

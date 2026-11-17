@@ -196,6 +196,36 @@ test('the Agents View keeps its columns, selects ranges, guards re-assigning, an
   // VIS, Tables: an Assignment that gains "· In transit" moves and resizes no column.
   await expect(id(page, 'agent-agent-2')).toContainText('In transit');
   expect(await columns()).toEqual(before);
+  // VIS, Tables: a wider window moves and resizes no column; the spare width lies after the last column.
+  const viewport = page.viewportSize();
+  await page.setViewportSize({ width: (viewport?.width ?? 1280) + 400, height: viewport?.height ?? 720 });
+  expect(await columns()).toEqual(before);
+  if (viewport !== null) {
+    await page.setViewportSize(viewport);
+  }
+
+  // VIS, Tables: sort tiers. Sorting by Assignment and then by effective skill orders by effective skill first, and
+  // each header shows its arrow at the opacity of its tier.
+  const marks = () =>
+    page
+      .locator('[data-testid="agents-grid"] thead .sort-mark')
+      .evaluateAll((items) =>
+        items.map(
+          (item) =>
+            `${item.closest('th')?.dataset['testid']} ${item.textContent} ${getComputedStyle(item).opacity}`,
+        ),
+      );
+  await id(page, 'agents-sort-assignment').click();
+  await id(page, 'agents-sort-effectiveSkill').click();
+  expect(await marks()).toEqual(['agents-sort-effectiveSkill ▼ 1', 'agents-sort-assignment ▲ 0.7']);
+  const skills = await page
+    .locator('[data-testid="agents-grid"] tbody tr td:nth-child(3)')
+    .evaluateAll((cells) => cells.map((cell) => Number(cell.textContent)));
+  expect(skills).toEqual([...skills].sort((a, b) => b - a));
+  // Pressing a lower tier's header makes it the first tier with the direction it had.
+  await id(page, 'agents-sort-assignment').click();
+  expect(await marks()).toEqual(['agents-sort-effectiveSkill ▼ 0.7', 'agents-sort-assignment ▲ 1']);
+  await expect(id(page, 'agents-sort-assignment')).toHaveAttribute('aria-sort', 'ascending');
 
   await id(page, 'advance-turn').click();
   await afterAdvance(page, '2');
@@ -416,6 +446,7 @@ test('the Music control plays the Soundtrack across screens and stores its setti
   await id(page, 'seed-input').click();
   await expect(menuMusic.getByTestId('music-title')).toHaveText(/^♪ \S/, { timeout: 15_000 });
   const title = await menuMusic.getByTestId('music-title').textContent();
+  await expect(menuMusic.getByTestId('music-skip')).toBeEnabled();
 
   await menuMusic.getByTestId('music-volume').fill('30');
   await menuMusic.getByTestId('music-volume').blur();
@@ -424,10 +455,16 @@ test('the Music control plays the Soundtrack across screens and stores its setti
   await expect(footerMusic.getByTestId('music-volume')).toHaveValue('30');
   // Changing screen neither restarts nor interrupts the Current Track.
   await expect(footerMusic.getByTestId('music-title')).toHaveText(title ?? '');
+  // MUSIC, Playback, Skip: the Current Track fades out over 1 second and the next Track of the playing order starts.
+  await footerMusic.getByTestId('music-skip').click();
+  await expect(footerMusic.getByTestId('music-title')).not.toHaveText(title ?? '', { timeout: 5_000 });
+  await expect(footerMusic.getByTestId('music-title')).toHaveText(/^♪ \S/, { timeout: 15_000 });
 
   await footerMusic.getByTestId('music-toggle').click();
   await expect(footerMusic.getByTestId('music-title')).toHaveText('Music off');
   await expect(footerMusic.getByTestId('music-toggle')).toHaveAttribute('aria-label', 'Music off');
+  // MUSIC, Music control: the Skip button is disabled while Music on is false.
+  await expect(footerMusic.getByTestId('music-skip')).toBeDisabled();
   await page.reload();
   await expect(page.getByTestId('music-toggle').first()).toHaveAttribute('aria-label', 'Music off');
   await expect(page.getByTestId('music-volume').first()).toHaveValue('30');

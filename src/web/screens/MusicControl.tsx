@@ -1,5 +1,5 @@
 /**
- * MUSIC, Music control: the Music toggle, the Volume slider with its value, and the Track title of the Current Track.
+ * MUSIC, Music control: the Music toggle, the Skip button, the Volume slider with its value, and the Track title of the Current Track.
  * It is shown in the Settings panel of the Main menu and in the footer of the Side panel of the Campaign screen.
  */
 import { useState, useSyncExternalStore, type CSSProperties } from 'react';
@@ -73,6 +73,19 @@ export function MusicControl({ snapshot }: { snapshot: Snapshot }) {
         }}
       >
         <Speaker off={!on} />
+      </button>
+      <button
+        type="button"
+        className="btn btn-plain music-skip"
+        aria-label="Next Track"
+        title="Next Track"
+        data-testid="music-skip"
+        disabled={!on || status.title === null}
+        onClick={() => {
+          music.skip();
+        }}
+      >
+        ⏭
       </button>
       <span className="slider music-volume" style={{ '--fill': sliderFill(shown, 0, 100) } as CSSProperties}>
         <input

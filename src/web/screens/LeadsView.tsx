@@ -10,7 +10,7 @@ import { progressBar } from '../progress-bar.ts';
 import { activeInvestigationRows, leadsToInvestigate, rangeText } from '../situation.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { useRowSelection } from '../row-selection.ts';
-import { Button, Cols } from '../ui.tsx';
+import { Button, Grid } from '../ui.tsx';
 import { assignmentText } from './AgentsView.tsx';
 import { DetailView } from './DetailView.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
@@ -295,8 +295,7 @@ function Team(props: {
             <span className="label">Current team</span>
             <span className="figure tone-accent">{investigation.currentTeam.length}</span>
           </div>
-          <table className="grid compact">
-            <Cols widths={[undefined, '90px', '64px', '110px']} />
+          <Grid widths={['110px', '90px', '64px', '110px']} className="compact">
             <tbody>
               {investigation.currentTeam.map((member) => (
                 <tr key={member.agent}>
@@ -324,7 +323,7 @@ function Team(props: {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Grid>
         </>
       )}
       <div className="sit-group-head pane-sub">
@@ -334,8 +333,7 @@ function Team(props: {
       {candidates.length === 0 ? (
         <p className="muted small">No Agent that is Fit for work can be assigned now.</p>
       ) : (
-        <table className="grid compact pick-grid">
-          <Cols widths={['36px', '110px', undefined, '64px']} />
+        <Grid widths={['36px', '110px', '220px', '64px']} className="compact pick-grid">
           <tbody>
             {candidates.map((agent) => {
               const on = team.includes(agent.id);
@@ -356,7 +354,7 @@ function Team(props: {
               );
             })}
           </tbody>
-        </table>
+        </Grid>
       )}
       <div className="pane-actions">
         {investigation === undefined ? (

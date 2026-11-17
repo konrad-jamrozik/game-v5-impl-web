@@ -24,16 +24,17 @@ import {
 } from '../agent-selection.ts';
 import { useRowSelection } from '../row-selection.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import { Button, Cols } from '../ui.tsx';
+import { pressHeader, sortRows, type SortTier } from '../table-sort.ts';
+import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
 const NUMERIC = new Set(['effectiveSkill', 'skill', 'currentHealth', 'exhaustion', 'weaponDamage']);
 
 /** VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. */
-const SERVING_WIDTHS = ['36px', '104px', '92px', '68px', '80px', '108px', '80px', undefined, '128px'];
+const SERVING_WIDTHS = ['36px', '104px', '116px', '84px', '96px', '132px', '104px', '280px', '220px'];
 /** VIS, Tables: the fixed widths of the Memorial table. */
-const MEMORIAL_WIDTHS = ['100px', '64px', '72px', '112px', '96px', '88px', '76px', '68px', undefined];
+const MEMORIAL_WIDTHS = ['104px', '84px', '96px', '132px', '96px', '112px', '88px', '80px', '360px'];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
 type RowFilter = 'all' | 'assignable' | 'memorial';
@@ -139,7 +140,12 @@ export function AgentsView(props: {
   const { snapshot, state, selected, locked, onSelect } = props;
   const actions = snapshot.actions;
   const levels = exhaustionLevels(snapshot.gameData);
-  const [sorting, setSorting] = useState<SortingState>([]);
+  // VIS, Tables: up to four sort tiers over the default order by Instance ID.
+  const [tiers, setTiers] = useState<SortTier<string>[]>([]);
+  const sorting = useMemo<SortingState>(
+    () => tiers.map((tier) => ({ id: tier.key, desc: tier.desc })),
+    [tiers],
+  );
   const [rowFilter, setRowFilter] = useState<RowFilter>('all');
   const [selectionFilter, setSelectionFilter] = useState<OrderAssignment | null>(null);
   // AVIEW, Re-assigning: unchecked whenever the Agents View opens.
@@ -182,16 +188,19 @@ export function AgentsView(props: {
         : rowFilter === 'assignable'
           ? state.agents.filter((agent) => agent.canBeAssigned && agent.fitForWork)
           : [];
-    return shown.map((agent) => ({
-      ...agent,
-      reason: unselectableReason(agent, selectability, () => {
-        const preview = player.queries.previewAssignAgents(
-          [agent.id],
-          selectability.selectionFilter ?? 'Standby',
-        );
-        return preview.ok ? (preview.value.message ?? 'Cannot be selected') : preview.error.message;
-      }),
-    }));
+    // AVIEW, Agent table: the default order is by Instance ID.
+    return [...shown]
+      .sort((x, y) => byId(x.id, y.id))
+      .map((agent) => ({
+        ...agent,
+        reason: unselectableReason(agent, selectability, () => {
+          const preview = player.queries.previewAssignAgents(
+            [agent.id],
+            selectability.selectionFilter ?? 'Standby',
+          );
+          return preview.ok ? (preview.value.message ?? 'Cannot be selected') : preview.error.message;
+        }),
+      }));
   }, [rowFilter, state.agents, selectability, player]);
 
   const selectableIds = useMemo(() => rows.filter((row) => row.reason === '').map((row) => row.id), [rows]);
@@ -268,7 +277,6 @@ export function AgentsView(props: {
     data: rows,
     columns,
     state: { sorting },
-    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getRowId: (agent) => agent.id,
@@ -484,8 +492,7 @@ export function AgentsView(props: {
         />
       ) : (
         <div className="table-scroll">
-          <table className="grid agents-grid" data-testid="agents-grid">
-            <Cols widths={SERVING_WIDTHS} />
+          <Grid widths={SERVING_WIDTHS} className="agents-grid" testId="agents-grid" scroll={false}>
             <thead>
               {table.getHeaderGroups().map((group) => (
                 <tr key={group.id}>
@@ -511,21 +518,14 @@ export function AgentsView(props: {
                     <th
                       key={header.id}
                       className={NUMERIC.has(header.column.id) ? 'sortable num' : 'sortable'}
-                      aria-sort={
-                        header.column.getIsSorted() === 'asc'
-                          ? 'ascending'
-                          : header.column.getIsSorted() === 'desc'
-                            ? 'descending'
-                            : 'none'
-                      }
-                      onClick={header.column.getToggleSortingHandler()}
+                      aria-sort={ariaSort(tiers, header.column.id)}
+                      data-testid={`agents-sort-${header.column.id}`}
+                      onClick={() => {
+                        setTiers(pressHeader(tiers, header.column.id, NUMERIC.has(header.column.id)));
+                      }}
                     >
                       {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getIsSorted() === 'asc'
-                        ? ' ▲'
-                        : header.column.getIsSorted() === 'desc'
-                          ? ' ▼'
-                          : ''}
+                      <SortMark tiers={tiers} column={header.column.id} />
                     </th>
                   ))}
                 </tr>
@@ -550,7 +550,7 @@ export function AgentsView(props: {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Grid>
           {rows.length === 0 ? <p className="muted pad">No Agents to show.</p> : null}
         </div>
       )}
@@ -568,13 +568,14 @@ function Memorial(props: {
   history: HistoryView | null;
   onOpen: (id: string) => void;
 }) {
-  const [sort, setSort] = useState<{ key: MemorialKey; desc: boolean } | null>(null);
-  const rows = props.agents.map((agent) => ({
+  // VIS, Tables: up to four sort tiers over the default order, newest Turn terminated first and then by Instance ID.
+  const [tiers, setTiers] = useState<SortTier<MemorialKey>[]>([]);
+  const unsorted = props.agents.map((agent) => ({
     agent,
     details: memorialDetails(agent, props.state, props.history),
     ...memorialNumbers(agent),
   }));
-  type Row = (typeof rows)[number];
+  type Row = (typeof unsorted)[number];
   const value = (row: Row, key: MemorialKey): number | string => {
     switch (key) {
       case 'id':
@@ -597,32 +598,24 @@ function Memorial(props: {
         return row.details;
     }
   };
-  if (sort !== null) {
-    rows.sort((a, b) => {
-      const x = value(a, sort.key);
-      const y = value(b, sort.key);
-      const order = typeof x === 'number' && typeof y === 'number' ? x - y : byId(String(x), String(y));
-      return (sort.desc ? -order : order) || byId(a.agent.id, b.agent.id);
-    });
-  }
+  const rows = sortRows(unsorted, tiers, value);
   const header = (key: MemorialKey, label: string, numeric: boolean, title?: string) => (
     <th
       className={numeric ? 'sortable num' : 'sortable'}
       title={title}
-      aria-sort={sort?.key === key ? (sort.desc ? 'descending' : 'ascending') : 'none'}
+      aria-sort={ariaSort(tiers, key)}
       data-testid={`memorial-sort-${key}`}
       onClick={() => {
-        setSort(sort?.key === key ? { key, desc: !sort.desc } : { key, desc: numeric });
+        setTiers(pressHeader(tiers, key, numeric));
       }}
     >
       {label}
-      {sort?.key === key ? (sort.desc ? ' ▼' : ' ▲') : ''}
+      <SortMark tiers={tiers} column={key} />
     </th>
   );
   return (
     <div className="table-scroll">
-      <table className="grid memorial-grid" data-testid="memorial-grid">
-        <Cols widths={MEMORIAL_WIDTHS} />
+      <Grid widths={MEMORIAL_WIDTHS} className="memorial-grid" testId="memorial-grid" scroll={false}>
         <thead>
           <tr>
             {header('id', 'Agent', false)}
@@ -664,7 +657,7 @@ function Memorial(props: {
             </tr>
           ))}
         </tbody>
-      </table>
+      </Grid>
       {props.agents.length === 0 ? <p className="muted pad">No Agent has left the Agency yet.</p> : null}
     </div>
   );
@@ -724,8 +717,7 @@ function AgentDetails(props: {
       {participation.length === 0 ? (
         <p className="muted">No Investigation or Mission yet.</p>
       ) : (
-        <table className="grid compact">
-          <Cols widths={[undefined, '120px']} />
+        <Grid widths={['320px', '120px']} className="compact">
           <tbody>
             {participation.map((item) => (
               <tr key={item.key}>
@@ -744,7 +736,7 @@ function AgentDetails(props: {
               </tr>
             ))}
           </tbody>
-        </table>
+        </Grid>
       )}
     </div>
   );

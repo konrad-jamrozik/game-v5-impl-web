@@ -38,16 +38,19 @@ export function progressCircle(
 /**
  * GUI, Completion estimate, with p the Investigation progress, g the projected progress gain, and R to M the Required
  * progress range, all in hundredths of a progress point: "ETA a–b T" with a = max(1, ⌈(R − p) / g⌉) and
- * b = ⌈(M − p) / g⌉, "ETA a T" when a equals b, "ETA ≤ b T" once p has reached R, "stalled" while g is 0, and
- * "ETA ?" while R and M are hidden.
+ * b = ⌈(M − p) / g⌉, "ETA a T" when a equals b, and "ETA ≤ b T" once p has reached R. The first case that applies
+ * wins: "in transit" while g is 0 and a member of the Current team is In transit, "stalled" while g is 0 otherwise,
+ * and "ETA ?" while R and M are hidden.
  */
 export function completionEstimate(
   lead: RequiredKnowledge | null | undefined,
-  investigation: Pick<InvestigationView, 'progress' | 'projectedProgressGain'>,
+  investigation: Pick<InvestigationView, 'progress' | 'projectedProgressGain'> &
+    Partial<Pick<InvestigationView, 'currentTeam'>>,
 ): CompletionEstimate {
   const gain = investigation.projectedProgressGain ?? 0;
   if (gain <= 0) {
-    return { text: 'stalled', tone: 'muted' };
+    const inTransit = (investigation.currentTeam ?? []).some((member) => member.agentStatus === 'InTransit');
+    return { text: inTransit ? 'in transit' : 'stalled', tone: 'muted' };
   }
   const known = lead ?? UNKNOWN_LEAD;
   if (known.requiredProgress === 'unknown' || known.requiredProgressRange === 'unknown') {

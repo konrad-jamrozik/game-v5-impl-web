@@ -8,7 +8,7 @@ import { act, theEngine, type Snapshot } from '../store.ts';
 import { TIRED_DEPLOYMENT_EXHAUSTION, confirmTiredDeployment } from '../tired-deployment.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
 import { useRowSelection } from '../row-selection.ts';
-import { Button, Cols } from '../ui.tsx';
+import { Button, Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { assignmentText } from './AgentsView.tsx';
 
@@ -218,8 +218,7 @@ function SiteDetails(props: {
         <span className="label">Enemies</span>
         <span className="figure secondary">Combat rating {site.enemiesCombatRating}</span>
       </div>
-      <table className="grid compact">
-        <Cols widths={[undefined, '76px', '88px', '80px']} />
+      <Grid widths={['180px', '76px', '88px', '88px']} className="compact">
         <thead>
           <tr>
             <th>Enemy</th>
@@ -240,7 +239,7 @@ function SiteDetails(props: {
             </tr>
           ))}
         </tbody>
-      </table>
+      </Grid>
       <div className="label pane-sub">Consequences</div>
       <dl className="pairs">
         <dt>If won</dt>
@@ -304,8 +303,7 @@ function Deployment(props: {
       {candidates.length === 0 ? (
         <p className="muted small">No Agent on Standby or in Training can be deployed now.</p>
       ) : (
-        <table className="grid compact pick-grid">
-          <Cols widths={['36px', '110px', undefined, '64px', '76px']} />
+        <Grid widths={['36px', '110px', '220px', '64px', '96px']} className="compact pick-grid">
           <tbody>
             {candidates.map((agent) => {
               const on = team.includes(agent.id);
@@ -332,7 +330,7 @@ function Deployment(props: {
               );
             })}
           </tbody>
-        </table>
+        </Grid>
       )}
       <div className="pane-actions">
         <Button

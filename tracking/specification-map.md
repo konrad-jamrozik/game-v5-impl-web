@@ -37,6 +37,7 @@
 - e2e/web.spec.ts
 - src/web/agent-selection.ts
 - tests/web/agent-condition-and-selection.test.ts
+- src/web/table-sort.ts
 
 ## BASICAI: Basic Autopilot AI
 
@@ -508,6 +509,7 @@ No files.
 
 - src/web/screens/TurnSummary.tsx
 - src/web/turn-summary.ts
+- src/web/styles.css
 - tests/web/situation-and-summary.test.ts
 
 ## TURN: Turn Advancement
@@ -557,6 +559,8 @@ No files.
 - tests/web/slider.test.ts
 - tests/web/checkbox.test.ts
 - src/web/screens/MusicControl.tsx
+- src/web/table-sort.ts
+- tests/web/table-sort.test.ts
 
 ## WHIST: World History
 

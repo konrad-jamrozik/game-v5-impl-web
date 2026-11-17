@@ -7,7 +7,7 @@ import type { CombatReport, CurrentStateView, MissionSiteView, TurnReport } from
 import { consequenceText, progressPoints } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import type { Snapshot } from '../store.ts';
-import { percent, Cols } from '../ui.tsx';
+import { percent, Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 const CONDITIONS = { ableToFight: 'able to fight', incapacitated: 'incapacitated', dead: 'dead' } as const;
@@ -133,8 +133,7 @@ function Sections(props: {
   return (
     <>
       <Section title="Missions" count={report.missions.length} testId="report-missions">
-        <table className="grid">
-          <Cols widths={[undefined, '200px', '96px', '170px', '150px', '150px']} />
+        <Grid widths={['200px', '200px', '96px', '170px', '208px', '150px']}>
           <tbody>
             {report.missions.map((mission) => {
               const combat = report.combatReports.find((item) => item.mission === mission.mission);
@@ -182,7 +181,7 @@ function Sections(props: {
               );
             })}
           </tbody>
-        </table>
+        </Grid>
       </Section>
 
       <Section
@@ -258,8 +257,7 @@ function CombatReportDetails(props: { combat: CombatReport; levels: ExhaustionLe
       <p>
         {combat.outcome} after {combat.rounds} {combat.rounds === 1 ? 'round' : 'rounds'}
       </p>
-      <table className="grid">
-        <Cols widths={[undefined, '72px', '84px', '104px', '72px', '72px', '110px']} />
+      <Grid widths={['120px', '108px', '104px', '128px', '76px', '76px', '110px']}>
         <thead>
           <tr>
             <th>Combatant</th>
@@ -307,9 +305,9 @@ function CombatReportDetails(props: { combat: CombatReport; levels: ExhaustionLe
             </tr>
           ))}
         </tbody>
-      </table>
+      </Grid>
       <div className="label">Combat rating</div>
-      <table className="grid compact">
+      <Grid widths={['80px', '96px', '96px']} className="compact">
         <thead>
           <tr>
             <th className="num">Round</th>
@@ -326,11 +324,10 @@ function CombatReportDetails(props: { combat: CombatReport; levels: ExhaustionLe
             </tr>
           ))}
         </tbody>
-      </table>
+      </Grid>
       <details>
         <summary>Combat log ({combat.log.length} attacks)</summary>
-        <table className="grid log">
-          <Cols widths={['72px', '130px', '130px', '110px', undefined]} />
+        <Grid widths={['72px', '130px', '130px', '164px', '320px']} className="log">
           <thead>
             <tr>
               <th className="num">Round</th>
@@ -358,7 +355,7 @@ function CombatReportDetails(props: { combat: CombatReport; levels: ExhaustionLe
               </tr>
             ))}
           </tbody>
-        </table>
+        </Grid>
       </details>
     </div>
   );

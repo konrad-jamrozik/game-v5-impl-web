@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import { IndexedDbStorage } from './indexeddb-storage.ts';
 import { boot } from './store.ts';
+import { installTableOverflowTitles } from './ui.tsx';
 import './styles.css';
 
 const root = document.getElementById('root');
@@ -11,6 +12,7 @@ if (root === null) {
   throw new Error('The page has no root element');
 }
 const mount = createRoot(root);
+installTableOverflowTitles();
 
 boot(new IndexedDbStorage(indexedDB)).then(
   () => {

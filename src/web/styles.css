@@ -379,12 +379,19 @@ input::placeholder {
   width: 160px;
 }
 
-/* VIS, Tables: each column's width is fixed by the table's design (its <colgroup>, or an equal share), and only
-   resizing the table changes it; what the rows hold never does. A value too long for its column wraps within its row. */
+/* VIS, Tables: every column has a fixed width from the table's <colgroup>, and neither what the rows hold nor the
+   width of the screen changes it. A fixed-layout table of width 0 is exactly as wide as its columns, so the columns
+   sit side by side from the left edge and spare width lies after the last one. Every row is one line tall: a value
+   too long for its column is cut short with "…", and installTableOverflowTitles shows it in full on hover. */
 .grid {
-  width: 100%;
+  width: 0;
   border-collapse: collapse;
   table-layout: fixed;
+}
+
+.grid-scroll {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .grid th,
@@ -393,7 +400,9 @@ input::placeholder {
   border-bottom: 1px solid var(--raised);
   text-align: left;
   vertical-align: middle;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .grid th.num,
@@ -431,11 +440,21 @@ input::placeholder {
 
 .grid td > .actions {
   flex-wrap: nowrap;
+  justify-content: flex-start;
 }
 
 .sortable {
   cursor: pointer;
   user-select: none;
+}
+
+/* VIS, Tables: a header is never cut short; its column holds its label together with its sort arrow. */
+.grid thead th {
+  text-overflow: clip;
+}
+
+.sort-mark {
+  margin-left: 4px;
 }
 
 .check {
@@ -630,10 +649,10 @@ input::placeholder {
 
 .settings-music .music-control {
   flex: 1;
-  max-width: 340px;
+  max-width: 380px;
 }
 
-/* MUSIC, Music control: toggle, volume slider with its value, and the Track title, in one row. */
+/* MUSIC, Music control: toggle, Skip button, volume slider with its value, and the Track title, in one row. */
 .music-control {
   display: flex;
   align-items: center;
@@ -641,7 +660,8 @@ input::placeholder {
   min-width: 0;
 }
 
-.music-toggle {
+.music-toggle,
+.music-skip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1042,6 +1062,30 @@ input::placeholder {
   flex-direction: column;
   gap: 4px;
   padding: 6px 0;
+}
+
+/* VIS, Panels and cards: an item that takes more than one line has its value right-aligned on its first line, and its
+   further lines hold its details. VIS, Spacing and shape: two pieces of text on one line are at least 8 px apart. */
+.sit-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sit-line > :first-child {
+  min-width: 0;
+}
+
+.sit-line > :last-child:not(:first-child) {
+  flex: none;
+  text-align: right;
+}
+
+.sit-sub {
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .dialog-row + .dialog-row {

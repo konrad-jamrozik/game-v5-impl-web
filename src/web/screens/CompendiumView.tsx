@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { CurrentStateView, EncyclopediaArticleView, GameDataView } from '../../engine/index.ts';
 import { rangeText } from '../situation.ts';
 import type { Snapshot } from '../store.ts';
+import { Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 const GUIDE = 'Guide';
@@ -207,7 +208,7 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
                 </p>
               ))}
               {properties.length === 0 ? null : (
-                <table className="grid compact">
+                <Grid widths={['200px', '280px']} className="compact">
                   <tbody>
                     {properties.map(([name, value]) => (
                       <tr key={name}>
@@ -216,7 +217,7 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </Grid>
               )}
             </>
           )}
