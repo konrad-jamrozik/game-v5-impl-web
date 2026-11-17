@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { Campaign } from './screens/Campaign.tsx';
 import { MainMenu } from './screens/MainMenu.tsx';
+import { musicSettings } from './screens/MusicControl.tsx';
+import { music } from './music-player.ts';
 import { dismissNotice, useSnapshot } from './store.ts';
 
 export function App() {
@@ -9,6 +11,12 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset['theme'] = snapshot.theme;
   }, [snapshot.theme]);
+
+  // MUSIC, Playback: one player for the whole page, so changing screen never restarts the Current Track.
+  const { on: musicOn, volume: musicVolume } = musicSettings(snapshot);
+  useEffect(() => {
+    music.configure(musicOn, musicVolume);
+  }, [musicOn, musicVolume]);
 
   useEffect(() => {
     const newest = snapshot.notices.at(-1);

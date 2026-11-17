@@ -403,3 +403,29 @@ test('without WebGL 2 the globe shows a message and nothing else changes', async
   await id(page, 'hire').click();
   await expect(id(page, 'agent-agent-5')).toBeVisible();
 });
+
+test('the Music control plays the Soundtrack across screens and stores its settings', async ({ page }) => {
+  // MUSIC, Playback and Music control; MENU, Layout; CSCR, Side panel.
+  await page.goto('/');
+  const menuMusic = id(page, 'settings').getByTestId('music-control');
+  await expect(menuMusic).toBeVisible();
+  // A browser that blocks sound starts the first Track at the first interaction.
+  await id(page, 'seed-input').click();
+  await expect(menuMusic.getByTestId('music-title')).toHaveText(/^♪ \S/, { timeout: 15_000 });
+  const title = await menuMusic.getByTestId('music-title').textContent();
+
+  await menuMusic.getByTestId('music-volume').fill('30');
+  await menuMusic.getByTestId('music-volume').blur();
+  await id(page, 'new-campaign').click();
+  const footerMusic = page.locator('.side-footer').getByTestId('music-control');
+  await expect(footerMusic.getByTestId('music-volume')).toHaveValue('30');
+  // Changing screen neither restarts nor interrupts the Current Track.
+  await expect(footerMusic.getByTestId('music-title')).toHaveText(title ?? '');
+
+  await footerMusic.getByTestId('music-toggle').click();
+  await expect(footerMusic.getByTestId('music-title')).toHaveText('Music off');
+  await expect(footerMusic.getByTestId('music-toggle')).toHaveAttribute('aria-label', 'Music off');
+  await page.reload();
+  await expect(page.getByTestId('music-toggle').first()).toHaveAttribute('aria-label', 'Music off');
+  await expect(page.getByTestId('music-volume').first()).toHaveValue('30');
+});

@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react';
 import { GAME_BUILD, type SaveListEntry } from '../../engine/index.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { Button, NumberField, Section, Cols } from '../ui.tsx';
+import { MusicControl } from './MusicControl.tsx';
+
+/** MENU, Layout: Music on and Music volume are set through the Music control, not rows of their own. */
+const MUSIC_SETTINGS = new Set(['musicOn', 'musicVolume']);
 
 const KIND_NAMES: Record<string, string> = {
   current: 'Current Autosave',
@@ -38,53 +42,59 @@ export function SettingsPanel({ snapshot }: { snapshot: Snapshot }) {
   const { session } = theEngine();
   return (
     <Section title="Settings" testId="settings">
-      {snapshot.configuration.settings.map((setting) => (
-        <div key={setting.setting} className="settings-row">
-          <div>
-            {setting.name}
-            <span className="hint">
-              {setting.permitted} · {setting.stored ? 'your value' : 'build default'}
-            </span>
+      <div className="settings-row settings-music">
+        <div>Music</div>
+        <MusicControl snapshot={snapshot} />
+      </div>
+      {snapshot.configuration.settings
+        .filter((setting) => !MUSIC_SETTINGS.has(setting.setting))
+        .map((setting) => (
+          <div key={setting.setting} className="settings-row">
+            <div>
+              {setting.name}
+              <span className="hint">
+                {setting.permitted} · {setting.stored ? 'your value' : 'build default'}
+              </span>
+            </div>
+            <div className="actions">
+              {setting.stored ? (
+                <Button
+                  onClick={() => {
+                    act(() => session.globalConfiguration.reset(setting.setting));
+                  }}
+                >
+                  Reset to {String(setting.gameBuildDefault)}
+                </Button>
+              ) : null}
+              {setting.setting === 'theme' ? (
+                <select
+                  aria-label={setting.name}
+                  data-testid="setting-theme"
+                  value={String(setting.effectiveValue)}
+                  onChange={(event) => {
+                    act(() => session.globalConfiguration.set(setting.setting, event.target.value));
+                  }}
+                >
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                </select>
+              ) : (
+                <NumberField
+                  label={setting.name}
+                  testId={`setting-${setting.setting}`}
+                  stored={String(setting.effectiveValue)}
+                  onCommit={(text) => {
+                    act(() =>
+                      text === ''
+                        ? session.globalConfiguration.reset(setting.setting)
+                        : session.globalConfiguration.set(setting.setting, Number(text)),
+                    );
+                  }}
+                />
+              )}
+            </div>
           </div>
-          <div className="actions">
-            {setting.stored ? (
-              <Button
-                onClick={() => {
-                  act(() => session.globalConfiguration.reset(setting.setting));
-                }}
-              >
-                Reset to {String(setting.gameBuildDefault)}
-              </Button>
-            ) : null}
-            {setting.setting === 'theme' ? (
-              <select
-                aria-label={setting.name}
-                data-testid="setting-theme"
-                value={String(setting.effectiveValue)}
-                onChange={(event) => {
-                  act(() => session.globalConfiguration.set(setting.setting, event.target.value));
-                }}
-              >
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-              </select>
-            ) : (
-              <NumberField
-                label={setting.name}
-                testId={`setting-${setting.setting}`}
-                stored={String(setting.effectiveValue)}
-                onCommit={(text) => {
-                  act(() =>
-                    text === ''
-                      ? session.globalConfiguration.reset(setting.setting)
-                      : session.globalConfiguration.set(setting.setting, Number(text)),
-                  );
-                }}
-              />
-            )}
-          </div>
-        </div>
-      ))}
+        ))}
       {snapshot.configuration.problems.map((problem) => (
         <p key={problem} className="warning-text">
           {problem}

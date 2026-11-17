@@ -2,6 +2,7 @@
   "name": "game-v5-impl-web",
   "version": "0.1.0",
   "private": true,
+  "license": "CC-BY-NC-4.0",
   "description": "A browser and terminal implementation of the Game v5 specifications.",
   "type": "module",
   "engines": {

@@ -195,9 +195,10 @@
 - **Affected specifications:** CONFIG, Global configuration: "Interface preferences belong to Global configuration,
   e.g. volume, language, and tutorial popups. So does a setting that governs the engine without being consulted by
   game behavior, e.g. the Autosave limit".
-- **Description:** This Game build has exactly two Global configuration settings: the Autosave limit, a whole number
-  of at least 0 with the Game build default 5, and the interface theme, `dark` or `light` with the Game build default
-  `dark`. The game has no sound and one language, so it offers no volume or language setting.
+- **Description:** This Game build has exactly four Global configuration settings: the Autosave limit, a whole number
+  of at least 0 with the Game build default 5; Music on and Music volume, under MUSIC, Music settings, since
+  4594d57d7fd5629eb491f9749e7775a05395671a; and the interface theme, `dark` or `light` with the Game build default
+  `dark`. The game has one language, so it offers no language setting.
 - **Options considered:** Only the Autosave limit; the Autosave limit and the settings the interfaces need.
 - **Option chosen:** The Autosave limit and the theme.
 - **Why:** These are the settings this Implementation reads; a setting nothing reads would mislead the player.
@@ -877,3 +878,19 @@
 - **Option chosen:** Confirming only Agents At assignment.
 - **Why:** The confirmation guards against losing work and an Advance turn, and re-routing loses neither.
 - **Links:** PROB-030
+
+## DEC-048: The Soundtrack is bundled from `assets/music/`
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** PLACE, Music in an Implementation: "its Game build must serve that copy rather than the
+  `assets/music/` directory of the Spec repo; e.g., a web Implementation built with Vite copies the files to
+  `public/music/`."
+- **Description:** The copy of the Soundtrack is kept in `assets/music/`, the same path as in the Spec repo, and the web
+  UI lists it with Vite's `import.meta.glob`, which also emits each file into the Game build. Adding a Track file adds
+  it to the Soundtrack with no list to edit.
+- **Options considered:** `public/music/` with a hand-kept list of file names; `assets/music/` listed by
+  `import.meta.glob`.
+- **Option chosen:** `assets/music/` listed by `import.meta.glob`.
+- **Why:** A hand-kept list can fall out of step with the files, and the same path as in the Spec repo makes the copy
+  easy to compare.
+- **Links:** None.

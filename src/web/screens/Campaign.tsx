@@ -15,6 +15,7 @@ import { ChartsView } from './ChartsView.tsx';
 import { CompendiumView } from './CompendiumView.tsx';
 import { DETAIL_VIEW_GROUPS, DETAIL_VIEWS, type DetailViewId } from './DetailView.tsx';
 import { DeveloperDrawer } from './DeveloperDrawer.tsx';
+import { MusicControl } from './MusicControl.tsx';
 import { Globe } from './Globe.tsx';
 import { HistoryView } from './HistoryView.tsx';
 import { LeadsView } from './LeadsView.tsx';
@@ -412,6 +413,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                 Developer (`)
               </button>
             </div>
+            <MusicControl snapshot={snapshot} />
           </footer>
         </aside>
       </div>

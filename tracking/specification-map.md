@@ -120,6 +120,7 @@ No files.
 
 ## CSCR: Campaign Screen
 
+- src/web/screens/MusicControl.tsx
 - src/web/screens/Globe.tsx
 - src/web/screens/Campaign.tsx
 - src/web/screens/DetailView.tsx
@@ -327,6 +328,12 @@ No files.
 - src/web/screens/HistoryView.tsx
 - content/leads-and-progression/leads.yaml
 
+## LICENSE: Implementation License
+
+- LICENSE
+- README.md
+- package.json
+
 ## LIFE: Campaign Lifecycle
 
 - src/engine/session/core.ts
@@ -347,6 +354,7 @@ No files.
 
 ## MENU: Main Menu
 
+- src/web/screens/MusicControl.tsx
 - src/web/screens/MainMenu.tsx
 - src/web/styles.css
 - e2e/web.spec.ts
@@ -365,6 +373,18 @@ No files.
 - tests/mechanics/missions.test.ts
 - tests/mechanics/review-gaps.test.ts
 - tests/web/situation-and-summary.test.ts
+
+## MUSIC: Music
+
+- assets/music/
+- src/web/music.ts
+- src/web/music-player.ts
+- src/web/screens/MusicControl.tsx
+- src/web/App.tsx
+- src/engine/session/global-configuration.ts
+- src/web/styles.css
+- tests/web/music.test.ts
+- e2e/web.spec.ts
 
 ## MVIEW: Missions View
 
@@ -398,6 +418,7 @@ No files.
 ## PLACE: Implementation Placement
 
 - content/SOURCE.md
+- assets/music/
 - .node-version
 - .gitignore
 - package.json

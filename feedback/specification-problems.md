@@ -22,7 +22,9 @@
   specification lists the settings a Game build has, their permitted values, or their Game build defaults, other than
   the Autosave limit.
 - **Links:** DEC-011
-- **Resolution:** Open
+- **Resolution:** Open. Resolved in part in 4594d57d7fd5629eb491f9749e7775a05395671a: MUSIC, Music settings now states
+  Music on and Music volume with their permitted values and Game build defaults. No specification states the
+  complete inventory, e.g. the theme.
 
 ## PROB-003: Execution budget of an Autopilot AI is a TODO
 

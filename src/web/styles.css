@@ -628,6 +628,61 @@ input::placeholder {
   color: var(--text-muted);
 }
 
+.settings-music .music-control {
+  flex: 1;
+  max-width: 340px;
+}
+
+/* MUSIC, Music control: toggle, volume slider with its value, and the Track title, in one row. */
+.music-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.music-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  flex: none;
+}
+
+.music-toggle[aria-pressed='false'] {
+  color: var(--text-muted);
+}
+
+.music-volume {
+  width: 84px;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.music-volume-value {
+  width: 3ch;
+  flex: none;
+  text-align: right;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.music-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-title.muted {
+  color: var(--text-muted);
+}
+
 .setup-values {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
