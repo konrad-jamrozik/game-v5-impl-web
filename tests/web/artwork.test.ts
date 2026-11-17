@@ -33,6 +33,12 @@ describe('VIS: Background artwork', () => {
         image: 'assets/images/chatgpt-agents-i2.png',
         opacityPct: 30,
       },
+      {
+        id: 'leads_view_artwork',
+        detailView: 'leads',
+        image: 'assets/images/chatgpt-investigation-i2.png',
+        opacityPct: 30,
+      },
     ]);
   });
 

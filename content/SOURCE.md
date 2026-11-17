@@ -9,7 +9,7 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 - `compendium/encyclopedia_articles.yaml`: copied unchanged from specification commit
   `e19a220aa261bbcbaecbe0725bedda08f655a2ee` on 2026-11-16.
 - `visual-design/background_artworks.yaml`: copied unchanged from specification commit
-  `ddfc832151b01718f269431459ea7597f379a2d7` on 2026-11-17; 22 YAML files in all.
+  `b73e0683afd500a3e7f4decbc1b141969195a083` on 2026-11-17; 22 YAML files in all.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in
