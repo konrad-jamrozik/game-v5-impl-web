@@ -4,7 +4,7 @@
  */
 import { useState, type CSSProperties } from 'react';
 import { detailViewName, fileName } from '../artwork-names.ts';
-import { resetTuning, shownTuning, tune, useTunings } from '../artwork.ts';
+import { IMAGE_PATHS, resetTuning, shownTuning, tune, useTunings } from '../artwork.ts';
 import { sliderFill } from '../slider.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { Button, Section } from '../ui.tsx';
@@ -21,66 +21,86 @@ function parse(text: string): string | number | boolean {
 const VIEW_NAMES = new Map(DETAIL_VIEWS.map((view) => [detailViewName(view.id), view.name]));
 
 /**
- * VIS, Artwork tuning: one row per BackgroundArtwork GDR with its opacity and image; available whether or not Dev mode
- * is enabled, because it neither reveals hidden information nor changes Campaign state.
+ * VIS, Artwork tuning: pick the Detail view, then tune its opacity and image; available whether or not Dev mode is
+ * enabled, because it neither reveals hidden information nor changes Campaign state.
  */
 function ArtworkTuning({ snapshot }: { snapshot: Snapshot }) {
   const tunings = useTunings();
   const artworks = snapshot.gameData?.backgroundArtworks ?? [];
+  const [picked, setPicked] = useState<string | null>(null);
+  const artwork = artworks.find((item) => item.detailView === picked) ?? artworks[0];
+  const nameOf = (detailView: string) => VIEW_NAMES.get(detailView) ?? detailView;
+  if (artwork === undefined) {
+    return null;
+  }
+  const shown = shownTuning(artwork, tunings);
+  const name = nameOf(artwork.detailView);
+  // VIS, Artwork tuning, Image: every image file, and the GDR's own image even when this build holds no copy of it.
+  const images = IMAGE_PATHS.includes(shown.image) ? IMAGE_PATHS : [shown.image, ...IMAGE_PATHS];
   return (
     <Section title="Artwork tuning" testId="artwork-tuning">
-      {artworks.map((artwork) => {
-        const shown = shownTuning(artwork, tunings);
-        const name = VIEW_NAMES.get(artwork.detailView) ?? artwork.detailView;
-        return (
-          <div key={artwork.id} className="stack" data-testid={`tuning-${artwork.detailView}`}>
-            <div className="tuning-row">
-              <span>{name}</span>
-              <span
-                className="slider"
-                style={{ '--fill': sliderFill(shown.opacityPct, 0, 100) } as CSSProperties}
-              >
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={shown.opacityPct}
-                  aria-label={`${name} artwork opacity`}
-                  data-testid={`tuning-opacity-${artwork.detailView}`}
-                  onChange={(event) => {
-                    tune(artwork, { opacityPct: Number(event.target.value) });
-                  }}
-                />
-              </span>
-              <span className="figure">{shown.opacityPct}%</span>
-            </div>
-            {artwork.alternativeImages.length === 0 ? null : (
-              <label className="field">
-                <span>Image</span>
-                <select
-                  aria-label={`${name} artwork image`}
-                  data-testid={`tuning-image-${artwork.detailView}`}
-                  value={shown.image}
-                  onChange={(event) => {
-                    tune(artwork, { image: event.target.value });
-                  }}
-                >
-                  {[artwork.image, ...artwork.alternativeImages].map((image) => (
-                    <option key={image} value={image}>
-                      {fileName(image)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+      <div className="tuning-stack">
+        <label className="field">
+          <span>Detail view</span>
+          <select
+            data-testid="tuning-view"
+            value={artwork.detailView}
+            onChange={(event) => {
+              setPicked(event.target.value);
+            }}
+          >
+            {artworks.map((item) => (
+              <option key={item.id} value={item.detailView}>
+                {nameOf(item.detailView)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="field">
+          <span>Opacity</span>
+          <div className="tuning-row">
+            <span
+              className="slider"
+              style={{ '--fill': sliderFill(shown.opacityPct, 0, 100) } as CSSProperties}
+            >
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={1}
+                value={shown.opacityPct}
+                aria-label={`${name} artwork opacity`}
+                data-testid="tuning-opacity"
+                onChange={(event) => {
+                  tune(artwork, { opacityPct: Number(event.target.value) });
+                }}
+              />
+            </span>
+            <span className="figure">{shown.opacityPct}%</span>
           </div>
-        );
-      })}
-      <div>
-        <Button testId="tuning-reset" onClick={resetTuning}>
-          Reset
-        </Button>
+        </div>
+        <label className="field">
+          <span>Image</span>
+          <select
+            aria-label={`${name} artwork image`}
+            data-testid="tuning-image"
+            value={shown.image}
+            onChange={(event) => {
+              tune(artwork, { image: event.target.value });
+            }}
+          >
+            {images.map((image) => (
+              <option key={image} value={image}>
+                {fileName(image)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div>
+          <Button testId="tuning-reset" onClick={resetTuning}>
+            Reset
+          </Button>
+        </div>
       </div>
     </Section>
   );

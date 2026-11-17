@@ -23,6 +23,11 @@ export function imageUrl(path: string): string | null {
   return FILES[`../../${path}`] ?? null;
 }
 
+/** VIS, Artwork tuning, Image: every image file in assets/images/, by its path relative to the repository root. */
+export const IMAGE_PATHS: readonly string[] = Object.keys(FILES)
+  .map((key) => key.slice('../../'.length))
+  .sort();
+
 /** VIS, Artwork tuning: the tuned values of one BackgroundArtwork. */
 export interface Tuning {
   readonly opacityPct: number;

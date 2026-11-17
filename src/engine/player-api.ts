@@ -369,7 +369,6 @@ export interface GameDataView {
     readonly detailView: string;
     /** The image path relative to the Spec repo root, e.g. `assets/images/chatgpt-agents-i2.png`. */
     readonly image: string;
-    readonly alternativeImages: readonly string[];
     readonly opacityPct: number;
   }[];
 }

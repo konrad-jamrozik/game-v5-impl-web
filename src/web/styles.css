@@ -1831,10 +1831,21 @@ label:has(> input[type='checkbox']:disabled) {
   z-index: 2;
 }
 
-/* VIS, Artwork tuning: one row per BackgroundArtwork. */
+/* VIS, Artwork tuning: the Detail view, Opacity, and Image controls stacked 16 px apart, each under its Label, and
+   the Reset button below them; the Opacity slider has its value beside it. */
+.tuning-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tuning-stack > .field {
+  margin: 0;
+}
+
 .tuning-row {
   display: grid;
-  grid-template-columns: 96px 1fr 48px;
+  grid-template-columns: 1fr 48px;
   align-items: center;
   gap: 8px;
 }
@@ -1851,7 +1862,8 @@ label:has(> input[type='checkbox']:disabled) {
 
 /* VIS, Alignment: the controls of the title row share one centre line, and a labelled group stands its Label above
    its controls, so the row aligns on its bottom edge with every control equally tall. The title's 36 px line puts its
-   text on that centre line, and the figures after it share its baseline. */
+   text on that centre line, and the figures after it share its baseline. VIS, Detail view: the title, in the Section
+   heading style, starts at the top of the inner padding in every Detail view; a taller row grows downward. */
 .detail-head {
   display: flex;
   justify-content: space-between;
@@ -1860,7 +1872,8 @@ label:has(> input[type='checkbox']:disabled) {
   padding: 18px 18px 12px;
 }
 
-.detail-head h3 {
+.detail-head h2 {
+  align-self: flex-start;
   margin: 0;
   line-height: 36px;
 }
@@ -1899,9 +1912,11 @@ label:has(> input[type='checkbox']:disabled) {
   padding: 0 18px 18px;
 }
 
+/* VIS, Panes: the third pane holds a table, e.g. the Deploy table of the Missions View, and is never narrower than
+   that table's columns; the other panes share the rest of the width. */
 .panes {
   display: grid;
-  grid-template-columns: minmax(260px, 1.1fr) minmax(0, 1.3fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(260px, 1.1fr) minmax(0, 1.3fr) minmax(min-content, 1.2fr);
   gap: 16px;
   align-items: start;
 }
@@ -1918,6 +1933,19 @@ label:has(> input[type='checkbox']:disabled) {
 
 .pane-title {
   margin: 0 0 8px;
+}
+
+/* VIS, Typography, Pane heading: every heading inside a pane of a Detail view, e.g. a group name of the left pane,
+   the name of the selected item, and the heading of each part of the right pane. */
+.pane .pane-title,
+.pane .sit-group-head > .label,
+.pane .label.pane-sub {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
 }
 
 .pane-sub {

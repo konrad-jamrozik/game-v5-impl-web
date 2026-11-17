@@ -24,16 +24,14 @@ describe('VIS: Background artwork', () => {
       {
         id: 'missions_view_artwork',
         detailView: 'missions',
-        image: 'assets/images/v03ai-nano21-command-center-hd.jpg',
-        alternativeImages: ['assets/images/v03ai-nano21-command-center.jpg'],
-        opacityPct: 12,
+        image: 'assets/images/v03ai-nano21-command-center.jpg',
+        opacityPct: 30,
       },
       {
         id: 'agents_view_artwork',
         detailView: 'agents',
         image: 'assets/images/chatgpt-agents-i2.png',
-        alternativeImages: [],
-        opacityPct: 12,
+        opacityPct: 30,
       },
     ]);
   });
@@ -44,6 +42,9 @@ describe('VIS: Background artwork', () => {
       buildGdrCatalog(artworkFile([artwork('agents'), { ...artwork('agents'), id: 'other' }])),
     ).toThrow(/a second BackgroundArtwork/);
     expect(() => buildGdrCatalog(artworkFile([artwork('agents', 101)]))).toThrow(/opacity_pct/);
+    expect(() =>
+      buildGdrCatalog(artworkFile([{ ...artwork('agents'), alternative_images: ['assets/images/x.png'] }])),
+    ).toThrow(/alternative_images/);
   });
 
   it('names Detail views and images as the GDRs and Artwork tuning do', () => {

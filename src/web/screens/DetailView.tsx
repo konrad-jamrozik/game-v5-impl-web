@@ -63,10 +63,10 @@ export function DetailView(props: {
         />
       )}
       <header className="detail-head">
-        <h3>
+        <h2>
           {props.title}
           {props.aside === undefined ? null : <span className="detail-aside">{props.aside}</span>}
-        </h3>
+        </h2>
         <div className="detail-actions">
           {props.actions}
           <button

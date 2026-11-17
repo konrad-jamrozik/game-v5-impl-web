@@ -208,8 +208,6 @@ export interface BackgroundArtworkGdr {
   readonly detailView: string;
   /** The image path relative to the Spec repo root, e.g. `assets/images/chatgpt-agents-i2.png`. */
   readonly image: string;
-  /** Further image paths that only Artwork tuning offers in place of `image`. */
-  readonly alternativeImages: readonly string[];
   /** A whole number from 0 to 100. */
   readonly opacityPct: number;
 }

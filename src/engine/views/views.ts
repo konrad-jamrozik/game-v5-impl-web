@@ -742,7 +742,6 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         id: artwork.id,
         detailView: artwork.detailView,
         image: artwork.image,
-        alternativeImages: [...artwork.alternativeImages],
         opacityPct: artwork.opacityPct,
       })),
     });

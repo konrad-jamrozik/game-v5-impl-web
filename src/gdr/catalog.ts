@@ -381,7 +381,6 @@ const schemas = {
       type: z.literal('BackgroundArtwork'),
       detail_view: z.string().regex(ID_PATTERN),
       image: z.string().min(1),
-      alternative_images: z.array(z.string().min(1)).optional(),
       opacity_pct: z.int().min(0).max(100),
     })
     .transform((g) => ({
@@ -389,7 +388,6 @@ const schemas = {
       id: g.id,
       detailView: g.detail_view,
       image: g.image,
-      alternativeImages: g.alternative_images ?? [],
       opacityPct: g.opacity_pct,
     })),
 } as const;
