@@ -10,11 +10,12 @@ function fixed(...values: number[]): () => number {
 }
 
 describe('MUSIC: Soundtrack', () => {
-  it('titles a Track by its file name without the extension, with underscores as spaces', () => {
-    expect(trackTitle('Silent_Contact.opus')).toBe('Silent Contact');
-    expect(trackTitle('../../assets/music/Black_Orbit_Watch.opus')).toBe('Black Orbit Watch');
-    expect(trackTitle('../../assets/music/v03AI UFO 1.mp3')).toBe('v03AI UFO 1');
-    expect(trackTitle('Silent Contact.mp3')).toBe(trackTitle('Silent_Contact.opus'));
+  it('titles a Track by its file name without the extension, unchanged', () => {
+    expect(trackTitle('GEO-6.opus')).toBe('GEO-6');
+    expect(trackTitle('../../assets/music/GEO-4.opus')).toBe('GEO-4');
+    expect(trackTitle('../../assets/music/GEO-14.mp3')).toBe('GEO-14');
+    expect(trackTitle('GEO-6.mp3')).toBe(trackTitle('GEO-6.opus'));
+    expect(trackTitle('Silent_Contact.opus')).toBe('Silent_Contact');
   });
 
   it('holds a copy of the Soundtrack, every Track an Ogg Opus or MP3 file with a distinct title', () => {
@@ -27,7 +28,7 @@ describe('MUSIC: Soundtrack', () => {
 });
 
 describe('MUSIC: Playing order', () => {
-  const tracks = ['Depth Signal', 'Silent Contact', 'Unseen Sector'];
+  const tracks = ['GEO-5', 'GEO-6', 'GEO-12'];
 
   it('plays every Track exactly once in each round', () => {
     for (let seed = 0; seed < 50; seed += 1) {
@@ -38,14 +39,14 @@ describe('MUSIC: Playing order', () => {
 
   it('never starts a round with the last Track of the round before it', () => {
     for (let i = 0; i < 200; i += 1) {
-      expect(drawRound(tracks, 'Depth Signal', Math.random)[0]).not.toBe('Depth Signal');
+      expect(drawRound(tracks, 'GEO-5', Math.random)[0]).not.toBe('GEO-5');
     }
   });
 
   it('draws all four permitted orders of the second round', () => {
     const seen = new Set<string>();
     for (let i = 0; i < 500; i += 1) {
-      seen.add(drawRound(tracks, 'Depth Signal', Math.random).join(','));
+      seen.add(drawRound(tracks, 'GEO-5', Math.random).join(','));
     }
     expect(seen.size).toBe(4);
   });

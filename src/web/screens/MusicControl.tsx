@@ -2,8 +2,9 @@
  * MUSIC, Music control: the Music toggle, the Volume slider with its value, and the Track title of the Current Track.
  * It is shown in the Settings panel of the Main menu and in the footer of the Side panel of the Campaign screen.
  */
-import { useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { music } from '../music-player.ts';
+import { sliderFill } from '../slider.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 
 /** The effective Music on and Music volume of the Global configuration in `snapshot`. */
@@ -73,24 +74,25 @@ export function MusicControl({ snapshot }: { snapshot: Snapshot }) {
       >
         <Speaker off={!on} />
       </button>
-      <input
-        type="range"
-        className="music-volume"
-        min={0}
-        max={100}
-        step={1}
-        value={shown}
-        aria-label="Music volume"
-        data-testid="music-volume"
-        onChange={(event) => {
-          const value = Number(event.target.value);
-          setDragging(value);
-          music.preview(value);
-        }}
-        onPointerUp={commit}
-        onKeyUp={commit}
-        onBlur={commit}
-      />
+      <span className="slider music-volume" style={{ '--fill': sliderFill(shown, 0, 100) } as CSSProperties}>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={shown}
+          aria-label="Music volume"
+          data-testid="music-volume"
+          onChange={(event) => {
+            const value = Number(event.target.value);
+            setDragging(value);
+            music.preview(value);
+          }}
+          onPointerUp={commit}
+          onKeyUp={commit}
+          onBlur={commit}
+        />
+      </span>
       <span className="figure music-volume-value">{shown}</span>
       <span
         className={`music-title${on ? '' : ' muted'}`}
