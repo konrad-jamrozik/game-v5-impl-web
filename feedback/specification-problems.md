@@ -329,7 +329,9 @@
   Engagement Autosave when the Autopilot AI committed nothing, and nothing says which of two such targets
   `redoToAutosave()` and `undoToAutosave()` load. They differ in their Timeline and Autopilot memory.
 - **Links:** DEC-044
-- **Resolution:** Open
+- **Resolution:** Resolved in ef784eef02d431975327f0a09fd25cebb3e52659, which the Implementation follows since this update: TIMELINE,
+  Autosave navigation, Equal targets, now loads the Return Autosave when it is one of two targets holding equal
+  Committed states, as DEC-044 chose, and leaves the choice between two other such targets to the Implementer.
 
 ## PROB-027: The Main menu cannot tell which Campaign save is the most recent
 
@@ -339,7 +341,9 @@
 - **Description:** `session.saves.list()` reports no time at which a Campaign save was written, and no order, so a
   user interface cannot find the most recent Campaign save.
 - **Links:** DEC-007
-- **Resolution:** Open
+- **Resolution:** Resolved in ef784eef02d431975327f0a09fd25cebb3e52659, which the Implementation follows since this update: SAVES, Campaign
+  save contents and Listing Campaign saves, now say that a Campaign save holds, and the list reports, the time it was
+  last written, so the Main menu gives the Accent top edge to the Campaign of the most recent Campaign save.
 
 ## PROB-028: An Encyclopedia article's `subject` does not say which Type its GDR is of
 

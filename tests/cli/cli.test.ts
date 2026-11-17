@@ -62,6 +62,7 @@ describe('File storage', () => {
       turn: 1,
       gameBuild: 'b',
       stamp: 's',
+      writtenAt: '2026-11-17T00:00:00.000Z',
     };
     await storage.writeSave(header as never, 'body-text');
     expect(await storage.listSaveHeaders()).toEqual([header]);

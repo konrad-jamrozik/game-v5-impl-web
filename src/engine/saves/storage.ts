@@ -21,6 +21,8 @@ export interface SaveHeader {
   readonly gameBuild: string;
   /** Identifies the saved Committed state on its line of play; see DEC-010. */
   readonly stamp: string;
+  /** When the Campaign save was last written, as an ISO 8601 UTC time; not Campaign state, see SAVES. */
+  readonly writtenAt: string;
 }
 
 export interface GameStorage {

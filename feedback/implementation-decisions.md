@@ -110,9 +110,10 @@
   TODOs: "List the other screens the Player needs while a Campaign is current".
 - **Description:** The web UI opens at the Main menu, which offers New-Campaign setup, the list of Campaign saves
   grouped by Campaign with Load, Delete, and Delete Campaign buttons, each deletion confirmed first, and the Global
-  configuration settings. The card of the Campaign whose Campaign saves reach the latest Turn takes the Accent top edge in
-  place of the Campaign of the most recent Campaign save, because the list reports no time at which a Campaign save
-  was written. The
+  configuration settings. The card of the Campaign whose Campaign saves reach the latest Turn took the Accent top edge
+  in place of the Campaign of the most recent Campaign save, because the list reported no time at which a Campaign
+  save was written; Specification revision ef784eef02d431975327f0a09fd25cebb3e52659 overrode that part: the list now reports that time,
+  and the card of the Campaign of the most recent Campaign save takes the Accent top edge. The
   Leads panel shows only discovered Leads, each with its Lead status, as a tree whose roots are the Leads that no
   listed Lead leads to, since a Won Response Mission can discover a Lead that no discovered Lead creates the
   MissionSiteArchetype of. While a Campaign is current it showed a status bar with Advance turn, Timeline
@@ -174,7 +175,8 @@
 - **Affected specifications:** SAVES, Campaign save contents: "How a Campaign save is encoded and stored is the
   Implementer's choice." TIMELINE, Autosave navigation: "A Committed state is later than another Committed state of
   the same Campaign when one or more Player actions lead from the other to it".
-- **Description:** A Campaign save is one JSON text with a format number and the Game build identifier. The Game
+- **Description:** A Campaign save is one JSON text with a format number, the Game build identifier, and the time it
+  was last written, an ISO 8601 UTC time taken from the host's clock and kept beside the Campaign state. The Game
   build identifier is the package version joined with a hash of the GDRs; a Campaign save whose identifier differs is
   rejected as Incompatible Game build. Each Committed state reached by a Player action receives a stamp, an
   Independent identifier, and a Campaign save holds the stamps of every Committed state from campaign creation to the
@@ -826,6 +828,11 @@
 - **Option chosen:** Preferring the Return Autosave.
 - **Why:** The Return Autosave holds the line of play the Player left by going back, including its Undone actions,
   which is what redo across Turns exists to restore.
+- **Superseded in part:** Specification revision ef784eef02d431975327f0a09fd25cebb3e52659 states, under TIMELINE, Autosave navigation,
+  Equal targets, that the Return Autosave is loaded when it is one of two targets holding equal Committed states, for
+  `undoToAutosave()` as for `redoToAutosave()`, so that part is now conformance. Between two other such targets, e.g.
+  the Engagement and Disengagement Autosaves of an engagement that committed nothing, which one is loaded remains this
+  decision: the one found first.
 - **Links:** PROB-026
 
 ## DEC-045: An Encyclopedia article's subject must identify exactly one GDR

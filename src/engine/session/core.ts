@@ -98,6 +98,11 @@ export interface EngineEnvironment {
   randomNumbers(count: number): number[];
   /** Lets the host run between two steps of an Autopilot AI, e.g. to handle a disengage request. */
   yieldToHost?(): Promise<void>;
+  /**
+   * The current time in milliseconds since the Unix epoch, recorded as the time a Campaign save was last written;
+   * defaults to the system clock. It is not Campaign state, so gameplay never consults it; see SAVES.
+   */
+  now?(): number;
   /** Overrides the Save size limit; for tests only. */
   saveSizeLimitBytes?: number;
 }
@@ -140,6 +145,8 @@ export interface SaveListEntry {
   readonly isAutosave: boolean;
   readonly autosaveKind: 'current' | 'turnEnd' | 'engagement' | 'disengagement' | 'return' | null;
   readonly turn: number;
+  /** When the Campaign save was last written, as an ISO 8601 UTC time; see SAVES, Listing Campaign saves. */
+  readonly writtenAt: string;
 }
 
 export interface TimelineStatus {
@@ -716,6 +723,7 @@ export class EngineCore<S extends ShellState> {
         isAutosave: header.kind !== 'manual',
         autosaveKind: autosaveKindOf(header.kind),
         turn: header.turn,
+        writtenAt: header.writtenAt,
       }));
       entries.sort((a, b) =>
         a.campaignId === b.campaignId
@@ -815,6 +823,7 @@ export class EngineCore<S extends ShellState> {
       turn: currentState(campaign).world.current.turn,
       gameBuild: this.rules.gameBuild,
       stamp: currentStamp(campaign),
+      writtenAt: new Date(this.env.now?.() ?? Date.now()).toISOString(),
     };
   }
 
@@ -1148,7 +1157,9 @@ export class EngineCore<S extends ShellState> {
       }
       const index = ancestors.lastIndexOf(header.stamp);
       if (index >= 0) {
-        if (index > earlierIndex) {
+        // Of two targets holding the same Committed state, the Return Autosave is loaded; see TIMELINE, Autosave
+        // navigation, Equal targets.
+        if (index > earlierIndex || (index === earlierIndex && header.kind === 'returnAutosave')) {
           earlier = header;
           earlierIndex = index;
         }
@@ -1159,8 +1170,8 @@ export class EngineCore<S extends ShellState> {
         if (header.kind === 'returnAutosave') {
           laterReturn = true;
         }
-        // Of two targets holding the same Committed state, the Return Autosave is loaded, so that going forward
-        // again ends where going back started; see TIMELINE, Autosave navigation.
+        // Of two targets holding the same Committed state, the Return Autosave is loaded; see TIMELINE, Autosave
+        // navigation, Equal targets.
         if (line.length < laterLength || (line.length === laterLength && header.kind === 'returnAutosave')) {
           later = header;
           laterLength = line.length;

@@ -31,7 +31,15 @@ describe('IndexedDB storage', () => {
     await storage.writeGlobalConfiguration('{"x":1}');
     expect(await storage.readGlobalConfiguration()).toBe('{"x":1}');
 
-    const header = { saveId: 'a', campaignId: 'c', kind: 'manual', turn: 1, gameBuild: 'b', stamp: 's' };
+    const header = {
+      saveId: 'a',
+      campaignId: 'c',
+      kind: 'manual',
+      turn: 1,
+      gameBuild: 'b',
+      stamp: 's',
+      writtenAt: '2026-11-17T00:00:00.000Z',
+    };
     await storage.writeSave(header as unknown as SaveHeader, 'one');
     await storage.writeSave({ ...header, turn: 2 } as unknown as SaveHeader, 'two');
     expect(await storage.listSaveHeaders()).toEqual([{ ...header, turn: 2 }]);

@@ -338,7 +338,25 @@ describe('SAVES: Acceptance examples', () => {
       'isAutosave',
       'saveId',
       'turn',
+      'writtenAt',
     ]);
+  });
+
+  it('Listing reports the time each Campaign save was last written', async () => {
+    let clock = Date.UTC(2026, 10, 17, 12, 0, 0);
+    const h = await startHarness({ now: () => clock });
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const first = expectOk(await h.core.save(CONTROLLER)).saveId;
+    clock += 60_000;
+    expectOk(await h.core.advanceTurn(CONTROLLER));
+    const second = expectOk(await h.core.save(CONTROLLER)).saveId;
+    await h.restart();
+    const saves = await list(h);
+    const writtenAt = (saveId: string) => saves.find((save) => save.saveId === saveId)?.writtenAt;
+    expect(writtenAt(first)).toBe('2026-11-17T12:00:00.000Z');
+    expect(writtenAt(second)).toBe('2026-11-17T12:01:00.000Z');
+    // The Current Autosave was rewritten after the first manual save, so its time is the later one.
+    expect(saves.find((save) => save.autosaveKind === 'current')?.writtenAt).toBe('2026-11-17T12:01:00.000Z');
   });
 
   it('Deleting a Campaign save and a Campaign', async () => {

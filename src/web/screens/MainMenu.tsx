@@ -20,6 +20,8 @@ interface CampaignGroup {
   readonly campaignId: string;
   /** The latest Turn among its Campaign saves. */
   readonly turn: number;
+  /** When its most recent Campaign save was last written, as an ISO 8601 UTC time. */
+  readonly writtenAt: string;
   readonly saves: readonly SaveListEntry[];
 }
 
@@ -34,6 +36,7 @@ function groupByCampaign(saves: readonly SaveListEntry[]): CampaignGroup[] {
   return [...groups].map(([campaignId, list]) => ({
     campaignId,
     turn: Math.max(...list.map((save) => save.turn)),
+    writtenAt: list.reduce((latest, save) => (save.writtenAt > latest ? save.writtenAt : latest), ''),
     saves: list,
   }));
 }
@@ -126,11 +129,11 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
   const selected = presetList.find((preset) => preset.isSelected);
   const values = selected === undefined ? null : session.newCampaignSetup.getPreset(selected.preset);
 
-  // VIS, Main menu Artboard: the Campaign saves grouped by Campaign. DEC-007: the Campaign that has gone furthest is
-  // the one the Player most likely wants, so its card takes the Accent edge.
+  // VIS, Main menu Artboard: the Campaign saves grouped by Campaign. MENU, Layout: the card of the Campaign of the
+  // most recent Campaign save takes the Accent edge.
   const campaigns = groupByCampaign(saves);
   const likely = campaigns.reduce<CampaignGroup | null>(
-    (best, group) => (best === null || group.turn > best.turn ? group : best),
+    (best, group) => (best === null || group.writtenAt > best.writtenAt ? group : best),
     null,
   );
 

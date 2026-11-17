@@ -5,7 +5,7 @@ import type { SaveHeader, SaveKind } from './storage.ts';
 /** The Save size limit: 100 MiB; see SAVES, Save size limit. */
 export const SAVE_SIZE_LIMIT_BYTES = 100 * 1024 * 1024;
 
-const FORMAT = 5;
+const FORMAT = 6;
 
 /** Encoded Turn-start states, reused while the same Turn-start state is written again; see DEC-008. */
 const turnStartCache = new WeakMap<object, string>();
@@ -35,6 +35,7 @@ export function encodeSave<S extends ShellState>(header: SaveHeader, saved: Save
     saveId: header.saveId,
     campaignId: header.campaignId,
     kind: header.kind,
+    writtenAt: header.writtenAt,
   });
   return `${head.slice(0, -1)},"turnStart":${encodeTurnStart(saved.turnStart)},${rest.slice(1)}`;
 }
@@ -62,6 +63,7 @@ export interface DecodedSave<S extends ShellState> {
   readonly campaignId: string;
   readonly saveId: string;
   readonly kind: SaveKind;
+  readonly writtenAt: string;
   readonly saved: SavedCampaign<S>;
 }
 
@@ -123,6 +125,7 @@ export function decodeSave<S extends ShellState>(
     campaignId,
     saveId,
     kind,
+    writtenAt,
     pastStamps,
     turnStart,
     entries,
@@ -136,6 +139,7 @@ export function decodeSave<S extends ShellState>(
     typeof saveId !== 'string' ||
     typeof kind !== 'string' ||
     !KINDS.includes(kind) ||
+    typeof writtenAt !== 'string' ||
     !isStringArray(pastStamps) ||
     !isStringArray(stamps) ||
     !Array.isArray(entries) ||
@@ -156,6 +160,7 @@ export function decodeSave<S extends ShellState>(
     campaignId,
     saveId,
     kind: kind as SaveKind,
+    writtenAt,
     saved: { pastStamps, turnStart, entries, stamps, position, memoryBase, memoryWrites },
   };
 }

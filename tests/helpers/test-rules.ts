@@ -189,7 +189,12 @@ export interface Harness {
 let idCounter = 0;
 
 export async function startHarness(
-  options: { ais?: AutopilotAiRunner[]; storage?: MemoryStorage; saveSizeLimitBytes?: number } = {},
+  options: {
+    ais?: AutopilotAiRunner[];
+    storage?: MemoryStorage;
+    saveSizeLimitBytes?: number;
+    now?: () => number;
+  } = {},
 ): Promise<Harness> {
   const storage = options.storage ?? new MemoryStorage();
   const env: EngineEnvironment = {
@@ -200,6 +205,7 @@ export async function startHarness(
     },
     randomNumbers: (count) => Array.from({ length: count }, (_, i) => idCounter * 31 + i * 7),
     ...(options.saveSizeLimitBytes === undefined ? {} : { saveSizeLimitBytes: options.saveSizeLimitBytes }),
+    ...(options.now === undefined ? {} : { now: options.now }),
   };
   const harness: Harness = {
     core: await EngineCore.start(env, testRules, options.ais ?? []),
