@@ -80,8 +80,9 @@ from Google Fonts; DEC-034 gives the light theme.
 - **Panels.** On the right, one of five:
   - Mission sites: each with its Enemies, rewards, and penalties, the Combat rating of the selected team against
     the Enemies, and a Deploy button.
-  - Leads: a tree in which each discovered Lead is under the Leads it requires, with its Lead status, what blocks it, its Investigation
-    progress, and buttons that start an Investigation or add the selected Agents to it.
+  - Leads: a tree in which each discovered Lead is under the Leads it requires, with its Lead status, what blocks it, its
+    Required progress range once it is Assessed, its Investigation progress and projected progress gain, and buttons that
+    start an Investigation or add the selected Agents to it.
   - Agency: caps, Upgrades with Buy buttons, Factions, and a field manual of the Player-visible GDR values.
   - Turn report: what the last Advance turn did, with every Combat report and its Combat log.
   - History: four line charts, the History entries as a table, and the Campaign instances no longer in play.

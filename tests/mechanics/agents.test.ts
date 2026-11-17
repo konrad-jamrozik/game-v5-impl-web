@@ -5,7 +5,9 @@ import {
   clampExhaustion,
   clampHealth,
   effectiveSkill,
+  trainingGainProbability,
 } from '../../src/engine/mechanics/agents/agents.ts';
+import { ratio } from '../../src/kernel/index.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import { currentStateView } from '../../src/engine/views/views.ts';
 import {
@@ -67,15 +69,17 @@ describe('AGENT: Acceptance examples', () => {
   it('Effective skill computations', () => {
     const rows: [number, number, number, number, number?][] = [
       [100, 30, 0, 100],
-      [100, 15, 25, 40],
-      [100, 30, 5, 100],
-      [100, 30, 6, 99],
+      [100, 15, 50, 40],
+      [100, 30, 30, 100],
+      [100, 30, 31, 99],
       [100, 29, 0, 96],
-      [130, 22, 40, 61],
-      [100, 30, 100, 5],
-      [100, 1, 100, 0],
+      [130, 22, 65, 61],
+      [100, 30, 47, 83],
+      [100, 30, 100, 30],
+      [100, 1, 100, 1],
+      [100, 30, 130, 0],
       [100, 0, 0, 0],
-      [100, 30, 60, 0, 2],
+      [100, 30, 85, 0, 2],
     ];
     for (const [skill, currentHealth, exhaustion, expected, penalty] of rows) {
       const parameters = penalty === undefined ? p : { ...p, skillPenaltyPctPerExhaustion: penalty };
@@ -84,9 +88,16 @@ describe('AGENT: Acceptance examples', () => {
   });
 
   it('Exhaustion and current health clamps', () => {
-    expect(clampExhaustion(99 + 1 + 1, p)).toBe(100);
-    expect(clampExhaustion(-3, p)).toBe(0);
-    expect(effectiveSkill({ skill: 100, currentHealth: 30, baseHealth: 30, exhaustion: 100 }, p)).toBe(5);
+    // Exhaustion has no upper clamp: 99 + 1 + 1 is 101.
+    expect(clampExhaustion(99 + 1 + 1)).toBe(101);
+    expect(effectiveSkill({ skill: 100, currentHealth: 30, baseHealth: 30, exhaustion: 101 }, p)).toBe(29);
+    // An Agent on Standby with exhaustion 3 that recovers 5 has exhaustion 0, not −2.
+    expect(clampExhaustion(3 - 5)).toBe(0);
+    let state = newCampaign();
+    const [a1] = agentIds(state) as [string];
+    state = tweak(state, (world) => (world.agents[a1]!.state.exhaustion = 3));
+    state = advance(state);
+    expect(agent(state, a1).state.exhaustion).toBe(0);
     expect(clampHealth(3 - 10, 30)).toBe(0);
     expect(clampHealth(35, 30)).toBe(30);
   });
@@ -209,27 +220,121 @@ describe('AGENT: Acceptance examples', () => {
   it('Training growth', () => {
     let state = newCampaign();
     const [a1, a2] = agentIds(state) as [string, string];
+    // Moving from Standby to Training takes no transit.
     state = act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' });
-    state = advance(state);
-    expect(agent(state, a1).state).toMatchObject({ skill: 100, status: 'AtAssignment' });
+    expect(agent(state, a1).state).toMatchObject({ skill: 100, exhaustion: 0, status: 'AtAssignment' });
+    // At exhaustion of at most 30 and full health the Training gain Probability is 1: no injected outcome is needed.
+    expect(trainingGainProbability(agent(state, a1).state, p).eq(1)).toBe(true);
     state = advance(state);
     expect([agent(state, a1).state.skill, agent(state, a2).state.skill]).toEqual([101, 101]);
+    expect(agent(state, a1).state.exhaustion).toBe(1);
     state = advance(state);
-    expect(agent(state, a1).state.skill).toBe(102);
+    expect(agent(state, a1).state).toMatchObject({ skill: 102, exhaustion: 2 });
     expect(effectiveSkill(agent(state, a1).state, p)).toBe(102);
+    // Recalled to Standby at once, without transit; it recovers its exhaustion of 2.
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
+    expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'AtAssignment' });
     state = advance(state);
     expect(agent(state, a1).state).toMatchObject({
       skill: 102,
       exhaustion: 0,
       assignment: { kind: 'Standby' },
+      status: 'AtAssignment',
     });
     expect(agent(state, a2).state.skill).toBe(103);
   });
 
+  it('Training growth: a tired Agent gains with Probability 80 / 100', () => {
+    let state = newCampaign();
+    const [a2] = agentIds(state) as [string];
+    state = setAssignment(state, [a2], 'Training');
+    state = tweak(state, (world) => (world.agents[a2]!.state.exhaustion = 50));
+    expect(trainingGainProbability(agent(state, a2).state, p).eq(ratio(80, 100))).toBe(true);
+    const outcome = `agent.trainingGain.${a2}`;
+    const without = advance(state, { [outcome]: [false] });
+    expect(agent(without, a2).state).toMatchObject({ skill: 100, exhaustion: 51 });
+    const gains = advance(state, { [outcome]: [true] });
+    expect(agent(gains, a2).state).toMatchObject({ skill: 101, exhaustion: 51 });
+  });
+
+  it('Start-work gate and Forced return', () => {
+    let state = withAgents(newCampaign(), 4);
+    const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
+    state = setAssignment(state, [a1], 'Contracting');
+    state = setAssignment(state, [a2], 'Training');
+    state = tweak(state, (world) => {
+      world.agents[a1]!.state.exhaustion = 68;
+      world.agents[a2]!.state.exhaustion = 69;
+      world.agents[a3]!.state.exhaustion = 31;
+      world.agents[a4]!.state.exhaustion = 30;
+    });
+    const view = currentStateView(state, gdrs);
+    expect(view.agents.map((a) => a.fitForWork)).toEqual([false, false, false, true]);
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a3], assignment: 'Contracting' },
+      'agents_not_fit_for_work',
+    );
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a3, a4], assignment: 'Contracting' },
+      'agents_not_fit_for_work',
+    );
+    expect(
+      agent(act(state, 'assignAgents', { agents: [a4], assignment: 'Contracting' }), a4).state.assignment,
+    ).toEqual({ kind: 'Contracting' });
+    // The gate applies only to Work Assignments: recalling a1 or a2 to Standby is accepted.
+    act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
+    act(state, 'assignAgents', { agents: [a2], assignment: 'Standby' });
+
+    state = advance(state, { [`agent.trainingGain.${a2}`]: [true] });
+    // a1 earned with effective skill 62 and then reached 69, below 70: it stays on Contracting.
+    expect(agent(state, a1).state).toMatchObject({ exhaustion: 69, assignment: { kind: 'Contracting' } });
+    // a2 reached 70 in the Training step: Forced return to Standby, At assignment, then recovery to 65.
+    expect(agent(state, a2).state).toMatchObject({
+      exhaustion: 65,
+      assignment: { kind: 'Standby' },
+      status: 'AtAssignment',
+    });
+    expect(agent(state, a3).state.exhaustion).toBe(26);
+    expect(state.world.history.turnReport?.forcedReturns).toEqual([{ agent: a2, from: 'Training' }]);
+
+    state = advance(state);
+    expect(agent(state, a1).state).toMatchObject({
+      exhaustion: 70,
+      assignment: { kind: 'Standby' },
+      status: 'InTransit',
+    });
+    expect(agent(state, a2).state.exhaustion).toBe(60);
+    expect(agent(state, a3).state.exhaustion).toBe(21);
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a1], assignment: 'Standby' },
+      'agents_cannot_be_ordered',
+    );
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a2], assignment: 'Training' },
+      'agents_not_fit_for_work',
+    );
+    expect(currentStateView(state, gdrs).agents.find((a) => a.id === a3)?.fitForWork).toBe(true);
+    // a1 arrives in the next Advance turn and then recovers 5 per Advance turn, to 30 after eight of them.
+    state = advance(state);
+    for (let turn = 0; turn < 8; turn += 1) {
+      expect(agent(state, a1).state.exhaustion).toBe(70 - 5 * turn);
+      state = advance(state);
+    }
+    expect(agent(state, a1).state.exhaustion).toBe(30);
+  });
+
   it('Assigning Agents: rejections and recall', () => {
     let state = withAgents(newCampaign(), 8);
-    const [a1, a2, a3, a4, a6, a7, a8] = agentIds(state) as [
+    const [a1, a2, a3, a4, a6, a7, a8, a5] = agentIds(state) as [
+      string,
       string,
       string,
       string,
@@ -239,6 +344,7 @@ describe('AGENT: Acceptance examples', () => {
       string,
     ];
     state = setAssignment(state, [a1], 'Contracting');
+    state = setAssignment(state, [a5], 'Training');
     state = setAssignment(state, [a2], 'Standby', 'InTransit');
     state = tweak(state, (world) => {
       world.agents[a3]!.state.currentHealth = 20;
@@ -269,6 +375,18 @@ describe('AGENT: Acceptance examples', () => {
     reject([a6], 'Standby', 'agents_cannot_be_ordered');
     reject(['nobody'], 'Standby', 'agents_unknown');
     reject([a1], 'Recovery', 'invalid_assignment');
+
+    const withinBase = act(state, 'assignAgents', { agents: [a5], assignment: 'Standby' });
+    expect(agent(withinBase, a5).state).toMatchObject({
+      assignment: { kind: 'Standby' },
+      status: 'AtAssignment',
+    });
+    // At assignment at once, so it can be assigned again in the same Turn.
+    const onward = act(withinBase, 'assignAgents', { agents: [a5], assignment: 'Contracting' });
+    expect(agent(onward, a5).state).toMatchObject({
+      assignment: { kind: 'Contracting' },
+      status: 'InTransit',
+    });
 
     const recalled = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
     expect(agent(recalled, a1).state).toMatchObject({
@@ -324,7 +442,7 @@ describe('AGENT: Acceptance examples', () => {
       expect(checkInvariants(tweak(state, change), gdrs).length).toBeGreaterThan(0);
     invalid((world) => (world.agents[a1]!.state.status = 'Killed'));
     invalid((world) => (world.agents[a1]!.state.currentHealth = 0));
-    invalid((world) => (world.agents[a1]!.state.exhaustion = 101));
+    invalid((world) => (world.agents[a1]!.state.exhaustion = -1));
     invalid((world) => (world.agents[a1]!.state.assignment = null));
     invalid((world) => (world.agents[a1]!.state.assignment = { kind: 'Deployed', mission: 'nowhere' }));
     invalid((world) => (world.agents[a1]!.state.status = 'Recovering'));
@@ -341,6 +459,9 @@ describe('AGENT: Acceptance examples', () => {
     expectDefective(
       (raw) => (raw.get('agent_parameters')['training_skill_gain_per_turn'] = { $decimal: '0.5' }),
     );
-    expectDefective((raw) => delete raw.get('agent_parameters')['exhaustion_cap']);
+    expectDefective((raw) => delete raw.get('agent_parameters')['exhaustion_work_limit']);
+    expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_cap'] = 100));
+    expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_work_start_max'] = 70));
+    expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_work_limit'] = 120));
   });
 });

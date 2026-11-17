@@ -72,6 +72,18 @@ async function viaCli(): Promise<unknown> {
 
 const id = (page: Page, testId: string) => page.getByTestId(testId);
 
+/**
+ * Waits for the Turn an Advance turn requested through the GUI ends in, and dismisses its Turn summary when the
+ * Advance turn did something the Turn summary lists. The Turn summary appears in the same render as the new Turn.
+ */
+async function afterAdvance(page: Page, turn: string): Promise<void> {
+  await expect(id(page, 'turn')).toHaveText(turn);
+  if ((await id(page, 'turn-summary').count()) > 0) {
+    await id(page, 'turn-summary-continue').click();
+  }
+  await expect(id(page, 'turn-summary')).toHaveCount(0);
+}
+
 async function viaWeb(page: Page): Promise<unknown> {
   await page.goto('/');
   await id(page, 'seed-input').fill(SEED);
@@ -88,16 +100,16 @@ async function viaWeb(page: Page): Promise<unknown> {
   await page.keyboard.press('Escape');
   await id(page, 'hire').click();
   await id(page, 'advance-turn').click();
-  await expect(id(page, 'turn')).toHaveText('2');
+  await afterAdvance(page, '2');
   await page.keyboard.press('n');
-  await expect(id(page, 'turn')).toHaveText('3');
+  await afterAdvance(page, '3');
   await id(page, 'tab-agency').click();
   await id(page, 'buy-training_cap').click();
   await page.keyboard.press('h');
   await page.keyboard.press('u');
   await expect(id(page, 'redo')).toBeEnabled();
   await id(page, 'advance-turn').click();
-  await expect(id(page, 'turn')).toHaveText('4');
+  await afterAdvance(page, '4');
 
   await id(page, 'open-developer').click();
   await id(page, 'dev-mode').check();
@@ -119,6 +131,7 @@ test('a reload continues the Campaign from its Current Autosave, with its Undone
   await id(page, 'new-campaign').click();
   await id(page, 'hire').click();
   await id(page, 'advance-turn').click();
+  await afterAdvance(page, '2');
   await id(page, 'hire').click();
   await id(page, 'hire').click();
   await id(page, 'undo').click();
@@ -146,6 +159,18 @@ test('actions are offered only when the engine says they are available', async (
   await id(page, 'dev-add-money').click();
   await expect(id(page, 'money')).toHaveText('1500');
   await expect(id(page, 'buy-transport_cap')).toBeEnabled();
+});
+
+test('the Situation panel is always in view and a row shows its item', async ({ page }) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('situation');
+  await id(page, 'new-campaign').click();
+  await expect(id(page, 'situation')).toBeVisible();
+  await id(page, 'tab-history').click();
+  await expect(id(page, 'situation')).toBeVisible();
+  await id(page, 'situation-row-locate_red_dawn_member').click();
+  await expect(id(page, 'tab-leads')).toHaveAttribute('aria-selected', 'true');
+  await expect(id(page, 'lead-locate_red_dawn_member')).toBeVisible();
 });
 
 test('Autopilot plays a Campaign to its ending and the interface stays usable', async ({ page }) => {
@@ -176,6 +201,7 @@ test('the Main menu deletes a Campaign save and a whole Campaign after a confirm
   await id(page, 'seed-input').fill('deleting');
   await id(page, 'new-campaign').click();
   await id(page, 'advance-turn').click();
+  await afterAdvance(page, '2');
   await id(page, 'to-menu').click();
   const rows = id(page, 'saves-table').locator('tbody tr');
   await expect(rows).not.toHaveCount(0);

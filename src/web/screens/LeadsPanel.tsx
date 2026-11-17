@@ -1,7 +1,11 @@
 /** The Leads tree: each Lead under the Leads it requires, with its Investigation and what blocks it. */
 import type { CurrentStateView, LeadView } from '../../engine/index.ts';
+import { confirmInterruption } from '../interruption.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import { Badge, Button, Meter, percent } from '../ui.tsx';
+import { progressPoints } from '../format.ts';
+import { progressBar } from '../progress-bar.ts';
+import { Badge, Button } from '../ui.tsx';
+import { ProgressBar } from './ProgressBar.tsx';
 
 function blockers(lead: LeadView, siteName: (archetype: string) => string): string[] {
   const texts: string[] = [];
@@ -19,6 +23,12 @@ function blockers(lead: LeadView, siteName: (archetype: string) => string): stri
     texts.push('its Faction is eliminated');
   }
   return texts;
+}
+
+/** INVSTG, Player-visible information: the Required progress range only for an Assessed Lead. */
+function requiredText(lead: LeadView): string {
+  const range = lead.requiredProgressRange;
+  return range === 'unknown' ? 'unknown' : `at least ${range.min}, up to ${range.max}`;
 }
 
 /** LEAD, Lead status, as a Badge tone. */
@@ -54,7 +64,11 @@ export function LeadsPanel(props: {
         >
           <header className="card-head">
             <h4>{lead.name}</h4>
-            <Badge>difficulty {lead.difficulty}</Badge>
+            <Badge>
+              {lead.requiredProgressRange === 'unknown'
+                ? 'required progress unknown'
+                : `required progress ${lead.requiredProgressRange.min} to ${lead.requiredProgressRange.max}`}
+            </Badge>
             {!lead.conditions.noMissionWon ? <Badge tone="good">Mission won</Badge> : null}
             <Badge tone={STATUS_TONES[lead.status]}>{lead.status}</Badge>
             {investigation !== undefined ? <Badge tone="accent">Investigating</Badge> : null}
@@ -78,7 +92,9 @@ export function LeadsPanel(props: {
                     (canStart ? null : 'An Investigation cannot be started for this Lead now.')
                   }
                   onClick={() => {
-                    act(() => player.actions.startInvestigation(lead.id, selected));
+                    if (confirmInterruption(state, selected)) {
+                      act(() => player.actions.startInvestigation(lead.id, selected));
+                    }
                   }}
                 >
                   Investigate with {selected.length} selected
@@ -87,12 +103,21 @@ export function LeadsPanel(props: {
             ) : null
           ) : (
             <>
-              <div className="with-meter wide">
-                <Meter value={investigation.progress} max={investigation.progressForCertainCompletion} />
-                progress {investigation.progress} of {investigation.progressForCertainCompletion}
-                {investigation.projectedCompletionProbability === null
+              <ProgressBar
+                size="row"
+                model={progressBar(
+                  lead,
+                  investigation.progress,
+                  investigation.projectedProgressGain,
+                  props.snapshot.gameData?.investigationParameters.assessmentThresholdPct ?? 0,
+                )}
+              />
+              <div className="small" data-testid={`progress-${lead.id}`}>
+                progress {progressPoints(investigation.progress)} of {requiredText(lead)}
+                {investigation.projectedProgressGain === null
                   ? ''
-                  : `; ${percent(investigation.projectedCompletionProbability)} to complete this Turn`}
+                  : `; +${progressPoints(investigation.projectedProgressGain)} next Advance turn`}
+                {investigation.assessed ? ' (assessed)' : ''}
               </div>
               <p className="small">
                 Team:{' '}
@@ -113,7 +138,9 @@ export function LeadsPanel(props: {
                       : 'This Investigation accepts no Agents now.')
                   }
                   onClick={() => {
-                    act(() => player.actions.assignAgentsToInvestigation(investigation.id, selected));
+                    if (confirmInterruption(state, selected)) {
+                      act(() => player.actions.assignAgentsToInvestigation(investigation.id, selected));
+                    }
                   }}
                 >
                   Add {selected.length} selected

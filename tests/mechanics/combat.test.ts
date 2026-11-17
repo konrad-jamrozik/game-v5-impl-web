@@ -91,8 +91,9 @@ describe('COMBAT: Acceptance examples', () => {
   });
 
   it('Target selection with ties', () => {
+    // Effective skill 39 is above 13, but exhaustion 100 meets the exhaustion clause.
     const a4 = combatAgent('a4', { skill: 130, exhaustion: 100 });
-    expect(effectiveSkill(a4.state, gdrs.agentParameters)).toBe(6);
+    expect(effectiveSkill(a4.state, gdrs.agentParameters)).toBe(39);
     const report = fight(
       [combatAgent('a1', { currentHealth: 29 }), combatAgent('a2'), combatAgent('a3'), a4],
       [combatEnemy('e1', 'initiate'), combatEnemy('e2', 'soldier'), combatEnemy('e3', 'soldier')],
@@ -218,38 +219,45 @@ describe('COMBAT: Acceptance examples', () => {
   });
 
   it('Incapacitated during a Combat', () => {
-    const a1 = combatAgent('a1', { exhaustion: 94 });
+    const a1 = combatAgent('a1', { exhaustion: 99 });
     const report = fight([a1, combatAgent('a2')], [combatEnemy('e1', 'initiate')], {
       'combat.hit.a1': [false],
       'combat.hit.a2': [true, true],
       'combat.damage.a2': [10, 13],
       'combat.hit.e1': [false],
     });
-    expect(report.ratings[0]!.agents).toBe(111);
-    expect(report.log[0]).toMatchObject({ attacker: 'a1', a: 11, d: 40, attackerIncapacitated: true });
+    expect(report.ratings[0]!.agents).toBe(131);
+    expect(report.log[0]).toMatchObject({
+      attacker: 'a1',
+      a: 31,
+      d: 40,
+      hitProbability: { n: 961, d: 2561 },
+      attackerIncapacitated: true,
+    });
     expect(report.log[2]).toMatchObject({ attacker: 'e1', defender: 'a2' });
     expect(report.ratings[1]!.agents).toBe(100);
     expect(report.outcome).toBe('Prevailed');
     expect(report.rounds).toBe(2);
     expect(participant(report, 'a1').final).toMatchObject({
       currentHealth: 30,
-      exhaustion: 95,
+      exhaustion: 100,
+      effectiveSkill: 30,
       condition: 'incapacitated',
     });
-    expect(a1.state).toMatchObject({ currentHealth: 30, exhaustion: 95 });
+    expect(a1.state).toMatchObject({ currentHealth: 30, exhaustion: 100 });
     expect(Object.keys(a1.state)).not.toContain('incapacitated');
   });
 
   it('Prevailed when neither side can fight on', () => {
-    const report = fight([combatAgent('a1', { exhaustion: 92 })], [combatEnemy('e1', 'initiate')], {
+    const report = fight([combatAgent('a1', { exhaustion: 97 })], [combatEnemy('e1', 'initiate')], {
       'combat.hit.a1': [true, true],
       'combat.damage.a1': [15, 5],
       'combat.hit.e1': [false],
     });
     expect(report.log.map((x) => [x.a, x.d])).toEqual([
-      [13, 40],
-      [10, 12],
-      [11, 10],
+      [33, 40],
+      [10, 32],
+      [31, 10],
     ]);
     expect(report.outcome).toBe('Prevailed');
     expect(report.rounds).toBe(2);
@@ -269,8 +277,14 @@ describe('COMBAT: Acceptance examples', () => {
     const wiped = fight([tired], [combatEnemy('e1', 'initiate')], {});
     expect([wiped.outcome, wiped.rounds]).toEqual(['Wiped', 0]);
     expect(tired.state).toMatchObject({ currentHealth: 30, exhaustion: 100 });
+    // Effective skill 30 is above the skill clause's 10: the exhaustion clause alone incapacitates it.
+    expect(effectiveSkill(tired.state, gdrs.agentParameters)).toBe(30);
+    const veryTired = combatAgent('a1', { exhaustion: 130 });
+    const wipedAgain = fight([veryTired], [combatEnemy('e1', 'initiate')], {});
+    expect([wipedAgain.outcome, wipedAgain.rounds]).toEqual(['Wiped', 0]);
+    expect(veryTired.state).toMatchObject({ currentHealth: 30, exhaustion: 130 });
     const continues = fight(
-      [combatAgent('a1', { exhaustion: 95 }), combatAgent('a2')],
+      [combatAgent('a1', { exhaustion: 105 }), combatAgent('a2')],
       [combatEnemy('e1', 'initiate')],
       { 'combat.hit.a2': [true, true], 'combat.damage.a2': [15, 15], 'combat.hit.e1': [false, false] },
     );
@@ -286,24 +300,28 @@ describe('COMBAT: Acceptance examples', () => {
       'combat.hit.e1': misses(200),
     });
     expect(initiate.outcome).toBe('Prevailed');
-    expect(initiate.rounds).toBe(47);
-    expect(initiate.log).toHaveLength(93);
+    expect(initiate.rounds).toBe(50);
+    expect(initiate.log).toHaveLength(100);
     expect(participant(initiate, 'e1').final).toMatchObject({
-      exhaustion: 93,
-      effectiveSkill: 4,
+      exhaustion: 100,
+      effectiveSkill: 12,
       condition: 'incapacitated',
     });
-    expect(participant(initiate, 'a1').final).toMatchObject({ exhaustion: 93, effectiveSkill: 12 });
-    expect(initiate.ratings[28]).toEqual({ round: 28, agents: 49, enemies: 19 });
+    expect(participant(initiate, 'a1').final).toMatchObject({
+      exhaustion: 100,
+      effectiveSkill: 30,
+      condition: 'incapacitated',
+    });
+    expect(initiate.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 19 });
 
     const soldier = fight([combatAgent('a1')], [combatEnemy('e1', 'soldier')], {
       'combat.hit.a1': misses(200),
       'combat.hit.e1': misses(200),
     });
     expect(soldier.outcome).toBe('Retreated');
-    expect(soldier.rounds).toBe(28);
-    expect(soldier.ratings[27]).toMatchObject({ agents: 51 });
-    expect(soldier.ratings[28]).toEqual({ round: 28, agents: 49, enemies: 58 });
+    expect(soldier.rounds).toBe(41);
+    expect(soldier.ratings[40]).toMatchObject({ agents: 50 });
+    expect(soldier.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 57 });
   });
 
   it('Combat ratings of Mission sites', () => {
@@ -355,11 +373,6 @@ describe('COMBAT: Acceptance examples', () => {
   });
 
   it('GDR validation', () => {
-    expectDefective((raw) => (raw.get('agent_parameters')['skill_penalty_pct_per_exhaustion'] = 0));
-    expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_free_points'] = 95));
-    expectDefective(
-      (raw) => (raw.get('combat_parameters')['incapacitation_skill_fraction'] = { $decimal: '0.04' }),
-    );
     expectDefective((raw) => {
       raw.get('agent_parameters')['exhaustion_per_attack'] = 0;
       raw.get('agent_parameters')['exhaustion_per_defense'] = 0;
@@ -371,9 +384,25 @@ describe('COMBAT: Acceptance examples', () => {
     expectDefective((raw) =>
       raw.add('combat/combat_parameters.yaml', { ...raw.get('combat_parameters'), id: 'second' }),
     );
+    // No rule ties the penalty factor to the incapacitation threshold any more.
     const valid = catalogWith(
       (raw) => (raw.get('combat_parameters')['incapacitation_skill_fraction'] = { $decimal: '0.05' }),
     );
     expect(valid.combatParameters.incapacitationSkillFraction.toString()).toBe('1/20');
+    const noPenalty = catalogWith(
+      (raw) => (raw.get('agent_parameters')['skill_penalty_pct_per_exhaustion'] = 0),
+    );
+    expect(noPenalty.agentParameters.skillPenaltyPctPerExhaustion).toBe(0);
+    const tired = combatAgent('a1', { exhaustion: 100 });
+    const report = fightCombat({
+      missionId: 'm1',
+      agents: [tired],
+      enemies: [combatEnemy('e1', 'initiate')],
+      combat: noPenalty.combatParameters,
+      agentParameters: noPenalty.agentParameters,
+      random: injectedRandom({}),
+    });
+    expect(effectiveSkill(tired.state, noPenalty.agentParameters)).toBe(100);
+    expect(report.outcome).toBe('Wiped');
   });
 });

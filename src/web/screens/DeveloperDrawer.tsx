@@ -93,7 +93,7 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
       <Section title="Random outcome override">
         <p className="muted small">
           Names, e.g. <code>combat.hit.agent-2</code>, <code>combat.damage.enemy-9</code>,{' '}
-          <code>investigation.completion.investigation-7</code>,{' '}
+          <code>investigation.requiredProgress.locate_red_dawn_member</code>,{' '}
           <code>faction.faction-1.operationInterval</code>. The value applies once, when that outcome is next
           decided.
         </p>

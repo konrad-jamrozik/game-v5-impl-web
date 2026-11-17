@@ -1,6 +1,7 @@
 /** Mission sites: what each offers and threatens, and deploying the selected Agents to one. */
 import type { ConsequenceView, CurrentStateView, MissionSiteView } from '../../engine/index.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
+import { confirmTiredDeployment } from '../tired-deployment.ts';
 import { Badge, Button, signed } from '../ui.tsx';
 
 function consequence(c: ConsequenceView, won: boolean): string {
@@ -110,7 +111,9 @@ export function MissionSitesPanel(props: {
                           : (view.message ?? 'Unavailable.'))
                   }
                   onClick={() => {
-                    act(() => player.actions.deployAgents(site.id, selected));
+                    if (confirmTiredDeployment(state, selected)) {
+                      act(() => player.actions.deployAgents(site.id, selected));
+                    }
                   }}
                 >
                   Deploy {selected.length} selected

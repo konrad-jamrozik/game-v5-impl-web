@@ -1,7 +1,12 @@
-/** The Campaign screen: status bar, Agents grid on the left, tabbed panels on the right, Autopilot bar below. */
+/**
+ * The Campaign screen: status bar, the Situation panel above the Agents grid on the left, tabbed panels on the right,
+ * Autopilot bar below, and the Turn summary after an Advance turn the Player requested here.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
+import { confirmInterruption } from '../interruption.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
+import { showsTurnSummary, turnSummary } from '../turn-summary.ts';
 import { Badge, Button, Fact, Meter, typingIn } from '../ui.tsx';
 import { AgencyPanel } from './AgencyPanel.tsx';
 import { AgentsGrid } from './AgentsGrid.tsx';
@@ -10,7 +15,9 @@ import { DeveloperDrawer } from './DeveloperDrawer.tsx';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import { LeadsPanel } from './LeadsPanel.tsx';
 import { MissionSitesPanel } from './MissionSitesPanel.tsx';
+import { SituationPanel, type SituationTarget } from './SituationPanel.tsx';
 import { TurnReportPanel } from './TurnReportPanel.tsx';
+import { TurnSummary } from './TurnSummary.tsx';
 
 const TABS = [
   { id: 'missions', name: 'Mission sites' },
@@ -46,6 +53,13 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const [drawer, setDrawer] = useState(false);
   const [help, setHelp] = useState(false);
   const [autosaves, setAutosaves] = useState<AutosaveStatus | null>(null);
+  /**
+   * GUI, Turn summary: the Turn ended by the Advance turn the Player requested through this screen, until the Player
+   * dismisses its Turn summary. Loading, Timeline navigation, and Autopilot never set it.
+   */
+  const [requestedTurn, setRequestedTurn] = useState<number | null>(null);
+  /** The test ID of the item a Situation panel row asked to show, once its tab is rendered. */
+  const [reveal, setReveal] = useState<string | null>(null);
 
   const actions = snapshot.actions;
   const timeline = snapshot.timeline;
@@ -70,15 +84,55 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     };
   }, [session, snapshot.key]);
 
+  const summaryOpen = !autopilotActive && showsTurnSummary(requestedTurn, snapshot.report);
+  const dismissSummary = () => {
+    setRequestedTurn(null);
+  };
+
   const advance = () => {
-    void run(() => player.actions.advanceTurn()).then((outcome) => {
-      if (outcome !== null) {
-        setTab('report');
+    const ending = state.turn;
+    // Set before the Advance turn commits, so that the Turn summary appears in the same render as its new Turn.
+    setRequestedTurn(ending);
+    void run(() => player.actions.advanceTurn()).then(() => {
+      const report = player.queries.getTurnReport();
+      if (!report.ok || !showsTurnSummary(ending, report.value)) {
+        setRequestedTurn(null);
       }
     });
   };
+
+  /** GUI, Situation panel: selecting a row shows that item where the Campaign screen details it; see DEC-041. */
+  const show = (target: SituationTarget) => {
+    if (target.kind === 'lead') {
+      setTab('leads');
+      setReveal(`lead-${target.lead}`);
+    } else if (target.kind === 'missionSite') {
+      setTab('missions');
+      setReveal(`site-${target.missionSite}`);
+    } else if (target.kind === 'agency') {
+      setTab('agency');
+      setReveal('training-cap');
+    } else {
+      setPicked(new Set(target.agents));
+    }
+  };
+
+  useEffect(() => {
+    if (reveal === null) {
+      return;
+    }
+    const element = document.querySelector(`[data-testid="${reveal}"]`);
+    setReveal(null);
+    if (element instanceof HTMLElement) {
+      element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      element.classList.add('shown');
+      window.setTimeout(() => {
+        element.classList.remove('shown');
+      }, 1500);
+    }
+  }, [reveal, tab]);
   const order = (assignment: 'Standby' | 'Contracting' | 'Training') => {
-    if (selected.length > 0) {
+    if (selected.length > 0 && confirmInterruption(state, selected)) {
       act(() => player.actions.assignAgents(selected, assignment));
     }
   };
@@ -89,6 +143,14 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         return;
       }
       const key = event.key.toLowerCase();
+      // While the Turn summary is open, the screen behind it takes no shortcut; Escape dismisses it.
+      if (summaryOpen) {
+        if (key === 'escape') {
+          dismissSummary();
+          event.preventDefault();
+        }
+        return;
+      }
       const index = Number(key) - 1;
       const numbered = TABS[index];
       if (numbered !== undefined) {
@@ -266,15 +328,22 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       )}
 
       <div className="workspace">
-        <AgentsGrid
-          snapshot={snapshot}
-          state={state}
-          selected={selected}
-          locked={locked}
-          onSelect={(ids) => {
-            setPicked(new Set(ids));
-          }}
-        />
+        <div className="left-column">
+          <SituationPanel
+            state={state}
+            assessmentThresholdPct={snapshot.gameData?.investigationParameters.assessmentThresholdPct ?? 0}
+            onShow={show}
+          />
+          <AgentsGrid
+            snapshot={snapshot}
+            state={state}
+            selected={selected}
+            locked={locked}
+            onSelect={(ids) => {
+              setPicked(new Set(ids));
+            }}
+          />
+        </div>
         <div className="panels">
           <nav className="tabs" role="tablist">
             {TABS.map((item, index) => (
@@ -356,6 +425,20 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         </div>
       ) : null}
 
+      {summaryOpen && snapshot.report !== null ? (
+        <TurnSummary
+          model={turnSummary(snapshot.report, state, snapshot.history, (archetype) =>
+            siteArchetypeName(snapshot, archetype),
+          )}
+          currentTurn={state.turn}
+          onDismiss={dismissSummary}
+          onOpenReport={() => {
+            setTab('report');
+            dismissSummary();
+          }}
+        />
+      ) : null}
+
       {drawer ? (
         <DeveloperDrawer
           snapshot={snapshot}
@@ -366,4 +449,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       ) : null}
     </div>
   );
+}
+
+function siteArchetypeName(snapshot: Snapshot, archetype: string): string {
+  return snapshot.gameData?.missionSiteArchetypes.find((item) => item.id === archetype)?.name ?? archetype;
 }

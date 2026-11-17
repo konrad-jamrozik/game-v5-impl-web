@@ -1,6 +1,12 @@
 /** Acceptance examples of LEAD (Leads and Progression) and INVSTG (Investigations). */
 import { describe, expect, it } from 'vitest';
-import { completionProbability } from '../../src/engine/mechanics/investigations/investigations.ts';
+import { effectiveSkill } from '../../src/engine/mechanics/agents/agents.ts';
+import {
+  assessmentThreshold,
+  progressAfterLoss,
+  progressGain,
+  requiredProgressRange,
+} from '../../src/engine/mechanics/investigations/investigations.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import { isServing, type CampaignState } from '../../src/engine/state/types.ts';
 import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
@@ -43,7 +49,31 @@ const discovered = (state: CampaignState) => {
 };
 const investigations = (state: CampaignState) => Object.values(state.world.current.investigations);
 const sites = (state: CampaignState) => Object.values(state.world.current.missionSites);
-const completes = (id: string, value: boolean) => ({ [`investigation.completion.${id}`]: [value] });
+/** Sets an Investigation's progress just short of its Actual required progress, so that any gain completes it. */
+const finishing = (state: CampaignState, id: string) =>
+  tweak(state, (world) => {
+    const investigation = world.investigations[id]!;
+    investigation.state.progress = investigation.constants.actualRequiredProgress * 100 - 1;
+  });
+/**
+ * `startInvestigation` with its Required progress outcome fixed through a random outcome override, the way
+ * Developer API fixes it; the override must be consumed by the action.
+ */
+function start(
+  state: CampaignState,
+  lead: string,
+  agentList: readonly (string | undefined)[],
+  required: number,
+  catalog: GdrCatalog = gdrs,
+): CampaignState {
+  const fixed = tweak(state, (world) => {
+    world.randomOverrides.push({ outcome: `investigation.requiredProgress.${lead}`, value: required });
+  });
+  const next = act(fixed, 'startInvestigation', { lead, agents: agentList }, 'player', catalog);
+  expect(next.world.current.randomOverrides).toEqual(state.world.current.randomOverrides);
+  expect(investigations(next).at(-1)!.constants.actualRequiredProgress).toBe(required);
+  return next;
+}
 const arrive = (state: CampaignState) =>
   tweak(state, (world) => {
     for (const item of Object.values(world.agents)) {
@@ -59,11 +89,7 @@ function winLead(state: CampaignState, lead: string): CampaignState {
   const ids = agentIds(state).filter((id) => isServing(agent(state, id).state));
   let next = act(arrive(state), 'startInvestigation', { lead, agents: ids.slice(0, 1) });
   const investigation = investigations(next).at(-1)!.id;
-  next = tweak(arrive(next), (world) => {
-    world.investigations[investigation]!.state.progress = 5000;
-    world.investigations[investigation]!.state.progress = 0;
-  });
-  next = advance(arrive(next), completes(investigation, true));
+  next = advance(finishing(arrive(next), investigation));
   const site = sites(next).at(-1)!.id;
   next = act(arrive(next), 'deployAgents', { missionSite: site, agents: ids });
   next = advance(next, winning(next, site));
@@ -120,7 +146,7 @@ describe('LEAD: Acceptance examples', () => {
       'lead_has_active_investigation',
     );
     state = advance(state);
-    state = advance(state, completes(i1, true));
+    state = advance(finishing(state, i1));
     const s1 = sites(state)[0]!;
     expect(s1).toMatchObject({ archetype: 'apprehend_member', state: { lifecycle: 'Active' } });
     expect(s1.constants.targetFaction).toBe(onlyFaction(state).id);
@@ -144,7 +170,9 @@ describe('LEAD: Acceptance examples', () => {
       description: expect.any(String),
       factionArchetype: 'red_dawn',
       faction: onlyFaction(state).id,
-      difficulty: 6,
+      assessed: false,
+      requiredProgress: 'unknown',
+      requiredProgressRange: 'unknown',
       requires: [{ missionWon: 'apprehend_member', holds: true }],
       createsMissionSite: 'raid_safehouse',
       available: true,
@@ -160,6 +188,12 @@ describe('LEAD: Acceptance examples', () => {
       activeInvestigation: null,
     });
     expect(JSON.stringify(currentStateView(state, gdrs))).not.toContain(HQ);
+    // member is a Completed Lead, whose Completed Investigation revealed its Required progress.
+    expect(leads(state)[MEMBER]).toMatchObject({
+      assessed: true,
+      requiredProgress: 3,
+      requiredProgressRange: { min: 3, max: 4 },
+    });
     expectRejected(
       arrive(state),
       'startInvestigation',
@@ -173,7 +207,7 @@ describe('LEAD: Acceptance examples', () => {
     const ids = agentIds(state);
     // Lost: nothing is recorded and the Lead is available again.
     state = act(state, 'startInvestigation', { lead: SAFEHOUSE, agents: [ids[0]] });
-    state = advance(arrive(state), completes(investigations(state).at(-1)!.id, true));
+    state = advance(finishing(arrive(state), investigations(state).at(-1)!.id));
     const s2 = sites(state).at(-1)!.id;
     expect(blocking(state)[SAFEHOUSE]).toEqual([3]);
     expect(statuses(state)[SAFEHOUSE]).toBe('Inactive');
@@ -195,7 +229,7 @@ describe('LEAD: Acceptance examples', () => {
     });
     const serving = agentIds(state).filter((id) => isServing(agent(state, id).state));
     state = act(state, 'startInvestigation', { lead: SAFEHOUSE, agents: [serving[0]] });
-    state = advance(arrive(state), completes(investigations(state).at(-1)!.id, true));
+    state = advance(finishing(arrive(state), investigations(state).at(-1)!.id));
     const s3 = sites(state).at(-1)!;
     expect(s3.state.turnsUntilExpiration).toBe(8);
     for (let i = 0; i < 8; i += 1) {
@@ -256,7 +290,7 @@ describe('LEAD: Acceptance examples', () => {
       raw.add('leads-and-progression/leads.yaml', {
         ...raw.get(MEMBER),
         id: 'test_lead',
-        difficulty: 1,
+        required_progress: 1,
       }),
     );
     let state = withAgents(newCampaign({ money: 100_000, catalog }), 12);
@@ -275,7 +309,7 @@ describe('LEAD: Acceptance examples', () => {
     state = act(state, 'startInvestigation', { lead: 'test_lead', agents: [ids[8]] }, 'player', catalog);
     const i7 = investigations(state).at(-1)!.id;
     state = arrive(state);
-    state = advance(state, { ...completes(i7, true), ...winning(state, hq.site) }, catalog);
+    state = advance(finishing(state, i7), winning(state, hq.site), catalog);
     const s7 = sites(state).at(-1)!;
     expect(s7).toMatchObject({ archetype: 'apprehend_member', state: { lifecycle: 'Cancelled' } });
     expect(blocking(state, catalog)['test_lead']).toEqual([4]);
@@ -319,7 +353,7 @@ describe('LEAD: Acceptance examples', () => {
   it('Two Leads requiring the same MissionSiteArchetype', () => {
     const catalog = catalogWith((raw) => {
       for (const id of ['test_lead_a', 'test_lead_b']) {
-        raw.add('leads-and-progression/leads.yaml', { ...raw.get(SAFEHOUSE), id, difficulty: 1 });
+        raw.add('leads-and-progression/leads.yaml', { ...raw.get(SAFEHOUSE), id, required_progress: 1 });
       }
     });
     let state = newCampaign({ catalog });
@@ -382,8 +416,9 @@ describe('LEAD: Acceptance examples', () => {
       (raw) => (raw.get(SAFEHOUSE)['requires'] = [{ $entries: [['mission_won_from_lead', MEMBER]] }]),
     );
     expectDefective((raw) => (raw.get(MEMBER)['faction'] = 'apprehend_member'));
-    expectDefective((raw) => (raw.get(MEMBER)['difficulty'] = 0));
-    expectDefective((raw) => (raw.get(MEMBER)['difficulty'] = { $decimal: '2.5' }));
+    expectDefective((raw) => (raw.get(MEMBER)['required_progress'] = 0));
+    expectDefective((raw) => (raw.get(MEMBER)['required_progress'] = { $decimal: '2.5' }));
+    expectDefective((raw) => (raw.get(MEMBER)['difficulty'] = 3));
     expectDefective((raw) => (raw.get(MEMBER)['on_completion'].$entries[0][1] = 'foil_sabotage'));
     expectDefective((raw) => raw.get(MEMBER)['on_completion'].$entries.push(['second_effect', 1]));
     expectDefective((raw) => (raw.get(MEMBER)['on_completion'].$entries[0][0] = 'create_mission'));
@@ -395,122 +430,353 @@ describe('LEAD: Acceptance examples', () => {
 });
 
 describe('INVSTG: Acceptance examples', () => {
-  const projected = (state: CampaignState) =>
-    currentStateView(state, gdrs).investigations[0]?.projectedCompletionProbability;
+  const view = (state: CampaignState, id: string, catalog: GdrCatalog = gdrs) =>
+    currentStateView(state, catalog).investigations.find((item) => item.id === id)!;
+  const progressOf = (state: CampaignState, id: string) =>
+    state.world.current.investigations[id]!.state.progress;
+  const parameters = gdrs.investigationParameters;
 
-  it('One Agent on a difficulty 3 Lead', () => {
-    let state = newCampaign();
-    const [a1] = agentIds(state) as [string];
-    state = act(state, 'startInvestigation', { lead: MEMBER, agents: [a1] });
+  it('Bootstrap values: Required progress ranges, assessment thresholds, and team efficiency', () => {
+    expect([3, 6, 10, 30].map((r) => requiredProgressRange(r, parameters))).toEqual([
+      { min: 3, max: 4 },
+      { min: 6, max: 9 },
+      { min: 10, max: 15 },
+      { min: 30, max: 45 },
+    ]);
+    expect([3, 6, 10, 30].map((r) => assessmentThreshold(r, parameters))).toEqual([75, 150, 250, 750]);
+    // Working members of effective skill 100 each.
+    expect([1, 2, 3, 4, 5, 10].map((n) => progressGain(n, 100 * n, parameters))).toEqual([
+      100, 174, 240, 303, 362, 630,
+    ]);
+    // 449^5 × 5 ≤ 620^5 < 450^5 × 5.
+    expect(progressGain(5, 620, parameters)).toBe(449);
+    expect(progressGain(0, 0, parameters)).toBe(0);
+    expect(progressGain(3, 0, parameters)).toBe(0);
+    expect(progressAfterLoss(707, 161, 100)).toBe(439);
+    expect(progressAfterLoss(361, 61, 0)).toBe(0);
+    expect(progressAfterLoss(200, 0, 0)).toBe(200);
+  });
+
+  it('One Agent on the member Lead', () => {
+    let state = withAgents(newCampaign(), 4);
+    const [a1, a2] = agentIds(state) as [string, string];
+    state = start(state, MEMBER, [a1], 4);
     const i1 = investigations(state)[0]!;
     expect(i1).toMatchObject({
       archetype: 'standard_investigation',
-      constants: { lead: MEMBER, turnStarted: 1 },
-      state: { lifecycle: 'Active', progress: 0, currentTeam: [a1] },
+      constants: { lead: MEMBER, turnStarted: 1, actualRequiredProgress: 4 },
+      state: { lifecycle: 'Active', progress: 0, assessed: false, currentTeam: [a1] },
     });
     expect(agent(state, a1).state).toMatchObject({
       assignment: { kind: 'Investigation', investigation: i1.id },
       status: 'InTransit',
     });
-    expect(projected(state)).toEqual({ n: '0', d: '1' });
+    // The Actual required progress is hidden; the Lead's Required progress is unknown before Assessment.
+    expect(view(state, i1.id)).toMatchObject({ projectedProgressGain: 0, actualRequiredProgress: 'unknown' });
+    expect(leads(state)[MEMBER]).toMatchObject({
+      assessed: false,
+      requiredProgress: 'unknown',
+      requiredProgressRange: 'unknown',
+    });
+    expect(JSON.stringify(currentStateView(state, gdrs).investigations)).not.toMatch(
+      /"actualRequiredProgress":4/,
+    );
+    const rows: [number, boolean, string, string][] = [];
+    const completedLists: unknown[] = [];
+    const record = () => {
+      const lead = leads(state)[MEMBER]!;
+      completedLists.push(turnReportView(state)!.investigationsCompleted);
+      rows.push([
+        progressOf(state, i1.id),
+        state.world.current.investigations[i1.id]!.state.assessed,
+        String(lead.requiredProgress),
+        state.world.current.investigations[i1.id]!.state.lifecycle,
+      ]);
+    };
     state = advance(state);
-    expect(investigations(state)[0]!.state).toMatchObject({ progress: 0, lifecycle: 'Active' });
-    expect(projected(state)).toEqual({ n: '1', d: '3' });
-    state = advance(state, completes(i1.id, false));
-    expect(investigations(state)[0]!.state.progress).toBe(100);
-    expect(projected(state)).toEqual({ n: '2', d: '3' });
-    state = advance(state, completes(i1.id, false));
-    expect(investigations(state)[0]!.state.progress).toBe(200);
-    // Progress 300 of 300: the completion probability is 1 and needs no injection.
-    state = advance(state);
-    expect(investigations(state)[0]!.state).toEqual({
+    record();
+    expect(view(state, i1.id).projectedProgressGain).toBe(100);
+    for (let turn = 2; turn <= 5; turn += 1) {
+      state = advance(state);
+      record();
+    }
+    expect(rows).toEqual([
+      [0, false, 'unknown', 'Active'],
+      [100, true, '3', 'Active'],
+      [200, true, '3', 'Active'],
+      [300, true, '3', 'Active'],
+      [400, true, '3', 'Completed'],
+    ]);
+    // INVSTG, Turn report: only the Advance turn ending Turn 5 lists i1, with the gain 100 of its last Progress gain;
+    // its History entry keeps the same list.
+    expect(completedLists).toEqual([[], [], [], [], [{ investigation: i1.id, gain: 100 }]]);
+    expect(state.world.history.historyEntries.at(-1)!.report.investigationsCompleted).toEqual([
+      { investigation: i1.id, gain: 100 },
+    ]);
+    expect(turnReportView(state)!.createdMissionSites).toEqual([sites(state)[0]!.id]);
+    expect(state.world.current.investigations[i1.id]!.state).toEqual({
       lifecycle: 'Completed',
-      progress: 300,
+      progress: 400,
+      assessed: true,
       currentTeam: [],
     });
     expect(sites(state)[0]!.archetype).toBe('apprehend_member');
+    expect(leads(state)[MEMBER]!.requiredProgressRange).toEqual({ min: 3, max: 4 });
+    // a1 gained 1 exhaustion in each of the four Advance turns in which it worked, including the completing one.
     expect(agent(state, a1).state).toMatchObject({
       assignment: { kind: 'Standby' },
       status: 'InTransit',
-      exhaustion: 0,
+      exhaustion: 4,
       participationHistory: [{ kind: 'Investigation', id: i1.id }],
     });
+    expect(effectiveSkill(agent(state, a1).state, gdrs.agentParameters)).toBe(100);
     expect(historyView(state, gdrs).retained.investigations[0]).toMatchObject({
       id: i1.id,
-      projectedCompletionProbability: null,
+      projectedProgressGain: null,
+      actualRequiredProgress: 'unknown',
       currentTeam: [],
     });
-    expect(completionProbability(100, 3).toString()).toBe('1/3');
-    expect(completionProbability(1200, 10).toString()).toBe('1');
-    expect(completionProbability(0, 3).toString()).toBe('0');
+    // The Mission site Expires; a later Investigation of the same Lead starts with Assessed no and its own Actual
+    // required progress, but the range 3 to 4 is shown from the moment it is created.
+    state = tweak(state, (world) => {
+      const site = world.missionSites[sites(state)[0]!.id]!;
+      site.state.lifecycle = 'Expired';
+      site.state.turnsUntilExpiration = 0;
+    });
+    state = start(arrive(state), MEMBER, [a2], 3);
+    const i2 = investigations(state).at(-1)!;
+    expect(i2.state.assessed).toBe(false);
+    expect(leads(state)[MEMBER]).toMatchObject({ assessed: true, requiredProgressRange: { min: 3, max: 4 } });
   });
 
-  it('Four Agents on a difficulty 10 Lead; Trained and exhausted Agents', () => {
-    let state = winLead(winLead(newCampaign({ money: 100_000 }), MEMBER), SAFEHOUSE);
-    const ids = agentIds(state);
-    state = act(state, 'startInvestigation', { lead: HQ, agents: ids });
+  it('Five trained Agents on a Required progress of 30', () => {
+    const catalog = catalogWith((raw) =>
+      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l4', required_progress: 30 }),
+    );
+    let state = withAgents(newCampaign({ catalog }), 5, catalog);
+    const team = agentIds(state).slice(0, 5);
+    state = arrive(start(state, 'l4', team, 37, catalog));
     const i3 = investigations(state).at(-1)!.id;
-    const progress = () => state.world.current.investigations[i3]!.state.progress;
-    state = advance(state);
-    expect(progress()).toBe(0);
-    state = advance(state, completes(i3, false));
-    expect(progress()).toBe(400);
-    state = advance(state, completes(i3, false));
-    expect(progress()).toBe(800);
-    state = advance(state);
-    expect(state.world.current.investigations[i3]!.state).toMatchObject({
-      lifecycle: 'Completed',
-      progress: 1200,
+    state = tweak(state, (world) => {
+      [140, 130, 120, 120, 110].forEach((skill, index) => {
+        world.agents[team[index]!]!.state.skill = skill;
+      });
     });
-    expect(sites(state).at(-1)!.archetype).toBe('raid_hq');
-
-    // An exhausted member adds its effective skill, 40, and a trained one its skill of 130.
-    let tired = winLead(newCampaign({ money: 100_000 }), MEMBER);
-    const [a5, a6] = agentIds(tired) as [string, string];
-    tired = tweak(tired, (world) => {
-      world.agents[a5]!.state.exhaustion = 65;
-      world.agents[a5]!.state.assignment = { kind: 'Contracting' };
-    });
-    tired = arrive(act(tired, 'startInvestigation', { lead: SAFEHOUSE, agents: [a5, a6] }));
-    const i2 = investigations(tired).at(-1)!.id;
-    const seen: number[] = [];
-    for (let turn = 0; turn < 4; turn += 1) {
-      tired = advance(tired, completes(i2, false));
-      seen.push(tired.world.current.investigations[i2]!.state.progress);
+    expect(view(state, i3, catalog).projectedProgressGain).toBe(449);
+    const rows: [number, boolean, string, string][] = [];
+    for (let turn = 1; turn <= 9; turn += 1) {
+      state = advance(state, {}, catalog);
+      const range = leads(state, catalog)['l4']!.requiredProgressRange;
+      rows.push([
+        progressOf(state, i3),
+        state.world.current.investigations[i3]!.state.assessed,
+        range === 'unknown' ? 'unknown' : `${range.min} to ${range.max}`,
+        state.world.current.investigations[i3]!.state.lifecycle,
+      ]);
     }
-    expect(seen).toEqual([140, 280, 420, 560]);
-    expect(agent(tired, a5).state.exhaustion).toBe(65);
-    tired = advance(tired);
-    expect(tired.world.current.investigations[i2]!.state).toMatchObject({
-      lifecycle: 'Completed',
-      progress: 700,
+    expect(rows).toEqual([
+      [449, false, 'unknown', 'Active'],
+      [898, true, '30 to 45', 'Active'],
+      [1347, true, '30 to 45', 'Active'],
+      [1796, true, '30 to 45', 'Active'],
+      [2245, true, '30 to 45', 'Active'],
+      [2694, true, '30 to 45', 'Active'],
+      [3143, true, '30 to 45', 'Active'],
+      [3592, true, '30 to 45', 'Active'],
+      [4041, true, '30 to 45', 'Completed'],
+    ]);
+  });
+
+  it('Trained and exhausted Agents', () => {
+    const run = (required: number) => {
+      let state = winLead(newCampaign({ money: 100_000 }), MEMBER);
+      const [a5, a6] = agentIds(state) as [string, string];
+      state = arrive(start(state, SAFEHOUSE, [a5, a6], required));
+      state = tweak(state, (world) => (world.agents[a5]!.state.exhaustion = 65));
+      return { state, a5, a6, i2: investigations(state).at(-1)!.id };
+    };
+    let { state, a5, a6, i2 } = run(8);
+    const seen: [number, number, boolean][] = [];
+    for (let turn = 0; turn < 5; turn += 1) {
+      state = advance(state);
+      seen.push([
+        progressOf(state, i2),
+        agent(state, a5).state.exhaustion,
+        state.world.current.investigations[i2]!.state.assessed,
+      ]);
+    }
+    // a5's effective skill 65, 64, 63, 62, 61 is read before its exhaustion rises; the gains are 143, 142, 141, 141,
+    // and 140. In the fifth, 707 < 800, then a5's Forced return costs round down(707 × 100 / 161) = 439.
+    expect(seen).toEqual([
+      [143, 66, false],
+      [285, 67, true],
+      [426, 68, true],
+      [567, 69, true],
+      [439, 70, true],
+    ]);
+    expect(agent(state, a5).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
+    const report = state.world.history.turnReport!;
+    expect(report.forcedReturns).toEqual([{ agent: a5, from: 'Investigation' }]);
+    expect(report.investigations.find((item) => item.investigation === i2)).toMatchObject({
+      progressGain: 140,
+      becameAssessed: false,
+      completed: false,
+      progressLost: 268,
+      progressAfter: 439,
+      abandoned: false,
     });
+    expect(state.world.current.investigations[i2]!.state).toMatchObject({
+      lifecycle: 'Active',
+      currentTeam: [a6],
+    });
+    const after: number[] = [];
+    for (let turn = 0; turn < 4; turn += 1) {
+      state = advance(state);
+      after.push(progressOf(state, i2));
+    }
+    expect(after).toEqual([539, 639, 739, 839]);
+    expect(state.world.current.investigations[i2]!.state.lifecycle).toBe('Completed');
+
+    // Had the Actual required progress been 7, i2 would have completed in the fifth Advance turn at 707, before
+    // a5's exhaustion rose, and a5 would have gone to Standby with the others and no Forced return.
+    ({ state, a5, a6, i2 } = run(7));
+    for (let turn = 0; turn < 5; turn += 1) {
+      state = advance(state);
+    }
+    expect(state.world.current.investigations[i2]!.state).toMatchObject({
+      lifecycle: 'Completed',
+      progress: 707,
+    });
+    expect([agent(state, a5).state, agent(state, a6).state]).toMatchObject([
+      { exhaustion: 70, assignment: { kind: 'Standby' }, status: 'InTransit' },
+      { exhaustion: 5, assignment: { kind: 'Standby' }, status: 'InTransit' },
+    ]);
+    expect(state.world.history.turnReport?.forcedReturns).toEqual([]);
+
+    // One Agent with base skill 130 alone on member with Actual required progress 3 completes in the third.
+    let alone = newCampaign();
+    const [a1] = agentIds(alone) as [string];
+    alone = arrive(start(alone, MEMBER, [a1], 3));
+    alone = tweak(alone, (world) => (world.agents[a1]!.state.skill = 130));
+    const i = investigations(alone)[0]!.id;
+    const gains: number[] = [];
+    for (let turn = 0; turn < 3; turn += 1) {
+      alone = advance(alone);
+      gains.push(progressOf(alone, i));
+    }
+    expect(gains).toEqual([130, 260, 390]);
+    expect(alone.world.current.investigations[i]!.state.lifecycle).toBe('Completed');
+  });
+
+  it('A Forced return abandons an Investigation', () => {
+    let state = winLead(winLead(newCampaign({ money: 100_000 }), MEMBER), SAFEHOUSE);
+    const [a1, a2] = agentIds(state) as [string, string];
+    state = arrive(start(state, HQ, [a1], 12));
+    const i13 = investigations(state).at(-1)!.id;
+    state = tweak(state, (world) => {
+      world.investigations[i13]!.state.progress = 300;
+      world.investigations[i13]!.state.assessed = true;
+      world.agents[a1]!.state.exhaustion = 69;
+    });
+    // Had a2 joined in the Turn before, it would be In transit to i13 and keep it Active, but with progress 0.
+    const joined = act(state, 'assignAgentsToInvestigation', { investigation: i13, agents: [a2] });
+    const kept = advance(joined);
+    expect(kept.world.current.investigations[i13]!.state).toEqual({
+      lifecycle: 'Active',
+      progress: 0,
+      assessed: true,
+      currentTeam: [a2],
+    });
+
+    state = advance(state);
+    expect(state.world.current.investigations[i13]!.state).toEqual({
+      lifecycle: 'Abandoned',
+      progress: 0,
+      assessed: true,
+      currentTeam: [],
+    });
+    expect(agent(state, a1).state).toMatchObject({
+      exhaustion: 70,
+      assignment: { kind: 'Standby' },
+      status: 'InTransit',
+    });
+    expect(agent(state, a1).state.participationHistory.at(-1)).toEqual({ kind: 'Investigation', id: i13 });
+    const report = state.world.history.turnReport!;
+    expect(report.forcedReturns).toEqual([{ agent: a1, from: 'Investigation' }]);
+    expect(report.investigations.find((item) => item.investigation === i13)).toMatchObject({
+      progressGain: 61,
+      completed: false,
+      progressLost: 361,
+      progressAfter: 0,
+      abandoned: true,
+    });
+  });
+
+  it('Starting and joining require Agents that are Fit for work', () => {
+    let state = newCampaign();
+    const [a1, a2, a5] = agentIds(state) as [string, string, string];
+    state = tweak(state, (world) => (world.agents[a5]!.state.exhaustion = 31));
+    expectRejected(state, 'startInvestigation', { lead: MEMBER, agents: [a5] }, 'agents_not_fit_for_work');
+    expectRejected(
+      state,
+      'startInvestigation',
+      { lead: MEMBER, agents: [a1, a5] },
+      'agents_not_fit_for_work',
+    );
+    state = act(state, 'startInvestigation', { lead: MEMBER, agents: [a1] });
+    const i11 = investigations(state).at(-1)!.id;
+    expectRejected(
+      state,
+      'assignAgentsToInvestigation',
+      { investigation: i11, agents: [a5] },
+      'agents_not_fit_for_work',
+    );
+    state = tweak(state, (world) => (world.agents[a2]!.state.exhaustion = 30));
+    act(state, 'assignAgentsToInvestigation', { investigation: i11, agents: [a2] });
   });
 
   it('A member leaves and another joins', () => {
     let state = winLead(newCampaign({ money: 100_000 }), MEMBER);
     const [a1, a2, a3] = agentIds(state) as [string, string, string];
-    state = act(state, 'startInvestigation', { lead: SAFEHOUSE, agents: [a1, a2] });
+    state = start(state, SAFEHOUSE, [a1, a2], 6);
     const i4 = investigations(state).at(-1)!.id;
     const investigation = () => state.world.current.investigations[i4]!.state;
-    const view = () => currentStateView(state, gdrs).investigations.find((item) => item.id === i4)!;
     state = advance(state);
-    state = advance(state, completes(i4, false));
-    expect(investigation().progress).toBe(200);
+    expect(investigation().progress).toBe(0);
+    state = advance(state);
+    expect(investigation()).toMatchObject({ progress: 174, assessed: true });
     state = act(state, 'assignAgents', { agents: [a2], assignment: 'Contracting' });
-    expect(investigation()).toMatchObject({ progress: 200, currentTeam: [a1], lifecycle: 'Active' });
+    // a2 takes half of the effective skill At assignment with it: round down(174 × 100 / 200) = 87.
+    expect(investigation()).toMatchObject({
+      progress: 87,
+      assessed: true,
+      currentTeam: [a1],
+      lifecycle: 'Active',
+    });
     expect(agent(state, a2).state.participationHistory.at(-1)).toEqual({ kind: 'Investigation', id: i4 });
-    expect(view().projectedCompletionProbability).toEqual({ n: '1', d: '2' });
-    state = advance(state, completes(i4, false));
-    expect(investigation().progress).toBe(300);
+    expect(view(state, i4).projectedProgressGain).toBe(100);
+    state = advance(state);
+    expect(investigation().progress).toBe(187);
     state = act(state, 'assignAgentsToInvestigation', { investigation: i4, agents: [a3] });
-    expect(view().currentTeam).toEqual([
+    // Joining costs nothing, and an Agent In transit counts in neither n nor S.
+    expect(investigation().progress).toBe(187);
+    expect(view(state, i4).currentTeam).toEqual([
       { agent: a1, agentStatus: 'AtAssignment' },
       { agent: a3, agentStatus: 'InTransit' },
     ]);
-    expect(view().projectedCompletionProbability).toEqual({ n: '2', d: '3' });
-    state = advance(state, completes(i4, true));
-    expect(investigation()).toEqual({ lifecycle: 'Completed', progress: 400, currentTeam: [] });
+    expect(view(state, i4).projectedProgressGain).toBe(100);
+    state = advance(state);
+    expect(investigation().progress).toBe(287);
+    expect(view(state, i4).projectedProgressGain).toBe(174);
+    state = advance(state);
+    expect(investigation().progress).toBe(461);
+    state = advance(state);
+    expect(investigation()).toEqual({
+      lifecycle: 'Completed',
+      progress: 635,
+      assessed: true,
+      currentTeam: [],
+    });
     expect(sites(state).at(-1)!.archetype).toBe('raid_safehouse');
     for (const id of [a1, a3]) {
       expect(agent(state, id).state).toMatchObject({
@@ -521,18 +787,54 @@ describe('INVSTG: Acceptance examples', () => {
     }
   });
 
-  it('Abandoned and started again; Agents taken from another Investigation', () => {
+  it('Abandoned and started again', () => {
+    let state = newCampaign();
+    const [a1, a2] = agentIds(state) as [string, string];
+    state = arrive(start(state, MEMBER, [a1], 4));
+    const i1 = investigations(state)[0]!.id;
+    state = tweak(state, (world) => {
+      world.investigations[i1]!.state.progress = 200;
+      world.investigations[i1]!.state.assessed = true;
+    });
+    expectRejected(
+      state,
+      'startInvestigation',
+      { lead: MEMBER, agents: [a2] },
+      'lead_has_active_investigation',
+    );
+    state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
+    expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
+    expect(state.world.current.investigations[i1]!.state).toEqual({
+      lifecycle: 'Abandoned',
+      progress: 0,
+      assessed: true,
+      currentTeam: [],
+    });
+    expectRejected(
+      state,
+      'assignAgentsToInvestigation',
+      { investigation: i1, agents: [a2] },
+      'investigation_not_active',
+    );
+    state = start(state, MEMBER, [a2], 3);
+    const i5 = investigations(state).at(-1)!;
+    expect(i5.id).not.toBe(i1);
+    expect(i5).toMatchObject({ constants: { turnStarted: 1 }, state: { progress: 0, assessed: false } });
+    expect(leads(state)[MEMBER]).toMatchObject({ assessed: true, requiredProgressRange: { min: 3, max: 4 } });
+  });
+
+  it('Agents taken from another Investigation', () => {
     const catalog = catalogWith((raw) => {
-      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l1', difficulty: 2 });
-      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l2', difficulty: 4 });
+      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l1', required_progress: 2 });
+      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l2', required_progress: 4 });
     });
     const run = (state: CampaignState, name: string, args: Record<string, unknown>) =>
       act(state, name, args, 'player', catalog);
     let state = newCampaign({ catalog });
     const [a1, a2] = agentIds(state) as [string, string];
-    state = arrive(run(state, 'startInvestigation', { lead: 'l1', agents: [a1, a2] }));
+    state = arrive(start(state, 'l1', [a1, a2], 2, catalog));
     const i6 = investigations(state)[0]!.id;
-    state = tweak(state, (world) => (world.investigations[i6]!.state.progress = 199));
+    state = tweak(state, (world) => (world.investigations[i6]!.state.progress = 150));
     expectRejected(
       state,
       'startInvestigation',
@@ -542,12 +844,12 @@ describe('INVSTG: Acceptance examples', () => {
       catalog,
     );
 
-    state = run(state, 'startInvestigation', { lead: 'l2', agents: [a1] });
+    state = start(state, 'l2', [a1], 5, catalog);
     const i7 = investigations(state)[1]!.id;
     expect(state.world.current.investigations[i6]!.state).toMatchObject({
       lifecycle: 'Active',
       currentTeam: [a2],
-      progress: 199,
+      progress: 75,
     });
     expect(agent(state, a1).state.participationHistory).toEqual([{ kind: 'Investigation', id: i6 }]);
     expectRejected(
@@ -559,9 +861,9 @@ describe('INVSTG: Acceptance examples', () => {
       catalog,
     );
     state = run(state, 'assignAgentsToInvestigation', { investigation: i7, agents: [a2] });
-    expect(state.world.current.investigations[i6]!.state).toEqual({
+    expect(state.world.current.investigations[i6]!.state).toMatchObject({
       lifecycle: 'Abandoned',
-      progress: 199,
+      progress: 0,
       currentTeam: [],
     });
     expect(state.world.current.investigations[i7]!.state).toMatchObject({
@@ -598,31 +900,47 @@ describe('INVSTG: Acceptance examples', () => {
     expect(checkInvariants(state, catalog)).toEqual([]);
   });
 
+  it('Members of effective skill 0 cost no progress when every member At assignment has it', () => {
+    let state = newCampaign();
+    const [a1, a2] = agentIds(state) as [string, string];
+    state = arrive(start(state, MEMBER, [a1, a2], 4));
+    const i = investigations(state)[0]!.id;
+    state = tweak(state, (world) => {
+      world.investigations[i]!.state.progress = 50;
+      world.agents[a1]!.state.skill = 0;
+      world.agents[a2]!.state.skill = 0;
+    });
+    expect(view(state, i).projectedProgressGain).toBe(0);
+    state = act(state, 'assignAgents', { agents: [a1], assignment: 'Contracting' });
+    expect(progressOf(state, i)).toBe(50);
+  });
+
   it('Two Investigations in one step', () => {
     const catalog = catalogWith((raw) => {
-      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l1', difficulty: 2 });
-      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l2', difficulty: 4 });
+      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l1', required_progress: 2 });
+      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l2', required_progress: 4 });
     });
     let state = newCampaign({ catalog });
     const [a1, a2] = agentIds(state) as [string, string];
-    state = act(state, 'startInvestigation', { lead: 'l1', agents: [a1] }, 'player', catalog);
-    state = act(state, 'startInvestigation', { lead: 'l2', agents: [a2] }, 'player', catalog);
+    state = start(state, 'l1', [a1], 2, catalog);
+    state = start(state, 'l2', [a2], 5, catalog);
     const [i8, i9] = investigations(state).map((item) => item.id) as [string, string];
     state = tweak(arrive(state), (world) => {
       world.investigations[i8]!.state.progress = 100;
       world.investigations[i9]!.state.progress = 100;
     });
-    const injected = completes(i9, false);
-    const forward = advance(state, injected, catalog);
-    const reversed = advance(state, injected, catalog, (items) => [...items].reverse());
+    const forward = advance(state, {}, catalog);
+    const reversed = advance(state, {}, catalog, (items) => [...items].reverse());
     expect(reversed).toEqual(forward);
     expect(forward.world.current.investigations[i8]!.state).toMatchObject({
       lifecycle: 'Completed',
       progress: 200,
+      assessed: true,
     });
     expect(forward.world.current.investigations[i9]!.state).toMatchObject({
       lifecycle: 'Active',
       progress: 200,
+      assessed: true,
     });
     expect(sites(forward)).toHaveLength(1);
   });
@@ -630,33 +948,38 @@ describe('INVSTG: Acceptance examples', () => {
   it('An Investigation whose Faction is Eliminated', () => {
     let state = newCampaign({ money: 100_000 });
     const [a1, a2] = agentIds(state) as [string, string];
-    state = arrive(act(state, 'startInvestigation', { lead: MEMBER, agents: [a1] }));
+    state = arrive(start(state, MEMBER, [a1], 4));
     const i10 = investigations(state)[0]!.id;
     state = tweak(state, (world) => {
+      world.investigations[i10]!.state.progress = 300;
+      world.investigations[i10]!.state.assessed = true;
       const faction = Object.values(world.factions)[0]!;
       faction.state.eliminated = true;
       faction.state.eliminatedTurn = 1;
     });
     expect(state.world.current.investigations[i10]!.state.lifecycle).toBe('Active');
+    expect(view(state, i10).projectedProgressGain).toBe(100);
     expectRejected(state, 'startInvestigation', { lead: MEMBER, agents: [a2] }, 'lead_not_available');
     state = act(state, 'assignAgentsToInvestigation', { investigation: i10, agents: [a2] });
-    const next = tweak(advance(state, completes(i10, true)), (world) => {
+    const next = tweak(advance(state), (world) => {
       world.ending = null;
     });
     const created = sites(next)[0]!;
     expect(created.state.lifecycle).toBe('Cancelled');
-    expect(next.world.current.investigations[i10]!.state.lifecycle).toBe('Completed');
+    expect(next.world.current.investigations[i10]!.state).toMatchObject({
+      lifecycle: 'Completed',
+      progress: 400,
+    });
   });
 
   it('Rejections', () => {
     let state = withAgents(winLead(newCampaign({ money: 100_000 }), MEMBER), 6);
     const [a1, a2, a3, a4, a7] = agentIds(state) as [string, string, string, string, string];
-    state = arrive(act(state, 'startInvestigation', { lead: HQ.replace(HQ, SAFEHOUSE), agents: [a7] }));
+    state = arrive(start(state, SAFEHOUSE, [a7], 6));
     const i11 = investigations(state).at(-1)!.id;
     const i12 = investigations(state)[0]!.id;
     state = tweak(state, (world) => {
-      // Use another available Lead for the calls: free the safehouse Lead by moving i11 to a test position.
-      world.investigations[i11]!.state.progress = 10;
+      world.investigations[i11]!.state.progress = 100;
     });
     state = setAssignment(state, [a1], 'Contracting');
     state = setAssignment(state, [a2], 'Standby', 'InTransit');
@@ -722,7 +1045,7 @@ describe('INVSTG: Acceptance examples', () => {
     const joined = act(state, 'assignAgentsToInvestigation', { investigation: i11, agents: [a1] });
     expect(joined.world.current.investigations[i11]!.state).toMatchObject({
       currentTeam: [a7, a1],
-      progress: 10,
+      progress: 100,
     });
   });
 
@@ -738,5 +1061,21 @@ describe('INVSTG: Acceptance examples', () => {
     });
     expectDefective((raw) => (raw.get('standard_investigation')['name'] = ''));
     expectDefective((raw) => (raw.get('standard_investigation')['skill_scaling_exponent'] = 2));
+    expectDefective((raw) => {
+      raw.files.find((file) => file.path.endsWith('investigation_parameters.yaml'))!.gdrs.length = 0;
+    });
+    const set = (key: string, value: unknown) => (raw: Parameters<Parameters<typeof catalogWith>[0]>[0]) => {
+      raw.get('investigation_parameters')[key] = value;
+    };
+    expectDefective(set('team_efficiency_exponent', 0));
+    expectDefective(set('team_efficiency_exponent', { $decimal: '1.2' }));
+    expectDefective(set('team_efficiency_exponent', { $decimal: '0.875' }));
+    expectDefective(set('required_progress_max_pct', 90));
+    expectDefective(set('assessment_threshold_pct', 0));
+    expectDefective(set('assessment_threshold_pct', 101));
+    expectDefective(set('unknown_property', 1));
+    // An exponent of 1 is valid and removes the diminishing returns.
+    const linear = catalogWith(set('team_efficiency_exponent', 1)).investigationParameters;
+    expect(progressGain(5, 500, linear)).toBe(500);
   });
 });

@@ -4,7 +4,10 @@
  */
 import { findNonWholeNumber } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
-import { progressToCertainCompletion } from '../mechanics/investigations/investigations.ts';
+import {
+  reachesActualRequiredProgress,
+  requiredProgressRange,
+} from '../mechanics/investigations/investigations.ts';
 import { isServing, type CampaignState } from './types.ts';
 
 export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[] {
@@ -83,7 +86,7 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     if (s.skill < 0 || s.baseHealth < 1 || s.currentHealth < 0 || s.currentHealth > s.baseHealth) {
       fail(`${where}: skill or health is outside its range`);
     }
-    if (s.exhaustion < 0 || s.exhaustion > gdrs.agentParameters.exhaustionCap) {
+    if (s.exhaustion < 0) {
       fail(`${where}: exhaustion is outside its range`);
     }
     if (isServing(s) !== (s.assignment !== null)) {
@@ -129,8 +132,19 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     if (active !== investigation.state.currentTeam.length > 0) {
       fail(`${where}: the Current team is non-empty exactly when Active`);
     }
-    if (active && investigation.state.progress >= progressToCertainCompletion(lead.difficulty)) {
-      fail(`${where}: Active with Investigation progress at or above difficulty × 100`);
+    const actual = investigation.constants.actualRequiredProgress;
+    if (active && reachesActualRequiredProgress(investigation.state.progress, actual)) {
+      fail(`${where}: Active with Investigation progress at or above its Actual required progress × 100`);
+    }
+    const range = requiredProgressRange(lead.requiredProgress, gdrs.investigationParameters);
+    if (actual < range.min || actual > range.max) {
+      fail(`${where}: Actual required progress outside the Required progress range of ${lead.id}`);
+    }
+    if (investigation.state.lifecycle === 'Completed' && !investigation.state.assessed) {
+      fail(`${where}: Completed but not Assessed`);
+    }
+    if (investigation.state.progress < 0) {
+      fail(`${where}: negative Investigation progress`);
     }
     if (active && activeLeads.has(lead.id)) {
       fail(`${where}: a second Active Investigation of ${lead.id}`);
@@ -232,7 +246,6 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
       s.currentHealth < 0 ||
       s.currentHealth > s.baseHealth ||
       s.exhaustion < 0 ||
-      s.exhaustion > gdrs.agentParameters.exhaustionCap ||
       s.weaponDamage < 1
     ) {
       fail(`COMBAT ${enemy.id}: a value is outside its range or a reference does not resolve`);

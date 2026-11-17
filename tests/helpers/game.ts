@@ -19,7 +19,7 @@ import {
 } from '../../src/engine/state/types.ts';
 import { newInstanceId, type ProcessingOrder } from '../../src/engine/turn/advance.ts';
 import { RAW_GDR_FILES, bootstrapGdrCatalog, buildGdrCatalog, type GdrCatalog } from '../../src/gdr/index.ts';
-import { seedRng } from '../../src/kernel/index.ts';
+import { must, seedRng } from '../../src/kernel/index.ts';
 
 export const gdrs = bootstrapGdrCatalog();
 
@@ -216,11 +216,15 @@ export function addMissionSite(
         throw new Error(`No Lead creates ${archetype.id}`);
       }
       const investigation = newInstanceId(world, 'investigation');
+      const required = must(
+        catalog.leads.find((item) => item.id === lead),
+        `Lead ${lead}`,
+      ).requiredProgress;
       world.investigations[investigation] = {
         id: investigation,
         archetype: catalog.investigationArchetype.id,
-        constants: { lead, turnStarted: Math.max(1, world.turn - 1) },
-        state: { lifecycle: 'Completed', progress: 0, currentTeam: [] },
+        constants: { lead, turnStarted: Math.max(1, world.turn - 1), actualRequiredProgress: required },
+        state: { lifecycle: 'Completed', progress: required * 100, assessed: true, currentTeam: [] },
       };
       origin = { kind: 'Investigation' as const, investigation };
     } else {

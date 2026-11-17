@@ -52,6 +52,7 @@ describe('AGENT: gaps', () => {
     state = tweak(state, (world) => {
       world.agents[a1]!.state.status = 'AtAssignment';
       world.investigations[i2]!.state.progress = 200;
+      (world.investigations[i2]!.constants as { actualRequiredProgress: number }).actualRequiredProgress = 3;
     });
     state = act(state, 'assignAgentsToInvestigation', { investigation: i2, agents: [a3] });
     state = advance(state);
@@ -307,13 +308,17 @@ describe('RECOVER: gaps', () => {
       world.agents[c4]!.state.exhaustion = 14;
       world.agents[deployed]!.state.exhaustion = 14;
       world.investigations[investigation]!.state.progress = 250;
+      (
+        world.investigations[investigation]!.constants as { actualRequiredProgress: number }
+      ).actualRequiredProgress = 3;
     });
     const site = addMissionSite(state, 'apprehend_member');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [deployed] });
     const enemies = state.world.current.missionSites[site.site]!.state.enemies;
     state = advance(state, { ...allMiss([deployed, ...enemies]) });
+    // The Investigation completed, after which c4's work added 1: In transit at the Agent recovery step.
     expect(agent(state, c4).state).toMatchObject({
-      exhaustion: 14,
+      exhaustion: 15,
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });

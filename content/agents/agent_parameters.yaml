@@ -1,9 +1,16 @@
 id: agent_parameters
 type: AgentParameters
 initial_roster_size: 4
-exhaustion_cap: 100
-exhaustion_free_points: 5 # exhaustion up to this has no effect on skill
+exhaustion_incapacitation: 100 # a Combatant with at least this exhaustion is Incapacitated in a Combat
+exhaustion_free_points: 30 # exhaustion up to this has no effect on skill
 skill_penalty_pct_per_exhaustion: 1 # per point of exhaustion above exhaustion_free_points
 exhaustion_per_attack: 1
 exhaustion_per_defense: 1
+exhaustion_per_mission: 5 # every survivor of a Mission
+exhaustion_per_pct_killed: 1 # per percent of the team Killed, rounded up
+exhaustion_per_contracting_turn: 1
+exhaustion_per_training_turn: 1
+exhaustion_per_investigation_turn: 1
+exhaustion_work_start_max: 30 # the highest exhaustion at which an Agent is Fit for work
+exhaustion_work_limit: 70 # work that brings exhaustion to this makes the Agent return to Standby
 training_skill_gain_per_turn: 1

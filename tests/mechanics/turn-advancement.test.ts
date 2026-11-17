@@ -56,42 +56,56 @@ describe('TURN: Acceptance examples', () => {
     const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
     state = act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Contracting' });
     state = act(state, 'assignAgents', { agents: [a3], assignment: 'Training' });
+    // The injected Required progress outcome 3 gives i1 the Actual required progress 3.
+    state = tweak(state, (world) => {
+      world.randomOverrides.push({
+        outcome: 'investigation.requiredProgress.locate_red_dawn_member',
+        value: 3,
+      });
+    });
     state = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [a4] });
     const i1 = Object.keys(state.world.current.investigations)[0]!;
+    expect(state.world.current.investigations[i1]!.constants.actualRequiredProgress).toBe(3);
+    // The specification's example still has a3 In transit; the Transit rule moves it within base at once (PROB-022).
+    expect(agent(state, a3).state.status).toBe('AtAssignment');
 
     state = advance(state);
     let report = state.world.history.turnReport!;
     expect(report).toMatchObject({
       turn: 1,
-      transit: { arrived: [a1, a2, a3, a4] },
+      transit: { arrived: [a1, a2, a4] },
       income: { income: 20, moneyAfter: 520 },
       upkeep: { upkeep: 40, moneyAfter: 480 },
-      training: [],
+      training: [{ agent: a3, gained: true, skillAfter: 101, exhaustionAfter: 1 }],
+      forcedReturns: [],
       investigations: [{ investigation: i1, progressGain: 0, progressAfter: 0, completed: false }],
       missions: [],
       recovery: [],
       panic: { before: 0, after: 0 },
       ending: null,
     });
-    expect(agent(state, a3).state.skill).toBe(100);
+    expect(agent(state, a3).state.skill).toBe(101);
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 59, turnsUntilNextOperation: 14 });
     expect(state.world.current.turn).toBe(2);
     expect(series(state)).toEqual({ start: [500, 480], end: [500] });
 
     const view = currentStateView(state, gdrs);
     expect(view.agency).toMatchObject({ projectedIncome: 80, projectedUpkeep: 40 });
-    expect(view.investigations[0]!.projectedCompletionProbability).toEqual({ n: '1', d: '3' });
+    expect(view.investigations[0]!.projectedProgressGain).toBe(100);
 
-    state = advance(state, { [`investigation.completion.${i1}`]: [false] });
+    state = advance(state);
     report = state.world.history.turnReport!;
     expect(report).toMatchObject({
       turn: 2,
       transit: { arrived: [] },
       income: { contractingAgents: 2, income: 80, moneyAfter: 560 },
       upkeep: { moneyAfter: 520 },
-      training: [{ agent: a3, skillAfter: 101 }],
-      investigations: [{ progressGain: 100, progressAfter: 100, completed: false }],
+      training: [{ agent: a3, gained: true, skillAfter: 102, exhaustionAfter: 2 }],
+      investigations: [{ progressGain: 100, becameAssessed: true, progressAfter: 100, completed: false }],
     });
+    // Each Agent that worked gains 1 exhaustion after its work: a1 and a2 in Agency income, a4 in Investigation
+    // progress.
+    expect([a1, a2, a3, a4].map((id) => agent(state, id).state.exhaustion)).toEqual([1, 1, 2, 1]);
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 58, turnsUntilNextOperation: 13 });
     expect(series(state)).toEqual({ start: [500, 480, 520], end: [500, 480] });
     expect(state.world.current.turn).toBe(3);
@@ -135,6 +149,11 @@ describe('TURN: Acceptance examples', () => {
     });
     expect(report.recovery).toEqual([]);
     expect(state.world.current.missionSites[created.site]!.state.turnsUntilExpiration).toBe(4);
+    // Each survivor gains 5 Mission exhaustion on top of what its Combat left.
+    for (const id of [a1, a2]) {
+      const combat = report.combatReports[0]!.participants.find((item) => item.id === id)!.final.exhaustion;
+      expect(agent(state, id).state.exhaustion).toBe(combat + 5);
+    }
     const exhaustion = agent(state, wounded).state.exhaustion;
 
     state = advance(state); // both arrive; nothing recovers
@@ -280,6 +299,7 @@ describe('TURN: Acceptance examples', () => {
     state = tweak(state, (world) => {
       world.agents[a1]!.state.status = 'AtAssignment';
       world.investigations[i2]!.state.progress = 200;
+      (world.investigations[i2]!.constants as { actualRequiredProgress: number }).actualRequiredProgress = 3;
     });
     state = advance(state, {
       [`faction.${f}.operationLevel`]: [1],
@@ -375,11 +395,39 @@ describe('TURN: Acceptance examples', () => {
     state = tweak(state, (world) => {
       world.agents[a1]!.state.skill = 120;
       world.agents[a2]!.state.skill = 135;
+      world.agents[a2]!.state.exhaustion = 69;
     });
-    const forward = advance(state);
-    const reversed = advance(state, {}, gdrs, (items) => [...items].reverse());
+    // a1's Training gain Probability is 1; a2's is 61 / 100, and the injected outcome is "gains".
+    const injected = { [`agent.trainingGain.${a2}`]: [true] };
+    const forward = advance(state, injected);
+    const reversed = advance(state, injected, gdrs, (items) => [...items].reverse());
     expect(reversed).toEqual(forward);
-    expect([agent(forward, a1).state.skill, agent(forward, a2).state.skill]).toEqual([121, 136]);
+    expect(agent(forward, a1).state).toMatchObject({ skill: 121, exhaustion: 1 });
+    // a2 reaches 70: a Forced return to Standby, At assignment, and then it recovers in step 9 to 65.
+    expect(agent(forward, a2).state).toMatchObject({
+      skill: 136,
+      exhaustion: 65,
+      assignment: { kind: 'Standby' },
+      status: 'AtAssignment',
+    });
+  });
+
+  it('Work exhaustion before recovery: a Forced return from Contracting is In transit at step 9', () => {
+    let state = setAssignment(newCampaign(), agentIds(newCampaign()).slice(0, 1), 'Contracting');
+    const [a1] = agentIds(state) as [string];
+    state = tweak(state, (world) => (world.agents[a1]!.state.exhaustion = 69));
+    state = advance(state);
+    expect(agent(state, a1).state).toMatchObject({
+      exhaustion: 70,
+      assignment: { kind: 'Standby' },
+      status: 'InTransit',
+    });
+    // It earned its income in the step, with effective skill 61: round down(30 × (1 − 39 / 500)) = 27.
+    expect(state.world.history.turnReport!.income).toMatchObject({ contractingAgents: 1, income: 20 + 27 });
+    state = advance(state); // arrives; recovers nothing
+    expect(agent(state, a1).state.exhaustion).toBe(70);
+    state = advance(state);
+    expect(agent(state, a1).state.exhaustion).toBe(65);
   });
 
   it('Nothing to apply to: all twelve steps still apply', () => {
@@ -435,7 +483,7 @@ describe('TURN: Values a step uses, as a property', () => {
       raw.add('leads-and-progression/leads.yaml', {
         ...raw.get('locate_red_dawn_member'),
         id,
-        difficulty: 2,
+        required_progress: 2,
         faction: id === 'lead_b' ? 'second_faction' : 'red_dawn',
       });
     }

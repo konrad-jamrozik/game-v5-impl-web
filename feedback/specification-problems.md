@@ -244,3 +244,69 @@
   Lead with several prerequisites is measured, and how equal Leads are ordered.
 - **Links:** DEC-036
 - **Resolution:** Open
+
+## PROB-022: Two Acceptance examples still put an Agent assigned from Standby to Training In transit
+
+- **Category:** Conflict
+- **Affected specifications:** AGENT, Transit rule: "Every new Assignment starts In transit, with four exceptions:
+  ... an Agent moved from one Base Assignment to the other is At assignment at once". ECON, Acceptance examples, The
+  first three Advance turns: "The player calls `assignAgents([a1, a2], Contracting)` and
+  `assignAgents([a3], Training)`; a4 stays on Standby. a1, a2, and a3 are In transit". TURN, Acceptance examples, The
+  first two Advance turns of a Campaign: "`assignAgents([a3], Training)` ... a1 to a4 are In transit", step 1 Transit "a1, a2, a3, and
+  a4 arrive", and step 4 Training "a3 arrived in step 1 and has no Training gain outcome; base skill 100."
+- **Description:** a3 starts the Campaign on Standby, At assignment, so under the Transit rule its move to Training
+  is At assignment at once and it gains base skill in the first Advance turn. The two examples were written when every
+  assignment other than deployment started In transit, and still have a3 arrive in the first Advance turn and gain
+  nothing in it. Specification commit e10913ff6cb326b4834eaa45c02d71ce5cbebf92 rewrote the TURN example for work
+  exhaustion and the Training gain outcome but kept a3's arrival in the first Advance turn, so the conflict remains;
+  under the Transit rule a3 also gains 1 exhaustion in each of the two Advance turns, not only in the second.
+- **Links:** DEC-037
+- **Resolution:** Open
+
+## PROB-023: The Bootstrap AgentParameters YAML file does not match the AgentParameters the specifications require
+
+- **Category:** Conflict
+- **Affected specifications:** AGENT, AgentParameters: "The table below is exhaustive apart from `id` and `type`",
+  listing `exhaustion_incapacitation`, `exhaustion_per_mission`, `exhaustion_per_pct_killed`,
+  `exhaustion_per_contracting_turn`, `exhaustion_per_training_turn`, `exhaustion_per_investigation_turn`,
+  `exhaustion_work_start_max`, and `exhaustion_work_limit`, and no `exhaustion_cap`. AGENT, Agent GDR validation:
+  "no listed property is missing and no other property is present." AGENT, Acceptance examples: "All examples use the
+  Bootstrap GDR values from ... `content/agents/agent_parameters.yaml`", whose values they read as
+  "`exhaustion_incapacitation` 100; `exhaustion_free_points` 30; ... `exhaustion_work_start_max` 30;
+  `exhaustion_work_limit` 70". BOOT, Values that differ from game-ts: "`exhaustion_free_points` | 5 | 30". BOOT, Agents
+  GDRs: `agent_parameters` supplies "the exhaustion at which a Combatant is Incapacitated, ... the most exhaustion at
+  which an Agent can start work and the exhaustion that ends its work".
+- **Description:** At specification commit e10913ff6cb326b4834eaa45c02d71ce5cbebf92, the Bootstrap GDR file
+  `content/agents/agent_parameters.yaml` of the specifications still has `exhaustion_cap` 100 and
+  `exhaustion_free_points` 5 and lacks the seven new properties, so a Game build that copies it fails Agent GDR
+  validation, and its values contradict every Acceptance example that reads `agent_parameters`. The values the
+  specifications intend are stated only in the Acceptance examples' tables of values read.
+- **Links:** DEC-038
+- **Resolution:** Open
+
+## PROB-024: Where the Campaign screen details each item a Situation panel row shows is not yet specified
+
+- **Category:** Needed TODO
+- **Affected specifications:** GUI, Situation panel: "Selecting a row shows that item where the Campaign screen
+  details it, e.g. a Mission site row shows that Mission site." GUI, TODOs: "Complete the section Campaign screen: list
+  the other screens and tabs the Player needs while a Campaign is current" and "Write the part of the section Campaign
+  screen on operations: state how the GUI reaches Advance turn".
+- **Description:** The Campaign screen's other screens and tabs are a TODO, so no specification says where the
+  Campaign screen details an Active Investigation, a Lead, the free Training places, or the Agents on Standby, nor
+  whether an Advance turn moves the Player to another part of the screen.
+- **Links:** DEC-041
+- **Resolution:** Open
+
+## PROB-025: How a Progress bar draws Investigation progress beyond the greatest value of the range is not stated
+
+- **Category:** Implicit gap
+- **Affected specifications:** GUI, Progress bar: "the bar spans 0 to the greatest value of the Lead's Required
+  progress range ... The fill runs from 0 to the Investigation progress." VIS, Progress bars: "its colour runs linearly
+  from Accent dim at 0 to Accent at the Required progress ... and stays Accent beyond it."
+- **Description:** A Progress gain can carry Investigation progress past the greatest value of the Required progress
+  range, e.g. a final Investigation progress of 4.60 on a bar that spans 0 to 4, and the progress before the last
+  Advance turn can lie anywhere below it. No specification says how the fill, the preview segment, and the completion
+  mark are drawn past the bar's end, nor what happens when the labels under the bar fall on one another, e.g. a final
+  Investigation progress equal to the Required progress.
+- **Links:** DEC-042
+- **Resolution:** Open

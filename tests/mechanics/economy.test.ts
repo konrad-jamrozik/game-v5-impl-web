@@ -1,6 +1,6 @@
 /** Acceptance examples of ECON (Economy and Upgrades). */
 import { describe, expect, it } from 'vitest';
-import { fundingAfter } from '../../src/engine/mechanics/economy/economy.ts';
+import { contractingContribution, fundingAfter, income } from '../../src/engine/mechanics/economy/economy.ts';
 import { createGameRules } from '../../src/engine/game-rules.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
 import { currentStateView, historyView } from '../../src/engine/views/views.ts';
@@ -73,6 +73,8 @@ describe('ECON: Acceptance examples', () => {
     const [a1, a2, a3] = agentIds(state) as [string, string, string];
     state = act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Contracting' });
     state = act(state, 'assignAgents', { agents: [a3], assignment: 'Training' });
+    // The specification's example still has a3 In transit; the Transit rule moves it within base at once (PROB-022).
+    expect(agent(state, a3).state.status).toBe('AtAssignment');
     expect(agency(state)).toMatchObject({ projectedIncome: 20, projectedUpkeep: 40 });
     state = advance(state);
     expect(state.world.history.turnReport).toMatchObject({
@@ -90,7 +92,7 @@ describe('ECON: Acceptance examples', () => {
       income: { contractingAgents: 2, income: 80, moneyAfter: 510 },
       upkeep: { servingAgents: 5, upkeep: 50, moneyAfter: 460 },
     });
-    expect(agent(state, a3).state.skill).toBe(101);
+    expect(agent(state, a3).state.skill).toBe(102);
 
     state = act(state, 'assignAgents', { agents: [a5], assignment: 'Contracting' });
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
@@ -99,6 +101,34 @@ describe('ECON: Acceptance examples', () => {
     expect(money(state)).toBe(460);
     expect(series(state)).toEqual({ start: [500, 480, 460, 460], end: [500, 430, 460] });
     expect(agency(state).projectedIncome).toBe(80);
+  });
+
+  it('Contracting income and effective skill', () => {
+    let state = setMoney(newCampaign(), 500, 20);
+    const [c1, c2, c3, a4] = agentIds(state) as [string, string, string, string];
+    state = setAssignment(state, [c1, c2, c3], 'Contracting');
+    state = tweak(state, (world) => {
+      world.agents[c1]!.state.exhaustion = 10;
+      world.agents[c2]!.state.exhaustion = 47;
+      world.agents[c3]!.state.skill = 150;
+      world.agents[c3]!.state.exhaustion = 69;
+    });
+    const view = currentStateView(state, gdrs);
+    expect(view.agents.slice(0, 3).map((a) => a.effectiveSkill)).toEqual([100, 83, 91]);
+    expect(contractingContribution(83, gdrs.economy).toString()).toBe('1449/50');
+    expect(contractingContribution(91, gdrs.economy).toString()).toBe('1473/50');
+    // 20 + round down(30 + 28.98 + 29.46) = 108; rounding each contribution on its own would give 107.
+    expect(agency(state).projectedIncome).toBe(108);
+    state = advance(state);
+    expect(state.world.history.turnReport!.income).toMatchObject({ contractingAgents: 3, income: 108 });
+    expect([c1, c2, c3].map((id) => agent(state, id).state.exhaustion)).toEqual([11, 48, 70]);
+    expect(agent(state, c3).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
+    expect(agency(state).projectedIncome).toBe(78);
+    // e.g. effective skill 100, 83, and 150 give round down(91.98) = 91.
+    expect(income(0, [100, 83, 150], gdrs.economy)).toBe(91);
+    // An Agent with effective skill 0 still contributes four fifths.
+    expect(contractingContribution(0, gdrs.economy).toString()).toBe('24');
+    void a4;
   });
 
   it('Upkeep counts every Serving Agent', () => {

@@ -353,33 +353,39 @@ describe('DEV with the real game', () => {
     ok(await engine.session.campaign.create({ seed: 'override' }));
     ok(engine.session.developer.enable());
     const [agent] = ok(engine.player.queries.getCurrentState()).agents;
-    ok(await engine.player.actions.startInvestigation('locate_red_dawn_member', [agent!.id]));
-    const investigation = ok(engine.player.queries.getCurrentState()).investigations[0]!.id;
-    const outcome = `investigation.completion.${investigation}`;
+    const outcome = 'investigation.requiredProgress.locate_red_dawn_member';
     expect(errorCode(await engine.developer.actions.overrideRandomOutcome('no.such.outcome', true))).toBe(
       'invalid_input',
     );
-    expect(errorCode(await engine.developer.actions.overrideRandomOutcome(outcome, 7))).toBe('invalid_input');
+    expect(errorCode(await engine.developer.actions.overrideRandomOutcome(outcome, true))).toBe(
+      'invalid_input',
+    );
     expect(
       errorCode(
-        await engine.developer.actions.overrideRandomOutcome('investigation.completion.nothing', true),
+        await engine.developer.actions.overrideRandomOutcome('investigation.requiredProgress.nothing', 3),
       ),
     ).toBe('rejected');
-    // Turn 1: the Agent arrives. Turn 2: progress 100 of 300, and the override makes it complete.
-    ok(await engine.player.actions.advanceTurn());
-    ok(await engine.developer.actions.overrideRandomOutcome(outcome, true));
+    // The Required progress outcome of the next Investigation of the Lead is fixed to 4, of the range 3 to 4.
+    ok(await engine.developer.actions.overrideRandomOutcome(outcome, 4));
     expect(inspect(engine).worldState.currentWorldState.pendingRandomOutcomeOverrides).toEqual([
-      { outcome, value: true },
+      { outcome, value: 4 },
     ]);
-    ok(await engine.player.actions.advanceTurn());
-    expect(ok(engine.player.queries.getTurnReport())!.investigations[0]).toMatchObject({
-      progressAfter: 100,
-      completed: true,
-    });
+    ok(await engine.player.actions.startInvestigation('locate_red_dawn_member', [agent!.id]));
+    const actual = () =>
+      (
+        inspect(engine).worldState.currentWorldState.investigations as {
+          constants: { actualRequiredProgress: number };
+        }[]
+      )[0]!.constants.actualRequiredProgress;
+    expect(actual()).toBe(4);
     expect(inspect(engine).worldState.currentWorldState.pendingRandomOutcomeOverrides).toEqual([]);
-    // The override is a Timeline entry of its Turn, so replay reproduces it: undo across the Turn and redo.
-    ok(await engine.session.timeline.undoToAutosave());
-    ok(await engine.player.actions.advanceTurn());
-    expect(ok(engine.player.queries.getTurnReport())!.investigations[0]!.completed).toBe(true);
+    // Player API reports the Actual required progress only as unknown.
+    expect(ok(engine.player.queries.getCurrentState()).investigations[0]!.actualRequiredProgress).toBe(
+      'unknown',
+    );
+    // The override is a Timeline entry, so replay reproduces it: undo the start and redo it.
+    ok(await engine.session.timeline.undoAction());
+    ok(await engine.session.timeline.redoAction());
+    expect(actual()).toBe(4);
   });
 });

@@ -265,21 +265,31 @@
 
 - **Category:** Gap resolution
 - **Affected specifications:** WHIST, Turn report and history: "What the Turn report and each History entry hold of
-  a value is stated by the specification owning that value."
-- **Description:** The Turn report holds, for the Advance turn that ended Turn t: the Agents that arrived; the
-  income and upkeep with the money after each; each skill gained by Training; for each Active Investigation its
-  progress gain, its progress, whether it completed, and the Mission site it created; for each resolved Mission its
-  result, its Killed Agents, its survivors by destination, its consequence, and the Lead whose win it recorded,
-  together with its complete Combat report; the Cancelled and the Expired Mission sites with their consequences; for
-  each Faction that escalated or operated, its new Faction activity level and the Response Mission site it created;
-  each Agent's recovery; Panic, funding, and money before and after; and the Campaign ending, if one was recorded.
-  It holds no hidden value: no Faction countdown, no Probability of a past Investigation completion outcome, and not
-  the Pending panic change as such. A History entry holds the Turn number, a reduced form of the Turn-start state
-  and of the Turn-end state, i.e. money, funding, Panic, and the numbers of Serving Agents, Active Investigations,
-  and Active Mission sites, and a reduced form of the Turn report: income, upkeep, each Mission with its result, its
-  Combat outcome and number of Combat rounds, and which Agents were Killed, wounded, or unharmed, the Investigations
-  completed, the Mission sites created, Expired, and Cancelled, the Factions that escalated, Panic, money, and
-  funding afterwards, and the Campaign ending.
+  a value is stated by the specification owning that value." INVSTG, Turn report and MISSION, Turn report: "The
+  History entry of the Turn the Advance turn ends holds the same list, unreduced."
+- **Description:** The Turn report holds, for the Advance turn that ended Turn t: the Agents that arrived; the income
+  and upkeep with the money after each; for each Agent on Training its Training gain outcome, its base skill, and its
+  exhaustion afterwards; each Forced return, with the Work Assignment it ended; for each Active Investigation its
+  progress gain, whether it became Assessed, whether it completed, the progress its Forced returns cost under INVSTG,
+  Progress loss, its progress afterwards, whether Forced returns left it Abandoned, and the Mission site it created; for
+  each resolved Mission its result, its Killed Agents, its survivors by destination, its consequence, and the Lead whose
+  win it recorded, together with its complete Combat report; the Cancelled and the Expired Mission sites with their
+  consequences; for each Faction that escalated or operated, its new Faction activity level and the Response Mission
+  site it created; each Agent's recovery; Panic, funding, and money before and after; and the Campaign ending, if one
+  was recorded. It holds no hidden value: no Faction countdown, no Actual required progress of an Investigation, and not
+  the Pending panic change as such. Specification commit 438b909e6ef6bf0cd581856d790a318ac8879628 replaced the random
+  Investigation completion outcome, whose Probability the Turn report used to leave out, by the hidden Actual required
+  progress and Progress loss; the Investigation part of the Turn report was updated to follow it. A History entry holds
+  the Turn number, a reduced form of the Turn-start state and of the Turn-end state, i.e. money, funding, Panic, and the
+  numbers of Serving Agents, Active Investigations, and Active Mission sites, and a reduced form of the Turn report:
+  income, upkeep, each Mission with its result, its Combat outcome and number of Combat rounds, and which Agents were
+  Killed, wounded, or unharmed, the Investigations completed, the Mission sites created, Expired, and Cancelled, the
+  Factions that escalated, Panic, money, and funding afterwards, and the Campaign ending. Specification commit
+  e75994ed06c02b1cc9b015543ba7fb38e8db6978 made two lists owned by the mechanics: INVSTG, Turn report requires the
+  Investigations completed, each by Instance ID with the gain of its last Progress gain in hundredths, and MISSION, Turn
+  report requires the Mission sites created, Expired, and Cancelled, each by Instance ID; the Turn report holds them as
+  `investigationsCompleted`, `createdMissionSites`, `expiredMissionSites`, and `cancelledMissionSites`, and the History
+  entry holds the same four lists unreduced instead of the Instance IDs alone it held for the Investigations completed.
 - **Options considered:** A History entry that repeats the whole Turn report; a reduced History entry.
 - **Option chosen:** A reduced History entry without the Combat log.
 - **Why:** The Combat log is the large part of a Turn report, and WHIST requires a History entry to bound what is
@@ -310,8 +320,10 @@
   identifiers" are the Implementer's choice. TURN, Values a step uses: "The order in which an implementation
   processes the Campaign instances within one step is the Implementer's choice".
 - **Description:** Each named random outcome has a name in code: `combat.hit.<Combatant>` and
-  `combat.damage.<Combatant>` for the next attack of a Combatant, `investigation.completion.<Investigation>`,
-  `faction.<Faction>.levelDuration`, `faction.<Faction>.operationInterval`, `faction.<Faction>.operationLevel`, and
+  `combat.damage.<Combatant>` for the next attack of a Combatant, `agent.trainingGain.<Agent>` for the Training gain
+  outcome, `investigation.requiredProgress.<Lead>` for the Required progress outcome of the next Investigation of that
+  Lead, drawn by `startInvestigation` after every precondition holds and before the Investigation's Instance ID is
+  generated, `faction.<Faction>.levelDuration`, `faction.<Faction>.operationInterval`, `faction.<Faction>.operationLevel`, and
   `mission.archetypeSelection.<Faction>`. Random values are drawn in the order the code decides the outcomes. Within
   a Turn advancement step, Campaign instances are processed in the order they were created, and the Mission sites a
   step creates are created after the step has processed every Campaign instance, in that same order, so that the
@@ -319,7 +331,11 @@
   selection draw one whole number below the sum of the weights.
 - **Options considered:** Drawing all outcomes of a step in advance; drawing each when it is decided.
 - **Option chosen:** Drawing each when it is decided, with creations ordered canonically.
-- **Why:** It is the simplest order, and tests can fix any named outcome and shuffle the processing order.
+- **Why:** It is the simplest order, and tests can fix any named outcome and shuffle the processing order. The
+  Required progress outcome is named by its Lead, because the Investigation it belongs to does not exist until the
+  outcome is drawn, and a Lead has at most one Active Investigation, so the name identifies the outcome.
+- **Update:** Specification commit 438b909e6ef6bf0cd581856d790a318ac8879628 removed the Investigation completion outcome,
+  named `investigation.completion.<Investigation>`, and added the Required progress outcome.
 - **Links:** None.
 
 ## DEC-019: Full Campaign state inspection
@@ -347,10 +363,11 @@
 - **Affected specifications:** DEV, Random outcome overrides: "the Session controller names a random outcome and one
   of its possible values, and when that random outcome is next decided it takes the supplied value".
 - **Description:** The Player cheat action `developer.actions.overrideRandomOutcome(outcome, value)` takes the name of a
-  random outcome under DEC-018 and a value: true or false for a hit or an Investigation completion outcome, a whole
-  number for a damage, Level duration, Operation interval, or Operation level outcome, and a MissionSiteArchetype
-  identifier for a MissionSiteArchetype selection outcome. It is rejected when the name matches no random outcome,
-  when the Campaign instance it names does not exist, or when the value is of the wrong kind. An accepted override
+  random outcome under DEC-018 and a value: true or false for a hit or a Training gain outcome, a whole number for a
+  damage, Required progress, Level duration, Operation interval, or Operation level outcome, and a
+  MissionSiteArchetype identifier for a MissionSiteArchetype selection outcome. It is rejected when the name matches
+  no random outcome, when the Campaign instance or, for a Required progress outcome, the Lead GDR it names does not
+  exist, or when the value is of the wrong kind. An accepted override
   is a pending override in Current world state, visible through inspection, and one Timeline entry. It applies once:
   the next time that outcome is decided it takes the value and the override is removed, without drawing from the
   generator. Whether the value is one of the possible values is known only when the outcome is decided, e.g. the
@@ -360,6 +377,8 @@
 - **Option chosen:** Overrides that apply once.
 - **Why:** It matches "when that random outcome is next decided" and keeps replay exact, because the pending
   overrides are Campaign state.
+- **Update:** Specification commit 438b909e6ef6bf0cd581856d790a318ac8879628 replaced the Investigation completion outcome, a
+  true-or-false outcome, by the whole-number Required progress outcome.
 - **Links:** PROB-009
 
 ## DEC-021: Thresholds and procedure of the Basic Autopilot AI
@@ -367,7 +386,10 @@
 - **Category:** Asked by the specifications
 - **Affected specifications:** BASICAI, Goals: "The exact thresholds of the goals, e.g. how large a safety margin is,
   are the Implementer's choice".
-- **Description:** A Rested Agent has exhaustion of at most 5, and of at most 25 for urgent income. The Agent
+- **Description:** A Rested Agent has exhaustion of at most 5, and of at most 25 for urgent income, and is always
+  Fit for work. The Recall threshold is 30, the game-ts value: an Agent on Contracting or Training whose exhaustion
+  is above 30 is recalled to Standby. Expected income sums each contracting Agent's contribution from its current
+  effective skill and rounds down once, as ECON, Agency income does. The Agent
   reserve is 20% of the roster, rounded down. The Expected income target is 120% of projected upkeep. The Savings
   floor is five turns of half the projected upkeep. A team needs a Combat rating above 120% of the Enemies' Combat
   rating and one Agent for every three Enemies. Agents investigating Leads number 1 plus 1 for every 10 Agents. The
@@ -381,7 +403,10 @@
   is below projected upkeep, it hires before it buys Agent cap, and the Upgrade it counts as improving Agents is the
   one with the effect `agent_weapon_damage`. A Player action that was rejected is not tried again in that Turn. With
   these thresholds it won
-  200 of 200 Campaigns of different Campaign seeds, in a median of 91 Turns.
+  200 of 200 Campaigns of different Campaign seeds, in a median of 192 Turns, after the Investigation rework of
+  specification commit 438b909e6ef6bf0cd581856d790a318ac8879628, i.e. a rolled Actual required progress, team efficiency,
+  and Progress loss; after the exhaustion rework of specification commit e10913ff6cb326b4834eaa45c02d71ce5cbebf92 the
+  median was 172 Turns, and before it 91 Turns.
 - **Options considered:** The game-ts starting values unchanged; values tuned against whole Campaigns.
 - **Option chosen:** Tuned values.
 - **Why:** With a roster target that counts every Upgrade, each Agent cap purchase called for the next and the
@@ -642,3 +667,120 @@
 - **Why:** "behind it" and "its Faction's chain" read most directly that way, and only the order matters, so counting
   the Lead itself would change nothing.
 - **Links:** PROB-021
+
+## DEC-037: A move from Standby to Training follows the Transit rule, not the stale Acceptance examples
+
+- **Category:** Conflict resolution
+- **Affected specifications:** AGENT, Transit rule; ECON, Acceptance examples, The first three Advance turns; TURN,
+  Acceptance examples, The first two Advance turns of a Campaign.
+- **Description:** `assignAgents` makes an Agent moved between Standby and Training At assignment at once. The tests
+  of the two examples follow the Transit rule: a3 does not arrive in the first Advance turn, gains base skill 1 in it,
+  and has base skill 101 after it and 102 after the second, with exhaustion 1 and 2 from its work on Training; every
+  other figure of the examples is unchanged.
+- **Options considered:** Follow the Transit rule and adjust the examples' figures; follow the examples and keep the
+  move to Training In transit.
+- **Option chosen:** Follow the Transit rule.
+- **Why:** The rule is normative and was changed on purpose, and AGENT, Assigning Agents states it again, as do the
+  Acceptance examples of Agents, e.g. Training growth; the two examples were not updated with it.
+- **Links:** PROB-022
+
+## DEC-038: The Bootstrap AgentParameters values are those the specifications' examples read
+
+- **Category:** Conflict resolution
+- **Affected specifications:** AGENT, AgentParameters; AGENT, Agent GDR validation; AGENT, Acceptance examples; BOOT,
+  Values that differ from game-ts.
+- **Description:** The Implementation's `content/agents/agent_parameters.yaml` has exactly the properties AGENT,
+  AgentParameters lists, with the values the Acceptance examples of AGENT read: `initial_roster_size` 4,
+  `exhaustion_incapacitation` 100, `exhaustion_free_points` 30, `skill_penalty_pct_per_exhaustion` 1,
+  `exhaustion_per_attack` 1, `exhaustion_per_defense` 1, `exhaustion_per_mission` 5, `exhaustion_per_pct_killed` 1,
+  `exhaustion_per_contracting_turn` 1, `exhaustion_per_training_turn` 1, `exhaustion_per_investigation_turn` 1,
+  `exhaustion_work_start_max` 30, `exhaustion_work_limit` 70, and `training_skill_gain_per_turn` 1. It no longer
+  copies the specifications' file.
+- **Options considered:** Copy the specifications' YAML file unchanged; take the values the Acceptance examples and
+  BOOT state.
+- **Option chosen:** The values the Acceptance examples and BOOT state.
+- **Why:** The unchanged file fails Agent GDR validation, so no Campaign could be created, and every Acceptance example
+  of AGENT, COMBAT, ECON, INVSTG, MISSION, RECOVER, and TURN reads the new values.
+- **Links:** PROB-023
+
+## DEC-039: Player API reports a hidden value that exists as the text `unknown`
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** INVSTG, Player-visible information: "The Actual required progress of every
+  Investigation, and the Required progress and Required progress range of a discovered Lead that is not an Assessed
+  Lead, are reported as unknown, not as absent, because the values exist." LEAD, Player-visible information: "Apart
+  from a `required_progress` that Assessment has not yet revealed, which is reported as unknown". ENG, API surfaces:
+  "exact signatures, argument Types, and results are the implementer's choice."
+- **Description:** A value that exists but is hidden from the player is reported as the text `unknown`, of the Type
+  `Unknown`, and an absent value as `null`. `InvestigationView.actualRequiredProgress` is always `unknown`.
+  `LeadView.requiredProgress` and `LeadView.requiredProgressRange` hold the Required progress and the Required
+  progress range, `{ min, max }`, once `LeadView.assessed` is true, and `unknown` before. Investigation progress and
+  the projected progress gain are reported in hundredths of a progress point, as Campaign state stores them.
+- **Options considered:** Leaving a hidden value out of the result; `null`; a separate flag beside a placeholder
+  value; the text `unknown`.
+- **Option chosen:** The text `unknown`.
+- **Why:** It keeps unknown apart from absent, which is `null`, as the specifications require, and the hidden value
+  never appears in the result, so the Information boundary holds.
+- **Links:** None.
+
+## DEC-040: The GUI learns an Investigation's Progress loss from a Player API query
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** GUI, Confirming interrupted Assignments: "it also names each Investigation that loses
+  members, with its Investigation progress before and after the loss, under Progress loss in Investigations, and each
+  that becomes Abandoned and loses all its progress". ENG, API surfaces: "exact signatures, argument Types, and
+  results are the implementer's choice."
+- **Description:** The Player API query `player.queries.previewProgressLoss(agents)` returns, for each Active
+  Investigation with a member among the listed Agents that can be assigned, its Investigation progress now, its
+  progress after those Agents leave under INVSTG, Progress loss, and whether it would become Abandoned. It reads only
+  Player-visible information. The GUI's confirmation shows those values in progress points, e.g. "4.49 to 3.36", and
+  for an Investigation that becomes Abandoned the progress it loses. The Leads panel shows an Investigation's
+  progress against its Lead's Required progress range once the Lead is an Assessed Lead, e.g. "progress 4.49 of at
+  least 30, up to 45", and "of unknown" before, with its projected progress gain for the next Advance turn.
+- **Options considered:** Computing Progress loss in the GUI from the effective skill the Agents grid shows; a Player
+  API query that applies the engine's rule.
+- **Option chosen:** A Player API query.
+- **Why:** Every user interface is an adapter over the engine API and implements no gameplay rule of its own, so the
+  rule stays in one place and the confirmation always agrees with the action.
+- **Links:** None.
+
+## DEC-041: Where a Situation panel row shows its item, and what an Advance turn shows
+
+- **Category:** Gap resolution
+- **Affected specifications:** GUI, Situation panel: "Selecting a row shows that item where the Campaign screen
+  details it". GUI, Turn summary: "it offers to open the full Turn report".
+- **Description:** An Active Investigation row and a Lead to investigate row select the Leads tab and scroll to that
+  Lead's card, which holds its Investigation; an Active Mission site row selects the Mission sites tab and scrolls to
+  that Mission site's card; the shown card is outlined in Accent for a moment. The Free Training places group head
+  selects the Agency tab, which shows the Training cap. The Agents on Standby row selects those Agents in the Agents
+  panel, ready for an order. An Advance turn the Player requests through the GUI no longer switches to the Turn report
+  tab: the Turn summary reports what needs knowing and its "Open Turn report" action selects that tab. While the Turn
+  summary is open, the screen behind it takes no keyboard shortcut, and Escape dismisses it, as does its primary
+  Continue button.
+- **Options considered:** Rows that open a separate detail view; rows that select the existing tabs and scroll to the
+  item; keeping the switch to the Turn report tab after every Advance turn.
+- **Option chosen:** Rows that select the existing tabs and scroll to the item, and no automatic tab switch.
+- **Why:** The existing tabs already detail every one of these items, so a row reaches it in one action without a new
+  screen, and the Turn summary replaces the automatic switch, so the Player keeps the tab being worked in.
+- **Links:** PROB-024
+
+## DEC-042: A Progress bar clamps progress beyond the range to its end
+
+- **Category:** Gap resolution
+- **Affected specifications:** GUI, Progress bar: "the bar spans 0 to the greatest value of the Lead's Required
+  progress range". VIS, Progress bars: "The Required progress and the greatest value of the range are written under
+  the tick and under the bar's end".
+- **Description:** Every position on a Progress bar is clamped to the bar: a fill, preview segment, last-gain segment,
+  or completion mark past the greatest value of the range ends at the bar's end, and the labels under it still give
+  the actual values, e.g. the final Investigation progress. When the progress before the last Advance turn or the
+  final Investigation progress lies within 8% of the bar's width of the tick, the Required progress label under the
+  tick is left out, because the Turn summary row already gives the range. The Required progress and the greatest value
+  of the range are written as whole progress points, e.g. "3" and "4", and Investigation progress and its gains with
+  two decimals. The number of Turns of a Completed Investigation is the Turn the Advance turn ended minus its Turn
+  started, as in the Situation panel.
+- **Options considered:** Clamping to the bar's end; widening the scale to the progress; leaving the overflow
+  undrawn.
+- **Option chosen:** Clamping to the bar's end.
+- **Why:** The bar keeps the scale the specification states, so every bar of the same Lead reads alike, and the
+  values written under it stay exact.
+- **Links:** PROB-025

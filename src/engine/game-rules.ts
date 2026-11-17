@@ -18,6 +18,7 @@ import {
   historyView,
   inspectCampaignState,
   previewDeployment,
+  previewProgressLoss,
   turnReportView,
 } from './views/views.ts';
 
@@ -43,15 +44,19 @@ const CONFIGURATION_VALUES: readonly ConfigurationValueDescriptor[] = [
   },
 ];
 
-/** Applies one action other than Advance turn; a rejection discards every change. */
+/**
+ * Applies one action other than Advance turn; a rejection discards every change. `random` replaces the random
+ * outcomes derived from the Campaign seed; it is for tests.
+ */
 export function applyActionTo(
   state: CampaignState,
   record: ActionRecord,
   gdrs: GdrCatalog,
+  random: Random | null = null,
 ): CampaignState | Rejection {
   let rejection: Rejection | null = null;
   const next = produce(state, (draft) => {
-    rejection = applyGameAction(draft.world.current, record, gdrs);
+    rejection = applyGameAction(draft.world.current, record, gdrs, random);
   });
   return rejection ?? next;
 }
@@ -150,6 +155,9 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       }
       if (query === 'previewDeployment' && isRecord(args)) {
         return previewDeployment(state, gdrs, args['missionSite'], args['agents']);
+      }
+      if (query === 'previewProgressLoss' && isRecord(args)) {
+        return previewProgressLoss(state, gdrs, args['agents']);
       }
       throw new Error(`There is no query ${query}`);
     },

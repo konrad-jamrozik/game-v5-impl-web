@@ -4,6 +4,8 @@
 
 - src/engine/mechanics/agents/
 - src/engine/actions/actions.ts
+- src/engine/turn/advance.ts
+- src/engine/player-api.ts
 - src/engine/state/types.ts
 - src/engine/state/create.ts
 - src/engine/state/invariants.ts
@@ -140,6 +142,7 @@ No files.
 
 - src/engine/mechanics/economy/
 - src/engine/actions/actions.ts
+- src/engine/turn/advance.ts
 - src/engine/state/create.ts
 - src/engine/views/views.ts
 - src/gdr/catalog.ts
@@ -227,7 +230,26 @@ No files.
 - src/engine/actions/actions.ts
 - src/engine/turn/advance.ts
 - src/engine/views/views.ts
+- src/engine/player-api.ts
+- src/engine/index.ts
+- src/engine/game-rules.ts
+- src/engine/state/types.ts
+- src/engine/state/invariants.ts
+- src/gdr/catalog.ts
+- src/gdr/types.ts
+- content/investigations/investigation_parameters.yaml
+- src/web/screens/LeadsPanel.tsx
+- src/web/screens/TurnReportPanel.tsx
+- src/web/interruption.ts
+- src/web/format.ts
+- src/web/progress-bar.ts
+- src/web/turn-summary.ts
 - tests/mechanics/leads-investigations.test.ts
+- tests/mechanics/turn-advancement.test.ts
+- tests/web/interruption.test.ts
+- tests/web/progress-bar.test.ts
+- tests/web/situation-and-summary.test.ts
+- tests/engine/campaign.test.ts
 
 ## LEAD: Leads and Progression
 
@@ -242,6 +264,7 @@ No files.
 - src/web/screens/LeadsPanel.tsx
 - src/web/screens/TurnReportPanel.tsx
 - src/web/screens/HistoryPanel.tsx
+- content/leads-and-progression/leads.yaml
 
 ## LIFE: Campaign Lifecycle
 
@@ -261,8 +284,11 @@ No files.
 - src/engine/views/views.ts
 - src/gdr/catalog.ts
 - src/gdr/types.ts
+- src/engine/state/types.ts
+- src/web/turn-summary.ts
 - tests/mechanics/missions.test.ts
 - tests/mechanics/review-gaps.test.ts
+- tests/web/situation-and-summary.test.ts
 
 ## NUMBERS: Numbers
 
@@ -381,6 +407,10 @@ No files.
 - src/web/screens/HistoryPanel.tsx
 - src/web/screens/LineChart.tsx
 - src/web/screens/MainMenu.tsx
+- src/web/screens/ProgressBar.tsx
+- src/web/screens/SituationPanel.tsx
+- src/web/screens/TurnSummary.tsx
+- src/web/progress-bar.ts
 
 ## WHIST: World History
 
@@ -392,3 +422,4 @@ No files.
 - tests/engine/campaign.test.ts
 - tests/foundation/timeline.test.ts
 - tests/mechanics/turn-advancement.test.ts
+- src/web/turn-summary.ts

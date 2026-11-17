@@ -30,7 +30,7 @@ export function AgencyPanel(props: { snapshot: Snapshot; state: CurrentStateView
           <Fact label="Deployed / Transport cap">
             {agency.deployedAgents} / {agency.transportCap}
           </Fact>
-          <Fact label="Training / Training cap">
+          <Fact label="Training / Training cap" testId="training-cap">
             {agency.trainingAgents} / {agency.trainingCap}
           </Fact>
           <Fact label="Hire cost">{agency.hireCost}</Fact>

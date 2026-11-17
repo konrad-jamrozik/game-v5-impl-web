@@ -3,14 +3,14 @@
  * for, so it is detached and always equals what the current Campaign state gives; see ENG, Derived value
  * consistency. No view reads a hidden value.
  */
-import { deepFreeze, detach, must, q, toProbabilityPair } from '../../kernel/index.ts';
+import { deepFreeze, detach, must, q } from '../../kernel/index.ts';
 import { GAME_BUILD, type GdrCatalog, type MissionSiteArchetypeGdr } from '../../gdr/index.ts';
 import { applyGameAction } from '../actions/actions.ts';
-import { canBeAssigned, effectiveSkill } from '../mechanics/agents/agents.ts';
+import { canBeAssigned, effectiveSkill, isFitForWork } from '../mechanics/agents/agents.ts';
 import { combatRating, isAbleToFight } from '../mechanics/combat/combat.ts';
 import {
   agencyCaps,
-  countContractingAtAssignment,
+  contractingAtAssignment,
   countDeployed,
   countServing,
   countTraining,
@@ -18,8 +18,10 @@ import {
   upkeep,
 } from '../mechanics/economy/economy.ts';
 import {
-  completionProbability,
-  progressToCertainCompletion,
+  isAssessedLead,
+  progressAfterLoss,
+  progressGain,
+  requiredProgressRange,
 } from '../mechanics/investigations/investigations.ts';
 import {
   activeInvestigationOf,
@@ -46,6 +48,7 @@ import type {
   LeadView,
   MissionSiteView,
   MissionView,
+  ProgressLossPreview,
 } from '../player-api.ts';
 import type { Rejection } from '../result.ts';
 import { isServing } from '../state/types.ts';
@@ -80,6 +83,7 @@ function agentView(agent: Agent, gdrs: GdrCatalog): AgentView {
     weaponDamage: s.weaponDamage,
     assignment: s.assignment === null ? null : { ...s.assignment },
     canBeAssigned: canBeAssigned(s),
+    fitForWork: isFitForWork(s, gdrs.agentParameters),
     ableToFight: serving && isAbleToFight(s, gdrs.combatParameters, gdrs.agentParameters),
     participationHistory: s.participationHistory.map((item) => ({ ...item })),
     healthRecoveryRate: serving ? healthRecoveryRate(s.baseHealth, gdrs.recoveryParameters) : null,
@@ -180,15 +184,14 @@ function investigationView(
     `Lead ${investigation.constants.lead}`,
   );
   const members = investigation.state.currentTeam.map((id) => must(world.agents[id], `Agent ${id}`));
-  // INVSTG, Projected completion probability: only members At assignment add to S′.
+  // INVSTG, Projected progress gain: n and S over the members At assignment only.
+  const working = members.filter((agent) => agent.state.status === 'AtAssignment');
   const projected =
     investigation.state.lifecycle === 'Active'
-      ? completionProbability(
-          investigation.state.progress +
-            members
-              .filter((agent) => agent.state.status === 'AtAssignment')
-              .reduce((sum, agent) => sum + effectiveSkill(agent.state, gdrs.agentParameters), 0),
-          lead.difficulty,
+      ? progressGain(
+          working.length,
+          working.reduce((sum, agent) => sum + effectiveSkill(agent.state, gdrs.agentParameters), 0),
+          gdrs.investigationParameters,
         )
       : null;
   return {
@@ -196,13 +199,13 @@ function investigationView(
     archetype: investigation.archetype,
     lead: lead.id,
     leadName: lead.name,
-    difficulty: lead.difficulty,
     turnStarted: investigation.constants.turnStarted,
     lifecycle: investigation.state.lifecycle,
     progress: investigation.state.progress,
-    progressForCertainCompletion: progressToCertainCompletion(lead.difficulty),
+    assessed: investigation.state.assessed,
+    actualRequiredProgress: 'unknown',
     currentTeam: members.map((agent) => ({ agent: agent.id, agentStatus: agent.state.status })),
-    projectedCompletionProbability: projected === null ? null : toProbabilityPair(projected),
+    projectedProgressGain: projected,
   };
 }
 
@@ -214,6 +217,8 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
       return [];
     }
     const active = activeInvestigationOf(lead.id, world.investigations);
+    // INVSTG, Player-visible information: the Required progress and its range only for an Assessed Lead.
+    const assessed = isAssessedLead(lead.id, world.investigations);
     return {
       id: lead.id,
       name: lead.name,
@@ -221,7 +226,11 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
       factionArchetype: lead.faction,
       faction:
         Object.values(world.factions).find((faction) => faction.archetype === lead.faction)?.id ?? null,
-      difficulty: lead.difficulty,
+      assessed,
+      requiredProgress: assessed ? lead.requiredProgress : 'unknown',
+      requiredProgressRange: assessed
+        ? requiredProgressRange(lead.requiredProgress, gdrs.investigationParameters)
+        : 'unknown',
       requires: availability.prerequisites.map((item) => ({ ...item })),
       createsMissionSite: lead.onCompletion.createMissionSite,
       available: availability.available,
@@ -285,7 +294,11 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
     deployedAgents: countDeployed(agents),
     trainingAgents: countTraining(agents),
     // ECON, Projected income and upkeep.
-    projectedIncome: income(world.agency.state.funding, countContractingAtAssignment(agents), gdrs.economy),
+    projectedIncome: income(
+      world.agency.state.funding,
+      contractingAtAssignment(agents).map((agent) => effectiveSkill(agent, gdrs.agentParameters)),
+      gdrs.economy,
+    ),
     projectedUpkeep: upkeep(serving, gdrs.economy),
     hireCost: gdrs.economy.hireCost,
   };
@@ -450,6 +463,52 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
   };
 }
 
+/**
+ * INVSTG, Progress loss, previewed: for each Active Investigation with a member among the listed Agents that can be
+ * assigned, its progress now and after those Agents leave it, and whether it would become Abandoned.
+ */
+export function previewProgressLoss(
+  state: CampaignState,
+  gdrs: GdrCatalog,
+  agentIds: unknown,
+): ProgressLossPreview[] {
+  const world = state.world.current;
+  const ids = Array.isArray(agentIds) ? agentIds.filter((id): id is string => typeof id === 'string') : [];
+  const leaving = new Set(
+    ids.filter((id) => {
+      const agent = world.agents[id];
+      return agent !== undefined && canBeAssigned(agent.state);
+    }),
+  );
+  return Object.values(world.investigations)
+    .filter(
+      (investigation) =>
+        investigation.state.lifecycle === 'Active' &&
+        investigation.state.currentTeam.some((member) => leaving.has(member)),
+    )
+    .map((investigation) => {
+      let skillBefore = 0;
+      let skillAfter = 0;
+      for (const member of investigation.state.currentTeam) {
+        const agent = must(world.agents[member], `Agent ${member}`);
+        if (agent.state.status !== 'AtAssignment') {
+          continue;
+        }
+        const skill = effectiveSkill(agent.state, gdrs.agentParameters);
+        skillBefore += skill;
+        if (!leaving.has(member)) {
+          skillAfter += skill;
+        }
+      }
+      return {
+        investigation: investigation.id,
+        progressBefore: investigation.state.progress,
+        progressAfter: progressAfterLoss(investigation.state.progress, skillBefore, skillAfter),
+        abandoned: investigation.state.currentTeam.every((member) => leaving.has(member)),
+      };
+    });
+}
+
 /** The Combat ratings a deployment would start with, and whether `deployAgents` would be accepted. */
 export function previewDeployment(
   state: CampaignState,
@@ -541,6 +600,11 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         incapacitationSkillFraction: decimalText(gdrs.combatParameters.incapacitationSkillFraction),
       },
       recoveryParameters: numbers(gdrs.recoveryParameters),
+      investigationParameters: {
+        teamEfficiencyExponent: decimalText(gdrs.investigationParameters.teamEfficiencyExponent),
+        requiredProgressMaxPct: gdrs.investigationParameters.requiredProgressMaxPct,
+        assessmentThresholdPct: gdrs.investigationParameters.assessmentThresholdPct,
+      },
       economy: numbers(gdrs.economy),
       weapons: [...gdrs.weapons.values()].map((weapon) => ({
         id: weapon.id,

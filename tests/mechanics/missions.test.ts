@@ -1,11 +1,15 @@
 /** Acceptance examples of MISSION (Missions) and RECOVER (Agent Recovery). */
 import { describe, expect, it } from 'vitest';
-import { consequencesOf, selectResponseArchetype } from '../../src/engine/mechanics/missions/missions.ts';
+import {
+  consequencesOf,
+  missionExhaustion,
+  selectResponseArchetype,
+} from '../../src/engine/mechanics/missions/missions.ts';
 import { healthRecoveryRate, recoveryTurnsRemaining } from '../../src/engine/mechanics/recovery/recovery.ts';
 import { injectedRandom } from '../../src/engine/random.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView, historyView } from '../../src/engine/views/views.ts';
+import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
 import {
   act,
   addMissionSite,
@@ -52,6 +56,7 @@ describe('MISSION: Acceptance examples', () => {
     state = tweak(state, (world) => {
       world.agents[ids[0]!]!.state.status = 'AtAssignment';
       world.investigations[i1]!.state.progress = 200;
+      (world.investigations[i1]!.constants as { actualRequiredProgress: number }).actualRequiredProgress = 3;
     });
     state = advance(state);
     const s1 = Object.keys(state.world.current.missionSites)[0]!;
@@ -83,8 +88,9 @@ describe('MISSION: Acceptance examples', () => {
     state = advance(state);
     expect(site(state, s1).state.turnsUntilExpiration).toBe(4);
 
-    // Deploying, Turn 6.
+    // Deploying, Turn 6. The example's Agents have exhaustion 0; a1's work on i1 gave it 1.
     state = setAssignment(state, ids, 'Standby');
+    state = tweak(state, (world) => (world.agents[ids[0]!]!.state.exhaustion = 0));
     state = act(state, 'deployAgents', { missionSite: s1, agents: ids });
     const m1 = missionAt(state, s1);
     expect(site(state, s1).state).toMatchObject({ lifecycle: 'Attempted', turnsUntilExpiration: 4 });
@@ -130,7 +136,11 @@ describe('MISSION: Acceptance examples', () => {
     expect(report.upkeep.moneyAfter).toBe(380);
     expect(report.combatReports[0]).toMatchObject({ mission: m1, outcome: 'Prevailed', rounds: 2 });
     expect(report.combatReports[0]!.log).toHaveLength(8);
-    expect([a1, a2, a3, a4].map((id) => agent(state, id).state.exhaustion)).toEqual([4, 2, 1, 1]);
+    // The Combat leaves 4, 2, 1, and 1; no Agent was Killed, so Mission exhaustion adds 5 to each.
+    expect(report.combatReports[0]!.participants.slice(0, 4).map((p) => p.final.exhaustion)).toEqual([
+      4, 2, 1, 1,
+    ]);
+    expect([a1, a2, a3, a4].map((id) => agent(state, id).state.exhaustion)).toEqual([9, 7, 6, 6]);
     expect(site(state, s1).state).toMatchObject({ lifecycle: 'Attempted', turnsUntilExpiration: 4 });
     expect(mission(state, m1).state).toEqual({ lifecycle: 'Won', currentTeam: [] });
     expect(mission(state, m1).constants.teamSent).toEqual(ids);
@@ -196,6 +206,13 @@ describe('MISSION: Acceptance examples', () => {
     expect(funding(ignored)).toBe(19);
     expect(money(ignored)).toBe(beforeExpiry.money + 20 - 40);
     expect(Object.keys(ignored.world.current.missions)).toHaveLength(0);
+    // MISSION, Turn report: the Turn report of the Advance turn ending Turn 44 lists s2 among the Mission sites
+    // Expired, and its History entry keeps the same list.
+    expect(ignored.world.current.turn).toBe(45);
+    expect(turnReportView(ignored)!.expiredMissionSites.map((item) => item.missionSite)).toContain(s2);
+    const entry = ignored.world.history.historyEntries.at(-1)!;
+    expect(entry.turn).toBe(44);
+    expect(entry.report.expiredMissionSites).toContain(s2);
 
     // Lost: a1 alone retreats after one Combat round.
     const [a1, a2, a3, a4] = agentIds(created.state) as [string, string, string, string];
@@ -223,10 +240,15 @@ describe('MISSION: Acceptance examples', () => {
     expect(lostReport.combatReports[0]!.participants[0]!.final).toMatchObject({
       currentHealth: 9,
       exhaustion: 7,
-      effectiveSkill: 29,
+      effectiveSkill: 30,
     });
     expect(mission(lost, missionAt(lost, s2)).state.lifecycle).toBe('Lost');
-    expect(agent(lost, a1).state).toMatchObject({ assignment: { kind: 'Recovery' }, status: 'InTransit' });
+    // Mission exhaustion raises 7 to 12, as it would after a win.
+    expect(agent(lost, a1).state).toMatchObject({
+      assignment: { kind: 'Recovery' },
+      status: 'InTransit',
+      exhaustion: 12,
+    });
     expect([lost.world.current.panic, funding(lost), money(lost)]).toEqual([18, 19, 300]);
     expect(site(lost, s2).state).toMatchObject({ lifecycle: 'Attempted', turnsUntilExpiration: 4 });
 
@@ -248,7 +270,8 @@ describe('MISSION: Acceptance examples', () => {
     const round2Enemies = wonReport.combatReports[0]!.log.filter(
       (x) => x.round === 2 && x.attacker.startsWith('enemy'),
     );
-    expect(round2Enemies.every((x) => x.defender === a2)).toBe(true);
+    // Every Agent's exhaustion is at most 30, so every Agent has effective skill 100 and a1, the earliest, is targeted.
+    expect(round2Enemies.every((x) => x.defender === a1)).toBe(true);
     expect(mission(won, missionAt(won, s2)).state.lifecycle).toBe('Won');
     expect([money(won), funding(won), won.world.current.panic]).toEqual([330, 25, 10]);
     for (const id of [a1, a2, a3, a4]) {
@@ -258,6 +281,8 @@ describe('MISSION: Acceptance examples', () => {
         status: 'InTransit',
       });
     }
+    // The Combat leaves a1 with 11 and the others with 3; Mission exhaustion adds 5 to each.
+    expect([a1, a2, a3, a4].map((id) => agent(won, id).state.exhaustion)).toEqual([16, 8, 8, 8]);
   });
 
   it('A Won raid_hq Mission eliminates Red Dawn and cancels an Active Mission site', () => {
@@ -293,6 +318,7 @@ describe('MISSION: Acceptance examples', () => {
     expect(site(forward, s5.site).state).toMatchObject({ lifecycle: 'Cancelled', turnsUntilExpiration: 2 });
     expect(report.cancelledMissionSites).toEqual([s5.site]);
     expect(report.expiredMissionSites).toEqual([]);
+    expect(forward.world.history.historyEntries.at(-1)!.report.cancelledMissionSites).toEqual([s5.site]);
     expect(forward.world.current.panic).toBe(40);
   });
 
@@ -329,6 +355,7 @@ describe('MISSION: Acceptance examples', () => {
     reject(s7.site, [a6], 'agents_cannot_be_ordered');
     reject(s7.site, [a7], 'agents_cannot_be_ordered');
     reject(s7.site, [a1], 'agents_cannot_be_ordered');
+    reject(s7.site, [a8], 'agents_not_in_base');
     reject(s6.site, [a4], 'mission_site_not_active');
     reject(s8.site, [a4], 'mission_site_not_active');
     reject('nowhere', [a4], 'unknown_mission_site');
@@ -341,8 +368,39 @@ describe('MISSION: Acceptance examples', () => {
       'mission_site_not_active',
     );
     const upgraded = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
-    const both = act(upgraded, 'deployAgents', { missionSite: s7.site, agents: [a4, a8] });
-    expect(agent(both, a8).state.assignment).toEqual({ kind: 'Deployed', mission: missionAt(both, s7.site) });
+    const both = act(upgraded, 'deployAgents', { missionSite: s7.site, agents: [a4, a5] });
+    expect(agent(both, a5).state.assignment).toEqual({ kind: 'Deployed', mission: missionAt(both, s7.site) });
+  });
+
+  it('Only an Agent on a Base Assignment can be deployed', () => {
+    let state = withAgents(newCampaign({ money: 2000 }), 4);
+    const [a1, a2, a3] = agentIds(state) as [string, string, string];
+    state = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [a2] });
+    const i1 = Object.keys(state.world.current.investigations)[0]!;
+    const created = addMissionSite(state, 'foil_recruitment_push');
+    state = setAssignment(created.state, [a1], 'Training');
+    state = tweak(state, (world) => {
+      world.agents[a2]!.state.status = 'AtAssignment';
+    });
+    state = setAssignment(state, [a3], 'Contracting');
+    // An Agent on an Investigation is rejected, so deploying never takes an Agent off an Investigation.
+    expectRejected(
+      state,
+      'deployAgents',
+      { missionSite: created.site, agents: [a1, a2] },
+      'agents_not_in_base',
+    );
+    expectRejected(state, 'deployAgents', { missionSite: created.site, agents: [a3] }, 'agents_not_in_base');
+    expect(state.world.current.investigations[i1]!.state).toMatchObject({
+      lifecycle: 'Active',
+      currentTeam: [a2],
+    });
+    // An Agent on Training is deployed at once, without first being recalled.
+    const deployed = act(state, 'deployAgents', { missionSite: created.site, agents: [a1] });
+    expect(agent(deployed, a1).state).toMatchObject({
+      assignment: { kind: 'Deployed', mission: missionAt(deployed, created.site) },
+      status: 'AtAssignment',
+    });
   });
 
   it('Deploying on the last Turn', () => {
@@ -518,6 +576,60 @@ describe('MISSION: Acceptance examples', () => {
   });
 });
 
+describe('MISSION: Mission exhaustion', () => {
+  it('adds exhaustion_per_mission and 1 per percent of the team Killed, rounded up', () => {
+    const p = gdrs.agentParameters;
+    expect(missionExhaustion(0, 4, p)).toBe(5);
+    expect(missionExhaustion(1, 4, p)).toBe(30);
+    expect(missionExhaustion(1, 3, p)).toBe(39);
+    expect(missionExhaustion(1, 2, p)).toBe(55);
+    // A survivor that leaves the Combat with exhaustion 80 after 73% of its team was Killed ends with 158.
+    expect(80 + missionExhaustion(73, 100, p)).toBe(158);
+  });
+
+  it('applies to every survivor whatever the Combat outcome, with no upper clamp', () => {
+    const created = addMissionSite(newCampaign(), 'apprehend_member');
+    let state = created.state;
+    const [a1, a2] = agentIds(state) as [string, string];
+    // a2 has the highest effective skill, so the first Enemy attack targets it, and 5 health is all it has.
+    state = tweak(state, (world) => {
+      world.agents[a2]!.state.skill = 1000;
+      world.agents[a2]!.state.currentHealth = 5;
+    });
+    state = act(state, 'deployAgents', { missionSite: created.site, agents: [a1, a2] });
+    const enemies = site(state, created.site).state.enemies;
+    // a2 is killed by the first Enemy attack; a1 misses until the Combat ends.
+    const after = advance(state, {
+      [`combat.hit.${a1}`]: new Array<boolean>(200).fill(false),
+      [`combat.hit.${a2}`]: [false],
+      [`combat.hit.${enemies[0]}`]: [true, ...new Array<boolean>(200).fill(false)],
+      [`combat.damage.${enemies[0]}`]: [5],
+      ...Object.fromEntries(
+        enemies.slice(1).map((id) => [`combat.hit.${id}`, new Array<boolean>(200).fill(false)]),
+      ),
+    });
+    const report = after.world.history.turnReport!;
+    expect(report.missions[0]!.killed).toEqual([a2]);
+    const combatExhaustion = report.combatReports[0]!.participants.find((x) => x.id === a1)!.final.exhaustion;
+    expect(agent(after, a1).state.exhaustion).toBe(combatExhaustion + 55);
+    expect(agent(after, a2).state.exhaustion).toBe(
+      report.combatReports[0]!.participants.find((x) => x.id === a2)!.final.exhaustion,
+    );
+  });
+
+  it('lets an Agent that is not Fit for work be deployed', () => {
+    const created = addMissionSite(newCampaign(), 'apprehend_member');
+    let state = tweak(created.state, (world) => {
+      for (const agent of Object.values(world.agents)) {
+        agent.state.exhaustion = 90;
+      }
+    });
+    const [a1] = agentIds(state) as [string];
+    state = act(state, 'deployAgents', { missionSite: created.site, agents: [a1] });
+    expect(agent(state, a1).state.assignment?.kind).toBe('Deployed');
+  });
+});
+
 describe('RECOVER: Acceptance examples', () => {
   it('Health recovery rate', () => {
     const rate = (pct: number) =>
@@ -532,13 +644,15 @@ describe('RECOVER: Acceptance examples', () => {
   });
 
   it('Returning from a Combat until Standby', () => {
-    // The Combat is stipulated to leave a1 with current health 22 and exhaustion 14, on Recovery, In transit.
+    // The Combat is stipulated to leave a1 with current health 22 and exhaustion 14, on Recovery, In transit; no
+    // Agent of its team was Killed, so Mission exhaustion raises its exhaustion by 5, to 19.
     let state = newCampaign({ money: 5000 });
     const [a1] = agentIds(state) as [string];
+    expect(missionExhaustion(0, 1, gdrs.agentParameters)).toBe(5);
     state = tweak(state, (world) => {
       const s = world.agents[a1]!.state;
       s.currentHealth = 22;
-      s.exhaustion = 14;
+      s.exhaustion = 14 + 5;
       s.assignment = { kind: 'Recovery' };
       s.status = 'InTransit';
     });
@@ -551,7 +665,7 @@ describe('RECOVER: Acceptance examples', () => {
     state = advance(state); // arrives; no recovery
     expect(agent(state, a1).state).toMatchObject({
       currentHealth: 22,
-      exhaustion: 14,
+      exhaustion: 19,
       status: 'Recovering',
     });
     expectRejected(
@@ -561,9 +675,9 @@ describe('RECOVER: Acceptance examples', () => {
       'agents_cannot_be_ordered',
     );
     const expected: [number, number][] = [
-      [23, 9],
-      [24, 4],
-      [25, 0],
+      [23, 14],
+      [24, 9],
+      [25, 4],
       [26, 0],
       [27, 0],
       [28, 0],
@@ -601,12 +715,13 @@ describe('RECOVER: Acceptance examples', () => {
     });
     const exhaustion = (s: CampaignState) =>
       [b1, b2, c1, c2, c3, c5].map((id) => agent(s, id).state.exhaustion);
+    // c1 and c2 do not recover, and their work adds 1 in each Advance turn.
     state = advance(state);
-    expect(exhaustion(state)).toEqual([0, 9, 14, 14, 14, 9]);
+    expect(exhaustion(state)).toEqual([0, 9, 15, 15, 14, 9]);
     state = advance(state);
-    expect(exhaustion(state)).toEqual([0, 4, 14, 14, 9, 4]);
+    expect(exhaustion(state)).toEqual([0, 4, 16, 16, 9, 4]);
     state = advance(state);
-    expect(exhaustion(state)).toEqual([0, 0, 14, 14, 4, 0]);
+    expect(exhaustion(state)).toEqual([0, 0, 17, 17, 4, 0]);
     expect(agent(state, b2).state.currentHealth).toBe(30);
   });
 

@@ -28,7 +28,10 @@ export interface Combatant {
   readonly state: CombatantState;
 }
 
-/** COMBAT, Incapacitation condition: alive and effective skill ≤ incapacitation_skill_fraction × skill. */
+/**
+ * COMBAT, Incapacitation condition: alive and either effective skill ≤ incapacitation_skill_fraction × skill (the
+ * skill clause) or exhaustion ≥ exhaustion_incapacitation (the exhaustion clause).
+ */
 export function meetsIncapacitationCondition(
   combatant: CombatantState,
   combat: CombatParametersGdr,
@@ -36,7 +39,10 @@ export function meetsIncapacitationCondition(
 ): boolean {
   return (
     combatant.currentHealth > 0 &&
-    q(effectiveSkill(combatant, agentParameters)).lte(combat.incapacitationSkillFraction.mul(combatant.skill))
+    (combatant.exhaustion >= agentParameters.exhaustionIncapacitation ||
+      q(effectiveSkill(combatant, agentParameters)).lte(
+        combat.incapacitationSkillFraction.mul(combatant.skill),
+      ))
   );
 }
 
@@ -190,13 +196,12 @@ export function fightCombat(input: {
       healthRemoved = Math.min(damage, defender.state.currentHealth);
       defender.state.currentHealth -= healthRemoved;
     }
+    // COMBAT, Effects of an attack, step 4: no upper clamp applies.
     attacker.state.exhaustion = clampExhaustion(
       attacker.state.exhaustion + agentParameters.exhaustionPerAttack,
-      agentParameters,
     );
     defender.state.exhaustion = clampExhaustion(
       defender.state.exhaustion + agentParameters.exhaustionPerDefense,
-      agentParameters,
     );
     attacker.damageDealt += healthRemoved;
     defender.damageTaken += healthRemoved;
@@ -231,7 +236,7 @@ export function fightCombat(input: {
     outcome = 'Wiped';
   }
 
-  const bound = (agents.length + enemies.length) * Math.max(1, agentParameters.exhaustionCap) + 1;
+  const bound = (agents.length + enemies.length) * Math.max(1, agentParameters.exhaustionIncapacitation) + 1;
   while (outcome === null) {
     rounds += 1;
     if (rounds > bound) {

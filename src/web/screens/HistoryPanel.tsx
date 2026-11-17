@@ -67,7 +67,7 @@ export function HistoryPanel({ snapshot }: { snapshot: Snapshot }) {
                           {mission.killed.length > 0 ? `, ${mission.killed.length} killed` : ''}
                         </Badge>
                       ))}
-                      {entry.report.completedInvestigations.length > 0 ? (
+                      {entry.report.investigationsCompleted.length > 0 ? (
                         <Badge tone="accent">Lead completed</Badge>
                       ) : null}
                       {entry.report.discoveredLeads.length > 0 ? (

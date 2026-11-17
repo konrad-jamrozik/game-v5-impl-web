@@ -5,7 +5,14 @@
  */
 import { must } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
-import { canBeAssigned, createAgent, recordParticipation } from '../mechanics/agents/agents.ts';
+import {
+  canBeAssigned,
+  createAgent,
+  effectiveSkill,
+  isBaseAssignment,
+  isFitForWork,
+  recordParticipation,
+} from '../mechanics/agents/agents.ts';
 import {
   agencyCaps,
   countDeployed,
@@ -13,11 +20,23 @@ import {
   countTraining,
   effectTotal,
 } from '../mechanics/economy/economy.ts';
+import {
+  progressAfterLoss,
+  requiredProgressOutcome,
+  requiredProgressRange,
+} from '../mechanics/investigations/investigations.ts';
 import { activeInvestigationOf, leadAvailability } from '../mechanics/leads/leads.ts';
+import { seededRandom, type Random } from '../random.ts';
 import { reject, type Rejection } from '../result.ts';
 import type { ActionRecord } from '../rules.ts';
 import { newInstanceId } from '../turn/advance.ts';
-import { isServing, type Agent, type CurrentWorldState, type SimpleAssignment } from '../state/types.ts';
+import {
+  isServing,
+  type Agent,
+  type Assignment,
+  type CurrentWorldState,
+  type SimpleAssignment,
+} from '../state/types.ts';
 
 /** The names of the gameplay actions of `player.actions`, other than Advance turn. */
 export const PLAYER_ACTIONS = [
@@ -80,25 +99,68 @@ function requireOrderable(agents: readonly Agent[]): Rejection | null {
     : null;
 }
 
+/** AGENT, Start-work gate: a new Work Assignment requires every Agent to be Fit for work. */
+function requireFitForWork(agents: readonly Agent[], gdrs: GdrCatalog): Rejection | null {
+  const tired = agents.filter((agent) => !isFitForWork(agent.state, gdrs.agentParameters));
+  return tired.length > 0
+    ? reject(
+        'agents_not_fit_for_work',
+        `These Agents are not Fit for work: their exhaustion is above ${gdrs.agentParameters.exhaustionWorkStartMax}: ${list(tired.map((a) => a.id))}.`,
+      )
+    : null;
+}
+
+/**
+ * The Investigations that members leave in one Player action, each with what INVSTG, Progress loss reads of the
+ * Committed state in which the action is requested: the members At assignment and their effective skill.
+ */
+type Leaving = Map<string, ReadonlyMap<string, number>>;
+
 /**
  * Gives an Agent a new Current assignment. An Agent that leaves an Investigation is recorded in its Participation
- * history, and the Investigation is noted so that it can become Abandoned after all changes of the action.
+ * history, and the Investigation is noted, with its members At assignment before any change of the action, so that
+ * it can lose progress and become Abandoned after all changes of the action.
  */
-function leaveCurrentTeam(world: CurrentWorldState, agent: Agent, left: Set<string>): void {
+function leaveCurrentTeam(world: CurrentWorldState, agent: Agent, left: Leaving, gdrs: GdrCatalog): void {
   const assignment = agent.state.assignment;
   if (assignment?.kind === 'Investigation') {
     const investigation = must(world.investigations[assignment.investigation], 'Investigation of an Agent');
+    if (!left.has(investigation.id)) {
+      left.set(
+        investigation.id,
+        new Map(
+          investigation.state.currentTeam
+            .map((id) => must(world.agents[id], `Agent ${id}`))
+            .filter((member) => member.state.status === 'AtAssignment')
+            .map((member) => [member.id, effectiveSkill(member.state, gdrs.agentParameters)]),
+        ),
+      );
+    }
     investigation.state.currentTeam = investigation.state.currentTeam.filter((id) => id !== agent.id);
     recordParticipation(agent.state, 'Investigation', investigation.id);
-    left.add(investigation.id);
   }
 }
 
-/** INVSTG, Abandonment: an Active Investigation left with an empty Current team becomes Abandoned. */
-function abandonEmptied(world: CurrentWorldState, left: ReadonlySet<string>): void {
-  for (const id of left) {
+/**
+ * INVSTG, Progress loss, then Abandonment: once for each Investigation that members left in this Player action,
+ * after all of the action's other changes.
+ */
+function settleLeftInvestigations(world: CurrentWorldState, left: Leaving): void {
+  for (const [id, before] of left) {
     const investigation = must(world.investigations[id], 'Investigation');
-    if (investigation.state.lifecycle === 'Active' && investigation.state.currentTeam.length === 0) {
+    if (investigation.state.lifecycle !== 'Active') {
+      continue;
+    }
+    let skillBefore = 0;
+    let skillAfter = 0;
+    for (const [member, skill] of before) {
+      skillBefore += skill;
+      if (investigation.state.currentTeam.includes(member)) {
+        skillAfter += skill;
+      }
+    }
+    investigation.state.progress = progressAfterLoss(investigation.state.progress, skillBefore, skillAfter);
+    if (investigation.state.currentTeam.length === 0) {
       investigation.state.lifecycle = 'Abandoned';
     }
   }
@@ -144,6 +206,12 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
       `These Agents already have the Current assignment ${assignment}: ${list(already.map((a) => a.id))}.`,
     );
   }
+  if (assignment === 'Contracting' || assignment === 'Training') {
+    const tired = requireFitForWork(agents, gdrs);
+    if (tired) {
+      return tired;
+    }
+  }
   if (assignment === 'Training') {
     const training = countTraining(Object.values(world.agents).map((agent) => agent.state));
     const cap = agencyCaps(gdrs.economy, gdrs.upgrades, world.agency.state.acquisitions).trainingCap;
@@ -154,13 +222,16 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
       );
     }
   }
-  const left = new Set<string>();
+  const left: Leaving = new Map();
   for (const agent of agents) {
-    leaveCurrentTeam(world, agent, left);
-    agent.state.assignment = { kind: assignment as SimpleAssignment };
-    agent.state.status = 'InTransit';
+    leaveCurrentTeam(world, agent, left, gdrs);
+    const newAssignment: Assignment = { kind: assignment as SimpleAssignment };
+    // AGENT, Transit rule: a move between Base Assignments travels nowhere and is At assignment at once.
+    const withinBase = isBaseAssignment(agent.state.assignment) && isBaseAssignment(newAssignment);
+    agent.state.assignment = newAssignment;
+    agent.state.status = withinBase ? 'AtAssignment' : 'InTransit';
   }
-  abandonEmptied(world, left);
+  settleLeftInvestigations(world, left);
   return null;
 }
 
@@ -238,7 +309,12 @@ function purchaseUpgrade(world: CurrentWorldState, args: Args, gdrs: GdrCatalog)
 }
 
 /** INVSTG, Starting an Investigation. */
-function startInvestigation(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
+function startInvestigation(
+  world: CurrentWorldState,
+  args: Args,
+  gdrs: GdrCatalog,
+  random: Random | null,
+): Rejection | null {
   const lead = gdrs.leads.find((item) => item.id === args['lead']);
   const availability = lead === undefined ? null : leadAvailability(lead, world);
   // Condition 1: an undiscovered Lead is rejected with the same error as an unknown one, so that the rejection does
@@ -263,29 +339,45 @@ function startInvestigation(world: CurrentWorldState, args: Args, gdrs: GdrCatal
   if (isRejected(agents)) {
     return agents;
   }
-  const blocked = requireOrderable(agents);
+  const blocked = requireOrderable(agents) ?? requireFitForWork(agents, gdrs);
   if (blocked) {
     return blocked;
   }
+  // INVSTG, Required progress range and outcome: drawn only by a successful startInvestigation.
+  const range = requiredProgressRange(lead.requiredProgress, gdrs.investigationParameters);
+  const actualRequiredProgress = (random ?? seededRandom(world.rng, world.randomOverrides)).uniform(
+    requiredProgressOutcome(lead.id),
+    range.min,
+    range.max,
+  );
   const id = newInstanceId(world, 'investigation');
-  const left = new Set<string>();
+  const left: Leaving = new Map();
   for (const agent of agents) {
-    leaveCurrentTeam(world, agent, left);
+    leaveCurrentTeam(world, agent, left, gdrs);
     agent.state.assignment = { kind: 'Investigation', investigation: id };
     agent.state.status = 'InTransit';
   }
   world.investigations[id] = {
     id,
     archetype: gdrs.investigationArchetype.id,
-    constants: { lead: lead.id, turnStarted: world.turn },
-    state: { lifecycle: 'Active', progress: 0, currentTeam: agents.map((agent) => agent.id) },
+    constants: { lead: lead.id, turnStarted: world.turn, actualRequiredProgress },
+    state: {
+      lifecycle: 'Active',
+      progress: 0,
+      assessed: false,
+      currentTeam: agents.map((agent) => agent.id),
+    },
   };
-  abandonEmptied(world, left);
+  settleLeftInvestigations(world, left);
   return null;
 }
 
 /** INVSTG, Assigning Agents to an Investigation. */
-function assignAgentsToInvestigation(world: CurrentWorldState, args: Args): Rejection | null {
+function assignAgentsToInvestigation(
+  world: CurrentWorldState,
+  args: Args,
+  gdrs: GdrCatalog,
+): Rejection | null {
   const investigationId = args['investigation'];
   const investigation =
     typeof investigationId === 'string' ? world.investigations[investigationId] : undefined;
@@ -313,14 +405,18 @@ function assignAgentsToInvestigation(world: CurrentWorldState, args: Args): Reje
       `These Agents already belong to its Current team: ${list(members.map((a) => a.id))}.`,
     );
   }
-  const left = new Set<string>();
+  const tired = requireFitForWork(agents, gdrs);
+  if (tired) {
+    return tired;
+  }
+  const left: Leaving = new Map();
   for (const agent of agents) {
-    leaveCurrentTeam(world, agent, left);
+    leaveCurrentTeam(world, agent, left, gdrs);
     agent.state.assignment = { kind: 'Investigation', investigation: investigation.id };
     agent.state.status = 'InTransit';
     investigation.state.currentTeam.push(agent.id);
   }
-  abandonEmptied(world, left);
+  settleLeftInvestigations(world, left);
   return null;
 }
 
@@ -345,6 +441,14 @@ function deployAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
   if (blocked) {
     return blocked;
   }
+  // Condition 7: only an Agent on a Base Assignment can be deployed.
+  const away = agents.filter((agent) => !isBaseAssignment(agent.state.assignment));
+  if (away.length > 0) {
+    return reject(
+      'agents_not_in_base',
+      `These Agents are not on Standby or Training and must first be recalled to base: ${list(away.map((a) => a.id))}.`,
+    );
+  }
   const deployed = countDeployed(Object.values(world.agents).map((agent) => agent.state));
   const cap = agencyCaps(gdrs.economy, gdrs.upgrades, world.agency.state.acquisitions).transportCap;
   if (deployed + agents.length > cap) {
@@ -362,13 +466,10 @@ function deployAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
     constants: { missionSite: site.id, turnDeployed: world.turn, teamSent: team },
     state: { lifecycle: 'Deployed', currentTeam: [...team] },
   };
-  const left = new Set<string>();
   for (const agent of agents) {
-    leaveCurrentTeam(world, agent, left);
     agent.state.assignment = { kind: 'Deployed', mission: id };
     agent.state.status = 'AtAssignment';
   }
-  abandonEmptied(world, left);
   return null;
 }
 
@@ -414,11 +515,12 @@ function addAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Reje
 const OUTCOME_PATTERNS: readonly {
   readonly pattern: RegExp;
   readonly value: 'boolean' | 'whole' | 'text';
-  readonly instance: 'combatant' | 'investigation' | 'faction';
+  readonly instance: 'combatant' | 'agent' | 'lead' | 'faction';
 }[] = [
+  { pattern: /^agent\.trainingGain\.(.+)$/, value: 'boolean', instance: 'agent' },
   { pattern: /^combat\.hit\.(.+)$/, value: 'boolean', instance: 'combatant' },
   { pattern: /^combat\.damage\.(.+)$/, value: 'whole', instance: 'combatant' },
-  { pattern: /^investigation\.completion\.(.+)$/, value: 'boolean', instance: 'investigation' },
+  { pattern: /^investigation\.requiredProgress\.(.+)$/, value: 'whole', instance: 'lead' },
   { pattern: /^faction\.(.+)\.levelDuration$/, value: 'whole', instance: 'faction' },
   { pattern: /^faction\.(.+)\.operationInterval$/, value: 'whole', instance: 'faction' },
   { pattern: /^faction\.(.+)\.operationLevel$/, value: 'whole', instance: 'faction' },
@@ -426,7 +528,7 @@ const OUTCOME_PATTERNS: readonly {
 ];
 
 /** DEV, Random outcome overrides: the named random outcome takes the supplied value when it is next decided. */
-function overrideRandomOutcome(world: CurrentWorldState, args: Args): Rejection | null {
+function overrideRandomOutcome(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
   const outcome = args['outcome'];
   const value = args['value'];
   if (typeof outcome !== 'string') {
@@ -441,13 +543,15 @@ function overrideRandomOutcome(world: CurrentWorldState, args: Args): Rejection 
     const exists =
       known.instance === 'combatant'
         ? world.agents[instanceId] !== undefined || world.enemies[instanceId] !== undefined
-        : known.instance === 'investigation'
-          ? world.investigations[instanceId] !== undefined
-          : world.factions[instanceId] !== undefined;
+        : known.instance === 'agent'
+          ? world.agents[instanceId] !== undefined
+          : known.instance === 'lead'
+            ? gdrs.leads.some((lead) => lead.id === instanceId)
+            : world.factions[instanceId] !== undefined;
     if (!exists) {
       return reject(
         'unknown_instance',
-        `${instanceId} identifies no Campaign instance that has this random outcome.`,
+        `${instanceId} identifies no Campaign instance or Lead that has this random outcome.`,
       );
     }
     const valid =
@@ -474,6 +578,7 @@ export function applyGameAction(
   world: CurrentWorldState,
   record: ActionRecord,
   gdrs: GdrCatalog,
+  random: Random | null = null,
 ): Rejection | null {
   // ENDING, After a Campaign ending: every Player action is rejected, whatever else also fails.
   if (world.ending !== null) {
@@ -492,9 +597,9 @@ export function applyGameAction(
       case 'purchaseUpgrade':
         return purchaseUpgrade(world, args, gdrs);
       case 'startInvestigation':
-        return startInvestigation(world, args, gdrs);
+        return startInvestigation(world, args, gdrs, random);
       case 'assignAgentsToInvestigation':
-        return assignAgentsToInvestigation(world, args);
+        return assignAgentsToInvestigation(world, args, gdrs);
       case 'deployAgents':
         return deployAgents(world, args, gdrs);
     }
@@ -505,7 +610,7 @@ export function applyGameAction(
       case 'addAgents':
         return addAgents(world, args, gdrs);
       case 'overrideRandomOutcome':
-        return overrideRandomOutcome(world, args);
+        return overrideRandomOutcome(world, args, gdrs);
     }
   }
   return reject('unknown_action', 'There is no such action.', 'invalid_input');

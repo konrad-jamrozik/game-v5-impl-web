@@ -14,11 +14,18 @@ export interface AgentParametersGdr {
   readonly type: 'AgentParameters';
   readonly id: string;
   readonly initialRosterSize: number;
-  readonly exhaustionCap: number;
+  readonly exhaustionIncapacitation: number;
   readonly exhaustionFreePoints: number;
   readonly skillPenaltyPctPerExhaustion: number;
   readonly exhaustionPerAttack: number;
   readonly exhaustionPerDefense: number;
+  readonly exhaustionPerMission: number;
+  readonly exhaustionPerPctKilled: number;
+  readonly exhaustionPerContractingTurn: number;
+  readonly exhaustionPerTrainingTurn: number;
+  readonly exhaustionPerInvestigationTurn: number;
+  readonly exhaustionWorkStartMax: number;
+  readonly exhaustionWorkLimit: number;
   readonly trainingSkillGainPerTurn: number;
 }
 
@@ -130,7 +137,8 @@ export interface LeadGdr {
   readonly description: string;
   /** The identifier of a FactionArchetype. */
   readonly faction: string;
-  readonly difficulty: number;
+  /** The Required progress, in progress points (INVSTG, LEAD). */
+  readonly requiredProgress: number;
   readonly requires: readonly { readonly missionWon: string }[];
   readonly onCompletion: { readonly createMissionSite: string };
 }
@@ -139,6 +147,16 @@ export interface InvestigationArchetypeGdr {
   readonly type: 'InvestigationArchetype';
   readonly id: string;
   readonly name: string;
+}
+
+/** INVSTG, InvestigationParameters. */
+export interface InvestigationParametersGdr {
+  readonly type: 'InvestigationParameters';
+  readonly id: string;
+  /** The exponent e of the team efficiency n^e / n, read exactly as written. */
+  readonly teamEfficiencyExponent: Rational;
+  readonly requiredProgressMaxPct: number;
+  readonly assessmentThresholdPct: number;
 }
 
 export interface MissionSiteArchetypeGdr {
@@ -189,6 +207,7 @@ export type AnyGdr =
   | FactionOperationLevelGdr
   | LeadGdr
   | InvestigationArchetypeGdr
+  | InvestigationParametersGdr
   | MissionSiteArchetypeGdr
   | MissionArchetypeGdr
   | EndingParametersGdr;
@@ -202,6 +221,7 @@ export interface GdrCatalog {
   readonly economy: EconomyParametersGdr;
   readonly agencyArchetype: AgencyArchetypeGdr;
   readonly investigationArchetype: InvestigationArchetypeGdr;
+  readonly investigationParameters: InvestigationParametersGdr;
   readonly missionArchetype: MissionArchetypeGdr;
   readonly endingParameters: EndingParametersGdr;
   readonly configurationParameters: ConfigurationParametersGdr;

@@ -93,11 +93,16 @@ export interface InvestigationConstants {
   /** A reference to the Lead GDR. */
   readonly lead: string;
   readonly turnStarted: number;
+  /** The Actual required progress, in progress points; hidden from the player. */
+  readonly actualRequiredProgress: number;
 }
 
 export interface InvestigationState {
   lifecycle: InvestigationLifecycle;
+  /** Investigation progress, in hundredths of a progress point. */
   progress: number;
+  /** INVSTG, Assessment: changes only from false to true. */
+  assessed: boolean;
   currentTeam: string[];
 }
 export type Investigation = Instance<InvestigationConstants, InvestigationState>;
@@ -278,6 +283,13 @@ export interface MissionResultRecord {
   readonly consequence: ConsequenceRecord;
 }
 
+/** INVSTG, Turn report: one Investigation completed in an Advance turn. */
+export interface InvestigationCompletedRecord {
+  readonly investigation: string;
+  /** The gain its Progress gain added in that Advance turn, in hundredths of a progress point. */
+  readonly gain: number;
+}
+
 export interface TurnReport {
   /** The turn number of the Turn that this Advance turn ended. */
   readonly turn: number;
@@ -289,20 +301,47 @@ export interface TurnReport {
     readonly moneyAfter: number;
   };
   readonly upkeep: { readonly servingAgents: number; readonly upkeep: number; readonly moneyAfter: number };
-  readonly training: readonly { readonly agent: string; readonly skillAfter: number }[];
+  readonly training: readonly {
+    readonly agent: string;
+    /** The Training gain outcome: whether the Agent gained base skill. */
+    readonly gained: boolean;
+    readonly skillAfter: number;
+    readonly exhaustionAfter: number;
+  }[];
+  /** AGENT, Forced return: the Agents that work sent back to Standby in this Advance turn. */
+  readonly forcedReturns: readonly {
+    readonly agent: string;
+    readonly from: 'Contracting' | 'Training' | 'Investigation';
+  }[];
   readonly investigations: readonly {
     readonly investigation: string;
     readonly lead: string;
+    /** Hundredths of a progress point, as are the other progress values. */
     readonly progressGain: number;
-    readonly progressAfter: number;
+    /** Whether it became Assessed in this step. */
+    readonly becameAssessed: boolean;
     readonly completed: boolean;
+    /** The progress lost to the Forced returns of this step, under INVSTG, Progress loss. */
+    readonly progressLost: number;
+    readonly progressAfter: number;
+    /** Whether the Forced returns of this step left it with an empty Current team. */
+    readonly abandoned: boolean;
     readonly createdMissionSite: string | null;
   }[];
+  /**
+   * INVSTG, Turn report: the Investigations completed in this Advance turn, in Campaign state order, each with the
+   * gain of its last Progress gain, in hundredths of a progress point.
+   */
+  readonly investigationsCompleted: readonly InvestigationCompletedRecord[];
   readonly missions: readonly MissionResultRecord[];
   readonly combatReports: readonly CombatReport[];
   /** LEAD, Turn report: the Leads discovered in this Advance turn, by GDR identifier, in Game build order. */
   readonly discoveredLeads: readonly string[];
+  /** MISSION, Turn report: the Mission sites created in this Advance turn, in creation order. */
+  readonly createdMissionSites: readonly string[];
+  /** MISSION, Turn report: the Mission sites that became Cancelled in this Advance turn. */
   readonly cancelledMissionSites: readonly string[];
+  /** MISSION, Turn report: the Mission sites that became Expired in this Advance turn, with their Consequences. */
   readonly expiredMissionSites: readonly {
     readonly missionSite: string;
     readonly missionSiteArchetype: string;
@@ -365,9 +404,11 @@ export interface HistoryEntry {
       /** Agents that survived with current health equal to base health. */
       readonly unharmed: readonly string[];
     }[];
-    readonly completedInvestigations: readonly string[];
+    /** INVSTG, Turn report: the same list as the Turn report, unreduced. */
+    readonly investigationsCompleted: readonly InvestigationCompletedRecord[];
     /** LEAD, Turn report: the same list as the Turn report, unreduced. */
     readonly discoveredLeads: readonly string[];
+    /** MISSION, Turn report: the same three lists as the Turn report, unreduced, by Instance ID. */
     readonly createdMissionSites: readonly string[];
     readonly expiredMissionSites: readonly string[];
     readonly cancelledMissionSites: readonly string[];

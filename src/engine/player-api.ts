@@ -51,6 +51,8 @@ export interface AgentView {
   /** Absent for a Killed or Dismissed Agent. */
   readonly assignment: Assignment | null;
   readonly canBeAssigned: boolean;
+  /** AGENT, Start-work gate: whether the exhaustion is at most exhaustion_work_start_max. */
+  readonly fitForWork: boolean;
   /** Whether the Agent would be able to fight if a Combat began now. */
   readonly ableToFight: boolean;
   readonly participationHistory: readonly Participation[];
@@ -119,20 +121,28 @@ export interface MissionView {
   readonly currentTeam: readonly string[];
 }
 
+/** A value that exists but is hidden from the player, as opposed to an absent value (null); see DEC-039. */
+export type Unknown = 'unknown';
+
 export interface InvestigationView {
   readonly id: string;
   readonly archetype: string;
   readonly lead: string;
   readonly leadName: string;
-  readonly difficulty: number;
   readonly turnStarted: number;
   readonly lifecycle: InvestigationLifecycle;
+  /** Investigation progress, in hundredths of a progress point, e.g. 449 for 4.49 progress points. */
   readonly progress: number;
-  /** The Investigation progress at which it always completes: difficulty × 100. */
-  readonly progressForCertainCompletion: number;
+  /** INVSTG, Assessment: whether its progress has ever reached the assessment threshold of its Lead. */
+  readonly assessed: boolean;
+  /** The Actual required progress exists but is hidden, so it is always reported as unknown; see DEC-039. */
+  readonly actualRequiredProgress: Unknown;
   readonly currentTeam: readonly { readonly agent: string; readonly agentStatus: AgentStatus }[];
-  /** Absent for a Completed or Abandoned Investigation. */
-  readonly projectedCompletionProbability: ProbabilityPair | null;
+  /**
+   * INVSTG, Projected progress gain, in hundredths of a progress point. Absent for a Completed or Abandoned
+   * Investigation.
+   */
+  readonly projectedProgressGain: number | null;
 }
 
 /** Only a discovered Lead has a LeadView; an undiscovered Lead is absent from every result (LEAD). */
@@ -143,7 +153,12 @@ export interface LeadView {
   /** The FactionArchetype the Lead names, and the Faction of the Campaign that has it. */
   readonly factionArchetype: string;
   readonly faction: string | null;
-  readonly difficulty: number;
+  /** INVSTG, Assessment: whether at least one Investigation of the Lead is Assessed. */
+  readonly assessed: boolean;
+  /** The Required progress, in progress points; unknown until the Lead is an Assessed Lead. */
+  readonly requiredProgress: number | Unknown;
+  /** The Required progress range, in progress points; unknown until the Lead is an Assessed Lead. */
+  readonly requiredProgressRange: { readonly min: number; readonly max: number } | Unknown;
   /** Each prerequisite: the MissionSiteArchetype its `mission_won` names, and whether it holds. */
   readonly requires: readonly { readonly missionWon: string; readonly holds: boolean }[];
   /** The MissionSiteArchetype its completion effect creates. */
@@ -303,6 +318,12 @@ export interface GameDataView {
   readonly agentParameters: Readonly<Record<string, number>>;
   readonly combatParameters: Readonly<Record<string, string>>;
   readonly recoveryParameters: Readonly<Record<string, number>>;
+  readonly investigationParameters: {
+    /** A decimal number, as written. */
+    readonly teamEfficiencyExponent: string;
+    readonly requiredProgressMaxPct: number;
+    readonly assessmentThresholdPct: number;
+  };
   readonly economy: Readonly<Record<string, number>>;
   readonly weapons: readonly { readonly id: string; readonly name: string; readonly damage: number }[];
   readonly enemyArchetypes: readonly {
@@ -346,6 +367,18 @@ export interface DeploymentPreview {
   readonly message: string | null;
 }
 
+/**
+ * What INVSTG, Progress loss would do to one Active Investigation if the listed Agents were assigned elsewhere now;
+ * progress is in hundredths of a progress point.
+ */
+export interface ProgressLossPreview {
+  readonly investigation: string;
+  readonly progressBefore: number;
+  readonly progressAfter: number;
+  /** Whether no member would remain, so that the Investigation would become Abandoned. */
+  readonly abandoned: boolean;
+}
+
 /** Player API: ordinary gameplay queries and actions. */
 export interface PlayerApi {
   readonly queries: {
@@ -356,6 +389,8 @@ export interface PlayerApi {
     getAvailableActions(): Result<AvailableActionsView>;
     getGameData(): Result<GameDataView>;
     previewDeployment(missionSite: string | null, agents: readonly string[]): Result<DeploymentPreview>;
+    /** Each Active Investigation that the listed Agents that can be assigned would leave; see DEC-040. */
+    previewProgressLoss(agents: readonly string[]): Result<readonly ProgressLossPreview[]>;
   };
   readonly actions: {
     assignAgents(agents: readonly string[], assignment: SimpleAssignment): Promise<Result<CommitOutcome>>;

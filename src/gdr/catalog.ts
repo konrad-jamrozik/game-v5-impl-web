@@ -56,22 +56,36 @@ const schemas = {
       id,
       type: z.literal('AgentParameters'),
       initial_roster_size: whole(0),
-      exhaustion_cap: whole(0),
+      exhaustion_incapacitation: whole(0),
       exhaustion_free_points: whole(0),
       skill_penalty_pct_per_exhaustion: whole(0),
       exhaustion_per_attack: whole(0),
       exhaustion_per_defense: whole(0),
+      exhaustion_per_mission: whole(0),
+      exhaustion_per_pct_killed: whole(0),
+      exhaustion_per_contracting_turn: whole(0),
+      exhaustion_per_training_turn: whole(0),
+      exhaustion_per_investigation_turn: whole(0),
+      exhaustion_work_start_max: whole(0),
+      exhaustion_work_limit: whole(0),
       training_skill_gain_per_turn: whole(0),
     })
     .transform((g) => ({
       type: g.type,
       id: g.id,
       initialRosterSize: g.initial_roster_size,
-      exhaustionCap: g.exhaustion_cap,
+      exhaustionIncapacitation: g.exhaustion_incapacitation,
       exhaustionFreePoints: g.exhaustion_free_points,
       skillPenaltyPctPerExhaustion: g.skill_penalty_pct_per_exhaustion,
       exhaustionPerAttack: g.exhaustion_per_attack,
       exhaustionPerDefense: g.exhaustion_per_defense,
+      exhaustionPerMission: g.exhaustion_per_mission,
+      exhaustionPerPctKilled: g.exhaustion_per_pct_killed,
+      exhaustionPerContractingTurn: g.exhaustion_per_contracting_turn,
+      exhaustionPerTrainingTurn: g.exhaustion_per_training_turn,
+      exhaustionPerInvestigationTurn: g.exhaustion_per_investigation_turn,
+      exhaustionWorkStartMax: g.exhaustion_work_start_max,
+      exhaustionWorkLimit: g.exhaustion_work_limit,
       trainingSkillGainPerTurn: g.training_skill_gain_per_turn,
     })),
   Weapon: z
@@ -235,7 +249,7 @@ const schemas = {
       name,
       description: z.string().min(1),
       faction: id,
-      difficulty: whole(1),
+      required_progress: whole(1),
       requires: z.array(entries(z.unknown())),
       on_completion: entries(z.unknown()),
     })
@@ -264,12 +278,27 @@ const schemas = {
         name: g.name,
         description: g.description,
         faction: g.faction,
-        difficulty: g.difficulty,
+        requiredProgress: g.required_progress,
         requires,
         onCompletion: { createMissionSite: effect[1] },
       };
     }),
   InvestigationArchetype: z.strictObject({ id, type: z.literal('InvestigationArchetype'), name }),
+  InvestigationParameters: z
+    .strictObject({
+      id,
+      type: z.literal('InvestigationParameters'),
+      team_efficiency_exponent: decimal,
+      required_progress_max_pct: whole(100),
+      assessment_threshold_pct: z.int().min(1).max(100),
+    })
+    .transform((g) => ({
+      type: g.type,
+      id: g.id,
+      teamEfficiencyExponent: g.team_efficiency_exponent,
+      requiredProgressMaxPct: g.required_progress_max_pct,
+      assessmentThresholdPct: g.assessment_threshold_pct,
+    })),
   MissionSiteArchetype: z
     .strictObject({
       id,
@@ -383,6 +412,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const economy = single<GdrCatalog['economy']>('EconomyParameters');
   const agencyArchetype = single<GdrCatalog['agencyArchetype']>('AgencyArchetype');
   const investigationArchetype = single<GdrCatalog['investigationArchetype']>('InvestigationArchetype');
+  const investigationParameters = single<GdrCatalog['investigationParameters']>('InvestigationParameters');
   const missionArchetype = single<GdrCatalog['missionArchetype']>('MissionArchetype');
   const endingParameters = single<GdrCatalog['endingParameters']>('EndingParameters');
   const configurationParameters = single<GdrCatalog['configurationParameters']>('ConfigurationParameters');
@@ -427,12 +457,23 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     if (agentParameters.exhaustionPerAttack + agentParameters.exhaustionPerDefense < 1) {
       problems.push('AgentParameters: every attack must tire someone');
     }
-    if (combatParameters) {
-      const over = Math.max(0, agentParameters.exhaustionCap - agentParameters.exhaustionFreePoints);
-      const penaltyAtCap = Math.max(0, 100 - agentParameters.skillPenaltyPctPerExhaustion * over);
-      if (q(penaltyAtCap).gt(combatParameters.incapacitationSkillFraction.mul(100))) {
-        problems.push('Exhaustion at the cap must incapacitate: the penalty factor at the cap is too high');
-      }
+    // AGENT, Agent GDR validation, rule 6: exhaustion thresholds are ordered.
+    if (agentParameters.exhaustionWorkStartMax >= agentParameters.exhaustionWorkLimit) {
+      problems.push('AgentParameters: exhaustion_work_start_max must be less than exhaustion_work_limit');
+    }
+    if (agentParameters.exhaustionWorkLimit > agentParameters.exhaustionIncapacitation) {
+      problems.push('AgentParameters: exhaustion_work_limit must be at most exhaustion_incapacitation');
+    }
+  }
+
+  // INVSTG, Investigation GDR validation, rule 4: a decimal number with at most two digits after the decimal point,
+  // greater than 0 and at most 1. Rules 5 and 6 are checked by the schema.
+  if (investigationParameters) {
+    const exponent = investigationParameters.teamEfficiencyExponent;
+    if (exponent.lte(0) || exponent.gt(1) || !exponent.mul(100).isWhole()) {
+      problems.push(
+        'InvestigationParameters: team_efficiency_exponent must be greater than 0, at most 1, and have at most two digits after the decimal point',
+      );
     }
   }
 
@@ -549,6 +590,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     !economy ||
     !agencyArchetype ||
     !investigationArchetype ||
+    !investigationParameters ||
     !missionArchetype ||
     !endingParameters ||
     !configurationParameters
@@ -564,6 +606,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     economy,
     agencyArchetype,
     investigationArchetype,
+    investigationParameters,
     missionArchetype,
     endingParameters,
     configurationParameters,

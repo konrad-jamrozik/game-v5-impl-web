@@ -1,27 +1,8 @@
 /** The Turn report of the most recent Advance turn, with each Mission's Combat report. */
-import type { CombatReport, ConsequenceRecord, TurnReport } from '../../engine/index.ts';
+import type { CombatReport, TurnReport } from '../../engine/index.ts';
 import type { Snapshot } from '../store.ts';
-import { Badge, Section, percent, signed } from '../ui.tsx';
-
-function consequenceText(c: ConsequenceRecord): string {
-  const parts: string[] = [];
-  if (c.money !== 0) {
-    parts.push(`money ${signed(c.money)}`);
-  }
-  if (c.fundingChange !== 0) {
-    parts.push(`funding ${signed(c.fundingChange)}`);
-  }
-  if (c.panicIncrease !== 0) {
-    parts.push(`Panic +${c.panicIncrease}`);
-  }
-  if (c.panicReduction !== 0) {
-    parts.push(`Panic −${c.panicReduction}`);
-  }
-  if (c.eliminatedFaction !== null) {
-    parts.push(`eliminated ${c.eliminatedFaction}`);
-  }
-  return parts.join(', ') || 'no consequence';
-}
+import { consequenceText, progressPoints } from '../format.ts';
+import { Badge, Section, percent } from '../ui.tsx';
 
 const CONDITIONS = { ableToFight: 'able to fight', incapacitated: 'incapacitated', dead: 'dead' } as const;
 
@@ -126,13 +107,24 @@ function Lines({ report }: { report: TurnReport }) {
     lines.push(`Arrived at their assignment: ${report.transit.arrived.join(', ')}.`);
   }
   for (const training of report.training) {
-    lines.push(`${training.agent} trained to skill ${training.skillAfter}.`);
+    lines.push(
+      training.gained
+        ? `${training.agent} trained to skill ${training.skillAfter}.`
+        : `${training.agent} trained but gained no skill.`,
+    );
   }
   for (const item of report.investigations) {
     lines.push(
-      `Investigation ${item.investigation} of ${item.lead}: progress +${item.progressGain} to ${item.progressAfter}` +
-        (item.completed ? `; completed and created Mission site ${item.createdMissionSite ?? ''}.` : '.'),
+      `Investigation ${item.investigation} of ${item.lead}: progress +${progressPoints(item.progressGain)}` +
+        (item.becameAssessed ? ', now assessed' : '') +
+        (item.completed ? `; completed and created Mission site ${item.createdMissionSite ?? ''}` : '') +
+        (item.progressLost > 0 ? `; ${progressPoints(item.progressLost)} lost to exhausted members` : '') +
+        `; progress now ${progressPoints(item.progressAfter)}.` +
+        (item.abandoned ? ' Its last member was too exhausted to go on, so it was abandoned.' : ''),
     );
+  }
+  for (const item of report.forcedReturns) {
+    lines.push(`${item.agent} was too exhausted to go on with ${item.from} and returned to Standby.`);
   }
   for (const site of report.cancelledMissionSites) {
     lines.push(`Mission site ${site} was cancelled.`);

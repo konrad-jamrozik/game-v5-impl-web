@@ -2,6 +2,7 @@
  * ECON (Economy and Upgrades): the Agency caps, income, upkeep, funding changes, and Upgrade effects. Every function
  * receives only the values it needs; see DEC-003.
  */
+import { q, ratio, roundDown, type Rational } from '../../../kernel/index.ts';
 import type { EconomyParametersGdr, UpgradeEffect, UpgradeGdr } from '../../../gdr/index.ts';
 import { isServing, type AgentState } from '../../state/types.ts';
 
@@ -58,14 +59,37 @@ export function countDeployed(agents: readonly AgentLike[]): number {
 }
 
 /** Serving Agents on Contracting and At assignment. */
-export function countContractingAtAssignment(agents: readonly AgentLike[]): number {
-  return agents.filter((agent) => agent.status === 'AtAssignment' && agent.assignment?.kind === 'Contracting')
-    .length;
+export function contractingAtAssignment<T extends AgentLike>(agents: readonly T[]): T[] {
+  return agents.filter(
+    (agent) => agent.status === 'AtAssignment' && agent.assignment?.kind === 'Contracting',
+  );
 }
 
-/** ECON, Agency income: income = funding + contracting_income_per_agent × C. */
-export function income(funding: number, contractingAgents: number, economy: EconomyParametersGdr): number {
-  return funding + economy.contractingIncomePerAgent * contractingAgents;
+/** ECON, Agency income: the constants of the contribution rule, not GDR values. */
+export const CONTRACTING_REFERENCE_SKILL = 100;
+export const CONTRACTING_SKILL_DIVISOR = 500;
+
+/** ECON, Agency income: contribution of one Agent = contracting_income_per_agent × (1 + (effective skill − 100) / 500). */
+export function contractingContribution(effectiveSkill: number, economy: EconomyParametersGdr): Rational {
+  return q(economy.contractingIncomePerAgent).mul(
+    q(1).add(ratio(effectiveSkill - CONTRACTING_REFERENCE_SKILL, CONTRACTING_SKILL_DIVISOR)),
+  );
+}
+
+/**
+ * ECON, Agency income: income = funding + round down( sum of the contributions of the Agents in C ). Each
+ * contribution is exact and the sum is rounded once.
+ */
+export function income(
+  funding: number,
+  contractingEffectiveSkills: readonly number[],
+  economy: EconomyParametersGdr,
+): number {
+  let sum = q(0);
+  for (const skill of contractingEffectiveSkills) {
+    sum = sum.add(contractingContribution(skill, economy));
+  }
+  return funding + roundDown(sum);
 }
 
 /** ECON, Upkeep: upkeep = upkeep_per_agent × S. */

@@ -19,6 +19,8 @@ export interface BasicAiThresholds {
   readonly restedExhaustion: number;
   /** The greatest exhaustion of an Agent ordered to Contracting for urgent income. */
   readonly urgentExhaustion: number;
+  /** The Recall threshold: an Agent on Contracting or Training with more exhaustion is brought back to Standby. */
+  readonly recallExhaustion: number;
   /** The Agent reserve, as a Percent value of the roster. */
   readonly reservePct: number;
   /** The Expected income to keep, as a Percent value of projected upkeep. */
@@ -44,6 +46,7 @@ export interface BasicAiThresholds {
 export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
   restedExhaustion: 5,
   urgentExhaustion: 25,
+  recallExhaustion: 30,
   reservePct: 20,
   incomeTargetPct: 120,
   savingsFloorTurns: 5,
@@ -107,9 +110,11 @@ class Turn {
 
   // ---- What the goals measure ---------------------------------------------------------------------
 
+  /** A Rested Agent is always Fit for work, so that the engine's start-work gate never rejects its new work. */
   private isRested(agent: AgentView, limit = this.t.restedExhaustion): boolean {
     return (
       agent.canBeAssigned &&
+      agent.fitForWork &&
       (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
       agent.exhaustion <= limit
     );
@@ -130,10 +135,18 @@ class Turn {
       .map((item) => item.agent);
   }
 
-  /** Expected income: funding plus the contracting income of every Agent whose Current assignment is Contracting. */
-  private expectedIncome(state: CurrentStateView): number {
-    const contracting = state.agents.filter((agent) => agent.assignment?.kind === 'Contracting').length;
-    return state.agency.funding + (this.data.economy['contractingIncomePerAgent'] ?? 0) * contracting;
+  /**
+   * Expected income: funding plus the contributions of every Agent whose Current assignment is Contracting, each
+   * from its current effective skill, rounded down once in total as ECON, Agency income computes them. A
+   * contribution is rate × (1 + (effective skill − 100) / 500), so 500 times it is the whole number
+   * rate × (400 + effective skill). `without` leaves one Agent out.
+   */
+  private expectedIncome(state: CurrentStateView, without: string | null = null): number {
+    const rate = this.data.economy['contractingIncomePerAgent'] ?? 0;
+    const timesFiveHundred = state.agents
+      .filter((agent) => agent.assignment?.kind === 'Contracting' && agent.id !== without)
+      .reduce((sum, agent) => sum + rate * (400 + agent.effectiveSkill), 0);
+    return state.agency.funding + Math.floor(timesFiveHundred / 500);
   }
 
   private incomeTarget(state: CurrentStateView): number {
@@ -208,17 +221,16 @@ class Turn {
     );
   }
 
-  /** Step 1: recall an Agent on Contracting or Training whose exhaustion is too high for a Rested Agent. */
+  /** Step 1: recall an Agent on Contracting or Training whose exhaustion is above the Recall threshold. */
   private async recallTired(state: CurrentStateView): Promise<boolean> {
-    const rate = this.data.economy['contractingIncomePerAgent'] ?? 0;
     for (const agent of state.agents) {
       const kind = agent.assignment?.kind;
-      if (!agent.canBeAssigned || agent.exhaustion <= this.t.restedExhaustion) {
+      if (!agent.canBeAssigned || agent.exhaustion <= this.t.recallExhaustion) {
         continue;
       }
       const recall =
         kind === 'Training' ||
-        (kind === 'Contracting' && this.expectedIncome(state) - rate >= this.incomeTarget(state));
+        (kind === 'Contracting' && this.expectedIncome(state, agent.id) >= this.incomeTarget(state));
       if (
         recall &&
         (await this.act(`recall ${agent.id}`, () => this.player.actions.assignAgents([agent.id], 'Standby')))
@@ -240,6 +252,7 @@ class Turn {
           state.agents.filter(
             (agent) =>
               agent.canBeAssigned &&
+              agent.fitForWork &&
               (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
               agent.exhaustion <= this.t.urgentExhaustion,
           ),
@@ -424,7 +437,8 @@ class Turn {
   }
 
   async run(): Promise<void> {
-    // The bound only guards against a defect; every order puts its Agent In transit, so a Turn has few actions.
+    // The bound only guards against a defect: every order either puts its Agent In transit or moves it within base,
+    // and no step moves an Agent back to where an earlier step took it, so a Turn has few actions.
     for (let actions = 0; actions < 10_000; actions += 1) {
       if (!(await this.next())) {
         return;

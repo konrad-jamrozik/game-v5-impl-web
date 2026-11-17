@@ -10,6 +10,7 @@ import {
 import { useMemo, useState } from 'react';
 import type { AgentView, CurrentStateView } from '../../engine/index.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
+import { confirmInterruption } from '../interruption.ts';
 import { Badge, Button } from '../ui.tsx';
 
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
@@ -77,7 +78,21 @@ export function AgentsGrid(props: {
           );
         },
       }),
-      helper.accessor('exhaustion', { header: 'Exhaustion' }),
+      helper.accessor('exhaustion', {
+        header: 'Exhaustion',
+        cell: (cell) => {
+          const agent = cell.row.original;
+          // AGENT, Start-work gate: an Agent that is not Fit for work cannot start new work.
+          return (
+            <span
+              className={agent.fitForWork ? '' : 'tone-warn'}
+              title={agent.fitForWork ? 'Fit for work' : 'Not Fit for work: must rest before new work'}
+            >
+              {agent.exhaustion}
+            </span>
+          );
+        },
+      }),
       helper.accessor('weaponDamage', { header: 'Damage' }),
       helper.accessor(assignmentName, {
         id: 'assignment',
@@ -175,7 +190,9 @@ export function AgentsGrid(props: {
             testId={`order-${assignment.toLowerCase()}`}
             disabledReason={orderReason}
             onClick={() => {
-              act(() => player.actions.assignAgents(selected, assignment));
+              if (confirmInterruption(state, selected)) {
+                act(() => player.actions.assignAgents(selected, assignment));
+              }
             }}
           >
             {assignment}

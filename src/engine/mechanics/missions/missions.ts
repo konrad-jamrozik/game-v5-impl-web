@@ -1,6 +1,7 @@
 /** MISSION (Missions): Mission site creation, MissionSiteArchetype selection, and Consequences. */
-import { must } from '../../../kernel/index.ts';
+import { must, ratio, roundUp } from '../../../kernel/index.ts';
 import type {
+  AgentParametersGdr,
   EnemyArchetypeGdr,
   FactionOperationLevelGdr,
   MissionSiteArchetypeGdr,
@@ -8,6 +9,17 @@ import type {
 } from '../../../gdr/index.ts';
 import type { Random } from '../../random.ts';
 import type { Enemy, MissionSite, MissionSiteOrigin } from '../../state/types.ts';
+
+/**
+ * MISSION, Mission exhaustion: the exhaustion every survivor of a Mission gains,
+ * exhaustion_per_mission + round up( exhaustion_per_pct_killed × 100 × K / D ), whatever the Combat outcome.
+ */
+export function missionExhaustion(killed: number, teamSent: number, parameters: AgentParametersGdr): number {
+  return (
+    parameters.exhaustionPerMission +
+    roundUp(ratio(parameters.exhaustionPerPctKilled * 100 * killed, teamSent))
+  );
+}
 
 /** COMBAT, Enemy creation. */
 export function createEnemy(
