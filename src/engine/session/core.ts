@@ -1,6 +1,7 @@
 import {
   CHOSEN_SEED_LENGTH,
   EngineDefect,
+  deepEqual,
   detach,
   isPermittedSeed,
   seedFromNumbers,
@@ -109,6 +110,8 @@ interface Engagement {
   turnAdvancements: number;
   status: 'active' | 'ended';
   result: DisengagementResult | null;
+  /** The Disengagement Autosave, when it could not be written; see SAVES, Edge cases and failure behavior. */
+  readonly disengagementFailures: AutosaveFailure[];
   callsInStep: number;
   resolveDone: (result: DisengagementResult) => void;
   readonly done: Promise<DisengagementResult>;
@@ -124,7 +127,6 @@ export interface SessionStatus {
   readonly campaignSeed: string | null;
   readonly turn: number | null;
   readonly campaignEnded: boolean;
-  readonly currentSaveId: string | null;
   readonly devMode: boolean;
   readonly autopilot: {
     readonly engagementId: string;
@@ -136,9 +138,8 @@ export interface SaveListEntry {
   readonly saveId: string;
   readonly campaignId: string;
   readonly isAutosave: boolean;
-  readonly autosaveKind: 'current' | 'turnEnd' | 'engagement' | 'return' | null;
+  readonly autosaveKind: 'current' | 'turnEnd' | 'engagement' | 'disengagement' | 'return' | null;
   readonly turn: number;
-  readonly isCurrentSave: boolean;
 }
 
 export interface TimelineStatus {
@@ -150,7 +151,7 @@ export interface TimelineStatus {
 
 export interface AutosaveTarget {
   readonly saveId: string;
-  readonly autosaveKind: 'turnEnd' | 'engagement' | 'return';
+  readonly autosaveKind: 'turnEnd' | 'engagement' | 'disengagement' | 'return';
   readonly turn: number;
 }
 
@@ -186,6 +187,11 @@ export interface CommitOutcome {
   readonly committed: boolean;
 }
 
+/** A Campaign state as a Campaign save stores it, so that values a JSON text cannot hold do not count. */
+function asStored(state: unknown): unknown {
+  return JSON.parse(JSON.stringify(state)) as unknown;
+}
+
 function autosaveKindOf(kind: SaveKind): SaveListEntry['autosaveKind'] {
   switch (kind) {
     case 'currentAutosave':
@@ -194,6 +200,8 @@ function autosaveKindOf(kind: SaveKind): SaveListEntry['autosaveKind'] {
       return 'turnEnd';
     case 'engagementAutosave':
       return 'engagement';
+    case 'disengagementAutosave':
+      return 'disengagement';
     case 'returnAutosave':
       return 'return';
     case 'manual':
@@ -209,6 +217,8 @@ function describeSave(header: Pick<SaveHeader, 'kind' | 'turn' | 'saveId'>): str
       return `the Turn-end Autosave of Turn ${header.turn}`;
     case 'engagementAutosave':
       return `the Engagement Autosave (Turn ${header.turn})`;
+    case 'disengagementAutosave':
+      return `the Disengagement Autosave (Turn ${header.turn})`;
     case 'returnAutosave':
       return `the Return Autosave (Turn ${header.turn})`;
     case 'manual':
@@ -230,10 +240,12 @@ export class EngineCore<S extends ShellState> {
   private readonly lineCache = new Map<string, { stamp: string; line: string[] }>();
 
   private campaign: CampaignRuntime<S> | null = null;
-  private currentSaveId: string | null = null;
   private devMode = false;
   private engagement: Engagement | null = null;
   private readonly endedEngagements = new Map<string, AutopilotStatus>();
+  private readonly endedFailures = new Map<string, readonly AutosaveFailure[]>();
+  /** The Disengagement Autosave being written; every operation waits for it before it starts. */
+  private pendingAutosave: Promise<void> = Promise.resolve();
   private selectedPreset: string;
   private readonly presetEdits = new Map<string, Map<string, number>>();
   private queue: Promise<unknown> = Promise.resolve();
@@ -296,7 +308,11 @@ export class EngineCore<S extends ShellState> {
   // Serialization and access
 
   private runExclusive<T>(operation: () => Promise<T>): Promise<T> {
-    const run = this.queue.then(operation, operation);
+    const guarded = async (): Promise<T> => {
+      await this.pendingAutosave;
+      return operation();
+    };
+    const run = this.queue.then(guarded, guarded);
     this.queue = run.catch(() => undefined);
     return run;
   }
@@ -355,7 +371,7 @@ export class EngineCore<S extends ShellState> {
     if (engagement.callsInStep <= CALL_BUDGET_PER_STEP) {
       return false;
     }
-    this.endEngagement(engagement, 'aiFailed', 'The Autopilot AI exhausted its execution budget.');
+    void this.endEngagement(engagement, 'aiFailed', 'The Autopilot AI exhausted its execution budget.');
     return true;
   }
 
@@ -423,7 +439,6 @@ export class EngineCore<S extends ShellState> {
       campaignSeed: state?.world.current.seed ?? null,
       turn: state?.world.current.turn ?? null,
       campaignEnded: state === null ? false : this.rules.isEnded(state),
-      currentSaveId: this.currentSaveId,
       devMode: this.devMode,
       autopilot:
         engagement === null ? null : { engagementId: engagement.id, autopilotAiId: engagement.ai.id },
@@ -650,7 +665,6 @@ export class EngineCore<S extends ShellState> {
         return this.defectResult(error);
       }
       this.campaign = newCampaignRuntime(this.env.newId(), state, this.env.newId());
-      this.currentSaveId = null;
       this.devMode = false;
       this.presetEdits.clear();
       this.selectedPreset = this.rules.defaultPresetId;
@@ -668,7 +682,6 @@ export class EngineCore<S extends ShellState> {
         return Promise.resolve(denied);
       }
       this.campaign = null;
-      this.currentSaveId = null;
       this.devMode = false;
       this.changed();
       return Promise.resolve(ok(null));
@@ -703,7 +716,6 @@ export class EngineCore<S extends ShellState> {
         isAutosave: header.kind !== 'manual',
         autosaveKind: autosaveKindOf(header.kind),
         turn: header.turn,
-        isCurrentSave: header.saveId === this.currentSaveId,
       }));
       entries.sort((a, b) =>
         a.campaignId === b.campaignId
@@ -850,6 +862,8 @@ export class EngineCore<S extends ShellState> {
         return `${campaignId}.turn-end.${turn}`;
       case 'engagementAutosave':
         return `${campaignId}.engagement`;
+      case 'disengagementAutosave':
+        return `${campaignId}.disengagement`;
       case 'returnAutosave':
         return `${campaignId}.return`;
     }
@@ -860,7 +874,7 @@ export class EngineCore<S extends ShellState> {
    * is reported in the result of the operation that caused it; see SAVES, Edge cases and failure behavior.
    */
   private async writeAutosave(
-    kind: 'currentAutosave' | 'turnEndAutosave' | 'engagementAutosave',
+    kind: 'currentAutosave' | 'turnEndAutosave' | 'engagementAutosave' | 'disengagementAutosave',
     header: SaveHeader,
     saved: SavedCampaign<S>,
     failures: AutosaveFailure[],
@@ -868,9 +882,12 @@ export class EngineCore<S extends ShellState> {
     const failure = await this.writeSave(header, saved);
     if (failure !== null) {
       await this.deleteSave(header.saveId);
+      const autosave = autosaveKindOf(kind);
+      if (autosave === null || autosave === 'return') {
+        throw new EngineDefect(`${kind} is not an Autosave written under SAVES, Autosaves`);
+      }
       failures.push({
-        autosave:
-          kind === 'currentAutosave' ? 'current' : kind === 'turnEndAutosave' ? 'turnEnd' : 'engagement',
+        autosave,
         code: failure.code,
         message: failure.message,
       });
@@ -902,34 +919,66 @@ export class EngineCore<S extends ShellState> {
     }
   }
 
+  /**
+   * SAVES, Saving: writes a new Campaign save, or replaces the Campaign save written by `save()` that holds a
+   * Committed state equal to the current one.
+   */
   save(principal: Principal): Promise<Result<{ saveId: string }>> {
-    return this.runExclusive(() => this.saveTo(principal, this.currentSaveId));
+    return this.runExclusive(async () => {
+      const denied = this.checkSession(principal, { needsCampaign: true, duringAutopilot: false });
+      if (denied) {
+        return denied;
+      }
+      const campaign = this.requireCampaign();
+      const saveId = (await this.equalSave(campaign)) ?? this.env.newId();
+      const failure = await this.writeSave(this.headerFor(campaign, saveId, 'manual'), toSaved(campaign));
+      if (failure !== null) {
+        return fail(failure.code, failure.message);
+      }
+      this.changed();
+      return ok({ saveId });
+    });
   }
 
-  saveAsNew(principal: Principal): Promise<Result<{ saveId: string }>> {
-    return this.runExclusive(() => this.saveTo(principal, null));
-  }
-
-  private async saveTo(principal: Principal, target: string | null): Promise<Result<{ saveId: string }>> {
-    const denied = this.checkSession(principal, { needsCampaign: true, duringAutopilot: false });
-    if (denied) {
-      return denied;
+  /**
+   * The Campaign save that `save()` wrote of this Campaign and whose Committed state equals the current one, if any.
+   * Equal Campaign states belong to the same Turn, so only Campaign saves of the current Turn are compared. A Campaign
+   * save holding the very same Committed state, i.e. the same stamp, is equal without reading it; any other is read
+   * and its Campaign state compared value by value. A Campaign save that cannot be read or loaded is not equal.
+   */
+  private async equalSave(campaign: CampaignRuntime<S>): Promise<string | null> {
+    try {
+      await this.refreshHeaders();
+    } catch {
+      // Compare with the Campaign saves already known.
     }
-    const campaign = this.requireCampaign();
-    const saveId = target ?? this.env.newId();
-    const failure = await this.writeSave(this.headerFor(campaign, saveId, 'manual'), toSaved(campaign));
-    if (failure !== null) {
-      return fail(failure.code, failure.message);
+    const state = currentState(campaign);
+    const here = currentStamp(campaign);
+    const candidates = [...this.headers.values()]
+      .filter(
+        (header) =>
+          header.kind === 'manual' &&
+          header.campaignId === campaign.campaignId &&
+          header.gameBuild === this.rules.gameBuild &&
+          header.turn === state.world.current.turn,
+      )
+      .sort(
+        (a, b) => Number(b.stamp === here) - Number(a.stamp === here) || a.saveId.localeCompare(b.saveId),
+      );
+    for (const header of candidates) {
+      if (header.stamp === here) {
+        return header.saveId;
+      }
+      const loaded = await this.readCampaign(header.saveId);
+      if (!('ok' in loaded) && deepEqual(asStored(currentState(loaded.campaign)), asStored(state))) {
+        return header.saveId;
+      }
     }
-    this.currentSaveId = saveId;
-    this.changed();
-    return ok({ saveId });
+    return null;
   }
 
   /** Reads and rebuilds the Campaign a Campaign save holds, or gives the Load reason. */
-  private async readCampaign(
-    saveId: string,
-  ): Promise<{ campaign: CampaignRuntime<S>; kind: SaveKind } | Result<never>> {
+  private async readCampaign(saveId: string): Promise<{ campaign: CampaignRuntime<S> } | Result<never>> {
     const known = this.headers.get(saveId);
     const name = known ? describeSave(known) : `Campaign save ${saveId}`;
     let body: string | null;
@@ -970,7 +1019,7 @@ export class EngineCore<S extends ShellState> {
           );
         }
       }
-      return { campaign, kind: decoded.kind };
+      return { campaign };
     } catch {
       return fail(
         'corrupt_campaign_save',
@@ -993,7 +1042,6 @@ export class EngineCore<S extends ShellState> {
         return loaded;
       }
       this.campaign = loaded.campaign;
-      this.currentSaveId = loaded.kind === 'manual' ? saveId : null;
       this.devMode = false;
       const failures: AutosaveFailure[] = [];
       await this.writeCurrentAutosave(failures);
@@ -1111,7 +1159,9 @@ export class EngineCore<S extends ShellState> {
         if (header.kind === 'returnAutosave') {
           laterReturn = true;
         }
-        if (line.length < laterLength) {
+        // Of two targets holding the same Committed state, the Return Autosave is loaded, so that going forward
+        // again ends where going back started; see TIMELINE, Autosave navigation.
+        if (line.length < laterLength || (line.length === laterLength && header.kind === 'returnAutosave')) {
           later = header;
           laterLength = line.length;
         }
@@ -1307,7 +1357,7 @@ export class EngineCore<S extends ShellState> {
       commitEntry(campaign, { ...record, args: detach(record.args) }, next, this.env.newId());
       const failures: AutosaveFailure[] = [];
       await this.writeCurrentAutosave(failures);
-      this.afterCommit(principal, false);
+      await this.afterCommit(principal, false, failures);
       this.changed();
       return ok({ committed: true }, failures);
     });
@@ -1358,7 +1408,7 @@ export class EngineCore<S extends ShellState> {
         await this.pruneTurnEndAutosaves(campaign.campaignId);
       }
       await this.writeCurrentAutosave(failures);
-      this.afterCommit(principal, true);
+      await this.afterCommit(principal, true, failures);
       this.changed();
       return ok({ committed: true }, failures);
     });
@@ -1462,6 +1512,7 @@ export class EngineCore<S extends ShellState> {
         turnAdvancements: 0,
         status: 'active',
         result: null,
+        disengagementFailures: [],
         callsInStep: 0,
         resolveDone,
         done,
@@ -1484,30 +1535,63 @@ export class EngineCore<S extends ShellState> {
     };
   }
 
+  /**
+   * Ends the Autopilot engagement and writes the Disengagement Autosave of the Committed state it ended in; see
+   * SAVES, Autosaves. The Committed state is captured at once; the returned promise settles when the Autosave is
+   * written, and the next operation waits for it, so that a caller that cannot wait still sees it written.
+   */
   private endEngagement(
     engagement: Engagement,
     reason: DisengagementReason,
     detail: string | null = null,
-  ): void {
+  ): Promise<void> {
     if (engagement.status !== 'active') {
-      return;
+      return this.pendingAutosave;
     }
     engagement.status = 'ended';
-    engagement.result = {
+    const result: DisengagementResult = {
       engagementId: engagement.id,
       reason,
       limitReached: reason === 'limitReached',
       progress: { playerActions: engagement.playerActions, turnAdvancements: engagement.turnAdvancements },
       detail,
     };
+    engagement.result = result;
     this.endedEngagements.set(engagement.id, this.statusOf(engagement));
     this.engagement = null;
-    engagement.resolveDone(engagement.result);
+    const written = this.writeDisengagementAutosave(engagement.disengagementFailures).then(() => {
+      this.endedFailures.set(engagement.id, engagement.disengagementFailures);
+      engagement.resolveDone(result);
+      this.changed();
+    });
+    this.pendingAutosave = written.catch(() => undefined);
     this.changed();
+    return written;
   }
 
-  /** Counts a committed action toward the Autopilot limit and ends the Autopilot engagement when it is due. */
-  private afterCommit(principal: Principal, advancedTurn: boolean): void {
+  private async writeDisengagementAutosave(failures: AutosaveFailure[]): Promise<void> {
+    const campaign = this.campaign;
+    if (campaign === null) {
+      return;
+    }
+    const turn = currentState(campaign).world.current.turn;
+    const header = this.headerFor(
+      campaign,
+      this.autosaveId(campaign.campaignId, 'disengagementAutosave', turn),
+      'disengagementAutosave',
+    );
+    await this.writeAutosave('disengagementAutosave', header, toSaved(campaign), failures);
+  }
+
+  /**
+   * Counts a committed action toward the Autopilot limit and ends the Autopilot engagement when it is due. A
+   * Disengagement Autosave that cannot be written is reported in the result of the action that caused it.
+   */
+  private async afterCommit(
+    principal: Principal,
+    advancedTurn: boolean,
+    failures: AutosaveFailure[],
+  ): Promise<void> {
     const engagement = this.activeEngagement();
     if (engagement === null || principal.kind !== 'autopilot') {
       return;
@@ -1523,20 +1607,20 @@ export class EngineCore<S extends ShellState> {
       (limit.kind === 'untilTurnAdvanced' && advancedTurn) ||
       (limit.kind === 'turnAdvancements' && engagement.turnAdvancements >= limit.count);
     if (reached) {
-      this.endEngagement(engagement, 'limitReached');
+      await this.endEngagement(engagement, 'limitReached');
     } else if (this.campaign !== null && this.rules.isEnded(currentState(this.campaign))) {
-      this.endEngagement(engagement, 'campaignEnded');
+      await this.endEngagement(engagement, 'campaignEnded');
+    } else {
+      return;
     }
+    failures.push(...engagement.disengagementFailures);
   }
 
   private async runEngagement(engagement: Engagement): Promise<void> {
     const principal: Principal = { kind: 'autopilot', engagementId: engagement.id };
     while (engagement.status === 'active') {
       if (this.campaign !== null && this.rules.isEnded(currentState(this.campaign))) {
-        await this.runExclusive(() => {
-          this.endEngagement(engagement, 'campaignEnded');
-          return Promise.resolve();
-        });
+        await this.runExclusive(() => this.endEngagement(engagement, 'campaignEnded'));
         break;
       }
       const before = engagement.playerActions;
@@ -1548,20 +1632,16 @@ export class EngineCore<S extends ShellState> {
           error instanceof EngineDefect
             ? 'The Autopilot AI met an engine defect.'
             : 'The Autopilot AI reported an error.';
-        await this.runExclusive(() => {
-          this.endEngagement(engagement, 'aiFailed', detail);
-          return Promise.resolve();
-        });
+        await this.runExclusive(() => this.endEngagement(engagement, 'aiFailed', detail));
         break;
       }
       if (engagement.status !== 'active') {
         break;
       }
       if (engagement.playerActions === before) {
-        await this.runExclusive(() => {
-          this.endEngagement(engagement, 'aiFailed', 'The Autopilot AI produced no valid action.');
-          return Promise.resolve();
-        });
+        await this.runExclusive(() =>
+          this.endEngagement(engagement, 'aiFailed', 'The Autopilot AI produced no valid action.'),
+        );
         break;
       }
       await (this.env.yieldToHost?.() ?? Promise.resolve());
@@ -1584,23 +1664,23 @@ export class EngineCore<S extends ShellState> {
   }
 
   disengage(principal: Principal, engagementId: string): Promise<Result<DisengagementResult>> {
-    return this.runExclusive(() => {
+    return this.runExclusive(async () => {
       const denied = this.checkSession(principal, { needsCampaign: false, duringAutopilot: true });
       if (denied) {
-        return Promise.resolve(denied);
+        return denied;
       }
       const active = this.activeEngagement();
       if (active !== null && active.id === engagementId) {
-        this.endEngagement(active, 'disengagedByController');
-        return Promise.resolve(
-          active.result ? ok(active.result) : fail('engine_defect', 'No disengagement result.'),
-        );
+        await this.endEngagement(active, 'disengagedByController');
+        return active.result
+          ? ok(active.result, active.disengagementFailures)
+          : fail('engine_defect', 'No disengagement result.');
       }
       const ended = this.endedEngagements.get(engagementId);
       if (ended?.disengagement) {
-        return Promise.resolve(ok(ended.disengagement));
+        return ok(ended.disengagement, this.endedFailures.get(engagementId) ?? []);
       }
-      return Promise.resolve(fail('invalid_input', 'There is no such Autopilot engagement in this Session.'));
+      return fail('invalid_input', 'There is no such Autopilot engagement in this Session.');
     });
   }
 
@@ -1612,11 +1692,12 @@ export class EngineCore<S extends ShellState> {
     }
     const active = this.activeEngagement();
     if (active !== null && active.id === engagementId) {
-      return active.done.then((result) => ok(result));
+      return active.done.then((result) => ok(result, active.disengagementFailures));
     }
     const ended = this.endedEngagements.get(engagementId);
-    if (ended?.disengagement) {
-      return Promise.resolve(ok(ended.disengagement));
+    const disengagement = ended?.disengagement;
+    if (disengagement) {
+      return this.pendingAutosave.then(() => ok(disengagement, this.endedFailures.get(engagementId) ?? []));
     }
     return Promise.resolve(fail('invalid_input', 'There is no such Autopilot engagement in this Session.'));
   }

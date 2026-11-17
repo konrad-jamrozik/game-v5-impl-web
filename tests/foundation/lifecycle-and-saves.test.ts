@@ -27,7 +27,6 @@ describe('LIFE: Acceptance examples', () => {
     expect(h.core.listAutopilotAis(CONTROLLER).ok).toBe(true);
     for (const result of [
       await h.core.save(CONTROLLER),
-      await h.core.saveAsNew(CONTROLLER),
       await h.core.closeCampaign(CONTROLLER),
       await h.core.undoAction(CONTROLLER),
       await h.core.undoToAutosave(CONTROLLER),
@@ -58,9 +57,21 @@ describe('LIFE: Acceptance examples', () => {
     const h = await startHarness();
     expectOk(await h.core.createCampaign(CONTROLLER));
     expectOk(await h.act('gain', { amount: 5 }));
+    const after = h.state();
     expectOk(await h.core.closeCampaign(CONTROLLER));
     expect(status(h).hasCurrentCampaign).toBe(false);
-    expect((await list(h)).filter((save) => !save.isAutosave)).toEqual([]);
+    const saves = await list(h);
+    expect(saves.map((save) => save.autosaveKind)).toEqual(['current']);
+    expectOk(await h.core.load(CONTROLLER, saves[0]!.saveId));
+    expect(h.state()).toEqual(after);
+  });
+
+  it('A new Campaign has its Current Autosave at once', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const saves = await list(h);
+    expect(saves.map((save) => [save.autosaveKind, save.turn])).toEqual([['current', 1]]);
+    expect(saves[0]!.campaignId).toBe(status(h).campaignId);
   });
 
   it('Failed load keeps the Campaign', async () => {
@@ -178,8 +189,9 @@ describe('DETERM: Acceptance examples', () => {
     expect(h.view().agents).toEqual([]);
     expectOk(await h.core.redoAction(CONTROLLER));
     expect(h.view().agents).toEqual(before);
-    const one = expectOk(await h.core.saveAsNew(CONTROLLER));
-    const two = expectOk(await h.core.saveAsNew(CONTROLLER));
+    const one = expectOk(await h.core.save(CONTROLLER));
+    expectOk(await h.act('gain', { amount: 1 }));
+    const two = expectOk(await h.core.save(CONTROLLER));
     expect(one.saveId).not.toBe(two.saveId);
   });
 
@@ -207,7 +219,6 @@ describe('SAVES: Acceptance examples', () => {
     expect(h.state()).toEqual(saved);
     expect(status(h).devMode).toBe(false);
     expect(status(h).autopilot).toBeNull();
-    expect(status(h).currentSaveId).toBe(saveId);
 
     const before = status(h);
     h.storage.overwriteBody(saveId, '{"not":"a save"');
@@ -219,7 +230,60 @@ describe('SAVES: Acceptance examples', () => {
     expect(!missing.ok && missing.error.message).toContain('no-such-save');
   });
 
-  it('Keeping a line of play by saving as new', async () => {
+  it('Saving again replaces an equal Campaign save', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    expectOk(await h.act('gain', { amount: 1 }));
+    const s1 = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expectOk(await h.act('gain', { amount: 2 }));
+    const s2 = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expect(s2).not.toBe(s1);
+    expectOk(await h.core.undoAction(CONTROLLER));
+    expect(expectOk(await h.core.save(CONTROLLER)).saveId).toBe(s1);
+    const bodyOf = (saveId: string) =>
+      JSON.parse(h.storage.saves.get(saveId)!.body) as { entries: unknown[]; position: number };
+    // S1 now holds B as an Undone action.
+    expect(bodyOf(s1).entries).toHaveLength(2);
+    expect(bodyOf(s1).position).toBe(1);
+    expectOk(await h.core.redoAction(CONTROLLER));
+    expect(expectOk(await h.core.save(CONTROLLER)).saveId).toBe(s2);
+    const own = (await list(h)).filter((save) => !save.isAutosave);
+    expect(own.map((save) => save.saveId).sort()).toEqual([s1, s2].sort());
+    expect(new Set(own.map((save) => save.campaignId)).size).toBe(1);
+  });
+
+  it('Saving twice with no Player action in between leaves one Campaign save', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    expectOk(await h.act('gain', { amount: 1 }));
+    const first = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expect(expectOk(await h.core.save(CONTROLLER)).saveId).toBe(first);
+    expect((await list(h)).filter((save) => !save.isAutosave)).toHaveLength(1);
+  });
+
+  it('An equal Committed state reached again by another action replaces the Campaign save', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    expectOk(await h.act('gain', { amount: 1 }));
+    const first = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expectOk(await h.core.undoAction(CONTROLLER));
+    // Committing the same action again reaches a Committed state with every Authoritative value equal.
+    expectOk(await h.act('gain', { amount: 1 }));
+    expect(expectOk(await h.core.save(CONTROLLER)).saveId).toBe(first);
+    expectOk(await h.act('gain', { amount: 1 }));
+    expect(expectOk(await h.core.save(CONTROLLER)).saveId).not.toBe(first);
+  });
+
+  it('Saving never replaces an Autosave', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const current = (await list(h)).find((save) => save.autosaveKind === 'current')!;
+    const saved = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expect(saved).not.toBe(current.saveId);
+    expect((await list(h)).find((save) => save.saveId === current.saveId)!.isAutosave).toBe(true);
+  });
+
+  it('Keeping a line of play', async () => {
     const h = await startHarness();
     expectOk(await h.core.createCampaign(CONTROLLER));
     const s1 = expectOk(await h.core.save(CONTROLLER)).saveId;
@@ -228,13 +292,11 @@ describe('SAVES: Acceptance examples', () => {
     for (let i = 0; i < 3; i += 1) {
       expectOk(await h.act('gain', { amount: 1 }));
     }
-    const s2 = expectOk(await h.core.saveAsNew(CONTROLLER)).saveId;
-    expect(status(h).currentSaveId).toBe(s2);
-    expectOk(await h.act('gain', { amount: 1 }));
-    expect(expectOk(await h.core.save(CONTROLLER)).saveId).toBe(s2);
+    const s2 = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expect(s2).not.toBe(s1);
     expectOk(await h.core.load(CONTROLLER, s2));
-    expect(h.view().money).toBe(104);
-    expect(expectOk(h.core.getTimelineStatus(CONTROLLER)).timelineEntries).toBe(4);
+    expect(h.view().money).toBe(103);
+    expect(expectOk(h.core.getTimelineStatus(CONTROLLER)).timelineEntries).toBe(3);
     expectOk(await h.core.load(CONTROLLER, s1));
     expect(h.state()).toEqual(original);
     const saves = await list(h);
@@ -261,7 +323,8 @@ describe('SAVES: Acceptance examples', () => {
     expectOk(await h.core.createCampaign(CONTROLLER));
     const first = expectOk(await h.core.save(CONTROLLER)).saveId;
     expectOk(await h.core.advanceTurn(CONTROLLER));
-    const second = expectOk(await h.core.saveAsNew(CONTROLLER)).saveId;
+    const second = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expect(second).not.toBe(first);
     await h.restart();
     const saves = await list(h);
     const manual = saves.filter((save) => !save.isAutosave);
@@ -269,11 +332,13 @@ describe('SAVES: Acceptance examples', () => {
     expect(new Set(saves.map((save) => save.campaignId)).size).toBe(1);
     expect(saves.some((save) => save.autosaveKind === 'current')).toBe(true);
     expect(saves.some((save) => save.autosaveKind === 'turnEnd' && save.turn === 1)).toBe(true);
-    expect(saves.every((save) => !save.isCurrentSave)).toBe(true);
-    expectOk(await h.core.load(CONTROLLER, second));
-    const after = await list(h);
-    expect(after.find((save) => save.saveId === second)!.isCurrentSave).toBe(true);
-    expect(after.find((save) => save.saveId === first)!.isCurrentSave).toBe(false);
+    expect(Object.keys(saves[0]!).sort()).toEqual([
+      'autosaveKind',
+      'campaignId',
+      'isAutosave',
+      'saveId',
+      'turn',
+    ]);
   });
 
   it('Deleting a Campaign save and a Campaign', async () => {
@@ -281,7 +346,7 @@ describe('SAVES: Acceptance examples', () => {
     expectOk(await h.core.createCampaign(CONTROLLER));
     const first = expectOk(await h.core.save(CONTROLLER)).saveId;
     expectOk(await h.core.advanceTurn(CONTROLLER));
-    const second = expectOk(await h.core.saveAsNew(CONTROLLER)).saveId;
+    const second = expectOk(await h.core.save(CONTROLLER)).saveId;
     const campaignId = (await list(h)).find((save) => save.saveId === first)!.campaignId;
     expectOk(await h.core.closeCampaign(CONTROLLER));
     expectOk(await h.core.deleteSaveById(CONTROLLER, first));
@@ -345,7 +410,6 @@ describe('SAVES: Acceptance examples', () => {
     const current = (await list(h)).find((save) => save.autosaveKind === 'current')!;
     expectOk(await h.core.load(CONTROLLER, current.saveId));
     expect(h.state()).toEqual(last);
-    expect(status(h).currentSaveId).toBeNull();
     const created = expectOk(await h.core.save(CONTROLLER));
     expect(created.saveId).not.toBe(current.saveId);
     expect((await list(h)).find((save) => save.saveId === current.saveId)!.isAutosave).toBe(true);
@@ -403,6 +467,7 @@ describe('SAVES: Acceptance examples', () => {
     const saves = await list(h);
     expect(saves.filter((s) => s.autosaveKind === 'turnEnd').map((s) => s.turn)).toEqual([1, 2, 3, 4]);
     expect(saves.filter((s) => s.autosaveKind === 'engagement').map((s) => s.turn)).toEqual([5]);
+    expect(saves.filter((s) => s.autosaveKind === 'disengagement').map((s) => s.turn)).toEqual([35]);
     expect(saves.filter((s) => s.autosaveKind === 'current').map((s) => s.turn)).toEqual([35]);
   });
 
@@ -421,6 +486,51 @@ describe('SAVES: Acceptance examples', () => {
     const engagement = [...h.storage.saves.values()].filter((s) => s.header.kind === 'engagementAutosave');
     expect(engagement).toHaveLength(1);
     expect((JSON.parse(engagement[0]!.body) as { entries: unknown[] }).entries).toHaveLength(1);
+    const disengagement = [...h.storage.saves.values()].filter(
+      (s) => s.header.kind === 'disengagementAutosave',
+    );
+    expect(disengagement).toHaveLength(1);
+    expect((JSON.parse(disengagement[0]!.body) as { entries: unknown[] }).entries).toHaveLength(2);
+  });
+
+  it('Every disengagement writes the Disengagement Autosave, whatever ends it', async () => {
+    let harness: Harness | null = null;
+    const ai = scriptedAi('x', () => harness!.core, [
+      async (api) => void (await api.act('gain', { amount: 1 })),
+    ]);
+    const h = await startHarness({ ais: [ai] });
+    harness = h;
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const { engagementId } = expectOk(
+      await h.core.engage(CONTROLLER, 'x', { kind: 'turnAdvancements', count: 3 }),
+    );
+    const result = expectOk(await h.core.disengage(CONTROLLER, engagementId));
+    expect(result.reason).toBe('disengagedByController');
+    const disengagement = [...h.storage.saves.values()].filter(
+      (s) => s.header.kind === 'disengagementAutosave',
+    );
+    expect(disengagement).toHaveLength(1);
+    expect(disengagement[0]!.header.stamp).toBe(
+      [...h.storage.saves.values()].find((s) => s.header.kind === 'currentAutosave')!.header.stamp,
+    );
+  });
+
+  it('A Disengagement Autosave that cannot be written is reported, and disengagement completes', async () => {
+    let harness: Harness | null = null;
+    const ai = scriptedAi('x', () => harness!.core, [
+      async (api) => void (await api.act('gain', { amount: 1 })),
+    ]);
+    const h = await startHarness({ ais: [ai] });
+    harness = h;
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    h.storage.failWrite = (header) => header.kind === 'disengagementAutosave';
+    const { engagementId } = expectOk(await h.core.engage(CONTROLLER, 'x', { kind: 'singleAction' }));
+    const result = await h.core.whenDisengaged(CONTROLLER, engagementId);
+    expect(result.ok && result.autosaveFailures.map((f) => [f.autosave, f.code])).toEqual([
+      ['disengagement', 'unwritable_campaign_save'],
+    ]);
+    expect(status(h).autopilot).toBeNull();
+    expect((await list(h)).filter((s) => s.autosaveKind === 'disengagement')).toEqual([]);
   });
 
   it('Autosave limit 0', async () => {
@@ -448,8 +558,6 @@ describe('SAVES: Acceptance examples', () => {
     expect(!result.ok && result.error.code).toBe('save_size_limit_exceeded');
     expect(h.storage.saves.get(small)!.body).toBe(smallBody);
     expect(status(h)).toEqual(before);
-    const asNew = await h.core.saveAsNew(CONTROLLER);
-    expect(!asNew.ok && asNew.error.code).toBe('save_size_limit_exceeded');
   });
 
   it('An Autosave that cannot be written is reported and removed, and the operation completes', async () => {
@@ -465,6 +573,6 @@ describe('SAVES: Acceptance examples', () => {
     h.storage.failWrite = (header) => header.kind === 'manual';
     const save = await h.core.save(CONTROLLER);
     expect(!save.ok && save.error.code).toBe('unwritable_campaign_save');
-    expect(status(h).currentSaveId).toBeNull();
+    expect((await list(h)).filter((s) => !s.isAutosave)).toEqual([]);
   });
 });

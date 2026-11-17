@@ -89,7 +89,7 @@ describe('SAVES: Loading', () => {
     expectOk(await h.core.createCampaign(CONTROLLER, { seed: 'one' }));
     const first = expectOk(await h.core.save(CONTROLLER)).saveId;
     expectOk(await h.act('gain', { amount: 5 }));
-    const second = expectOk(await h.core.saveAsNew(CONTROLLER)).saveId;
+    const second = expectOk(await h.core.save(CONTROLLER)).saveId;
     const firstSave = h.storage.saves.get(first);
     const secondSave = h.storage.saves.get(second);
     if (firstSave === undefined || secondSave === undefined) {

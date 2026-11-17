@@ -8,6 +8,7 @@ const KIND_NAMES: Record<string, string> = {
   current: 'Current Autosave',
   turnEnd: 'Turn-end Autosave',
   engagement: 'Engagement Autosave',
+  disengagement: 'Disengagement Autosave',
   return: 'Return Autosave',
 };
 

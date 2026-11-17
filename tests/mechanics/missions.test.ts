@@ -94,6 +94,11 @@ describe('MISSION: Acceptance examples', () => {
     state = act(state, 'deployAgents', { missionSite: s1, agents: ids });
     const m1 = missionAt(state, s1);
     expect(site(state, s1).state).toMatchObject({ lifecycle: 'Attempted', turnsUntilExpiration: 4 });
+    // An Attempted Mission site is an Unfinished Mission site: it blocks its Lead and is in Current world state.
+    expect(
+      currentStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
+    ).toMatchObject({ conditions: { noUnfinishedMissionSite: false } });
+    expect(currentStateView(state, gdrs).missionSites.map((item) => item.id)).toEqual([s1]);
     expect(mission(state, m1)).toMatchObject({
       archetype: 'standard_mission',
       constants: { missionSite: s1, turnDeployed: 6, teamSent: ids },
@@ -141,7 +146,7 @@ describe('MISSION: Acceptance examples', () => {
       4, 2, 1, 1,
     ]);
     expect([a1, a2, a3, a4].map((id) => agent(state, id).state.exhaustion)).toEqual([9, 7, 6, 6]);
-    expect(site(state, s1).state).toMatchObject({ lifecycle: 'Attempted', turnsUntilExpiration: 4 });
+    expect(site(state, s1).state).toMatchObject({ lifecycle: 'Concluded', turnsUntilExpiration: 4 });
     expect(mission(state, m1).state).toEqual({ lifecycle: 'Won', currentTeam: [] });
     expect(mission(state, m1).constants.teamSent).toEqual(ids);
     for (const id of ids) {
@@ -158,12 +163,18 @@ describe('MISSION: Acceptance examples', () => {
     expect(
       currentStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
     ).toMatchObject({
-      conditions: { noMissionWon: false },
+      conditions: { noMissionWon: false, noUnfinishedMissionSite: true },
     });
     expectRejected(state, 'deployAgents', { missionSite: s1, agents: [a1] }, 'mission_site_not_active');
-    // A Won Mission and its Attempted Mission site are retained in World history, not Current world state.
+    // A Won Mission and its Concluded Mission site are Retired: in World history, not Current world state.
     expect(currentStateView(state, gdrs).missionSites).toHaveLength(0);
     expect(historyView(state, gdrs).retained.missions.map((m) => m.id)).toEqual([m1]);
+    expect(historyView(state, gdrs).retained.missionSites.map((item) => [item.id, item.lifecycle])).toEqual([
+      [s1, 'Concluded'],
+    ]);
+    // A Concluded Mission site never counts down.
+    const later = advance(state);
+    expect(site(later, s1).state).toMatchObject({ lifecycle: 'Concluded', turnsUntilExpiration: 4 });
   });
 
   it('foil_sabotage ignored, Lost, and Won', () => {
@@ -250,7 +261,7 @@ describe('MISSION: Acceptance examples', () => {
       exhaustion: 12,
     });
     expect([lost.world.current.panic, funding(lost), money(lost)]).toEqual([18, 19, 300]);
-    expect(site(lost, s2).state).toMatchObject({ lifecycle: 'Attempted', turnsUntilExpiration: 4 });
+    expect(site(lost, s2).state).toMatchObject({ lifecycle: 'Concluded', turnsUntilExpiration: 4 });
 
     // Won: four Agents prevail in three Combat rounds.
     let won = act(created.state, 'deployAgents', { missionSite: s2, agents: [a1, a2, a3, a4] });
@@ -316,6 +327,9 @@ describe('MISSION: Acceptance examples', () => {
     expect(onlyFaction(forward).state).toMatchObject({ eliminated: true, eliminatedTurn: 150 });
     expect([money(forward), funding(forward)]).toEqual([1030, 30]);
     expect(site(forward, s5.site).state).toMatchObject({ lifecycle: 'Cancelled', turnsUntilExpiration: 2 });
+    // Mission sites whose Missions were resolved in the same step are Concluded, not cancelled.
+    expect(site(forward, s3.site).state.lifecycle).toBe('Concluded');
+    expect(site(forward, s4.site).state.lifecycle).toBe('Concluded');
     expect(report.cancelledMissionSites).toEqual([s5.site]);
     expect(report.expiredMissionSites).toEqual([]);
     expect(forward.world.history.historyEntries.at(-1)!.report.cancelledMissionSites).toEqual([s5.site]);
@@ -419,7 +433,7 @@ describe('MISSION: Acceptance examples', () => {
     });
     state = advance(state, winning(state, created.site));
     expect(site(state, created.site).state).toMatchObject({
-      lifecycle: 'Attempted',
+      lifecycle: 'Concluded',
       turnsUntilExpiration: 1,
     });
     expect(mission(state, missionAt(state, created.site)).state.lifecycle).toBe('Won');
@@ -506,6 +520,29 @@ describe('MISSION: Acceptance examples', () => {
         expect([money(forward), funding(forward), forward.world.current.panic]).toEqual([205, 0, 60]);
       }
     }
+  });
+
+  it('Structure of a Concluded Mission site and its Mission', () => {
+    const created = addMissionSite(newCampaign(), 'apprehend_member');
+    const deployed = act(created.state, 'deployAgents', {
+      missionSite: created.site,
+      agents: [agentIds(created.state)[0]],
+    });
+    const m1 = missionAt(deployed, created.site);
+    const state = tweak(deployed, (world) => {
+      world.missionSites[created.site]!.state.lifecycle = 'Concluded';
+      world.missions[m1]!.state.lifecycle = 'Lost';
+      world.missions[m1]!.state.currentTeam = [];
+      world.agents[agentIds(created.state)[0]!]!.state.assignment = { kind: 'Standby' };
+    });
+    expect(checkInvariants(state, gdrs)).toEqual([]);
+    // A Mission references the Mission site exactly when it is Attempted or Concluded.
+    expect(
+      checkInvariants(
+        tweak(state, (world) => delete world.missions[m1]),
+        gdrs,
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it('Structure of an Attempted Mission site and its Mission: invalid variants', () => {

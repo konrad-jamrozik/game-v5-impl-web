@@ -237,7 +237,7 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
       conditions: {
         prerequisitesHold: availability.prerequisitesHold,
         noMissionWon: availability.noMissionWon,
-        noMissionSiteInProgress: availability.noMissionSiteInProgress,
+        noUnfinishedMissionSite: availability.noUnfinishedMissionSite,
         factionNotEliminated: availability.factionNotEliminated,
       },
       blockingConditions: [...availability.blockingConditions],
@@ -304,12 +304,12 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
   };
 }
 
-/** Whether a Mission site still participates in current gameplay, rather than being retained in World history. */
-function siteIsCurrent(site: MissionSite, world: CurrentWorldState): boolean {
-  return (
-    site.state.lifecycle === 'Active' ||
-    (site.state.lifecycle === 'Attempted' && missionOfSite(world, site.id)?.state.lifecycle === 'Deployed')
-  );
+/**
+ * Whether a Mission site is in Current world state: an Unfinished Mission site. One in a Final Mission site state is
+ * Retired; see MISSION, Mission site properties.
+ */
+function siteIsCurrent(site: MissionSite): boolean {
+  return site.state.lifecycle === 'Active' || site.state.lifecycle === 'Attempted';
 }
 
 /** `player.queries.getCurrentState()`. */
@@ -336,7 +336,7 @@ export function currentStateView(state: CampaignState, gdrs: GdrCatalog): Curren
       .map((investigation) => investigationView(investigation, world, gdrs)),
     leads: leadViews(world, gdrs),
     missionSites: Object.values(world.missionSites)
-      .filter((site) => siteIsCurrent(site, world))
+      .filter((site) => siteIsCurrent(site))
       .map((site) => missionSiteView(site, world, gdrs)),
     missions: Object.values(world.missions)
       .filter((mission) => mission.state.lifecycle === 'Deployed')
@@ -368,7 +368,7 @@ export function historyView(state: CampaignState, gdrs: GdrCatalog): HistoryView
         .filter((investigation) => investigation.state.lifecycle !== 'Active')
         .map((investigation) => investigationView(investigation, world, gdrs)),
       missionSites: Object.values(world.missionSites)
-        .filter((site) => !siteIsCurrent(site, world))
+        .filter((site) => !siteIsCurrent(site))
         .map((site) => missionSiteView(site, world, gdrs)),
       missions: Object.values(world.missions)
         .filter((mission) => mission.state.lifecycle !== 'Deployed')
@@ -656,7 +656,7 @@ export function inspectCampaignState(state: CampaignState): unknown {
   const world = state.world.current;
   const retainedAgent = (agent: Agent) => !isServing(agent.state);
   const retainedInvestigation = (item: Investigation) => item.state.lifecycle !== 'Active';
-  const retainedSite = (site: MissionSite) => !siteIsCurrent(site, world);
+  const retainedSite = (site: MissionSite) => !siteIsCurrent(site);
   const retainedMission = (mission: Mission) => mission.state.lifecycle !== 'Deployed';
   const retainedEnemy = (enemy: Enemy) => {
     const site = world.missionSites[enemy.constants.missionSite];

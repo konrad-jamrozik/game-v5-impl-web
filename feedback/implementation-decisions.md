@@ -105,12 +105,14 @@
 ## DEC-007: The screens of the web UI
 
 - **Category:** Gap resolution
-- **Affected specifications:** GUI, Main menu: "The GUI opens at the Main menu, the Session state with no Current
-  campaign". GUI, TODOs: "list the screens the Player needs while a Campaign is current".
+- **Affected specifications:** MENU, Overview: "The GUI opens at the Main menu, the Session state with no Current
+  campaign". MENU, Layout: "The card of the Campaign of the most recent Campaign save has the Accent top edge." CSCR,
+  TODOs: "List the other screens the Player needs while a Campaign is current".
 - **Description:** The web UI opens at the Main menu, which offers New-Campaign setup, the list of Campaign saves
   grouped by Campaign with Load, Delete, and Delete Campaign buttons, each deletion confirmed first, and the Global
-  configuration settings. The Campaign whose Campaign saves reach the latest Turn is the one the Player most likely
-  wants under VIS, Panels and cards, because the list reports no time at which a Campaign save was written. The
+  configuration settings. The card of the Campaign whose Campaign saves reach the latest Turn takes the Accent top edge in
+  place of the Campaign of the most recent Campaign save, because the list reports no time at which a Campaign save
+  was written. The
   Leads panel shows only discovered Leads, each with its Lead status, as a tree whose roots are the Leads that no
   listed Lead leads to, since a Won Response Mission can discover a Lead that no discovered Lead creates the
   MissionSiteArchetype of. While a Campaign is current it shows a status bar with Advance turn, Timeline
@@ -123,7 +125,7 @@
 - **Option chosen:** One Campaign screen with the Agents always visible.
 - **Why:** Most Player actions combine Agents with a Mission site, a Lead, or an Assignment, so the Agents stay in
   view while the Player picks the other part.
-- **Links:** PROB-017
+- **Links:** PROB-017, PROB-027
 
 ## DEC-008: Storage Schema followed for the Timeline and Campaign saves
 
@@ -505,7 +507,7 @@
   their arguments, and how a caller discovers the available ones".
 - **Description:** The CLI reads one command per line, and each command is one engine API operation: the Session
   commands `status`, `new`, `close`, `presets`, `preset`, `setup`, `select`, `edit`, `unedit`, `saves`,
-  `load`, `save`, `saveas`, `delete`, `deletecampaign`, `config`, `set`, `reset`; the queries `state`, `report`, `history`, `actions`,
+  `load`, `save`, `delete`, `deletecampaign`, `config`, `set`, `reset`; the queries `state`, `report`, `history`, `actions`,
   `gamedata`, `preview`, and `agents`, `leads`, `investigations`, `sites`, `missions`, `factions`,
   `upgrades`, `retained`, which each print that part of the current state or of the history; the Player actions
   `assign`, `hire`, `dismiss`, `buy`, `investigate`, `join`, `deploy`, `next`; the navigation commands
@@ -784,3 +786,31 @@
 - **Why:** The bar keeps the scale the specification states, so every bar of the same Lead reads alike, and the
   values written under it stay exact.
 - **Links:** PROB-025
+
+## DEC-043: Globe Integration not followed yet
+
+- **Category:** Treatment of guidance
+- **Affected specifications:** GLOBE, Overview: "The Graphical User Interface says what the Player needs to see, and
+  the globe is decoration beside that: an Implementation without a globe is still correct."
+- **Description:** Used a different approach: no globe for now. The web UI has no Globe tab, no copy of the globe maps, and no three.js
+  dependency, and the Specification map lists no files under GLOBE.
+- **Options considered:** Following the recipe with a lazily loaded Globe tab; not following it for now.
+- **Option chosen:** Not following it for now.
+- **Why:** The Engine designer chose to skip it in this update; the recipe states that the globe is optional
+  decoration.
+- **Links:** None.
+
+## DEC-044: Autosave navigation prefers the Return Autosave among targets with the same Committed state
+
+- **Category:** Gap resolution
+- **Affected specifications:** TIMELINE, Autosave navigation: "Loads the target holding the earliest Committed state
+  that is later than the current Committed state."
+- **Description:** When two targets of Autosave navigation hold the same Committed state, `redoToAutosave()` and
+  `undoToAutosave()` load the Return Autosave if it is one of them, so that the last `redoToAutosave()` loads the
+  Return Autosave as TIMELINE's acceptance example expects. Between the Engagement Autosave and the Disengagement
+  Autosave of an engagement that committed nothing, which one is loaded does not change the Committed state reached.
+- **Options considered:** Preferring the Return Autosave; preferring the most recently written target.
+- **Option chosen:** Preferring the Return Autosave.
+- **Why:** The Return Autosave holds the line of play the Player left by going back, including its Undone actions,
+  which is what redo across Turns exists to restore.
+- **Links:** PROB-026

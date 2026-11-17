@@ -90,7 +90,7 @@
   Enemies fight the Combat of its Deployed Mission in the next Advance turn and its Mission is in Current world
   state. Under the first statement `getCurrentState()` would not return the Mission site of a Deployed Mission.
 - **Links:** DEC-017
-- **Resolution:** Open
+- **Resolution:** Resolved in 6fa83779f89dbd769da1a3193a3c8248d9483156, which the Implementation follows since this update.
 
 ## PROB-009: Developer Access is a Stub
 
@@ -142,7 +142,7 @@
   Campaign is created and after every change. LIFE states that a new Campaign has no Campaign save and that none
   exists after creating a Campaign, committing an action, and closing it.
 - **Links:** DEC-025
-- **Resolution:** Open
+- **Resolution:** Resolved in 6fa83779f89dbd769da1a3193a3c8248d9483156, which the Implementation follows since this update.
 
 ## PROB-013: No way for an interface to learn that the Committed state changed
 
@@ -177,7 +177,7 @@
   Advancement says it becomes At assignment, while Agents says it becomes Recovering, and the invariant of Agent status
   requires an Agent whose Assignment is Recovery and that is not In transit to be Recovering.
 - **Links:** DEC-033
-- **Resolution:** Open
+- **Resolution:** Resolved in 6fa83779f89dbd769da1a3193a3c8248d9483156, which the Implementation follows since this update.
 
 ## PROB-016: How the Command-Line Interface names operations and chooses its Output form is a TODO
 
@@ -193,8 +193,9 @@
 ## PROB-017: What the Main menu and the Campaign screens of the Graphical User Interface show is a TODO
 
 - **Category:** Needed TODO
-- **Affected specifications:** GUI, TODOs: "TODO: State what the Main menu offers by default", "list the screens the Player needs while a
-  Campaign is current", and "state how the GUI reaches Advance turn, Timeline navigation, saving, and Autopilot".
+- **Affected specifications:** MENU, TODOs: "TODO: State what the Main menu offers by default". CSCR, TODOs: "TODO:
+  List the other screens the Player needs while a Campaign is current" and "TODO: State how the Campaign screen reaches
+  Advance turn, Timeline navigation, saving, and Autopilot".
 - **Description:** A GUI needs screens for the Main menu and for playing a Campaign, and a way to reach Advance turn,
   Timeline navigation, saving, and Autopilot. The specification states only that the GUI opens at the Main menu and
   leaves the rest open.
@@ -309,4 +310,26 @@
   mark are drawn past the bar's end, nor what happens when the labels under the bar fall on one another, e.g. a final
   Investigation progress equal to the Required progress.
 - **Links:** DEC-042
+- **Resolution:** Open
+
+## PROB-026: Which Autosave navigation loads when two targets hold the same Committed state
+
+- **Category:** Implicit gap
+- **Affected specifications:** TIMELINE, Autosave navigation: "Loads the target holding the earliest Committed state
+  that is later than the current Committed state." SAVES, Autosaves: Disengagement Autosave, "The Committed state in
+  which the Autopilot engagement ended".
+- **Description:** The new Disengagement Autosave can hold the same Committed state as the Return Autosave, or as the
+  Engagement Autosave when the Autopilot AI committed nothing, and nothing says which of two such targets
+  `redoToAutosave()` and `undoToAutosave()` load. They differ in their Timeline and Autopilot memory.
+- **Links:** DEC-044
+- **Resolution:** Open
+
+## PROB-027: The Main menu cannot tell which Campaign save is the most recent
+
+- **Category:** Implicit gap
+- **Affected specifications:** MENU, Layout: "The card of the Campaign of the most recent Campaign save has the Accent
+  top edge." SAVES, Listing Campaign saves: "For each Campaign save it reports at least".
+- **Description:** `session.saves.list()` reports no time at which a Campaign save was written, and no order, so a
+  user interface cannot find the most recent Campaign save.
+- **Links:** DEC-007
 - **Resolution:** Open

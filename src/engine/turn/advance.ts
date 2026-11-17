@@ -346,6 +346,8 @@ export function applyAdvanceTurn(
     combatReports.set(mission.id, report);
     const result = report.outcome === 'Prevailed' ? 'Won' : 'Lost';
     mission.state.lifecycle = result;
+    // MISSION, Mission site lifecycle: Attempted to Concluded when its Mission becomes Won or Lost.
+    site.state.lifecycle = 'Concluded';
 
     const killed: string[] = [];
     const toRecovery: string[] = [];

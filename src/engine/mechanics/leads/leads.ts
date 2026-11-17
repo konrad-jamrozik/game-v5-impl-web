@@ -17,8 +17,8 @@ export interface LeadAvailability {
   readonly prerequisites: readonly { readonly missionWon: string; readonly holds: boolean }[];
   /** Condition 2. */
   readonly noMissionWon: boolean;
-  /** Condition 3. */
-  readonly noMissionSiteInProgress: boolean;
+  /** Condition 3: No Unfinished Mission site. */
+  readonly noUnfinishedMissionSite: boolean;
   /** Condition 4. */
   readonly factionNotEliminated: boolean;
   /** The numbers of the conditions that do not hold. */
@@ -59,31 +59,23 @@ export function leadAvailability(lead: LeadGdr, world: LeadWorld): LeadAvailabil
   const prerequisitesHold = prerequisites.every((entry) => entry.holds);
   const noMissionWon = !won.some((site) => leadOfMissionSite(site, world.investigations) === lead.id);
 
-  let inProgress = false;
-  for (const site of Object.values(world.missionSites)) {
-    if (leadOfMissionSite(site, world.investigations) !== lead.id) {
-      continue;
-    }
-    if (site.state.lifecycle === 'Active') {
-      inProgress = true;
-    } else if (site.state.lifecycle === 'Attempted') {
-      const deployed = Object.values(world.missions).some(
-        (mission) => mission.constants.missionSite === site.id && mission.state.lifecycle === 'Deployed',
-      );
-      inProgress ||= deployed;
-    }
-  }
+  // MISSION, Glossary: an Unfinished Mission site is Active or Attempted.
+  const unfinished = Object.values(world.missionSites).some(
+    (site) =>
+      leadOfMissionSite(site, world.investigations) === lead.id &&
+      (site.state.lifecycle === 'Active' || site.state.lifecycle === 'Attempted'),
+  );
 
   const factionNotEliminated = faction !== undefined && !faction.state.eliminated;
 
-  const conditions = [prerequisitesHold, noMissionWon, !inProgress, factionNotEliminated];
+  const conditions = [prerequisitesHold, noMissionWon, !unfinished, factionNotEliminated];
   const blockingConditions = conditions.flatMap((holds, index) => (holds ? [] : [index + 1]));
   return {
     available: blockingConditions.length === 0,
     prerequisitesHold,
     prerequisites,
     noMissionWon,
-    noMissionSiteInProgress: !inProgress,
+    noUnfinishedMissionSite: !unfinished,
     factionNotEliminated,
     blockingConditions,
   };
@@ -107,7 +99,7 @@ export function leadStatus(availability: LeadAvailability): LeadStatus {
   if (!availability.noMissionWon || !availability.factionNotEliminated) {
     return 'Archived';
   }
-  return availability.noMissionSiteInProgress ? 'Available' : 'Inactive';
+  return availability.noUnfinishedMissionSite ? 'Available' : 'Inactive';
 }
 
 /** The Active Investigation of a Lead, if any; see INVSTG, One Active Investigation per Lead. */

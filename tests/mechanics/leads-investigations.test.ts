@@ -120,7 +120,7 @@ describe('LEAD: Acceptance examples', () => {
       conditions: {
         prerequisitesHold: true,
         noMissionWon: true,
-        noMissionSiteInProgress: true,
+        noUnfinishedMissionSite: true,
         factionNotEliminated: true,
       },
       status: 'Available',
@@ -179,7 +179,7 @@ describe('LEAD: Acceptance examples', () => {
       conditions: {
         prerequisitesHold: true,
         noMissionWon: true,
-        noMissionSiteInProgress: true,
+        noUnfinishedMissionSite: true,
         factionNotEliminated: true,
       },
       blockingConditions: [],

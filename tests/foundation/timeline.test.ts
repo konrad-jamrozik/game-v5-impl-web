@@ -127,16 +127,17 @@ describe('TIMELINE: Acceptance examples', () => {
     expect((await h.core.undoAction(CONTROLLER)).ok).toBe(false);
   });
 
-  it('Keeping Undone actions by saving as new', async () => {
+  it('Keeping a line of play', async () => {
     const h = await fresh();
     for (const amount of [1, 2, 3]) {
       expectOk(await h.act('gain', { amount }));
     }
-    const s1 = expectOk(await h.core.saveAsNew(CONTROLLER)).saveId;
+    const s1 = expectOk(await h.core.save(CONTROLLER)).saveId;
     expectOk(await h.core.undoAction(CONTROLLER));
     expectOk(await h.core.undoAction(CONTROLLER));
     expectOk(await h.act('gain', { amount: 50 }));
-    const s2 = expectOk(await h.core.saveAsNew(CONTROLLER)).saveId;
+    const s2 = expectOk(await h.core.save(CONTROLLER)).saveId;
+    expect(s2).not.toBe(s1);
     expectOk(await h.core.load(CONTROLLER, s1));
     expect(h.view().money).toBe(106);
     expect(timeline(h).timelineEntries).toBe(3);
@@ -273,6 +274,28 @@ describe('TIMELINE: Acceptance examples', () => {
       expectOk(await h.core.redoToAutosave(CONTROLLER));
     }
     expect(h.state()).toEqual(turn35);
+  });
+
+  it('The Disengagement Autosave is a target of Autosave navigation', async () => {
+    let harness: Harness | null = null;
+    const ai = scriptedAi('x', () => harness!.core, [
+      async (api) => void (await api.act('gain', { amount: 1 })),
+    ]);
+    const h = await startHarness({ ais: [ai] });
+    harness = h;
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const { engagementId } = expectOk(await h.core.engage(CONTROLLER, 'x', { kind: 'singleAction' }));
+    expectOk(await h.core.whenDisengaged(CONTROLLER, engagementId));
+    const disengaged = h.state();
+    // At the Committed state it holds, the Disengagement Autosave is not a target.
+    expect(expectOk(await h.core.getAutosaveStatus(CONTROLLER)).redoToAutosave).toBeNull();
+    expectOk(await h.core.undoAction(CONTROLLER));
+    expect(expectOk(await h.core.getAutosaveStatus(CONTROLLER)).redoToAutosave).toMatchObject({
+      autosaveKind: 'disengagement',
+      turn: 1,
+    });
+    expectOk(await h.core.redoToAutosave(CONTROLLER));
+    expect(h.state()).toEqual(disengaged);
   });
 
   it('A new action removes later Autosaves', async () => {

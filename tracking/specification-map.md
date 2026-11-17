@@ -86,6 +86,12 @@ No files.
 
 No files.
 
+## CSCR: Campaign Screen
+
+- src/web/screens/Campaign.tsx
+- src/web/styles.css
+- e2e/web.spec.ts
+
 ## CSTATE: Campaign State
 
 - src/engine/state/types.ts
@@ -199,6 +205,10 @@ No files.
 - .github/workflows/deploy-pages.yml
 - vite.config.ts
 
+## GLOBE: Globe Integration
+
+No files.
+
 ## GLOSS: Glossary Conventions
 
 No files.
@@ -215,6 +225,11 @@ No files.
 - src/cli/
 - tests/cli/
 - e2e/web.spec.ts
+
+## HTAB: History Tab
+
+- src/web/screens/HistoryPanel.tsx
+- src/web/screens/LineChart.tsx
 
 ## ICONV: Implementation Specification Conventions
 
@@ -276,6 +291,11 @@ No files.
 
 No files.
 
+## MENU: Main Menu
+
+- src/web/screens/MainMenu.tsx
+- e2e/web.spec.ts
+
 ## MISSION: Missions
 
 - src/engine/mechanics/missions/
@@ -286,6 +306,7 @@ No files.
 - src/gdr/types.ts
 - src/engine/state/types.ts
 - src/web/turn-summary.ts
+- src/engine/state/invariants.ts
 - tests/mechanics/missions.test.ts
 - tests/mechanics/review-gaps.test.ts
 - tests/web/situation-and-summary.test.ts
@@ -362,6 +383,12 @@ No files.
 - src/cli/file-storage.ts
 - src/web/indexeddb-storage.ts
 
+## SITP: Situation Panel
+
+- src/web/screens/SituationPanel.tsx
+- src/web/situation.ts
+- tests/web/situation-and-summary.test.ts
+
 ## STACK: Tech Stack Suggestion
 
 No files.
@@ -386,6 +413,12 @@ No files.
 - tracking/specification-baseline.md
 - tracking/specification-map.md
 - scripts/check-records.ts
+
+## TSUM: Turn Summary
+
+- src/web/screens/TurnSummary.tsx
+- src/web/turn-summary.ts
+- tests/web/situation-and-summary.test.ts
 
 ## TURN: Turn Advancement
 

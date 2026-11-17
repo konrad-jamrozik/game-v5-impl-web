@@ -82,8 +82,8 @@ export interface Engine {
     readonly saves: {
       list(): Promise<Result<SaveListEntry[]>>;
       load(save: string): Promise<Result<null>>;
+      /** Writes a new Campaign save, or replaces the one `save()` wrote that holds an equal Committed state. */
       save(): Promise<Result<{ saveId: string }>>;
-      saveAsNew(): Promise<Result<{ saveId: string }>>;
       delete(save: string): Promise<Result<null>>;
       deleteCampaign(campaign: string): Promise<Result<null>>;
     };
@@ -234,7 +234,6 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
         list: () => core.listSaves(CONTROLLER),
         load: (save) => core.load(CONTROLLER, save),
         save: () => core.save(CONTROLLER),
-        saveAsNew: () => core.saveAsNew(CONTROLLER),
         delete: (save) => core.deleteSaveById(CONTROLLER, save),
         deleteCampaign: (campaign) => core.deleteCampaignSaves(CONTROLLER, campaign),
       },

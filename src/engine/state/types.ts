@@ -110,7 +110,7 @@ export type Investigation = Instance<InvestigationConstants, InvestigationState>
 // ---- Mission site, Mission, Enemy (MISSION, COMBAT) ----------------------------------------------
 
 export type MissionSiteKind = 'Initiative' | 'Response';
-export type MissionSiteLifecycle = 'Active' | 'Attempted' | 'Expired' | 'Cancelled';
+export type MissionSiteLifecycle = 'Active' | 'Attempted' | 'Concluded' | 'Expired' | 'Cancelled';
 
 export type MissionSiteOrigin =
   | { readonly kind: 'Investigation'; readonly investigation: string }

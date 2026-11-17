@@ -84,7 +84,7 @@ export function readable(value: unknown, indent = ''): string {
 const HELP = `Commands
   Session    status | new [seed] | close | presets | preset <id> | setup | select <preset>
              edit <preset> <key> <value> | unedit <preset> <key>
-             saves | load <saveId> | save | saveas | delete <saveId> | deletecampaign <campaignId>
+             saves | load <saveId> | save | delete <saveId> | deletecampaign <campaignId>
              config | set <setting> <value> | reset <setting>
   Look       state | agents | leads | investigations | sites | missions | factions | upgrades
              report | history | retained | actions | gamedata | preview <site> <agent...>
@@ -198,8 +198,6 @@ export function createCli(engine: Engine, out: CliOutput) {
         return print(command, await session.saves.load(first));
       case 'save':
         return print(command, await session.saves.save());
-      case 'saveas':
-        return print(command, await session.saves.saveAsNew());
       case 'delete':
         return print(command, await session.saves.delete(first));
       case 'deletecampaign':

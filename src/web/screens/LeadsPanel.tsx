@@ -16,8 +16,8 @@ function blockers(lead: LeadView, siteName: (archetype: string) => string): stri
   if (!lead.conditions.noMissionWon) {
     texts.push('its Mission is already won');
   }
-  if (!lead.conditions.noMissionSiteInProgress) {
-    texts.push('its Mission site is in progress');
+  if (!lead.conditions.noUnfinishedMissionSite) {
+    texts.push('it has an unfinished Mission site');
   }
   if (!lead.conditions.factionNotEliminated) {
     texts.push('its Faction is eliminated');

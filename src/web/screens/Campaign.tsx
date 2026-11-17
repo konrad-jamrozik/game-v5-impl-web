@@ -194,6 +194,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const target = (t: AutosaveStatus['undoToAutosave']) =>
     t === null ? null : `${t.autosaveKind === 'turnEnd' ? 'end' : t.autosaveKind} of Turn ${t.turn}`;
 
+  const activeSites = state.missionSites.filter((site) => site.lifecycle === 'Active').length;
+
   return (
     <div className="campaign">
       <header className="statusbar">
@@ -360,10 +362,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
               >
                 {item.name}
                 <kbd>{index + 1}</kbd>
-                {item.id === 'missions' &&
-                actions !== null &&
-                actions.deployAgents.missionSites.length > 0 ? (
-                  <span className="count">{actions.deployAgents.missionSites.length}</span>
+                {/* CSCR, Tabs: Mission sites shows the number of Active Mission sites. */}
+                {item.id === 'missions' && activeSites > 0 ? (
+                  <span className="count">{activeSites}</span>
                 ) : null}
               </button>
             ))}

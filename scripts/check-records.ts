@@ -23,6 +23,7 @@ const GUIDANCE_SPECIFICATIONS = [
   'SCHEMA',
   'HEADLESS',
   'GHPAGES',
+  'GLOBE',
   'UPDATES',
 ];
 /** A Resolved or Declined Specification problem names a commit of the specifications by its full hash. */

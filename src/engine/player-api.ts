@@ -167,7 +167,7 @@ export interface LeadView {
   readonly conditions: {
     readonly prerequisitesHold: boolean;
     readonly noMissionWon: boolean;
-    readonly noMissionSiteInProgress: boolean;
+    readonly noUnfinishedMissionSite: boolean;
     readonly factionNotEliminated: boolean;
   };
   /** The numbers, 1 to 4, of the conditions of Lead availability that do not hold. */
@@ -242,7 +242,7 @@ export interface CurrentStateView {
   /** Active Investigations. */
   readonly investigations: readonly InvestigationView[];
   readonly leads: readonly LeadView[];
-  /** Active Mission sites, and Attempted ones whose Mission is Deployed. */
+  /** Active and Attempted Mission sites. */
   readonly missionSites: readonly MissionSiteView[];
   /** Deployed Missions. */
   readonly missions: readonly MissionView[];
@@ -264,7 +264,7 @@ export interface HistoryView {
     readonly agents: readonly AgentView[];
     /** Completed and Abandoned Investigations. */
     readonly investigations: readonly InvestigationView[];
-    /** Expired and Cancelled Mission sites, and Attempted ones whose Mission is Won or Lost. */
+    /** Concluded, Expired, and Cancelled Mission sites. */
     readonly missionSites: readonly MissionSiteView[];
     /** Won and Lost Missions. */
     readonly missions: readonly MissionView[];

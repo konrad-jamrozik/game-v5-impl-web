@@ -3,7 +3,12 @@
  * ownership. Adapters implement this interface, e.g. over IndexedDB or over files.
  */
 export type SaveKind =
-  'manual' | 'currentAutosave' | 'turnEndAutosave' | 'engagementAutosave' | 'returnAutosave';
+  | 'manual'
+  | 'currentAutosave'
+  | 'turnEndAutosave'
+  | 'engagementAutosave'
+  | 'disengagementAutosave'
+  | 'returnAutosave';
 
 /** What Game storage keeps beside the body of each Campaign save, so that listing reads no body. */
 export interface SaveHeader {
