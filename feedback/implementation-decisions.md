@@ -115,9 +115,12 @@
   was written. The
   Leads panel shows only discovered Leads, each with its Lead status, as a tree whose roots are the Leads that no
   listed Lead leads to, since a Won Response Mission can discover a Lead that no discovered Lead creates the
-  MissionSiteArchetype of. While a Campaign is current it shows a status bar with Advance turn, Timeline
+  MissionSiteArchetype of. While a Campaign is current it showed a status bar with Advance turn, Timeline
   navigation, and saving; the Agents grid; one of five panels, Mission sites, Leads, Agency, Turn report, and History;
-  an Autopilot bar; and a Developer drawer, as the README describes. It follows ENG, API hierarchy, and PAPI,
+  an Autopilot bar; and a Developer drawer. Specification commit e19a220aa261bbcbaecbe0725bedda08f655a2ee overrode the
+  Campaign screen part and the Leads tree: CSCR now fixes the status bar, the Side panel with its navigation,
+  Situation panel, and Autopilot footer, and the eight Detail views, which the Implementation follows; the status bar
+  keeps Advance turn, Timeline navigation, and saving, and the Developer drawer stays. It follows ENG, API hierarchy, and PAPI,
   Information boundary: it is an adapter over the engine API and shows no gameplay information that the engine API
   does not return.
 - **Options considered:** One screen per game concept, reached through a menu; one Campaign screen with the Agents
@@ -762,6 +765,9 @@
 - **Options considered:** Rows that open a separate detail view; rows that select the existing tabs and scroll to the
   item; keeping the switch to the Turn report tab after every Advance turn.
 - **Option chosen:** Rows that select the existing tabs and scroll to the item, and no automatic tab switch.
+  Specification commit e19a220aa261bbcbaecbe0725bedda08f655a2ee overrode the rows' targets: SITP, Groups now has each item open
+  the Detail view that details it with that item selected, the Agents line opening the Agents View, and the Turn
+  summary's offer opens the Turn Report View. The Turn summary still never opens on its own after an Advance turn.
 - **Why:** The existing tabs already detail every one of these items, so a row reaches it in one action without a new
   screen, and the Turn summary replaces the automatic switch, so the Player keeps the tab being worked in.
 - **Links:** PROB-024
@@ -791,9 +797,12 @@
 
 - **Category:** Treatment of guidance
 - **Affected specifications:** GLOBE, Overview: "The Graphical User Interface says what the Player needs to see, and
-  the globe is decoration beside that: an Implementation without a globe is still correct."
-- **Description:** Used a different approach: no globe for now. The web UI has no Globe tab, no copy of the globe maps, and no three.js
-  dependency, and the Specification map lists no files under GLOBE.
+  the globe is decoration behind that: the Campaign Screen gives the globe most of the screen, but an Implementation
+  without a globe is still correct." CSCR, Regions: "The screen is complete without it; when no globe can be shown,
+  the Globe stage is left empty."
+- **Description:** Used a different approach: no globe for now. The Campaign screen has its Globe stage, which a
+  Detail view covers, but leaves it empty; the web UI has no copy of the globe maps and no three.js dependency, and
+  the Specification map lists no files under GLOBE.
 - **Options considered:** Following the recipe with a lazily loaded Globe tab; not following it for now.
 - **Option chosen:** Not following it for now.
 - **Why:** The Engine designer chose to skip it in this update; the recipe states that the globe is optional
@@ -814,3 +823,21 @@
 - **Why:** The Return Autosave holds the line of play the Player left by going back, including its Undone actions,
   which is what redo across Turns exists to restore.
 - **Links:** PROB-026
+
+## DEC-045: An Encyclopedia article's subject must identify exactly one GDR
+
+- **Category:** Gap resolution
+- **Affected specifications:** COMP, Encyclopedia article GDR validation: "Subject exists: A `subject` identifies a
+  GDR of the Game build whose Type is not EncyclopediaArticle." COMP, Article visibility: "Its subject is
+  Player-visible in that Committed state".
+- **Description:** A `subject` that identifies GDRs of more than one Type other than EncyclopediaArticle fails rule 4,
+  Subject exists, so every article has one subject and one subject Type. For a subject Type that COMP's informative
+  table does not list, the article follows what Player API reports: it is always Player-visible for a parameter GDR,
+  FactionActivityLevel, FactionOperationLevel, AgencyArchetype, InvestigationArchetype, or MissionArchetype, which
+  Player API reports in every Committed state, and never for CampaignConfiguration or ConfigurationParameters, which
+  no Player-visible value includes. No Bootstrap article has such a subject.
+- **Options considered:** Rejecting an ambiguous subject; taking the first GDR in Game build order.
+- **Option chosen:** Rejecting an ambiguous subject.
+- **Why:** COMP reports a data defect rather than repairing content, and a silent choice could show an article about
+  a GDR the Player may not know yet.
+- **Links:** PROB-028

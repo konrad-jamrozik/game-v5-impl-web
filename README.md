@@ -74,20 +74,21 @@ from Google Fonts; DEC-034 gives the light theme.
 - **Status bar.** Turn, money, funding, projected income and upkeep, Agents against the Agent cap, a Panic meter,
   each Faction with its Faction activity level, and the buttons Undo, Redo, earlier and later Autosave, Save, Main
   menu, and Advance turn.
-- **Agents grid.** Always visible on the left. A sortable table of the Serving Agents built with TanStack Table.
-  Clicking a row selects it. The toolbar above hires an Agent and assigns the selected Agents to Standby, Contracting,
-  or Training, or dismisses them.
-- **Panels.** On the right, one of five:
-  - Mission sites: each with its Enemies, rewards, and penalties, the Combat rating of the selected team against
-    the Enemies, and a Deploy button.
-  - Leads: a tree in which each discovered Lead is under the Leads it requires, with its Lead status, what blocks it, its
-    Required progress range once it is Assessed, its Investigation progress and projected progress gain, and buttons that
-    start an Investigation or add the selected Agents to it.
-  - Agency: caps, Upgrades with Buy buttons, Factions, and a field manual of the Player-visible GDR values.
-  - Turn report: what the last Advance turn did, with every Combat report and its Combat log.
-  - History: four line charts, the History entries as a table, and the Campaign instances no longer in play.
-- **Autopilot bar.** Chooses an Autopilot AI and engages it for one Player action, until the Turn advances, or for a
-  number of Turns; shows its progress and a Stop button.
+- **Globe stage.** The rest of the screen, left of the Side panel. It is left empty, because no globe is drawn yet
+  (DEC-043); the open Detail view covers it.
+- **Side panel.** On the right, 400 px wide: a button for each Detail view, the compact Situation panel, in which
+  each item takes one line, e.g. an Active Investigation with its Progress circle and Completion estimate, and opens
+  its Detail view, and a footer with the Autopilot controls, collapsed to one row until expanded.
+- **Detail views.** One at a time, opened and closed from the Side panel or with `Esc`:
+  - Operations: Missions (Mission sites, their Enemies and Consequences, and deploying a team), Leads (the Discovered
+    Leads in groups, the selected Lead with its Progress bar, and its Investigation's team), Agents (a sortable table
+    of the Serving Agents built with TanStack Table, with Hire, the Assignment buttons, Dismiss, and each Agent's
+    details), and Upgrades (one card per Upgrade with what one more purchase changes).
+  - Records: Turn report (what the last Advance turn did, with each Combat report and its Combat log), History (the
+    Turn by Turn table), Charts (Panic, money, Serving Agents, and funding), and Compendium (the Player-visible
+    Encyclopedia articles, by category, with a search field).
+- **Autopilot controls.** Choose an Autopilot AI and engage it for one Player action, until the Turn advances, or for
+  a number of Turns; show its progress and a Stop button.
 - **Developer drawer.** Enables Dev mode, adds money or Agents, sets a random outcome override, and shows the full
   Campaign state.
 
@@ -99,9 +100,9 @@ the same Committed state.
 After a reload the web UI continues the Campaign from its Current Autosave, including its Undone actions; see
 DEC-023.
 
-Keyboard shortcuts: `N` Advance turn, `U` and `R` undo and redo, `1` to `5` open a panel, `H` hire, `S`, `C`, `T`
-assign the selected Agents, `A` select every Agent that can be assigned, `Esc` clear the selection, `` ` `` open the
-Developer drawer, `?` list the shortcuts.
+Keyboard shortcuts: `N` Advance turn, `U` and `R` undo and redo, `1` to `8` open or close a Detail view, `Esc` close
+it, `H` hire, `S`, `C`, `T` assign the Agents selected in the Agents view, `A` select every Agent that can be
+assigned, `` ` `` open the Developer drawer, `?` list the shortcuts.
 
 ## The terminal CLI
 

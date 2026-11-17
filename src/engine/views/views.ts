@@ -31,6 +31,7 @@ import {
 } from '../mechanics/leads/leads.ts';
 import { consequencesOf, type ConsequenceAmounts } from '../mechanics/missions/missions.ts';
 import { healthRecoveryRate, recoveryTurnsRemaining } from '../mechanics/recovery/recovery.ts';
+import { visibleArticles } from '../mechanics/compendium/compendium.ts';
 import type {
   ActionAvailability,
   ActivityLevelView,
@@ -40,6 +41,7 @@ import type {
   ConsequenceView,
   CurrentStateView,
   DeploymentPreview,
+  EncyclopediaArticleView,
   EnemyView,
   FactionView,
   GameDataView,
@@ -573,6 +575,17 @@ function decimalText(value: { n: bigint; d: bigint }): string {
   }
   const digits = n.toString().padStart(scale + 1, '0');
   return scale === 0 ? digits : `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
+}
+
+/** `player.queries.getEncyclopediaArticles()`: the Player-visible Encyclopedia articles, in Game build order (COMP). */
+export function encyclopediaArticlesView(state: CampaignState, gdrs: GdrCatalog): EncyclopediaArticleView[] {
+  return visibleArticles(state.world.current, gdrs).map((article) => ({
+    id: article.id,
+    title: article.title,
+    body: article.body,
+    subject: article.subject,
+    subjectType: article.subjectType,
+  }));
 }
 
 /** `player.queries.getGameData()`: the Player-visible properties of the GDRs. It is the same for every Campaign. */

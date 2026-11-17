@@ -196,7 +196,9 @@ code {
 }
 
 .btn:focus-visible,
-.tab:focus-visible,
+.nav-button:focus-visible,
+.sit-row:focus-visible,
+.list-row:focus-visible,
 .chip:focus-visible,
 .link:focus-visible,
 input:focus-visible,
@@ -672,107 +674,6 @@ input::placeholder {
   border-left: 4px solid var(--danger);
 }
 
-.workspace {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(540px, 1fr) minmax(400px, 1.3fr);
-  gap: 20px;
-  padding: 20px 24px;
-}
-
-.agents,
-.panels {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.agents {
-  flex: 1;
-  background: var(--surface);
-}
-
-/* VIS, Panels and cards: the Situation panel heads the left column, above the Agents panel, and is as wide as it. */
-.left-column {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-height: 0;
-}
-
-.situation {
-  flex: none;
-  max-height: 55%;
-  overflow: auto;
-  padding: 18px;
-  background: var(--surface);
-}
-
-.situation .section-head {
-  margin-bottom: 8px;
-}
-
-/* VIS, Panels and cards: a panel that lists groups heads each with a Label and its count, between Divider rules. */
-.sit-group + .sit-group {
-  border-top: 1px solid var(--divider);
-}
-
-.sit-group {
-  padding: 10px 0;
-}
-
-.sit-group-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 4px;
-}
-
-.sit-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  padding: 6px 0;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-}
-
-button.sit-row {
-  cursor: pointer;
-}
-
-button.sit-row:hover,
-button.sit-row:focus-visible {
-  background: var(--raised);
-}
-
-.sit-row + .sit-row {
-  border-top: 1px solid var(--divider);
-}
-
-button.sit-group-head {
-  flex-direction: row;
-  margin-bottom: 0;
-}
-
-.sit-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.sit-sub {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
 .shown {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -966,16 +867,12 @@ button.sit-group-head {
   margin: 2px 0 0;
 }
 
-.agents .section-head {
-  padding: 18px 18px 0;
-}
-
 .toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
-  padding: 0 18px 14px;
-  border-bottom: 1px solid var(--divider);
+  padding-bottom: 14px;
 }
 
 .toolbar-gap {
@@ -1005,36 +902,6 @@ button.sit-group-head {
 .chip-on {
   background: var(--raised);
   color: var(--text);
-}
-
-/* VIS, Tabs */
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 16px;
-}
-
-.tab {
-  height: 36px;
-  padding: 0 14px;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  background: none;
-  color: var(--text);
-  font-family: var(--font-heading);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.tab-active {
-  background: var(--raised);
-  border-color: var(--border);
-  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .count {
@@ -1271,9 +1138,6 @@ summary {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 10px 24px;
-  border-top: 1px solid var(--divider);
-  background: var(--surface);
 }
 
 .autopilot input[type='number'] {
@@ -1285,14 +1149,6 @@ summary {
   font-weight: 600;
 }
 
-.footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-  padding: 6px 24px 8px;
-  background: var(--surface);
-}
-
 .help,
 .drawer {
   position: fixed;
@@ -1302,8 +1158,8 @@ summary {
 }
 
 .help {
-  right: 24px;
-  bottom: 48px;
+  right: 416px;
+  bottom: 16px;
   padding: 18px;
   width: 440px;
   max-width: calc(100vw - 48px);
@@ -1384,14 +1240,6 @@ summary {
     min-height: 100vh;
   }
 
-  .workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .agents {
-    max-height: 60vh;
-  }
-
   h1 {
     font-size: 40px;
   }
@@ -1418,4 +1266,451 @@ input[type='checkbox'] {
 
 .campaign-card .grid td:last-child {
   width: 1%;
+}
+
+/* CSCR, Regions; VIS, Detail views and navigation: the Globe stage and the Side panel meet without a gap. */
+.campaign-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+}
+
+.globe-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: var(--background);
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--divider);
+}
+
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nav-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.nav-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nav-button:hover {
+  border-color: var(--text-muted);
+}
+
+.nav-button-open {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.side-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--divider);
+}
+
+.side-links {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.autopilot-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.autopilot-collapsed {
+  justify-content: space-between;
+}
+
+/* SITP; VIS, Panels and cards: one-line items, 28 px rows separated by Raised dividers. */
+.situation {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.situation .section-head {
+  margin-bottom: 4px;
+}
+
+.sit-group {
+  padding: 10px 0 4px;
+}
+
+.sit-group + .sit-group {
+  border-top: 1px solid var(--divider);
+}
+
+.sit-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.sit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px 84px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--raised);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sit-row:last-child {
+  border-bottom: 0;
+}
+
+.sit-row:hover,
+.sit-row:focus-visible {
+  background: var(--raised);
+}
+
+.sit-agents {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sit-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sit-glyph {
+  display: flex;
+  align-items: center;
+}
+
+.sit-value {
+  font-family: var(--font-figure);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.sit-value.tone-accent {
+  color: var(--accent-text);
+}
+
+.sit-value.muted {
+  color: var(--text-muted);
+}
+
+.strong {
+  color: var(--text);
+}
+
+/* VIS, Progress circles */
+.pcircle {
+  display: block;
+}
+
+.pcircle-track {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.pcircle-full {
+  fill: var(--accent);
+}
+
+.pcircle-check {
+  fill: none;
+  stroke: var(--on-accent);
+  stroke-width: 1.8;
+}
+
+.pcircle-unknown {
+  fill: none;
+  stroke: var(--accent-dim);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2.4;
+}
+
+.pcircle-mark {
+  font: 9px var(--font-figure);
+  fill: var(--text-muted);
+}
+
+/* VIS, Detail views and navigation: a Detail view covers the Globe stage inset by 16 px. */
+.detail-view {
+  position: absolute;
+  inset: 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border-top: 2px solid var(--accent);
+}
+
+.detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 18px 12px;
+}
+
+.detail-head h3 {
+  margin: 0;
+}
+
+.detail-aside {
+  margin-left: 12px;
+  font-family: var(--font-figure);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-secondary);
+}
+
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-close {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+
+.detail-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 18px 18px;
+}
+
+.panes {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.1fr) minmax(0, 1.3fr) minmax(0, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.panes-compendium {
+  grid-template-columns: minmax(160px, 0.7fr) minmax(200px, 1fr) minmax(0, 2fr);
+}
+
+.pane {
+  min-width: 0;
+  padding: 12px;
+  background: var(--background);
+}
+
+.pane-title {
+  margin: 0 0 8px;
+}
+
+.pane-sub {
+  margin-top: 14px;
+}
+
+.pane-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.list-group + .list-group {
+  margin-top: 12px;
+}
+
+.list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--raised);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.list-row:hover,
+.list-row:focus-visible {
+  background: var(--raised);
+}
+
+.list-row-on {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.list-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-value {
+  font-family: var(--font-figure);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.list-toggle {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.grid.compact td,
+.grid.compact th {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.report-section + .report-section {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+}
+
+.upgrade-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.upgrade-card h4 {
+  margin: 0 0 2px;
+}
+
+.upgrade-change {
+  margin: 12px 0 4px;
+  font-size: 16px;
+}
+
+.search {
+  height: 36px;
+  width: 220px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--text);
+  font: inherit;
+}
+
+.article-body {
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+@media (max-width: 1100px) {
+  .panes,
+  .panes-compendium {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .campaign-body {
+    grid-template-columns: 1fr;
+  }
+
+  .globe-stage {
+    min-height: 70vh;
+  }
+
+  .side-panel {
+    border-left: 0;
+    border-top: 1px solid var(--divider);
+  }
+
+  .help {
+    right: 16px;
+  }
+}
+
+/* AVIEW, Agent details: an Agent's Instance ID opens its details. */
+.id-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--font-figure);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.id-link:hover,
+.id-link:focus-visible {
+  color: var(--accent-text);
+  text-decoration: underline;
 }

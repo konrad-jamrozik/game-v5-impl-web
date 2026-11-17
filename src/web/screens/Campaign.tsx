@@ -1,32 +1,28 @@
 /**
- * The Campaign screen: status bar, the Situation panel above the Agents grid on the left, tabbed panels on the right,
- * Autopilot bar below, and the Turn summary after an Advance turn the Player requested here.
+ * CSCR: the Campaign screen. The status bar spans the top; the Side panel on the right holds the navigation to every
+ * Detail view, the compact Situation panel, and the Autopilot footer; the Globe stage fills the rest, and the open
+ * Detail view covers it. No globe is drawn yet (DEC-043), so the Globe stage is left empty.
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
 import { confirmInterruption } from '../interruption.ts';
+import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary } from '../turn-summary.ts';
 import { Badge, Button, Fact, Meter, typingIn } from '../ui.tsx';
-import { AgencyPanel } from './AgencyPanel.tsx';
-import { AgentsGrid } from './AgentsGrid.tsx';
+import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
+import { ChartsView } from './ChartsView.tsx';
+import { CompendiumView } from './CompendiumView.tsx';
+import { DETAIL_VIEW_GROUPS, DETAIL_VIEWS, type DetailViewId } from './DetailView.tsx';
 import { DeveloperDrawer } from './DeveloperDrawer.tsx';
-import { HistoryPanel } from './HistoryPanel.tsx';
-import { LeadsPanel } from './LeadsPanel.tsx';
-import { MissionSitesPanel } from './MissionSitesPanel.tsx';
+import { HistoryView } from './HistoryView.tsx';
+import { LeadsView } from './LeadsView.tsx';
+import { MissionsView } from './MissionsView.tsx';
 import { SituationPanel, type SituationTarget } from './SituationPanel.tsx';
-import { TurnReportPanel } from './TurnReportPanel.tsx';
+import { TurnReportView, type ReportTarget } from './TurnReportView.tsx';
 import { TurnSummary } from './TurnSummary.tsx';
-
-const TABS = [
-  { id: 'missions', name: 'Mission sites' },
-  { id: 'leads', name: 'Leads' },
-  { id: 'agency', name: 'Agency' },
-  { id: 'report', name: 'Turn report' },
-  { id: 'history', name: 'History' },
-] as const;
-type TabId = (typeof TABS)[number]['id'];
+import { UpgradesView } from './UpgradesView.tsx';
 
 const REASONS: Record<string, string> = {
   EveryFactionEliminated: 'every Faction is eliminated',
@@ -37,18 +33,26 @@ const REASONS: Record<string, string> = {
 const SHORTCUTS = [
   ['N', 'Advance turn'],
   ['U / R', 'Undo / redo one action'],
-  ['1 to 5', 'Open a panel'],
+  ['1 to 8', 'Open or close a Detail view'],
+  ['Esc', 'Close the open Detail view'],
   ['H', 'Hire an Agent'],
   ['S / C / T', 'Assign the selected Agents to Standby, Contracting, Training'],
   ['A', 'Select every Agent that can be assigned'],
-  ['Esc', 'Clear the selection'],
   ['`', 'Developer drawer'],
   ['?', 'This list'],
 ] as const;
 
+/** The open Detail view, and the item a Situation panel or Turn report item selected in it. */
+interface OpenView {
+  readonly id: DetailViewId;
+  readonly item: string | null;
+  /** Changes whenever an item is shown, so that the Detail view starts again with that item selected. */
+  readonly serial: number;
+}
+
 export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: CurrentStateView }) {
   const { session, player } = theEngine();
-  const [tab, setTab] = useState<TabId>('missions');
+  const [open, setOpen] = useState<OpenView | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [drawer, setDrawer] = useState(false);
   const [help, setHelp] = useState(false);
@@ -58,15 +62,13 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
    * dismisses its Turn summary. Loading, Timeline navigation, and Autopilot never set it.
    */
   const [requestedTurn, setRequestedTurn] = useState<number | null>(null);
-  /** The test ID of the item a Situation panel row asked to show, once its tab is rendered. */
-  const [reveal, setReveal] = useState<string | null>(null);
 
   const actions = snapshot.actions;
   const timeline = snapshot.timeline;
   const autopilotActive = snapshot.status.autopilot !== null;
   const locked = autopilotActive ? 'Unavailable while Autopilot is engaged.' : null;
 
-  // The selection holds only Agents that still serve.
+  // The selection of the Agents View holds only Agents that still serve.
   const selected = useMemo(
     () => state.agents.filter((agent) => picked.has(agent.id)).map((agent) => agent.id),
     [state.agents, picked],
@@ -101,39 +103,32 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     });
   };
 
-  /** GUI, Situation panel: selecting a row shows that item where the Campaign screen details it; see DEC-041. */
-  const show = (target: SituationTarget) => {
+  /** CSCR, Side panel: selecting the button of the open Detail view closes it, any other opens its Detail view. */
+  const toggleView = (id: DetailViewId) => {
+    setOpen((current) =>
+      current?.id === id ? null : { id, item: null, serial: (current?.serial ?? 0) + 1 },
+    );
+  };
+  const showItem = (id: DetailViewId, item: string | null) => {
+    setOpen((current) => ({ id, item, serial: (current?.serial ?? 0) + 1 }));
+  };
+
+  /** SITP: selecting an item opens the Detail view that details it, with that item selected. */
+  const show = (target: SituationTarget | ReportTarget) => {
     if (target.kind === 'lead') {
-      setTab('leads');
-      setReveal(`lead-${target.lead}`);
+      showItem('leads', target.lead);
     } else if (target.kind === 'missionSite') {
-      setTab('missions');
-      setReveal(`site-${target.missionSite}`);
-    } else if (target.kind === 'agency') {
-      setTab('agency');
-      setReveal('training-cap');
+      showItem('missions', target.missionSite);
     } else {
-      setPicked(new Set(target.agents));
+      showItem('agents', null);
     }
   };
 
-  useEffect(() => {
-    if (reveal === null) {
-      return;
-    }
-    const element = document.querySelector(`[data-testid="${reveal}"]`);
-    setReveal(null);
-    if (element instanceof HTMLElement) {
-      element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      element.classList.add('shown');
-      window.setTimeout(() => {
-        element.classList.remove('shown');
-      }, 1500);
-    }
-  }, [reveal, tab]);
   const order = (assignment: 'Standby' | 'Contracting' | 'Training') => {
     if (selected.length > 0 && confirmInterruption(state, selected)) {
-      act(() => player.actions.assignAgents(selected, assignment));
+      const agents = [...selected];
+      act(() => player.actions.assignAgents(agents, assignment));
+      setPicked(new Set());
     }
   };
 
@@ -151,17 +146,19 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         }
         return;
       }
-      const index = Number(key) - 1;
-      const numbered = TABS[index];
+      const numbered = DETAIL_VIEWS[Number(key) - 1];
       if (numbered !== undefined) {
-        setTab(numbered.id);
+        toggleView(numbered.id);
       } else if (key === '`') {
-        setDrawer((open) => !open);
+        setDrawer((on) => !on);
       } else if (key === '?') {
-        setHelp((open) => !open);
+        setHelp((on) => !on);
       } else if (key === 'escape') {
-        setPicked(new Set());
-        setHelp(false);
+        if (help) {
+          setHelp(false);
+        } else {
+          setOpen(null);
+        }
       } else if (key === 'a') {
         setPicked(new Set(actions?.assignableAgents ?? []));
       } else if (autopilotActive) {
@@ -194,7 +191,15 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const target = (t: AutosaveStatus['undoToAutosave']) =>
     t === null ? null : `${t.autosaveKind === 'turnEnd' ? 'end' : t.autosaveKind} of Turn ${t.turn}`;
 
-  const activeSites = state.missionSites.filter((site) => site.lifecycle === 'Active').length;
+  /** CSCR, Detail views: the counts the navigation buttons show. */
+  const counts: Partial<Record<DetailViewId, number>> = {
+    missions: state.missionSites.filter((site) => site.lifecycle === 'Active').length,
+    leads: activeInvestigationRows(state).length + leadsToInvestigate(state).length,
+    agents: state.agency.servingAgents,
+  };
+  const close = () => {
+    setOpen(null);
+  };
 
   return (
     <div className="campaign">
@@ -329,85 +334,84 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         </div>
       )}
 
-      <div className="workspace">
-        <div className="left-column">
-          <SituationPanel
-            state={state}
-            assessmentThresholdPct={snapshot.gameData?.investigationParameters.assessmentThresholdPct ?? 0}
-            onShow={show}
-          />
-          <AgentsGrid
-            snapshot={snapshot}
-            state={state}
-            selected={selected}
-            locked={locked}
-            onSelect={(ids) => {
-              setPicked(new Set(ids));
-            }}
-          />
-        </div>
-        <div className="panels">
-          <nav className="tabs" role="tablist">
-            {TABS.map((item, index) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === item.id}
-                className={tab === item.id ? 'tab tab-active' : 'tab'}
-                data-testid={`tab-${item.id}`}
-                onClick={() => {
-                  setTab(item.id);
-                }}
-              >
-                {item.name}
-                <kbd>{index + 1}</kbd>
-                {/* CSCR, Tabs: Mission sites shows the number of Active Mission sites. */}
-                {item.id === 'missions' && activeSites > 0 ? (
-                  <span className="count">{activeSites}</span>
-                ) : null}
-              </button>
+      <div className="campaign-body">
+        <main className="globe-stage" data-testid="globe-stage">
+          {open === null ? null : (
+            <OpenDetailView
+              key={`${open.id}-${open.serial}`}
+              open={open}
+              snapshot={snapshot}
+              state={state}
+              locked={locked}
+              selected={selected}
+              onSelect={(ids) => {
+                setPicked(new Set(ids));
+              }}
+              onShow={show}
+              onClose={close}
+            />
+          )}
+        </main>
+
+        <aside className="side-panel" aria-label="Side panel">
+          <nav className="side-nav">
+            {DETAIL_VIEW_GROUPS.map((group) => (
+              <div key={group.name} className="nav-group">
+                <span className="label">{group.name}</span>
+                <div className="nav-buttons">
+                  {group.views.map((view) => {
+                    const count = counts[view.id];
+                    const index = DETAIL_VIEWS.findIndex((item) => item.id === view.id) + 1;
+                    return (
+                      <button
+                        key={view.id}
+                        type="button"
+                        className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
+                        aria-pressed={open?.id === view.id}
+                        title={`Shortcut: ${index}`}
+                        data-testid={`nav-${view.id}`}
+                        onClick={() => {
+                          toggleView(view.id);
+                        }}
+                      >
+                        <span>{view.name}</span>
+                        {count === undefined || count === 0 ? null : <span className="count">{count}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </nav>
-          <div className="panel" role="tabpanel">
-            {tab === 'missions' ? (
-              <MissionSitesPanel snapshot={snapshot} state={state} selected={selected} locked={locked} />
-            ) : tab === 'leads' ? (
-              <LeadsPanel snapshot={snapshot} state={state} selected={selected} locked={locked} />
-            ) : tab === 'agency' ? (
-              <AgencyPanel snapshot={snapshot} state={state} locked={locked} />
-            ) : tab === 'report' ? (
-              <TurnReportPanel snapshot={snapshot} />
-            ) : (
-              <HistoryPanel snapshot={snapshot} />
-            )}
-          </div>
-        </div>
+
+          <SituationPanel state={state} onShow={show} />
+
+          <footer className="side-footer">
+            <AutopilotBar snapshot={snapshot} />
+            <div className="side-links">
+              <button
+                type="button"
+                className="link"
+                onClick={() => {
+                  setHelp((on) => !on);
+                }}
+              >
+                Shortcuts (?)
+              </button>
+              <button
+                type="button"
+                className="link"
+                data-testid="open-developer"
+                onClick={() => {
+                  setDrawer((on) => !on);
+                }}
+              >
+                Developer (`)
+              </button>
+            </div>
+          </footer>
+        </aside>
       </div>
-
-      <AutopilotBar snapshot={snapshot} />
-
-      <footer className="footer">
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            setHelp((open) => !open);
-          }}
-        >
-          Keyboard shortcuts (?)
-        </button>
-        <button
-          type="button"
-          className="link"
-          data-testid="open-developer"
-          onClick={() => {
-            setDrawer((open) => !open);
-          }}
-        >
-          Developer (`)
-        </button>
-      </footer>
 
       {help ? (
         <div className="help" role="dialog" aria-label="Keyboard shortcuts">
@@ -434,7 +438,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           currentTurn={state.turn}
           onDismiss={dismissSummary}
           onOpenReport={() => {
-            setTab('report');
+            showItem('report', null);
             dismissSummary();
           }}
         />
@@ -450,6 +454,56 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       ) : null}
     </div>
   );
+}
+
+function OpenDetailView(props: {
+  open: OpenView;
+  snapshot: Snapshot;
+  state: CurrentStateView;
+  locked: string | null;
+  selected: readonly string[];
+  onSelect: (ids: readonly string[]) => void;
+  onShow: (target: SituationTarget | ReportTarget) => void;
+  onClose: () => void;
+}) {
+  const { open, snapshot, state, locked, onClose } = props;
+  switch (open.id) {
+    case 'missions':
+      return (
+        <MissionsView
+          snapshot={snapshot}
+          state={state}
+          locked={locked}
+          initial={open.item}
+          onClose={onClose}
+        />
+      );
+    case 'leads':
+      return (
+        <LeadsView snapshot={snapshot} state={state} locked={locked} initial={open.item} onClose={onClose} />
+      );
+    case 'agents':
+      return (
+        <AgentsView
+          snapshot={snapshot}
+          state={state}
+          selected={props.selected}
+          locked={locked}
+          onSelect={props.onSelect}
+          onClose={onClose}
+        />
+      );
+    case 'upgrades':
+      return <UpgradesView snapshot={snapshot} state={state} locked={locked} onClose={onClose} />;
+    case 'report':
+      return <TurnReportView snapshot={snapshot} state={state} onOpen={props.onShow} onClose={onClose} />;
+    case 'history':
+      return <HistoryView snapshot={snapshot} onClose={onClose} />;
+    case 'charts':
+      return <ChartsView snapshot={snapshot} onClose={onClose} />;
+    case 'compendium':
+      return <CompendiumView snapshot={snapshot} state={state} onClose={onClose} />;
+  }
 }
 
 function siteArchetypeName(snapshot: Snapshot, archetype: string): string {

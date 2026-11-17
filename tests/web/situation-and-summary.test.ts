@@ -1,7 +1,8 @@
-/** GUI, Situation panel and Turn summary: which groups show, in which order, and when the Turn summary shows. */
+/** SITP, GUI Completion estimate and Progress circle, and Turn summary: which groups show, in which order, and when the Turn summary shows. */
 import { describe, expect, it } from 'vitest';
 import type { CampaignState } from '../../src/engine/state/types.ts';
 import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
+import { completionEstimate, progressCircle } from '../../src/web/completion.ts';
 import { situationGroups } from '../../src/web/situation.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/web/turn-summary.ts';
 import { act, advance, agentIds, gdrs, newCampaign, tweak, withAgents } from '../helpers/game.ts';
@@ -23,22 +24,19 @@ describe('GUI: Situation panel', () => {
     const state = withAgents(newCampaign(), 4);
     const view = currentStateView(state, gdrs);
     const groups = situationGroups(view);
-    expect(groups.map((group) => group.id)).toEqual(
-      ['investigations', 'leads', 'missionSites', 'training', 'standby'].filter((id) =>
-        groups.some((group) => group.id === id),
-      ),
-    );
+    expect(groups.map((group) => group.id)).toEqual(['leads', 'agents']);
     const leads = groups.find((group) => group.id === 'leads');
     expect(leads?.id === 'leads' && leads.rows.map((lead) => lead.id)).toContain(MEMBER);
-    expect(groups.find((group) => group.id === 'standby')).toMatchObject({ count: 4 });
-    expect(groups.find((group) => group.id === 'training')).toMatchObject({
-      count: view.agency.trainingCap,
-      cap: view.agency.trainingCap,
+    // SITP, Groups: the Agents line counts the Agents on Standby and the free Training places; the group counts
+    // the Serving Agents.
+    expect(groups.find((group) => group.id === 'agents')).toMatchObject({
+      count: view.agency.servingAgents,
+      standby: 4,
+      trainingFree: view.agency.trainingCap,
     });
-    expect(groups.find((group) => group.id === 'investigations')).toBeUndefined();
   });
 
-  it('moves a Lead with an Active Investigation to the Active Investigations, with team and Turns', () => {
+  it('moves a Lead with an Active Investigation to the Active Investigations, with its Completion estimate', () => {
     let state = withAgents(newCampaign(), 4);
     const [a1] = agentIds(state) as [string];
     state = startMember(state, a1, 4);
@@ -51,8 +49,8 @@ describe('GUI: Situation panel', () => {
       return;
     }
     expect(active.count).toBe(1);
-    expect(active.rows[0]).toMatchObject({ teamSize: 1, inTransit: 0, turns: 2 });
     expect(active.rows[0]!.investigation.projectedProgressGain).toBe(100);
+    expect(active.rows[0]!.estimate.text).toMatch(/^ETA /);
     const leads = groups.find((group) => group.id === 'leads');
     expect(leads?.id === 'leads' && leads.rows.some((lead) => lead.id === MEMBER)).toBe(false);
   });
@@ -69,6 +67,37 @@ describe('GUI: Situation panel', () => {
         agency: { ...view.agency, trainingAgents: view.agency.trainingCap },
       }),
     ).toEqual([]);
+  });
+});
+
+describe('GUI: Completion estimate and Progress circle', () => {
+  const assessed = { requiredProgress: 10, requiredProgressRange: { min: 10, max: 14 } } as const;
+  const hidden = { requiredProgress: 'unknown', requiredProgressRange: 'unknown' } as const;
+
+  it('gives the range of Advance turns from the Required progress to the greatest value of the range', () => {
+    // a = max(1, ⌈(1000 − 400) / 200⌉) = 3, b = ⌈(1400 − 400) / 200⌉ = 5.
+    expect(completionEstimate(assessed, { progress: 400, projectedProgressGain: 200 })).toEqual({
+      text: 'ETA 3–5 T',
+      tone: 'plain',
+    });
+    expect(completionEstimate(assessed, { progress: 900, projectedProgressGain: 500 })).toEqual({
+      text: 'ETA 1 T',
+      tone: 'next',
+    });
+  });
+
+  it('writes "ETA ≤ b T" once the Required progress is reached, "stalled" without gain, and "ETA ?" while hidden', () => {
+    expect(completionEstimate(assessed, { progress: 1100, projectedProgressGain: 100 }).text).toBe(
+      'ETA ≤ 3 T',
+    );
+    expect(completionEstimate(assessed, { progress: 400, projectedProgressGain: 0 }).text).toBe('stalled');
+    expect(completionEstimate(hidden, { progress: 400, projectedProgressGain: 200 }).text).toBe('ETA ?');
+  });
+
+  it('fills the circle by the share of the Required progress, full once reached, and unknown while hidden', () => {
+    expect(progressCircle(assessed, 750)).toEqual({ kind: 'share', share: 0.75 });
+    expect(progressCircle(assessed, 1000)).toEqual({ kind: 'full' });
+    expect(progressCircle(hidden, 750)).toEqual({ kind: 'unknown' });
   });
 });
 

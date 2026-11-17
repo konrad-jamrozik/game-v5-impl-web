@@ -190,6 +190,16 @@ export interface EndingParametersGdr {
   readonly defeatAtPanicPct: number;
 }
 
+/** COMP, EncyclopediaArticle: Display content only; no game behavior reads it. */
+export interface EncyclopediaArticleGdr {
+  readonly type: 'EncyclopediaArticle';
+  readonly id: string;
+  readonly title: string;
+  readonly body: string;
+  /** The identifier of the GDR the article is about; absent for a Guide article. */
+  readonly subject: string | null;
+}
+
 export type AnyGdr =
   | AgentArchetypeGdr
   | AgentParametersGdr
@@ -210,7 +220,14 @@ export type AnyGdr =
   | InvestigationParametersGdr
   | MissionSiteArchetypeGdr
   | MissionArchetypeGdr
-  | EndingParametersGdr;
+  | EndingParametersGdr
+  | EncyclopediaArticleGdr;
+
+/** An Encyclopedia article with its subject resolved to the Type of the subject GDR. */
+export interface CatalogEncyclopediaArticle extends EncyclopediaArticleGdr {
+  /** The Type of the subject GDR, e.g. `EnemyArchetype`; absent for a Guide article. */
+  readonly subjectType: Exclude<AnyGdr['type'], 'EncyclopediaArticle'> | null;
+}
 
 /** The GDRs of one Game build, validated and resolved. */
 export interface GdrCatalog {
@@ -234,4 +251,6 @@ export interface GdrCatalog {
   readonly factionOperationLevels: readonly FactionOperationLevelGdr[];
   readonly leads: readonly LeadGdr[];
   readonly missionSiteArchetypes: readonly MissionSiteArchetypeGdr[];
+  /** COMP: every Encyclopedia article, in Game build order. */
+  readonly encyclopediaArticles: readonly CatalogEncyclopediaArticle[];
 }

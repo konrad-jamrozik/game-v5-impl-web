@@ -7,6 +7,8 @@ import { z } from 'zod';
 import { EngineDefect, Rational, q } from '../kernel/index.ts';
 import type {
   AnyGdr,
+  CatalogEncyclopediaArticle,
+  EncyclopediaArticleGdr,
   FactionActivityLevelGdr,
   GdrCatalog,
   LeadGdr,
@@ -32,6 +34,10 @@ const decimal = z
 const entries = <T extends z.ZodType>(value: T) =>
   z.strictObject({ $entries: z.array(z.tuple([z.string(), value])) }).transform((map) => map.$entries);
 const range = z.tuple([z.int(), z.int()]);
+/** COMP, Encyclopedia article GDR validation, rules 1 and 2: a required, non-empty text. */
+const text = z
+  .string({ error: (issue) => (issue.input === undefined ? 'Exact properties' : 'Text is present') })
+  .min(1, 'Text is present');
 
 const schemas = {
   AgentArchetype: z
@@ -351,6 +357,22 @@ const schemas = {
   EndingParameters: z
     .strictObject({ id, type: z.literal('EndingParameters'), defeat_at_panic_pct: z.int().min(1).max(100) })
     .transform((g) => ({ type: g.type, id: g.id, defeatAtPanicPct: g.defeat_at_panic_pct })),
+  // COMP, Encyclopedia article GDR validation, rule 1: `title` and `body`, optionally `subject`, and nothing else.
+  EncyclopediaArticle: z
+    .strictObject(
+      { id, type: z.literal('EncyclopediaArticle'), title: text, body: text, subject: id.optional() },
+      {
+        error: (issue) =>
+          issue.code === 'unrecognized_keys' ? `Exact properties (${issue.keys.join(', ')})` : undefined,
+      },
+    )
+    .transform((g) => ({
+      type: g.type,
+      id: g.id,
+      title: g.title,
+      body: g.body,
+      subject: g.subject ?? null,
+    })),
 } as const;
 
 type TypeName = keyof typeof schemas;
@@ -426,6 +448,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const factionOperationLevels = all<GdrCatalog['factionOperationLevels'][number]>('FactionOperationLevel');
   const leads = all<LeadGdr>('Lead');
   const missionSiteArchetypes = all<MissionSiteArchetypeGdr>('MissionSiteArchetype');
+  const articles = all<EncyclopediaArticleGdr>('EncyclopediaArticle');
 
   // AGENT, Agent GDR validation; COMBAT, Combat GDR validation.
   if (agentArchetype && !weapons.has(agentArchetype.weapon)) {
@@ -581,6 +604,9 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     }
   }
 
+  // COMP, Encyclopedia article GDR validation, rules 3 to 5. Rules 1 and 2 are checked by the schema.
+  const encyclopediaArticles = validateEncyclopediaArticles(articles, byType, problems);
+
   if (
     problems.length > 0 ||
     !agentArchetype ||
@@ -619,5 +645,51 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     factionOperationLevels,
     leads,
     missionSiteArchetypes,
+    encyclopediaArticles,
   };
+}
+
+/**
+ * COMP, Encyclopedia article GDR validation, rules 3 to 5, and the Type of each article's subject. A `subject` names
+ * no Type, and a GDR identifier is unique only among the GDRs of its Type (DEC-014), so a `subject` that identifies
+ * GDRs of more than one Type identifies no single GDR and fails rule 4.
+ */
+function validateEncyclopediaArticles(
+  articles: readonly EncyclopediaArticleGdr[],
+  byType: ReadonlyMap<string, readonly AnyGdr[]>,
+  problems: string[],
+): CatalogEncyclopediaArticle[] {
+  const typesById = new Map<string, NonNullable<CatalogEncyclopediaArticle['subjectType']>[]>();
+  for (const gdr of [...byType.values()].flat()) {
+    if (gdr.type !== 'EncyclopediaArticle') {
+      typesById.set(gdr.id, [...(typesById.get(gdr.id) ?? []), gdr.type]);
+    }
+  }
+  const titles = new Set<string>();
+  const subjects = new Set<string>();
+  return articles.map((article) => {
+    // Rule 3: Unique titles.
+    if (titles.has(article.title)) {
+      problems.push(`EncyclopediaArticle ${article.id}: Unique titles (${article.title})`);
+    }
+    titles.add(article.title);
+    if (article.subject === null) {
+      return { ...article, subjectType: null };
+    }
+    // Rule 4: Subject exists, and is not an EncyclopediaArticle.
+    const types = typesById.get(article.subject) ?? [];
+    if (types.length !== 1) {
+      problems.push(
+        types.length === 0
+          ? `EncyclopediaArticle ${article.id}: Subject exists (${article.subject})`
+          : `EncyclopediaArticle ${article.id}: Subject exists (${article.subject} identifies GDRs of more than one Type)`,
+      );
+    }
+    // Rule 5: One article per subject.
+    if (subjects.has(article.subject)) {
+      problems.push(`EncyclopediaArticle ${article.id}: One article per subject (${article.subject})`);
+    }
+    subjects.add(article.subject);
+    return { ...article, subjectType: types[0] ?? null };
+  });
 }

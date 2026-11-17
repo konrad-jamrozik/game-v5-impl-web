@@ -90,20 +90,21 @@ async function viaWeb(page: Page): Promise<unknown> {
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toHaveText('1');
 
+  await id(page, 'nav-agents').click();
   await id(page, 'agent-agent-2').click();
   await id(page, 'agent-agent-3').click();
   await id(page, 'order-contracting').click();
-  await page.keyboard.press('Escape');
-  await id(page, 'agent-agent-4').click();
-  await id(page, 'tab-leads').click();
+  await id(page, 'nav-leads').click();
+  await id(page, 'lead-locate_red_dawn_member').click();
+  await id(page, 'team-pick-agent-4').check();
   await id(page, 'investigate-locate_red_dawn_member').click();
-  await page.keyboard.press('Escape');
+  await id(page, 'nav-agents').click();
   await id(page, 'hire').click();
   await id(page, 'advance-turn').click();
   await afterAdvance(page, '2');
   await page.keyboard.press('n');
   await afterAdvance(page, '3');
-  await id(page, 'tab-agency').click();
+  await id(page, 'nav-upgrades').click();
   await id(page, 'buy-training_cap').click();
   await page.keyboard.press('h');
   await page.keyboard.press('u');
@@ -129,6 +130,7 @@ test('a reload continues the Campaign from its Current Autosave, with its Undone
   await page.goto('/');
   await id(page, 'seed-input').fill('reload');
   await id(page, 'new-campaign').click();
+  await id(page, 'nav-agents').click();
   await id(page, 'hire').click();
   await id(page, 'advance-turn').click();
   await afterAdvance(page, '2');
@@ -148,9 +150,10 @@ test('a reload continues the Campaign from its Current Autosave, with its Undone
 test('actions are offered only when the engine says they are available', async ({ page }) => {
   await page.goto('/');
   await id(page, 'new-campaign').click();
+  await id(page, 'nav-agents').click();
   await expect(id(page, 'order-standby')).toBeDisabled();
   await expect(id(page, 'undo')).toBeDisabled();
-  await id(page, 'tab-agency').click();
+  await id(page, 'nav-upgrades').click();
   await expect(id(page, 'buy-transport_cap')).toBeDisabled();
   await expect(id(page, 'buy-transport_cap')).toHaveAttribute('title', /costs 1000/);
   await id(page, 'open-developer').click();
@@ -161,29 +164,41 @@ test('actions are offered only when the engine says they are available', async (
   await expect(id(page, 'buy-transport_cap')).toBeEnabled();
 });
 
-test('the Situation panel is always in view and a row shows its item', async ({ page }) => {
+test('the Situation panel stays in view beside a Detail view and an item opens its Detail view', async ({
+  page,
+}) => {
   await page.goto('/');
   await id(page, 'seed-input').fill('situation');
   await id(page, 'new-campaign').click();
   await expect(id(page, 'situation')).toBeVisible();
-  await id(page, 'tab-history').click();
+  await id(page, 'nav-history').click();
+  await expect(id(page, 'view-history')).toBeVisible();
   await expect(id(page, 'situation')).toBeVisible();
   await id(page, 'situation-row-locate_red_dawn_member').click();
-  await expect(id(page, 'tab-leads')).toHaveAttribute('aria-selected', 'true');
-  await expect(id(page, 'lead-locate_red_dawn_member')).toBeVisible();
+  await expect(id(page, 'nav-leads')).toHaveAttribute('aria-pressed', 'true');
+  await expect(id(page, 'lead-details-locate_red_dawn_member')).toBeVisible();
+  // CSCR, Detail views: selecting the button of the open Detail view, or Escape, closes it.
+  await id(page, 'nav-leads').click();
+  await expect(id(page, 'view-leads')).toHaveCount(0);
+  await id(page, 'nav-compendium').click();
+  await expect(id(page, 'compendium-category-Guide')).toBeVisible();
+  await expect(id(page, 'article-locate_red_dawn_safehouse_article')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'view-compendium')).toHaveCount(0);
 });
 
 test('Autopilot plays a Campaign to its ending and the interface stays usable', async ({ page }) => {
   await page.goto('/');
   await id(page, 'seed-input').fill('autopilot');
   await id(page, 'new-campaign').click();
+  await id(page, 'autopilot-toggle').click();
   await id(page, 'autopilot-turns').fill('400');
   await id(page, 'autopilot-many').click();
   await expect(id(page, 'ending')).toBeVisible({ timeout: 90_000 });
   await expect(id(page, 'advance-turn')).toBeDisabled();
-  await id(page, 'tab-history').click();
+  await id(page, 'nav-charts').click();
   await expect(page.locator('.chart svg')).toHaveCount(4);
-  await id(page, 'tab-report').click();
+  await id(page, 'nav-report').click();
   await expect(id(page, 'turn-report')).toContainText('Campaign ending');
   await id(page, 'autosave-back').click();
   await expect(id(page, 'ending')).toHaveCount(0);

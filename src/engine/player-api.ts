@@ -358,6 +358,20 @@ export interface GameDataView {
   };
 }
 
+/**
+ * COMP, Player-visible information: one Player-visible Encyclopedia article. An article that is not Player-visible is
+ * absent from every result.
+ */
+export interface EncyclopediaArticleView {
+  readonly id: string;
+  readonly title: string;
+  readonly body: string;
+  /** The identifier of the GDR the article is about; absent for a Guide article. */
+  readonly subject: string | null;
+  /** The Type of the subject GDR, e.g. `EnemyArchetype`; absent for a Guide article. */
+  readonly subjectType: string | null;
+}
+
 /** The Combat ratings of a team of Agents and of a Mission site's Enemies, and whether deploying is accepted. */
 export interface DeploymentPreview {
   readonly teamCombatRating: number;
@@ -388,6 +402,8 @@ export interface PlayerApi {
     getHistory(): Result<HistoryView>;
     getAvailableActions(): Result<AvailableActionsView>;
     getGameData(): Result<GameDataView>;
+    /** COMP: the Player-visible Encyclopedia articles, in Game build order. */
+    getEncyclopediaArticles(): Result<readonly EncyclopediaArticleView[]>;
     previewDeployment(missionSite: string | null, agents: readonly string[]): Result<DeploymentPreview>;
     /** Each Active Investigation that the listed Agents that can be assigned would leave; see DEC-040. */
     previewProgressLoss(agents: readonly string[]): Result<readonly ProgressLossPreview[]>;

@@ -26,6 +26,12 @@
 - tests/foundation/final-review.test.ts
 - tests/helpers/test-rules.ts
 
+## AVIEW: Agents View
+
+- src/web/screens/AgentsView.tsx
+- src/web/interruption.ts
+- e2e/web.spec.ts
+
 ## BASICAI: Basic Autopilot AI
 
 - src/ai/
@@ -58,6 +64,7 @@
 - src/cli/
 - tests/cli/
 - e2e/web.spec.ts
+- src/cli/cli.ts
 
 ## COMBAT: Combat
 
@@ -68,6 +75,25 @@
 - src/gdr/types.ts
 - tests/mechanics/combat.test.ts
 - tests/mechanics/review-gaps.test.ts
+
+## COMP: Compendium
+
+- content/compendium/encyclopedia_articles.yaml
+- src/engine/mechanics/compendium/
+- src/gdr/catalog.ts
+- src/gdr/types.ts
+- src/engine/views/views.ts
+- src/engine/player-api.ts
+- src/engine/game-rules.ts
+- src/engine/index.ts
+- tests/mechanics/compendium.test.ts
+- tests/helpers/game.ts
+
+## COMPV: Compendium View
+
+- src/web/screens/CompendiumView.tsx
+- src/web/store.ts
+- e2e/web.spec.ts
 
 ## CONFIG: Configuration
 
@@ -89,6 +115,8 @@ No files.
 ## CSCR: Campaign Screen
 
 - src/web/screens/Campaign.tsx
+- src/web/screens/DetailView.tsx
+- src/web/screens/AutopilotBar.tsx
 - src/web/styles.css
 - e2e/web.spec.ts
 
@@ -99,6 +127,12 @@ No files.
 - src/engine/views/views.ts
 - src/engine/rules.ts
 - tests/engine/campaign.test.ts
+
+## CVIEW: Charts View
+
+- src/web/screens/ChartsView.tsx
+- src/web/screens/LineChart.tsx
+- e2e/web.spec.ts
 
 ## DCONV: Design Specification Conventions
 
@@ -226,10 +260,9 @@ No files.
 - tests/cli/
 - e2e/web.spec.ts
 
-## HTAB: History Tab
+## HVIEW: History View
 
-- src/web/screens/HistoryPanel.tsx
-- src/web/screens/LineChart.tsx
+- src/web/screens/HistoryView.tsx
 
 ## ICONV: Implementation Specification Conventions
 
@@ -253,8 +286,8 @@ No files.
 - src/gdr/catalog.ts
 - src/gdr/types.ts
 - content/investigations/investigation_parameters.yaml
-- src/web/screens/LeadsPanel.tsx
-- src/web/screens/TurnReportPanel.tsx
+- src/web/screens/LeadsView.tsx
+- src/web/screens/TurnReportView.tsx
 - src/web/interruption.ts
 - src/web/format.ts
 - src/web/progress-bar.ts
@@ -276,9 +309,9 @@ No files.
 - src/engine/player-api.ts
 - src/engine/state/types.ts
 - src/engine/turn/advance.ts
-- src/web/screens/LeadsPanel.tsx
-- src/web/screens/TurnReportPanel.tsx
-- src/web/screens/HistoryPanel.tsx
+- src/web/screens/LeadsView.tsx
+- src/web/screens/TurnReportView.tsx
+- src/web/screens/HistoryView.tsx
 - content/leads-and-progression/leads.yaml
 
 ## LIFE: Campaign Lifecycle
@@ -290,6 +323,14 @@ No files.
 ## LOOP: Development Loop
 
 No files.
+
+## LVIEW: Leads View
+
+- src/web/screens/LeadsView.tsx
+- src/web/screens/ProgressBar.tsx
+- src/web/progress-bar.ts
+- src/web/interruption.ts
+- e2e/web.spec.ts
 
 ## MENU: Main Menu
 
@@ -311,6 +352,11 @@ No files.
 - tests/mechanics/missions.test.ts
 - tests/mechanics/review-gaps.test.ts
 - tests/web/situation-and-summary.test.ts
+
+## MVIEW: Missions View
+
+- src/web/screens/MissionsView.tsx
+- src/web/tired-deployment.ts
 
 ## NUMBERS: Numbers
 
@@ -334,6 +380,7 @@ No files.
 - src/engine/actions/actions.ts
 - tests/engine/campaign.test.ts
 - tests/foundation/autopilot.test.ts
+- src/engine/game-rules.ts
 
 ## PLACE: Implementation Placement
 
@@ -387,8 +434,11 @@ No files.
 ## SITP: Situation Panel
 
 - src/web/screens/SituationPanel.tsx
+- src/web/screens/ProgressCircle.tsx
 - src/web/situation.ts
+- src/web/completion.ts
 - tests/web/situation-and-summary.test.ts
+- e2e/web.spec.ts
 
 ## STACK: Tech Stack Suggestion
 
@@ -415,6 +465,11 @@ No files.
 - tracking/specification-map.md
 - scripts/check-records.ts
 
+## TRVIEW: Turn Report View
+
+- src/web/screens/TurnReportView.tsx
+- src/web/format.ts
+
 ## TSUM: Turn Summary
 
 - src/web/screens/TurnSummary.tsx
@@ -431,14 +486,19 @@ No files.
 
 No files.
 
+## UVIEW: Upgrades View
+
+- src/web/screens/UpgradesView.tsx
+- e2e/web.spec.ts
+
 ## VIS: Visual Design
 
 - index.html
 - src/web/styles.css
 - src/web/ui.tsx
-- src/web/screens/AgentsGrid.tsx
+- src/web/screens/AgentsView.tsx
 - src/web/screens/Campaign.tsx
-- src/web/screens/HistoryPanel.tsx
+- src/web/screens/HistoryView.tsx
 - src/web/screens/LineChart.tsx
 - src/web/screens/MainMenu.tsx
 - src/web/screens/ProgressBar.tsx
@@ -446,6 +506,14 @@ No files.
 - src/web/screens/TurnSummary.tsx
 - src/web/progress-bar.ts
 - e2e/web.spec.ts
+- src/web/screens/DetailView.tsx
+- src/web/screens/ProgressCircle.tsx
+- src/web/screens/MissionsView.tsx
+- src/web/screens/LeadsView.tsx
+- src/web/screens/UpgradesView.tsx
+- src/web/screens/TurnReportView.tsx
+- src/web/screens/ChartsView.tsx
+- src/web/screens/CompendiumView.tsx
 
 ## WHIST: World History
 

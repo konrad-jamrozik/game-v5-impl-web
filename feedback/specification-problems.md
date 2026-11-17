@@ -194,8 +194,9 @@
 
 - **Category:** Needed TODO
 - **Affected specifications:** MENU, TODOs: "TODO: State what the Main menu offers by default". CSCR, TODOs: "TODO:
-  List the other screens the Player needs while a Campaign is current" and "TODO: State how the Campaign screen reaches
-  Advance turn, Timeline navigation, saving, and Autopilot".
+  State how the Campaign screen reaches Advance turn, Timeline navigation, saving, and Autopilot, each through the
+  operations that API hierarchy names". Specification commit e19a220aa261bbcbaecbe0725bedda08f655a2ee lists the Detail views of
+  the Campaign screen, which settles the earlier CSCR TODO on the other screens, but these two TODOs remain.
 - **Description:** A GUI needs screens for the Main menu and for playing a Campaign, and a way to reach Advance turn,
   Timeline navigation, saving, and Autopilot. The specification states only that the GUI opens at the Main menu and
   leaves the rest open.
@@ -296,7 +297,9 @@
   Campaign screen details an Active Investigation, a Lead, the free Training places, or the Agents on Standby, nor
   whether an Advance turn moves the Player to another part of the screen.
 - **Links:** DEC-041
-- **Resolution:** Open
+- **Resolution:** Resolved in e19a220aa261bbcbaecbe0725bedda08f655a2ee, which the Implementation follows since this update: SITP, Groups now says
+  that selecting an item opens the Detail view that details it with that item selected, and CSCR, Detail views lists
+  every Detail view of the Campaign screen.
 
 ## PROB-025: How a Progress bar draws Investigation progress beyond the greatest value of the range is not stated
 
@@ -332,4 +335,15 @@
 - **Description:** `session.saves.list()` reports no time at which a Campaign save was written, and no order, so a
   user interface cannot find the most recent Campaign save.
 - **Links:** DEC-007
+- **Resolution:** Open
+
+## PROB-028: An Encyclopedia article's `subject` does not say which Type its GDR is of
+
+- **Category:** Implicit gap
+- **Affected specifications:** COMP, EncyclopediaArticle: "`subject` | Optional. The identifier of the GDR the
+  article is about". COMP, Encyclopedia article GDR validation: "Subject exists: A `subject` identifies a GDR of the
+  Game build whose Type is not EncyclopediaArticle." GDR identifiers are unique only within a Type (DEC-014).
+- **Description:** Two GDRs of different Types may share an identifier, so a `subject` may identify more than one
+  GDR, and then neither the article's subject nor its visibility under COMP, Article visibility is defined.
+- **Links:** DEC-045
 - **Resolution:** Open

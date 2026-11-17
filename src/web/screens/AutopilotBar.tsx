@@ -1,4 +1,7 @@
-/** The Autopilot bar: engage an Autopilot AI under an Autopilot limit, watch its progress, and disengage it. */
+/**
+ * The Autopilot controls in the footer of the Side panel: engage an Autopilot AI under an Autopilot limit, watch its
+ * progress, and disengage it. CSCR, Side panel: they are collapsed to one row until the Player expands them.
+ */
 import { useState } from 'react';
 import type { AutopilotLimit } from '../../engine/index.ts';
 import { notify, run, theEngine, type Snapshot } from '../store.ts';
@@ -17,6 +20,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
   const ais = listed.ok ? listed.value : [];
   const [aiId, setAiId] = useState(ais[0]?.autopilotAiId ?? '');
   const [turns, setTurns] = useState(10);
+  const [expanded, setExpanded] = useState(false);
   const active = snapshot.status.autopilot;
   const progress = snapshot.autopilot?.status === 'active' ? snapshot.autopilot.progress : null;
   const ended = snapshot.state?.ending !== null && snapshot.state?.ending !== undefined;
@@ -46,9 +50,49 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
     });
   };
 
+  const toggle = (
+    <button
+      type="button"
+      className="autopilot-toggle"
+      aria-expanded={expanded}
+      data-testid="autopilot-toggle"
+      onClick={() => {
+        setExpanded((on) => !on);
+      }}
+    >
+      Autopilot {expanded ? '▾' : '▸'}
+    </button>
+  );
+  const engaged =
+    active === null ? null : (
+      <>
+        <span className="pulse" data-testid="autopilot-active">
+          Engaged: {progress?.playerActions ?? 0} actions, {progress?.turnAdvancements ?? 0} Turns
+        </span>
+        <Button
+          kind="danger"
+          testId="autopilot-stop"
+          onClick={() => {
+            void run(() => session.autopilot.disengage(active.engagementId));
+          }}
+        >
+          Stop
+        </Button>
+      </>
+    );
+
+  if (!expanded) {
+    return (
+      <section className="autopilot autopilot-collapsed" aria-label="Autopilot" data-testid="autopilot-bar">
+        {toggle}
+        {engaged}
+      </section>
+    );
+  }
+
   return (
     <section className="autopilot" aria-label="Autopilot" data-testid="autopilot-bar">
-      <strong>Autopilot</strong>
+      {toggle}
       <select
         aria-label="Autopilot AI"
         value={aiId}
@@ -107,21 +151,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
       {active === null ? (
         <span className="muted small">The Autopilot AI plays for you through the same actions you have.</span>
       ) : (
-        <>
-          <span className="pulse" data-testid="autopilot-active">
-            Engaged: {progress?.playerActions ?? 0} Player actions, {progress?.turnAdvancements ?? 0} Turns
-            advanced
-          </span>
-          <Button
-            kind="danger"
-            testId="autopilot-stop"
-            onClick={() => {
-              void run(() => session.autopilot.disengage(active.engagementId));
-            }}
-          >
-            Stop
-          </Button>
-        </>
+        engaged
       )}
     </section>
   );

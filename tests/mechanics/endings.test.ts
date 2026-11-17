@@ -153,6 +153,7 @@ describe('ENDING: Acceptance examples', () => {
     const catalog = catalogWith((raw) => {
       raw.files.find((file) => file.path.endsWith('faction_archetypes.yaml'))!.gdrs.length = 0;
       raw.files.find((file) => file.path.endsWith('leads.yaml'))!.gdrs.length = 0;
+      raw.pruneArticles();
     });
     let state = newCampaign({ catalog });
     expect(Object.keys(state.world.current.factions)).toHaveLength(0);

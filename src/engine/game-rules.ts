@@ -14,6 +14,7 @@ import { applyAdvanceTurn, type ProcessingOrder } from './turn/advance.ts';
 import {
   availableActionsView,
   currentStateView,
+  encyclopediaArticlesView,
   gameDataView,
   historyView,
   inspectCampaignState,
@@ -152,6 +153,9 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
     extraPlayerQuery(state, query, args) {
       if (query === 'gameData') {
         return gameDataView(gdrs);
+      }
+      if (query === 'encyclopediaArticles') {
+        return encyclopediaArticlesView(state, gdrs);
       }
       if (query === 'previewDeployment' && isRecord(args)) {
         return previewDeployment(state, gdrs, args['missionSite'], args['agents']);

@@ -435,6 +435,7 @@ describe('TURN: Acceptance examples', () => {
       raw.get('agent_parameters')['initial_roster_size'] = 0;
       raw.files.find((file) => file.path.endsWith('faction_archetypes.yaml'))!.gdrs.length = 0;
       raw.files.find((file) => file.path.endsWith('leads.yaml'))!.gdrs.length = 0;
+      raw.pruneArticles();
     });
     const state = advance(newCampaign({ catalog }), {}, catalog);
     expect(state.world.current.turn).toBe(2);

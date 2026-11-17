@@ -87,7 +87,7 @@ const HELP = `Commands
              saves | load <saveId> | save | delete <saveId> | deletecampaign <campaignId>
              config | set <setting> <value> | reset <setting>
   Look       state | agents | leads | investigations | sites | missions | factions | upgrades
-             report | history | retained | actions | gamedata | preview <site> <agent...>
+             report | history | retained | actions | gamedata | articles | preview <site> <agent...>
   Act        assign <Standby|Contracting|Training> <agent...> | hire | dismiss <agent...> | buy <upgrade>
              investigate <lead> <agent...> | join <investigation> <agent...> | deploy <site> <agent...> | next
   Timeline   timeline | undo | redo | undoall | redoall | autosaves | back | forward
@@ -259,6 +259,8 @@ export function createCli(engine: Engine, out: CliOutput) {
         return print(command, player.queries.getAvailableActions());
       case 'gamedata':
         return print(command, player.queries.getGameData());
+      case 'articles':
+        return print(command, player.queries.getEncyclopediaArticles());
       case 'preview':
         return print(command, player.queries.previewDeployment(first, rest));
 

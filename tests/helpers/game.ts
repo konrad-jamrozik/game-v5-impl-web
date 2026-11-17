@@ -344,6 +344,8 @@ export function rawGdrs(): {
   files: { path: string; gdrs: RawGdr[] }[];
   get(id: string): RawGdr;
   add(path: string, gdr: RawGdr): void;
+  /** Removes every Encyclopedia article whose subject the test GDRs no longer supply (COMP, rule 4). */
+  pruneArticles(): void;
 } {
   const files = structuredClone(RAW_GDR_FILES) as { path: string; gdrs: RawGdr[] }[];
   return {
@@ -363,6 +365,19 @@ export function rawGdrs(): {
         file.gdrs.push(gdr);
       } else {
         files.push({ path, gdrs: [gdr] });
+      }
+    },
+    pruneArticles() {
+      const ids = new Set(
+        files.flatMap((file) =>
+          file.gdrs.filter((gdr) => gdr['type'] !== 'EncyclopediaArticle').map((gdr) => gdr['id']),
+        ),
+      );
+      for (const file of files) {
+        file.gdrs = file.gdrs.filter(
+          (gdr) =>
+            gdr['type'] !== 'EncyclopediaArticle' || gdr['subject'] === undefined || ids.has(gdr['subject']),
+        );
       }
     },
   };
