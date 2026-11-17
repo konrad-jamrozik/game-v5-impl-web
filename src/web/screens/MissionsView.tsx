@@ -146,9 +146,7 @@ export function MissionsView(props: {
             </>
           )}
         </div>
-        {selected === null ? (
-          <div className="pane" />
-        ) : (
+        {selected === null ? null : (
           <SiteDetails site={selected} snapshot={snapshot} state={state} factionName={factionName} />
         )}
         {selected?.lifecycle === 'Active' ? (

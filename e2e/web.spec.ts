@@ -73,6 +73,27 @@ async function viaCli(): Promise<unknown> {
 const id = (page: Page, testId: string) => page.getByTestId(testId);
 
 /**
+ * Takes WebGL 2 away from the page, so that the globe shows its message instead of drawing. A headless browser draws
+ * the globe in software, slowly enough to starve a long Autopilot run of the main thread.
+ */
+async function withoutGlobe(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    // The original method is called below with the canvas as `this`.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      kind: string,
+      ...rest: unknown[]
+    ) {
+      return kind === 'webgl2'
+        ? null
+        : (original as (...args: unknown[]) => unknown).call(this, kind, ...rest);
+    } as typeof original;
+  });
+}
+
+/**
  * Waits for the Turn an Advance turn requested through the GUI ends in, and dismisses its Turn summary when the
  * Advance turn did something the Turn summary lists. The Turn summary appears in the same render as the new Turn.
  */
@@ -188,6 +209,7 @@ test('the Situation panel stays in view beside a Detail view and an item opens i
 });
 
 test('Autopilot plays a Campaign to its ending and the interface stays usable', async ({ page }) => {
+  await withoutGlobe(page);
   await page.goto('/');
   await id(page, 'seed-input').fill('autopilot');
   await id(page, 'new-campaign').click();
@@ -271,4 +293,46 @@ test('the Main menu deletes a Campaign save and a whole Campaign after a confirm
   page.once('dialog', (dialog) => void dialog.accept());
   await id(page, 'saves-table').getByRole('button', { name: 'Delete Campaign' }).first().click();
   await expect(id(page, 'saves-table')).toHaveCount(0);
+});
+
+test('the globe loads only when first shown, draws only while in view, and leaves the screen usable', async ({
+  page,
+}) => {
+  // GLOBE, Load on first show and Draw only while visible.
+  const maps: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/globe/')) {
+      maps.push(request.url());
+    }
+  });
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      errors.push(message.text());
+    }
+  });
+  await page.goto('/');
+  await expect(id(page, 'new-campaign')).toBeVisible();
+  expect(maps).toEqual([]);
+  await id(page, 'new-campaign').click();
+  await expect(id(page, 'globe')).toHaveAttribute('data-state', 'shown', { timeout: 30_000 });
+  await expect(id(page, 'globe')).toHaveAttribute('data-running', 'true');
+  expect(maps).toHaveLength(4);
+  await id(page, 'nav-agents').click();
+  await expect(id(page, 'globe')).toHaveAttribute('data-running', 'false');
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'globe')).toHaveAttribute('data-running', 'true');
+  expect(errors).toEqual([]);
+});
+
+test('without WebGL 2 the globe shows a message and nothing else changes', async ({ page }) => {
+  // GLOBE, Edge cases: WebGL 2 is unavailable.
+  await withoutGlobe(page);
+  await page.goto('/');
+  await id(page, 'new-campaign').click();
+  await expect(id(page, 'globe')).toHaveAttribute('data-state', 'unavailable');
+  await expect(id(page, 'globe')).toContainText('WebGL 2');
+  await id(page, 'nav-agents').click();
+  await id(page, 'hire').click();
+  await expect(id(page, 'agent-agent-5')).toBeVisible();
 });

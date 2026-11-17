@@ -150,9 +150,7 @@ export function LeadsView(props: {
             ),
           )}
         </div>
-        {selected === null ? (
-          <div className="pane" />
-        ) : (
+        {selected === null ? null : (
           <LeadDetails
             lead={selected}
             investigation={investigation}

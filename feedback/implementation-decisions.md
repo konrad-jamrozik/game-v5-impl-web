@@ -793,20 +793,23 @@
   values written under it stay exact.
 - **Links:** PROB-025
 
-## DEC-043: Globe Integration not followed yet
+## DEC-043: Globe Integration used with modifications
 
 - **Category:** Treatment of guidance
-- **Affected specifications:** GLOBE, Overview: "The Graphical User Interface says what the Player needs to see, and
-  the globe is decoration behind that: the Campaign Screen gives the globe most of the screen, but an Implementation
-  without a globe is still correct." CSCR, Regions: "The screen is complete without it; when no globe can be shown,
-  the Globe stage is left empty."
-- **Description:** Used a different approach: no globe for now. The Campaign screen has its Globe stage, which a
-  Detail view covers, but leaves it empty; the web UI has no copy of the globe maps and no three.js dependency, and
-  the Specification map lists no files under GLOBE.
-- **Options considered:** Following the recipe with a lazily loaded Globe tab; not following it for now.
-- **Option chosen:** Not following it for now.
-- **Why:** The Engine designer chose to skip it in this update; the recipe states that the globe is optional
-  decoration.
+- **Affected specifications:** GLOBE, Checking the globe: "One test is suggested: that the component mounts and
+  unmounts cleanly where WebGL is unavailable, as it is in a test environment without a browser." GLOBE, every other
+  section.
+- **Description:** Used with modifications. The four maps are copied unchanged into `public/globe/`, three.js and its
+  type declarations are dependencies at 0.159.0, `src/web/globe/globe-scene.ts` is the port of `globe.js` with its
+  shaders and SETTINGS unchanged, and `src/web/screens/Globe.tsx` shows it centred in the Globe stage of the Campaign
+  screen, behind every Detail view, loading it on first show and drawing only while no Detail view covers it and the
+  browser tab is in view. Before this, the Implementation had no globe, by the Engine designer's earlier choice. The
+  one modification: the suggested test is a browser test that takes WebGL 2 away from the page, because the unit
+  tests of this Implementation run without a DOM.
+- **Options considered:** A unit test in a simulated DOM; a browser test without WebGL 2.
+- **Option chosen:** A browser test without WebGL 2.
+- **Why:** The browser test exercises the real component with the real loading path, and adds no simulated DOM to the
+  toolchain for one test.
 - **Links:** None.
 
 ## DEC-044: Autosave navigation prefers the Return Autosave among targets with the same Committed state

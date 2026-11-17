@@ -74,8 +74,10 @@ from Google Fonts; DEC-034 gives the light theme.
 - **Status bar.** Turn, money, funding, projected income and upkeep, Agents against the Agent cap, a Panic meter,
   each Faction with its Faction activity level, and the buttons Undo, Redo, earlier and later Autosave, Save, Main
   menu, and Advance turn.
-- **Globe stage.** The rest of the screen, left of the Side panel. It is left empty, because no globe is drawn yet
-  (DEC-043); the open Detail view covers it.
+- **Globe stage.** The rest of the screen, left of the Side panel: a rotating Earth that the Player can drag and zoom,
+  built with three.js from the Spec repo's reference globe (DEC-043). It loads on first show, stops drawing while a
+  Detail view covers it, and shows a message in its place without WebGL 2. Imagery: NASA Blue Marble and Earth at
+  Night, in the public domain.
 - **Side panel.** On the right, 400 px wide: a button for each Detail view, the compact Situation panel, in which
   each item takes one line, e.g. an Active Investigation with its Progress circle and Completion estimate, and opens
   its Detail view, and a footer with the Autopilot controls, collapsed to one row until expanded.

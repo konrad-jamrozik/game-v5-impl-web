@@ -1,7 +1,7 @@
 /**
  * CSCR: the Campaign screen. The status bar spans the top; the Side panel on the right holds the navigation to every
  * Detail view, the compact Situation panel, and the Autopilot footer; the Globe stage fills the rest, and the open
- * Detail view covers it. No globe is drawn yet (DEC-043), so the Globe stage is left empty.
+ * Detail view covers it. The globe, a decoration, is drawn in the Globe stage behind every Detail view.
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
@@ -16,6 +16,7 @@ import { ChartsView } from './ChartsView.tsx';
 import { CompendiumView } from './CompendiumView.tsx';
 import { DETAIL_VIEW_GROUPS, DETAIL_VIEWS, type DetailViewId } from './DetailView.tsx';
 import { DeveloperDrawer } from './DeveloperDrawer.tsx';
+import { Globe } from './Globe.tsx';
 import { HistoryView } from './HistoryView.tsx';
 import { LeadsView } from './LeadsView.tsx';
 import { MissionsView } from './MissionsView.tsx';
@@ -336,6 +337,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
 
       <div className="campaign-body">
         <main className="globe-stage" data-testid="globe-stage">
+          <Globe covered={open !== null} />
           {open === null ? null : (
             <OpenDetailView
               key={`${open.id}-${open.serial}`}

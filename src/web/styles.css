@@ -1714,3 +1714,48 @@ input[type='checkbox'] {
   color: var(--accent-text);
   text-decoration: underline;
 }
+
+/* GLOBE, Globe in the user interface: the globe fills the Globe stage, centred, behind every Detail view. */
+.globe {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.globe-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.globe-canvas.dragging {
+  cursor: grabbing;
+}
+
+.globe-message {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.globe-credit {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.detail-view {
+  z-index: 1;
+}

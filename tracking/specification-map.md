@@ -114,6 +114,7 @@ No files.
 
 ## CSCR: Campaign Screen
 
+- src/web/screens/Globe.tsx
 - src/web/screens/Campaign.tsx
 - src/web/screens/DetailView.tsx
 - src/web/screens/AutopilotBar.tsx
@@ -241,7 +242,12 @@ No files.
 
 ## GLOBE: Globe Integration
 
-No files.
+- public/globe/
+- src/web/globe/
+- src/web/screens/Globe.tsx
+- src/web/styles.css
+- package.json
+- e2e/web.spec.ts
 
 ## GLOSS: Glossary Conventions
 
