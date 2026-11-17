@@ -2,20 +2,26 @@
  * LVIEW: the Leads View. Three panes side by side: the Discovered Leads in groups, the selected Lead, and the team
  * of its Investigation.
  */
-import { useState } from 'react';
-import type { CurrentStateView, InvestigationView, LeadView } from '../../engine/index.ts';
+import { useMemo, useState } from 'react';
+import type { AgentView, CurrentStateView, InvestigationView, LeadView } from '../../engine/index.ts';
+import { agentsToAddOrder } from '../agents-to-add.ts';
+import { Exhaustion, exhaustionLevels } from '../condition.tsx';
 import { progressPoints } from '../format.ts';
 import { confirmInterruption } from '../interruption.ts';
 import { progressBar } from '../progress-bar.ts';
 import { activeInvestigationRows, leadsToInvestigate, rangeText } from '../situation.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { useRowSelection } from '../row-selection.ts';
-import { Button, Grid } from '../ui.tsx';
+import { pressHeader, sortRows, type SortTier } from '../table-sort.ts';
+import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { assignmentText } from './AgentsView.tsx';
 import { DetailView } from './DetailView.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
 
 const TONES = { next: 'tone-accent', plain: 'secondary', muted: 'muted' } as const;
+
+/** LVIEW, Team: the sortable columns of the Agents to add table. */
+type CandidateKey = 'id' | 'assignment' | 'effectiveSkill' | 'skill' | 'exhaustion';
 
 function blockers(lead: LeadView, siteName: (archetype: string) => string): string[] {
   const texts: string[] = [];
@@ -278,14 +284,44 @@ function Team(props: {
     (agent) => agent.canBeAssigned && agent.fitForWork && !members.has(agent.id),
   );
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
+  // VIS, Tables: up to four sort tiers over the default order of LVIEW, Team.
+  const [tiers, setTiers] = useState<SortTier<CandidateKey>[]>([]);
+  const value = (agent: AgentView, key: CandidateKey): number | string =>
+    key === 'assignment' ? assignmentText(agent, state) : agent[key];
+  const rows = sortRows(agentsToAddOrder(candidates), tiers, value);
   const selection = useRowSelection({
-    order: candidates.map((agent) => agent.id),
+    order: rows.map((agent) => agent.id),
     selected: team,
     selectable: () => true,
     onChange: setChecked,
   });
   const none = team.length === 0 ? 'Check the Agents to add first.' : null;
   const agentById = (id: string) => state.agents.find((agent) => agent.id === id);
+  const levels = exhaustionLevels(snapshot.gameData);
+  // LVIEW, Team progress estimate: the engine's estimate of the team the primary button would make; for Assign, the
+  // Current team together with the checked Agents.
+  const estimateTeam = [...(investigation?.currentTeam.map((member) => member.agent) ?? []), ...team];
+  const estimate = useMemo(() => {
+    if (team.length === 0) {
+      return null;
+    }
+    const result = player.queries.estimateTeamProgressGain(estimateTeam);
+    return result.ok ? result.value : null;
+    // The estimate depends on the Committed state, which the snapshot key names, and on the team.
+  }, [player, snapshot.key, estimateTeam.join(',')]);
+  const header = (key: CandidateKey, label: string, numeric: boolean) => (
+    <th
+      className={numeric ? 'sortable num' : 'sortable'}
+      aria-sort={ariaSort(tiers, key)}
+      data-testid={`team-sort-${key}`}
+      onClick={() => {
+        setTiers(pressHeader(tiers, key, numeric));
+      }}
+    >
+      {label}
+      <SortMark tiers={tiers} column={key} />
+    </th>
+  );
 
   return (
     <div className="pane" data-testid="team">
@@ -333,9 +369,23 @@ function Team(props: {
       {candidates.length === 0 ? (
         <p className="muted small">No Agent that is Fit for work can be assigned now.</p>
       ) : (
-        <Grid widths={['36px', '110px', '220px', '64px']} className="compact pick-grid">
+        <Grid
+          widths={['36px', '104px', '200px', '84px', '64px', '96px']}
+          className="compact pick-grid"
+          testId="agents-to-add"
+        >
+          <thead>
+            <tr>
+              <th className="check" />
+              {header('id', 'Agent', false)}
+              {header('assignment', 'Assignment', false)}
+              {header('effectiveSkill', 'Effective', true)}
+              {header('skill', 'Skill', true)}
+              {header('exhaustion', 'Exhaustion', true)}
+            </tr>
+          </thead>
           <tbody>
-            {candidates.map((agent) => {
+            {rows.map((agent) => {
               const on = team.includes(agent.id);
               return (
                 <tr key={agent.id} className={on ? 'row-selected' : ''} {...selection.row(agent.id)}>
@@ -350,6 +400,10 @@ function Team(props: {
                   <td className="figure">{agent.id}</td>
                   <td className="secondary">{assignmentText(agent, state)}</td>
                   <td className="num">{agent.effectiveSkill}</td>
+                  <td className="num">{agent.skill}</td>
+                  <td className="num">
+                    <Exhaustion value={agent.exhaustion} levels={levels} />
+                  </td>
                 </tr>
               );
             })}
@@ -357,6 +411,15 @@ function Team(props: {
         </Grid>
       )}
       <div className="pane-actions">
+        {estimate === null ? null : (
+          <span
+            className="figure secondary"
+            data-testid="team-estimate"
+            title="An estimate: it takes every Agent's effective skill as it is now and counts no Advance turn In transit."
+          >
+            Est. +{progressPoints(estimate)} / turn
+          </span>
+        )}
         {investigation === undefined ? (
           <Button
             kind="primary"

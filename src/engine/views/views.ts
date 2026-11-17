@@ -53,7 +53,7 @@ import type {
   MissionView,
   ProgressLossPreview,
 } from '../player-api.ts';
-import type { Rejection } from '../result.ts';
+import { reject, type Rejection } from '../result.ts';
 import { isServing } from '../state/types.ts';
 import type {
   Agent,
@@ -559,6 +559,39 @@ export function previewProgressLoss(
         abandoned: investigation.state.currentTeam.every((member) => leaving.has(member)),
       };
     });
+}
+
+/**
+ * INVSTG, Team progress estimate: the gain that Progress gain would add if exactly the listed Agents were the working
+ * members of an Investigation, with n the number of distinct Agents and S the sum of their current effective skill, in
+ * hundredths of a progress point. It reads no Investigation and takes every Agent as working, whatever its Agent
+ * status and Assignment. It rejects a list that names an Instance ID that is not of a Serving Agent.
+ */
+export function estimateTeamProgressGain(
+  state: CampaignState,
+  gdrs: GdrCatalog,
+  agentIds: unknown,
+): number | Rejection {
+  if (!Array.isArray(agentIds) || !agentIds.every((id): id is string => typeof id === 'string')) {
+    return reject('invalid_agents', 'The Agents must be given as a list of Instance IDs.', 'invalid_input');
+  }
+  const world = state.world.current;
+  const ids = [...new Set(agentIds)];
+  const notServing = ids.filter((id) => {
+    const agent = world.agents[id];
+    return agent === undefined || !isServing(agent.state);
+  });
+  if (notServing.length > 0) {
+    return reject(
+      'agents_not_serving',
+      `These Instance IDs identify no Serving Agent: ${notServing.join(', ')}.`,
+    );
+  }
+  const skillSum = ids.reduce(
+    (sum, id) => sum + effectiveSkill(must(world.agents[id], `Agent ${id}`).state, gdrs.agentParameters),
+    0,
+  );
+  return progressGain(ids.length, skillSum, gdrs.investigationParameters);
 }
 
 /** The Combat ratings a deployment would start with, and whether `deployAgents` would be accepted. */

@@ -3,6 +3,7 @@
 ## PROB-001: No upper bound on stored quantities
 
 - **Category:** Implicit gap
+- **Severity:** Medium
 - **Affected specifications:** NUMBERS, Exact evaluation: "The size of a result has no limit. An implementation must
   compute exactly for every value that can arise in a Campaign." NUMBERS, Whole-number quantities: "its size is
   limited only by a range stated for its quantity."
@@ -16,6 +17,7 @@
 ## PROB-002: No inventory of Global configuration settings
 
 - **Category:** Implicit gap
+- **Severity:** Medium
 - **Affected specifications:** CONFIG, Global configuration: "Interface preferences belong to Global configuration,
   e.g. volume, language, and tutorial popups."
 - **Description:** `session.globalConfiguration.get()` must report every Global configuration setting, but no
@@ -29,6 +31,7 @@
 ## PROB-003: Execution budget of an Autopilot AI is a TODO
 
 - **Category:** Needed TODO
+- **Severity:** Medium
 - **Affected specifications:** AUTO, TODOs: "TODO: Choose the exact limits of the finite execution budget of an
   Autopilot AI."
 - **Description:** Disengaging as AI failed needs the limits of the budget, which the specification leaves open.
@@ -38,6 +41,7 @@
 ## PROB-004: Changing Campaign configuration during play has no operation
 
 - **Category:** Needed TODO
+- **Severity:** Medium
 - **Affected specifications:** CONFIG, TODOs: "TODO: Define the inventory of Campaign configuration values that are
   adjustable during play ... and the Engine API operations that change them." and "TODO: Define the public Player action
   and report signatures for Changing Campaign configuration during play."
@@ -49,6 +53,7 @@
 ## PROB-005: GDR identifier format and YAML property naming are TODOs
 
 - **Category:** Needed TODO
+- **Severity:** Medium
 - **Affected specifications:** GDR, TODOs: "TODO: Decide the GDR identifier format: the permitted characters and
   casing of a GDR identifier, and the scope within which it is unique." and "TODO: Decide the YAML property naming:
   how a GDR states its identifier and its Type, and the casing of property names."
@@ -60,6 +65,7 @@
 ## PROB-006: No query returns retained Campaign instances, Turn series, or GDR properties
 
 - **Category:** Implicit gap
+- **Severity:** Medium
 - **Affected specifications:** WHIST, Current state, Turn report, and history: "`getCurrentState()` returns nothing
   that is retained only in World history" and `getHistory()` returns "The Player-visible information of every History
   entry". AGENT, Player-visible information: "for every Agent whatever its Agent status". MISSION, Player-visible
@@ -77,6 +83,7 @@
 ## PROB-007: Contents of the Turn report and of a History entry are a TODO
 
 - **Category:** Needed TODO
+- **Severity:** High
 - **Affected specifications:** DOM, TODOs: "TODO: State what the Turn report and each History entry hold of each
   value the Mechanics specifications own, including the reduced form of a Combat report that a History entry keeps".
 - **Description:** Only the Combat report is specified as part of the Turn report. What else the Turn report holds,
@@ -87,6 +94,7 @@
 ## PROB-008: An Attempted Mission site is final yet still takes part in a Combat
 
 - **Category:** Conflict
+- **Severity:** High
 - **Affected specifications:** MISSION, Mission site properties: "A Mission site in a final state no longer
   participates in current gameplay and is retained in World history". MISSION, Mission site lifecycle: "Attempted,
   Expired, and Cancelled are final." MISSION, Resolving one Mission: "its Enemies' side is S's Enemies list".
@@ -99,6 +107,7 @@
 ## PROB-009: Developer Access is a Stub
 
 - **Category:** Needed TODO
+- **Severity:** Medium
 - **Affected specifications:** DEV, TODOs: "TODO: Specify ... the complete detached, read-only Campaign state query
   schema", "TODO: Specify the override operations under Random outcome overrides: how a random outcome is identified,
   validation that the supplied value is one of its possible values, whether an override applies once or until
@@ -113,6 +122,7 @@
 ## PROB-010: The Type CampaignConfiguration has no property table
 
 - **Category:** Implicit gap
+- **Severity:** Medium
 - **Affected specifications:** CONFIG, Campaign configuration presets: "Each preset is one GDR ... and supplies a
   value for every Campaign configuration value." ECON, Campaign configuration values: "Each Campaign configuration
   preset supplies both, as the properties named below." CONFIG, Preset selection and edits:
@@ -126,6 +136,7 @@
 ## PROB-011: Whether the Agent reserve may be deployed
 
 - **Category:** Conflict
+- **Severity:** High
 - **Affected specifications:** BASICAI, Glossary: "The share of the roster that the Basic Autopilot AI keeps as Rested
   Agents rather than assigning, so that it can still react to an urgent Mission site." BASICAI, Goals, Keep Agents
   fit: "Only Rested Agents receive new work, and the Agent reserve stays untouched, except for urgent income."
@@ -138,6 +149,7 @@
 ## PROB-012: A new or closed Campaign has no Campaign save, yet always has a Current Autosave
 
 - **Category:** Conflict
+- **Severity:** High
 - **Affected specifications:** LIFE, Campaign selection: "no Campaign save, so the Session has no Current save".
   LIFE, Acceptance examples, Closing does not save: "No Campaign save exists afterwards". SAVES, Autosaves: "When a
   Campaign is created or loaded, and whenever what a Campaign save holds changes for the Current campaign". SAVES,
@@ -151,6 +163,7 @@
 ## PROB-013: No way for an interface to learn that the Committed state changed
 
 - **Category:** Implicit gap
+- **Severity:** Medium
 - **Affected specifications:** ENG, API hierarchy: "The complete namespace inventory is `session`, `player`,
   `developer`, and `autopilotMemory`." AUTO, Autopilot lifecycle and concurrency: "Autopilot disengages as AI failed
   when the Autopilot AI reports an error, produces no valid action, or exhausts its configured finite execution
@@ -165,6 +178,7 @@
 ## PROB-014: The physical layout of Game storage is a TODO
 
 - **Category:** Needed TODO
+- **Severity:** Medium
 - **Affected specifications:** SCHEMA, TODOs: "Describe one physical layout covering every part of Game storage".
 - **Description:** Storing the Global configuration and the Campaign saves needs a physical layout, in files for the
   terminal CLI and in the browser for the web UI, and the document leaves it open.
@@ -174,6 +188,7 @@
 ## PROB-015: Turn Advancement and Agents disagree on where an Agent on Recovery arrives
 
 - **Category:** Conflict
+- **Severity:** Critical
 - **Affected specifications:** TURN, The steps, step 1 Transit: "The Agent becomes At assignment and keeps its
   Assignment." AGENT, Transit rule: "becomes At assignment in the Transit step of that Advance turn, or Recovering
   when its Assignment is Recovery."
@@ -186,6 +201,7 @@
 ## PROB-016: How the Command-Line Interface names operations and chooses its Output form is a TODO
 
 - **Category:** Needed TODO
+- **Severity:** Medium
 - **Affected specifications:** CLI, TODOs: "TODO: State how the CLI names operations and their arguments, and how a
   caller discovers the available ones" and "TODO: State how a caller chooses between readable and structured output,
   and what the structured output looks like".
@@ -197,6 +213,7 @@
 ## PROB-017: What the Main menu and the Campaign screens of the Graphical User Interface show is a TODO
 
 - **Category:** Needed TODO
+- **Severity:** High
 - **Affected specifications:** MENU, TODOs: "TODO: State what the Main menu offers by default". CSCR, TODOs: "TODO:
   State how the Campaign screen reaches Advance turn, Timeline navigation, saving, and Autopilot, each through the
   operations that API hierarchy names". Specification commit e19a220aa261bbcbaecbe0725bedda08f655a2ee lists the Detail views of
@@ -210,6 +227,7 @@
 ## PROB-018: The light theme's Design tokens are a TODO
 
 - **Category:** Needed TODO
+- **Severity:** High
 - **Affected specifications:** VIS, TODOs: "TODO: Define the light theme's Design tokens under Colours, since the
   Settings panel lets the Player choose a light theme". VIS, Design tokens: "a screen uses these values and no other
   colours, fonts, or radii".
@@ -221,6 +239,7 @@
 ## PROB-019: Determinism and Randomness leaves the Instance ID format free, Campaign Instances fixes it
 
 - **Category:** Conflict
+- **Severity:** Low
 - **Affected specifications:** DETERM, Unique identifiers: "The format of every identifier is the Implementer's
   choice." CINST, Campaign instance identity: "It is the Type's name in lowercase with each space replaced by a hyphen,
   then a hyphen, then a number."
@@ -232,6 +251,7 @@
 ## PROB-020: The order of the Leads discovered in an Advance turn is unstated
 
 - **Category:** Implicit gap
+- **Severity:** Medium
 - **Affected specifications:** LEAD, Turn report: "holds the Leads discovered in it: every Lead that is discovered in
   the Committed state that Advance turn commits and is not discovered in the Committed state before it, each by its
   GDR identifier."
@@ -243,6 +263,7 @@
 ## PROB-021: How far along its Faction's chain a Lead is, is not exactly defined
 
 - **Category:** Implicit gap
+- **Severity:** High
 - **Affected specifications:** BASICAI, Keep Mission sites coming: "then the one furthest along its Faction's chain,
   i.e. the one with the longest chain of discovered Leads behind it, each creating the MissionSiteArchetype a
   prerequisite of the next names."
@@ -254,6 +275,7 @@
 ## PROB-022: Two Acceptance examples still put an Agent assigned from Standby to Training In transit
 
 - **Category:** Conflict
+- **Severity:** Medium
 - **Affected specifications:** AGENT, Transit rule: "Every new Assignment starts In transit, with four exceptions:
   ... an Agent moved from one Base Assignment to the other is At assignment at once". ECON, Acceptance examples, The
   first three Advance turns: "The player calls `assignAgents([a1, a2], Contracting)` and
@@ -272,6 +294,7 @@
 ## PROB-023: The Bootstrap AgentParameters YAML file does not match the AgentParameters the specifications require
 
 - **Category:** Conflict
+- **Severity:** Critical
 - **Affected specifications:** AGENT, AgentParameters: "The table below is exhaustive apart from `id` and `type`",
   listing `exhaustion_incapacitation`, `exhaustion_per_mission`, `exhaustion_per_pct_killed`,
   `exhaustion_per_contracting_turn`, `exhaustion_per_training_turn`, `exhaustion_per_investigation_turn`,
@@ -293,6 +316,7 @@
 ## PROB-024: Where the Campaign screen details each item a Situation panel row shows is not yet specified
 
 - **Category:** Needed TODO
+- **Severity:** High
 - **Affected specifications:** GUI, Situation panel: "Selecting a row shows that item where the Campaign screen
   details it, e.g. a Mission site row shows that Mission site." GUI, TODOs: "Complete the section Campaign screen: list
   the other screens and tabs the Player needs while a Campaign is current" and "Write the part of the section Campaign
@@ -308,6 +332,7 @@
 ## PROB-025: How a Progress bar draws Investigation progress beyond the greatest value of the range is not stated
 
 - **Category:** Implicit gap
+- **Severity:** High
 - **Affected specifications:** GUI, Progress bar: "the bar spans 0 to the greatest value of the Lead's Required
   progress range ... The fill runs from 0 to the Investigation progress." VIS, Progress bars: "its colour runs linearly
   from Accent dim at 0 to Accent at the Required progress ... and stays Accent beyond it."
@@ -322,6 +347,7 @@
 ## PROB-026: Which Autosave navigation loads when two targets hold the same Committed state
 
 - **Category:** Implicit gap
+- **Severity:** Medium
 - **Affected specifications:** TIMELINE, Autosave navigation: "Loads the target holding the earliest Committed state
   that is later than the current Committed state." SAVES, Autosaves: Disengagement Autosave, "The Committed state in
   which the Autopilot engagement ended".
@@ -336,6 +362,7 @@
 ## PROB-027: The Main menu cannot tell which Campaign save is the most recent
 
 - **Category:** Implicit gap
+- **Severity:** High
 - **Affected specifications:** MENU, Layout: "The card of the Campaign of the most recent Campaign save has the Accent
   top edge." SAVES, Listing Campaign saves: "For each Campaign save it reports at least".
 - **Description:** `session.saves.list()` reports no time at which a Campaign save was written, and no order, so a
@@ -348,6 +375,7 @@
 ## PROB-028: An Encyclopedia article's `subject` does not say which Type its GDR is of
 
 - **Category:** Implicit gap
+- **Severity:** Medium
 - **Affected specifications:** COMP, EncyclopediaArticle: "`subject` | Optional. The identifier of the GDR the
   article is about". COMP, Encyclopedia article GDR validation: "Subject exists: A `subject` identifies a GDR of the
   Game build whose Type is not EncyclopediaArticle." GDR identifiers are unique only within a Type (DEC-014).
@@ -359,6 +387,7 @@
 ## PROB-029: No query tells the Agents View whether `assignAgents` would succeed
 
 - **Category:** Implicit gap
+- **Severity:** High
 - **Affected specifications:** AVIEW, Header: "A button is enabled only when pressing it would succeed with the
   current selection" and "It would succeed when the engine would accept the Player action it makes". AVIEW, Agent
   filters: each Assign to toggle shows "the Serving Agents that the button would succeed with if that Agent alone
@@ -372,6 +401,7 @@
 ## PROB-030: Whether re-routing an Agent In transit needs the confirmation of interrupted Assignments
 
 - **Category:** Implicit gap
+- **Severity:** Medium
 - **Affected specifications:** GUI, Confirming interrupted Assignments: "Before it makes any Player action that changes
   the Assignment of an Agent on Contracting or an Investigation, whatever the new Assignment, the GUI asks the Player to
   confirm". AGENT, Transit rule, Re-routing: an Agent given a new Assignment while In transit "arrives under statement 2

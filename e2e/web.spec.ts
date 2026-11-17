@@ -97,6 +97,8 @@ async function viaWeb(page: Page): Promise<unknown> {
   await id(page, 'nav-leads').click();
   await id(page, 'lead-locate_red_dawn_member').click();
   await id(page, 'team-pick-agent-4').check();
+  // LVIEW, Team progress estimate: shown while at least one Agent is checked.
+  await expect(id(page, 'team-estimate')).toContainText('/ turn');
   await id(page, 'investigate-locate_red_dawn_member').click();
   await id(page, 'nav-agents').click();
   await id(page, 'hire').click();

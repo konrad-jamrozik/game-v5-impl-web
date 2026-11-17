@@ -413,6 +413,11 @@ export interface PlayerApi {
     previewDeployment(missionSite: string | null, agents: readonly string[]): Result<DeploymentPreview>;
     /** Each Active Investigation that the listed Agents that can be assigned would leave; see DEC-040. */
     previewProgressLoss(agents: readonly string[]): Result<readonly ProgressLossPreview[]>;
+    /**
+     * INVSTG, Team progress estimate: the gain per Advance turn, in hundredths of a progress point, of a team of
+     * exactly these Serving Agents once they all work; 0 for an empty list.
+     */
+    estimateTeamProgressGain(agents: readonly string[]): Result<number>;
     /** Whether `assignAgents` would accept these Agents and Assignment now, changing nothing; see DEC-046. */
     previewAssignAgents(agents: readonly string[], assignment: SimpleAssignment): Result<ActionAvailability>;
     /** For each Assignment, the Agents that `assignAgents` would accept on their own; see DEC-046. */

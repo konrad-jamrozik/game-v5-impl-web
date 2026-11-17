@@ -9,7 +9,13 @@ import {
 } from '../../src/engine/mechanics/investigations/investigations.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import { isServing, type CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
+import { isRejection } from '../../src/engine/result.ts';
+import {
+  currentStateView,
+  estimateTeamProgressGain,
+  historyView,
+  turnReportView,
+} from '../../src/engine/views/views.ts';
 import type { GdrCatalog } from '../../src/gdr/index.ts';
 import {
   act,
@@ -1076,5 +1082,42 @@ describe('INVSTG: Acceptance examples', () => {
     // An exponent of 1 is valid and removes the diminishing returns.
     const linear = catalogWith(set('team_efficiency_exponent', 1)).investigationParameters;
     expect(progressGain(5, 500, linear)).toBe(500);
+  });
+});
+
+describe('INVSTG: Team progress estimate', () => {
+  let state = withAgents(newCampaign(), 4);
+  const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
+  state = tweak(state, (world) => {
+    for (const id of [a1, a2, a3]) {
+      world.agents[id]!.state.skill = 100;
+      world.agents[id]!.state.exhaustion = 0;
+    }
+  });
+
+  it('is the Progress gain of the listed Agents as working members, before they arrive', () => {
+    // INVSTG example: two Agents of effective skill 100 on Standby give 174.
+    expect(estimateTeamProgressGain(state, gdrs, [a1, a2])).toBe(174);
+    const started = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [a1, a2] });
+    // The Investigation they start has a projected progress gain of 0 until they arrive.
+    expect(currentStateView(started, gdrs).investigations[0]?.projectedProgressGain).toBe(0);
+    expect(estimateTeamProgressGain(started, gdrs, [a1, a2])).toBe(174);
+    // A Current team together with Agents to add.
+    expect(estimateTeamProgressGain(started, gdrs, [a1, a2, a3])).toBe(
+      progressGain(3, 300, gdrs.investigationParameters),
+    );
+  });
+
+  it('counts each distinct Agent once and gives 0 for no Agent', () => {
+    expect(estimateTeamProgressGain(state, gdrs, [a1, a1])).toBe(100);
+    expect(estimateTeamProgressGain(state, gdrs, [])).toBe(0);
+  });
+
+  it('rejects an Instance ID that is not of a Serving Agent, and changes nothing', () => {
+    const dismissed = act(state, 'dismissAgents', { agents: [a4] });
+    const result = estimateTeamProgressGain(dismissed, gdrs, [a1, a4]);
+    expect(isRejection(result) ? result.reason : result).toBe('agents_not_serving');
+    const unknown = estimateTeamProgressGain(state, gdrs, ['nobody']);
+    expect(isRejection(unknown) ? unknown.reason : unknown).toBe('agents_not_serving');
   });
 });

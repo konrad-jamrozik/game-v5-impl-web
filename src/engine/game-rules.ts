@@ -15,6 +15,7 @@ import {
   availableActionsView,
   currentStateView,
   encyclopediaArticlesView,
+  estimateTeamProgressGain,
   gameDataView,
   historyView,
   inspectCampaignState,
@@ -164,6 +165,9 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       }
       if (query === 'previewProgressLoss' && isRecord(args)) {
         return previewProgressLoss(state, gdrs, args['agents']);
+      }
+      if (query === 'estimateTeamProgressGain' && isRecord(args)) {
+        return estimateTeamProgressGain(state, gdrs, args['agents']);
       }
       if (query === 'previewAssignAgentsAlone') {
         return previewAssignAgentsAlone(state, gdrs);

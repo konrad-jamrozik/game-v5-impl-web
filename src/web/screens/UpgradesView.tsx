@@ -43,7 +43,7 @@ export function UpgradesView(props: {
               <span className="label">{kind}</span>
               <p className="upgrade-change figure">{text}</p>
               <p className="muted small">Bought {upgrade.acquisitions}×</p>
-              <div className="card-actions">
+              <div className="card-actions upgrade-buy">
                 <Button
                   kind="primary"
                   testId={`buy-${upgrade.id}`}
@@ -56,7 +56,9 @@ export function UpgradesView(props: {
                 >
                   Buy · {upgrade.price}
                 </Button>
-                {missing > 0 ? <span className="tone-bad small">{missing} money missing</span> : null}
+                {missing > 0 ? (
+                  <span className="tone-bad small upgrade-missing">{missing} money missing</span>
+                ) : null}
               </div>
               <Tally
                 count={upgrade.acquisitions}

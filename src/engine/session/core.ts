@@ -1317,7 +1317,11 @@ export class EngineCore<S extends ShellState> {
           if (this.rules.extraPlayerQuery === undefined) {
             return fail('invalid_input', 'There is no such query.');
           }
-          return ok(this.rules.extraPlayerQuery(state, query, args));
+          {
+            const value = this.rules.extraPlayerQuery(state, query, args);
+            // A query whose input breaks a precondition is rejected, as an action is; e.g. a non-Serving Agent.
+            return isRejection(value) ? fail(value.code, value.message, value.reason) : ok(value);
+          }
       }
     } catch (error) {
       return this.defectResult(error);

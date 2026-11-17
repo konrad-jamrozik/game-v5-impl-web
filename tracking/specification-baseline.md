@@ -1,3 +1,3 @@
 # Specification baseline
 
-Revision: 1c6a511cb46759703ae00f0eb905993f218fa1bb
+Revision: d07ef11b3c270750d95cec3087742f149ed17595

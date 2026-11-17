@@ -5,7 +5,9 @@ interfaces are adapters over the same engine API and implement no gameplay rule.
 
 The specifications are in the sibling directory `../game-v5`. The GDR files in `content/` are a copy of its
 `content/` directory; `content/SOURCE.md` names the commit they were copied from. The Soundtrack in `assets/music/`
-is an unchanged copy of its `assets/music/` directory, and the web UI plays it. The records that Implementation
+is an unchanged copy of its `assets/music/` directory, and the web UI plays it. The Background artwork in
+`assets/images/` is an unchanged copy of the images of its `assets/images/` directory, and the web UI shows it behind
+the Missions and Agents views. The records that Implementation
 Feedback requires are in `feedback/`: `specification-problems.md` and `implementation-decisions.md`. The records that
 Specification Tracking requires are in `tracking/`: `specification-baseline.md` names the commit of the
 specifications this Implementation conforms to, and `specification-map.md` lists the files that implement each

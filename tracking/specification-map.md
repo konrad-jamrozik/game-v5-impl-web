@@ -38,6 +38,10 @@
 - src/web/agent-selection.ts
 - tests/web/agent-condition-and-selection.test.ts
 - src/web/table-sort.ts
+- src/web/artwork.ts
+- src/web/screens/DetailView.tsx
+- assets/images/
+- src/web/styles.css
 
 ## BASICAI: Basic Autopilot AI
 
@@ -313,6 +317,7 @@ No files.
 - tests/web/progress-bar.test.ts
 - tests/web/situation-and-summary.test.ts
 - tests/engine/campaign.test.ts
+- src/engine/session/core.ts
 
 ## LEAD: Leads and Progression
 
@@ -352,6 +357,10 @@ No files.
 - src/web/progress-bar.ts
 - src/web/interruption.ts
 - e2e/web.spec.ts
+- src/web/agents-to-add.ts
+- tests/web/agents-to-add.test.ts
+- src/web/condition.tsx
+- src/web/table-sort.ts
 
 ## MENU: Main Menu
 
@@ -391,6 +400,10 @@ No files.
 
 - src/web/screens/MissionsView.tsx
 - src/web/tired-deployment.ts
+- src/web/artwork.ts
+- src/web/screens/DetailView.tsx
+- assets/images/
+- src/web/styles.css
 
 ## NUMBERS: Numbers
 
@@ -424,6 +437,11 @@ No files.
 - .gitignore
 - package.json
 - tests/architecture.test.ts
+- assets/images/
+- src/web/artwork.ts
+- AGENTS.md
+- .gitattributes
+- README.md
 
 ## PLAN: Specification Work Plan and Backlog
 
@@ -528,6 +546,7 @@ No files.
 - src/web/tally.ts
 - tests/web/tally.test.ts
 - e2e/web.spec.ts
+- src/web/styles.css
 
 ## VIS: Visual Design
 
@@ -565,6 +584,8 @@ No files.
 - src/web/screens/MusicControl.tsx
 - src/web/table-sort.ts
 - tests/web/table-sort.test.ts
+- src/web/artwork.ts
+- assets/images/
 
 ## WHIST: World History
 

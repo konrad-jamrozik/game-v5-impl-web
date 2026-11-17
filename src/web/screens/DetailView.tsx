@@ -4,6 +4,7 @@
  * Detail view taller than the Globe stage scrolls inside, keeping its title row in view.
  */
 import type { ReactNode } from 'react';
+import { artworkUrl } from '../artwork.ts';
 
 export type DetailViewId =
   'missions' | 'leads' | 'agents' | 'upgrades' | 'report' | 'history' | 'charts' | 'compendium';
@@ -44,8 +45,23 @@ export function DetailView(props: {
   onClose: () => void;
   children: ReactNode;
 }) {
+  const artwork = artworkUrl(props.id);
   return (
-    <section className="detail-view" data-testid={`view-${props.id}`} aria-label={props.id}>
+    <section
+      className={artwork === null ? 'detail-view' : 'detail-view with-artwork'}
+      data-testid={`view-${props.id}`}
+      aria-label={props.id}
+    >
+      {artwork === null ? null : (
+        // VIS, Background artwork: decoration only, drawn between the Surface fill and the content; an image that
+        // cannot be loaded leaves the Detail view as it would be without it.
+        <div
+          className="detail-artwork"
+          aria-hidden="true"
+          data-testid="background-artwork"
+          style={{ backgroundImage: `url("${artwork}")` }}
+        />
+      )}
       <header className="detail-head">
         <h3>
           {props.title}

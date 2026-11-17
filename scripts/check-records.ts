@@ -10,6 +10,8 @@ import { join } from 'node:path';
 const root = join(import.meta.dirname, '..');
 
 const PROBLEM_CATEGORIES = ['Conflict', 'Implicit gap', 'Needed TODO', 'Duplicate'];
+/** FEEDBACK, Severity: the exhaustive list. */
+const PROBLEM_SEVERITIES = ['Critical', 'High', 'Medium', 'Low'];
 const DECISION_CATEGORIES = [
   'Asked by the specifications',
   'Conflict resolution',
@@ -81,10 +83,21 @@ const decisionById = new Map(decisions.map((d) => [d.id, d]));
 const problemById = new Map(problems.map((p) => [p.id, p]));
 
 for (const problem of problems) {
-  for (const field of ['Category', 'Affected specifications', 'Description', 'Links', 'Resolution']) {
+  for (const field of [
+    'Category',
+    'Severity',
+    'Affected specifications',
+    'Description',
+    'Links',
+    'Resolution',
+  ]) {
     if (!problem.fields.get(field)) {
       errors.push(`${problem.id}: missing "${field}"`);
     }
+  }
+  const severity = problem.fields.get('Severity') ?? '';
+  if (!PROBLEM_SEVERITIES.includes(severity)) {
+    errors.push(`${problem.id}: unknown severity "${severity}"`);
   }
   const category = problem.fields.get('Category') ?? '';
   if (!PROBLEM_CATEGORIES.includes(category)) {

@@ -508,6 +508,11 @@ input::placeholder {
   align-items: flex-end;
 }
 
+/* VIS, Alignment: text in a row of controls is centred on the row's centre line. */
+.toolbar.agents-toolbar > span {
+  line-height: 36px;
+}
+
 .button-pair {
   display: inline-flex;
   gap: 2px;
@@ -1805,16 +1810,42 @@ label:has(> input[type='checkbox']:disabled) {
   border-top: 2px solid var(--accent);
 }
 
+/* VIS, Background artwork: between the Surface fill and the content, below the top edge, covering the whole Detail
+   view, centred and cropped; it stays in place while the content scrolls over it. */
+.detail-artwork {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.detail-view.with-artwork > .detail-head,
+.detail-view.with-artwork > .detail-body {
+  position: relative;
+}
+
+/* VIS, Background artwork: a panel inside it draws its Background fill at 35% opacity. */
+.detail-view.with-artwork .pane {
+  background: color-mix(in srgb, var(--background) 35%, transparent);
+}
+
+/* VIS, Alignment: the controls of the title row share one centre line, and a labelled group stands its Label above
+   its controls, so the row aligns on its bottom edge with every control equally tall. The title's 36 px line puts its
+   text on that centre line, and the figures after it share its baseline. */
 .detail-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
   padding: 18px 18px 12px;
 }
 
 .detail-head h3 {
   margin: 0;
+  line-height: 36px;
 }
 
 .detail-aside {
@@ -1829,10 +1860,15 @@ label:has(> input[type='checkbox']:disabled) {
 
 .detail-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
 }
 
+.detail-actions .chip {
+  height: 36px;
+}
+
+/* VIS, Detail view: the close control is a square neutral button, 36 px wide and tall, holding a ✕. */
 .detail-close {
   width: 36px;
   padding: 0;
@@ -1874,6 +1910,8 @@ label:has(> input[type='checkbox']:disabled) {
 .pane-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   margin-top: 12px;
 }
 
@@ -1942,14 +1980,35 @@ label:has(> input[type='checkbox']:disabled) {
   border-top: 1px solid var(--divider);
 }
 
+/* VIS, Alignment, Cards side by side: each card spans six rows of the shared grid, so each part takes the height of
+   its tallest instance in the row and starts at the same height on every card of the row. */
 .upgrade-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  gap: 0 16px;
+}
+
+.upgrade-card {
+  display: grid;
+  grid-row: span 6;
+  grid-template-rows: subgrid;
+  align-content: start;
+  margin-bottom: 16px;
 }
 
 .upgrade-card h4 {
   margin: 0 0 2px;
+}
+
+/* VIS, Buttons: a row of buttons that is a part of its own in a stacked card starts at its left content edge; VIS,
+   Alignment: the note beside the control sits 8 px after it on its row and wraps within the space left. */
+.card-actions.upgrade-buy {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+
+.upgrade-missing {
+  min-width: 0;
 }
 
 .upgrade-change {
