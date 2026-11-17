@@ -168,6 +168,60 @@ test('a reload continues the Campaign from its Current Autosave, with its Undone
   await expect(id(page, 'money')).toHaveText('320');
 });
 
+test('the Agents View keeps its columns, selects ranges, guards re-assigning, and lists the Memorial', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await id(page, 'new-campaign').click();
+  await id(page, 'nav-agents').click();
+  const columns = () =>
+    page
+      .locator('[data-testid="agents-grid"] thead th')
+      .evaluateAll((cells) => cells.map((cell) => Math.round(cell.getBoundingClientRect().width)));
+  const before = await columns();
+  const box = (n: number) => id(page, `agent-agent-${n}`).getByRole('checkbox');
+
+  // VIS, Tables: clicking agent-4 and then Shift-clicking agent-2 selects agent-2 to agent-4.
+  await id(page, 'agent-agent-4').click();
+  await id(page, 'agent-agent-2').click({ modifiers: ['Shift'] });
+  for (const n of [2, 3, 4]) {
+    await expect(box(n)).toBeChecked();
+  }
+  await expect(box(1)).not.toBeChecked();
+  expect(await page.evaluate(() => window.getSelection()?.toString() ?? '')).toBe('');
+  await id(page, 'order-contracting').click();
+  // VIS, Tables: an Assignment that gains "· In transit" moves and resizes no column.
+  await expect(id(page, 'agent-agent-2')).toContainText('In transit');
+  expect(await columns()).toEqual(before);
+
+  await id(page, 'advance-turn').click();
+  await afterAdvance(page, '2');
+  // AVIEW, Re-assigning: recalling an Agent from Contracting needs Allow re-assigning, and then asks no confirmation.
+  page.on('dialog', (dialog) => {
+    throw new Error(`Unexpected dialog: ${dialog.message()}`);
+  });
+  await id(page, 'agent-agent-2').click();
+  await expect(id(page, 'order-standby')).toBeDisabled();
+  await id(page, 'filter-to-contracting').click();
+  await expect(id(page, 'agent-agent-2')).toHaveCount(0);
+  await id(page, 'filter-all').click();
+  await id(page, 'allow-reassigning').check();
+  await id(page, 'agent-agent-2').click();
+  await id(page, 'order-standby').click();
+  await expect(id(page, 'agent-agent-2')).toContainText('Standby · In transit');
+  page.removeAllListeners('dialog');
+
+  // AVIEW, Memorial: a Dismissed Agent leaves the table and appears in the Memorial with its Turn terminated.
+  await id(page, 'agent-agent-1').click();
+  page.once('dialog', (dialog) => void dialog.accept());
+  await id(page, 'dismiss').click();
+  await expect(id(page, 'agent-agent-1')).toHaveCount(0);
+  await id(page, 'filter-memorial').click();
+  await expect(id(page, 'memorial-agent-1')).toContainText('Dismissed');
+  await expect(id(page, 'memorial-agent-1')).toContainText('T2');
+  await expect(id(page, 'memorial-agent-1')).toContainText('1 Turn with the Agency');
+});
+
 test('actions are offered only when the engine says they are available', async ({ page }) => {
   await page.goto('/');
   await id(page, 'new-campaign').click();

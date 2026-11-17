@@ -5,11 +5,10 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
-import { confirmInterruption } from '../interruption.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary } from '../turn-summary.ts';
-import { Badge, Button, Fact, Meter, typingIn } from '../ui.tsx';
+import { Badge, Button, Fact, Meter, typingIn, Cols } from '../ui.tsx';
 import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
 import { ChartsView } from './ChartsView.tsx';
@@ -125,11 +124,13 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     }
   };
 
+  /** AVIEW, Header: a shortcut presses the Agents View button, which is enabled only when pressing it would succeed. */
   const order = (assignment: 'Standby' | 'Contracting' | 'Training') => {
-    if (selected.length > 0 && confirmInterruption(state, selected)) {
-      const agents = [...selected];
-      act(() => player.actions.assignAgents(agents, assignment));
-      setPicked(new Set());
+    const button = document.querySelector<HTMLButtonElement>(
+      `[data-testid="order-${assignment.toLowerCase()}"]`,
+    );
+    if (button !== null && !button.disabled) {
+      button.click();
     }
   };
 
@@ -418,6 +419,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       {help ? (
         <div className="help" role="dialog" aria-label="Keyboard shortcuts">
           <table className="grid">
+            <Cols widths={['140px', undefined]} />
             <tbody>
               {SHORTCUTS.map(([keys, what]) => (
                 <tr key={keys}>

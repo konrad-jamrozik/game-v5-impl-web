@@ -1,6 +1,6 @@
 /** HVIEW: the History View, the Turn by Turn table that finds the Turn in which something changed. */
 import type { Snapshot } from '../store.ts';
-import { Badge } from '../ui.tsx';
+import { Badge, Cols } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 export function HistoryView({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
@@ -14,6 +14,7 @@ export function HistoryView({ snapshot, onClose }: { snapshot: Snapshot; onClose
       ) : (
         <div className="table-scroll" data-testid="history">
           <table className="grid" data-testid="history-table">
+            <Cols widths={['64px', '104px', '104px', '84px', '84px', '72px', '72px', undefined]} />
             <thead>
               <tr>
                 <th className="num">Turn</th>

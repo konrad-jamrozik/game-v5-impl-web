@@ -5,6 +5,7 @@
 import { bootstrapGdrCatalog, buildGdrCatalog, GAME_BUILD, type RawGdrFile } from '../gdr/index.ts';
 import { createGameRules } from './game-rules.ts';
 import type {
+  ActionAvailability,
   AutopilotAi,
   AutopilotMemoryApi,
   AvailableActionsView,
@@ -167,6 +168,11 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
         core.playerQuery(principal, 'previewProgressLoss', { agents: [...agents] }) as Result<
           readonly ProgressLossPreview[]
         >,
+      previewAssignAgents: (agents, assignment) =>
+        core.playerQuery(principal, 'previewAssignAgents', {
+          agents: [...agents],
+          assignment,
+        }) as Result<ActionAvailability>,
     },
     actions: {
       assignAgents: (agents, assignment) => act('assignAgents', { agents: [...agents], assignment }),

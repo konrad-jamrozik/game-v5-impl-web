@@ -124,6 +124,9 @@ export function createAgent(input: {
       assignment: { kind: 'Standby' },
       status: input.initialRoster ? 'AtAssignment' : 'InTransit',
       participationHistory: [],
+      enemiesKilled: 0,
+      turnTerminated: null,
+      killedBy: null,
     },
   };
 }

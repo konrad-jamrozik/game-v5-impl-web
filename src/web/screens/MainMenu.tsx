@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { GAME_BUILD, type SaveListEntry } from '../../engine/index.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
-import { Button, NumberField, Section } from '../ui.tsx';
+import { Button, NumberField, Section, Cols } from '../ui.tsx';
 
 const KIND_NAMES: Record<string, string> = {
   current: 'Current Autosave',
@@ -184,6 +184,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                     </div>
                   </header>
                   <table className="grid">
+                    <Cols widths={[undefined, '72px', '200px']} />
                     <tbody>
                       {group.saves.map((save) => (
                         <tr key={save.saveId}>

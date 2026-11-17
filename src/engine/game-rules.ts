@@ -19,6 +19,7 @@ import {
   historyView,
   inspectCampaignState,
   previewDeployment,
+  previewAssignAgents,
   previewProgressLoss,
   turnReportView,
 } from './views/views.ts';
@@ -162,6 +163,9 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       }
       if (query === 'previewProgressLoss' && isRecord(args)) {
         return previewProgressLoss(state, gdrs, args['agents']);
+      }
+      if (query === 'previewAssignAgents' && isRecord(args)) {
+        return previewAssignAgents(state, gdrs, args['agents'], args['assignment']);
       }
       throw new Error(`There is no query ${query}`);
     },

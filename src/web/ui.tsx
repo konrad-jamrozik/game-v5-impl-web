@@ -141,3 +141,14 @@ export function typingIn(target: EventTarget | null): boolean {
     target instanceof HTMLTextAreaElement
   );
 }
+
+/** VIS, Tables: each column's width is fixed by the table's design; a column given no width shares what is left. */
+export function Cols(props: { widths: readonly (string | undefined)[] }) {
+  return (
+    <colgroup>
+      {props.widths.map((width, index) => (
+        <col key={index} style={width === undefined ? undefined : { width }} />
+      ))}
+    </colgroup>
+  );
+}

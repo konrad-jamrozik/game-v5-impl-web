@@ -9,7 +9,13 @@ import {
 } from '../../src/engine/mechanics/agents/agents.ts';
 import { ratio } from '../../src/kernel/index.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
-import { currentStateView } from '../../src/engine/views/views.ts';
+import {
+  availableActionsView,
+  currentStateView,
+  historyView,
+  previewAssignAgents,
+  turnReportView,
+} from '../../src/engine/views/views.ts';
 import {
   act,
   addMissionSite,
@@ -18,6 +24,7 @@ import {
   agentIds,
   agents,
   expectDefective,
+  losing,
   expectRejected,
   gdrs,
   missionAt,
@@ -120,6 +127,9 @@ describe('AGENT: Acceptance examples', () => {
         assignment: { kind: 'Standby' },
         status: 'AtAssignment',
         participationHistory: [],
+        enemiesKilled: 0,
+        turnTerminated: null,
+        killedBy: null,
       });
       expect(effectiveSkill(a.state, p)).toBe(100);
       expect(canBeAssigned(a.state)).toBe(true);
@@ -351,6 +361,8 @@ describe('AGENT: Acceptance examples', () => {
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
       world.agents[a3]!.state.status = 'Recovering';
       world.agents[a6]!.state.status = 'Killed';
+      world.agents[a6]!.state.turnTerminated = 1;
+      world.agents[a6]!.state.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       world.agents[a6]!.state.currentHealth = 0;
       world.agents[a6]!.state.assignment = null;
     });
@@ -463,5 +475,70 @@ describe('AGENT: Acceptance examples', () => {
     expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_cap'] = 100));
     expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_work_start_max'] = 70));
     expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_work_limit'] = 120));
+  });
+
+  it('Service record: Enemies killed, Turn terminated, and Killed by', () => {
+    let state = newCampaign();
+    const [a1, a2] = agentIds(state) as [string, string];
+    expect(agent(state, a1).state).toMatchObject({ enemiesKilled: 0, turnTerminated: null, killedBy: null });
+
+    // A won Combat: every Enemy a1's attacks leave dead raises its Enemies killed by 1.
+    const won = addMissionSite(state, 'apprehend_member');
+    state = act(won.state, 'deployAgents', { missionSite: won.site, agents: [a1] });
+    state = advance(state, winning(state, won.site));
+    const wonLog = turnReportView(state)!.combatReports[0]!.log;
+    const kills = wonLog.filter((attack) => attack.attacker === a1 && attack.defenderDead).length;
+    expect(kills).toBeGreaterThan(0);
+    expect(agent(state, a1).state).toMatchObject({
+      enemiesKilled: kills,
+      turnTerminated: null,
+      killedBy: null,
+    });
+
+    // A lost Combat: a2 is Killed, and its Killed by names the attacking Enemy and its Mission site.
+    const lost = addMissionSite(state, 'apprehend_member');
+    state = act(lost.state, 'deployAgents', { missionSite: lost.site, agents: [a2] });
+    const fightTurn = state.world.current.turn;
+    state = advance(state, losing(state, lost.site));
+    const fatal = turnReportView(state)!.combatReports[0]!.log.find(
+      (attack) => attack.defender === a2 && attack.defenderDead,
+    )!;
+    expect(agent(state, a2).state).toMatchObject({
+      status: 'Killed',
+      enemiesKilled: 0,
+      turnTerminated: fightTurn,
+      killedBy: { enemy: fatal.attacker, missionSite: lost.site },
+    });
+    // WHIST: the Killed Agent is Retired and getHistory() returns its Service record.
+    expect(currentStateView(state, gdrs).agents.some((a) => a.id === a2)).toBe(false);
+    expect(historyView(state, gdrs).retained.agents.find((a) => a.id === a2)).toMatchObject({
+      turnTerminated: fightTurn,
+      killedBy: { enemy: fatal.attacker, missionSite: lost.site },
+    });
+  });
+
+  it('DEC-046: previewAssignAgents and acceptedAlone agree with assignAgents and change nothing', () => {
+    let state = newCampaign();
+    const [a1, a2, a3] = agentIds(state) as [string, string, string];
+    state = setAssignment(state, [a1], 'Contracting');
+    state = tweak(state, (world) => {
+      world.agents[a3]!.state.exhaustion = 50;
+    });
+    const before = JSON.stringify(state);
+    expect(previewAssignAgents(state, gdrs, [a2], 'Contracting')).toMatchObject({ available: true });
+    expect(previewAssignAgents(state, gdrs, [a1], 'Contracting')).toMatchObject({ available: false });
+    expect(previewAssignAgents(state, gdrs, [a1], 'Standby')).toMatchObject({ available: true });
+    expect(previewAssignAgents(state, gdrs, [a1, a2], 'Standby')).toMatchObject({ available: false });
+    expect(previewAssignAgents(state, gdrs, [a3], 'Training')).toMatchObject({ available: false });
+    expect(previewAssignAgents(state, gdrs, [], 'Training')).toMatchObject({ available: false });
+    expect(JSON.stringify(state)).toBe(before);
+    const alone = availableActionsView(state, gdrs).assignAgents.acceptedAlone;
+    expect(alone.Contracting).toContain(a2);
+    expect(alone.Contracting).not.toContain(a1);
+    expect(alone.Contracting).not.toContain(a3);
+    expect(alone.Standby).toContain(a1);
+    expect(alone.Standby).not.toContain(a3);
+    expect(alone.Training).not.toContain(a3);
+    expect(alone.Standby).not.toContain(a2);
   });
 });

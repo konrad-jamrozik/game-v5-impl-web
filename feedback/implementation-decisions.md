@@ -264,6 +264,9 @@
 - **Option chosen:** Returning them from `getHistory()`, with two added queries for GDR properties and previews.
 - **Why:** It keeps the stated rule that `getCurrentState()` returns nothing retained only in World history, and
   every Player-visible value has exactly one query that returns it.
+- **Superseded in part:** Specification revision 163e921efbabf3bdaca1724eb1fa2a180644b6bd states, under WHIST, Current state, Turn report,
+  and history, that `getHistory()` returns every Retired Campaign instance, so that part is now conformance. The two
+  added queries remain this decision.
 - **Links:** PROB-006
 
 ## DEC-016: Contents of the Turn report and of a History entry
@@ -844,3 +847,22 @@
 - **Why:** COMP reports a data defect rather than repairing content, and a silent choice could show an article about
   a GDR the Player may not know yet.
 - **Links:** PROB-028
+
+## DEC-046: Queries that preview `assignAgents` for the Agents View
+
+- **Category:** Gap resolution
+- **Affected specifications:** AVIEW, Header: "A button is enabled only when pressing it would succeed with the
+  current selection" and "It would succeed when the engine would accept the Player action it makes". AVIEW, Agent
+  filters: the filter toggle "shows only the Serving Agents that the button would succeed with if that Agent alone
+  were selected".
+- **Description:** Two queries are added to `player.queries`. `previewAssignAgents(agents, assignment)` returns
+  whether `assignAgents` would accept those Agents and that Assignment in the current Committed state, with the
+  rejection reason and message when it would not, and changes nothing. `getAvailableActions()` also reports, under
+  `assignAgents.acceptedAlone`, for each of Standby, Contracting, and Training, the Agents that `assignAgents` would
+  accept on their own. Both apply the action to a copy of Current world state, so they agree with `assignAgents`
+  exactly and reveal nothing that its error would not.
+- **Options considered:** The GUI applying the preconditions of Assigning Agents itself; a preview query.
+- **Option chosen:** A preview query, plus the per-Agent lists for the filter toggles.
+- **Why:** As with `previewDeployment` under DEC-015, no interface repeats a game rule, so a change to the
+  preconditions of `assignAgents` cannot leave the buttons and filters behind.
+- **Links:** PROB-029

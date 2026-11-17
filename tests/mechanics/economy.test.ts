@@ -152,6 +152,8 @@ describe('ECON: Acceptance examples', () => {
       world.agents[a4]!.state.assignment = { kind: 'Recovery' };
       world.agents[a4]!.state.status = 'Recovering';
       world.agents[a7]!.state.status = 'Killed';
+      world.agents[a7]!.state.turnTerminated = 1;
+      world.agents[a7]!.state.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       world.agents[a7]!.state.currentHealth = 0;
       world.agents[a7]!.state.assignment = null;
     });
@@ -217,6 +219,8 @@ describe('ECON: Acceptance examples', () => {
     state = tweak(state, (world) => {
       const dead = world.agents[ids[20]!]!.state;
       dead.status = 'Killed';
+      dead.turnTerminated = 1;
+      dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       dead.currentHealth = 0;
       dead.assignment = null;
       world.agents[ids[0]!]!.state.status = 'InTransit';
@@ -247,6 +251,8 @@ describe('ECON: Acceptance examples', () => {
     state = tweak(state, (world) => {
       const dead = world.agents[a6]!.state;
       dead.status = 'Killed';
+      dead.turnTerminated = 1;
+      dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       dead.currentHealth = 0;
       dead.assignment = null;
     });
@@ -266,6 +272,8 @@ describe('ECON: Acceptance examples', () => {
     expect(agent(next, a1).state).toMatchObject({
       status: 'Dismissed',
       assignment: null,
+      turnTerminated: next.world.current.turn,
+      killedBy: null,
     });
     expect(agency(next)).toMatchObject({ money: 120, projectedUpkeep: 30 });
     expect(historyView(next, gdrs).retained.agents.map((a) => a.id)).toEqual([a1, a2, a6]);
@@ -326,6 +334,8 @@ describe('ECON: Acceptance examples', () => {
       world.agents[a3]!.state.status = 'InTransit';
       const dead = world.agents[a5]!.state;
       dead.status = 'Killed';
+      dead.turnTerminated = 1;
+      dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       dead.currentHealth = 0;
       dead.assignment = null;
     });

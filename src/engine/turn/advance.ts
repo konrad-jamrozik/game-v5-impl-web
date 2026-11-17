@@ -344,6 +344,23 @@ export function applyAdvanceTurn(
       random,
     });
     combatReports.set(mission.id, report);
+    // AGENT, Service record, and COMBAT, Killed and Incapacitated: each attack that leaves its defender dead raises
+    // the attacking Agent's Enemies killed, or records the attacking Enemy and its Mission site as the Killed by of
+    // the dead Agent.
+    const teamById = new Map(team.map((agent) => [agent.id, agent]));
+    for (const attack of report.log) {
+      if (!attack.defenderDead) {
+        continue;
+      }
+      const attackingAgent = teamById.get(attack.attacker);
+      if (attackingAgent !== undefined) {
+        attackingAgent.state.enemiesKilled += 1;
+      }
+      const deadAgent = teamById.get(attack.defender);
+      if (deadAgent !== undefined) {
+        deadAgent.state.killedBy = { enemy: attack.attacker, missionSite: site.id };
+      }
+    }
     const result = report.outcome === 'Prevailed' ? 'Won' : 'Lost';
     mission.state.lifecycle = result;
     // MISSION, Mission site lifecycle: Attempted to Concluded when its Mission becomes Won or Lost.
@@ -360,6 +377,8 @@ export function applyAdvanceTurn(
       if (agent.state.currentHealth === 0) {
         agent.state.status = 'Killed';
         agent.state.assignment = null;
+        // AGENT, Service record: the Turn that this Advance turn ends.
+        agent.state.turnTerminated = turn;
         killed.push(agent.id);
       } else {
         if (agent.state.currentHealth < agent.state.baseHealth) {

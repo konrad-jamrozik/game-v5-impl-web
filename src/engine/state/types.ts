@@ -68,6 +68,17 @@ export interface AgentState {
   /** Present exactly when the Agent is Serving. */
   assignment: Assignment | null;
   participationHistory: Participation[];
+  /** AGENT, Service record: the number of Enemies the Agent's attacks have made dead. */
+  enemiesKilled: number;
+  /** AGENT, Service record: present exactly when the Agent is Terminated. */
+  turnTerminated: number | null;
+  /** AGENT, Service record: present exactly when the Agent is Killed. */
+  killedBy: KilledBy | null;
+}
+/** AGENT, Agent properties: the Enemy whose attack made a Killed Agent dead, and that Enemy's Mission site. */
+export interface KilledBy {
+  readonly enemy: string;
+  readonly missionSite: string;
 }
 export type Agent = Instance<AgentConstants, AgentState>;
 

@@ -359,10 +359,12 @@ input::placeholder {
   width: 160px;
 }
 
-/* VIS, Tables */
+/* VIS, Tables: each column's width is fixed by the table's design (its <colgroup>, or an equal share), and only
+   resizing the table changes it; what the rows hold never does. A value too long for its column wraps within its row. */
 .grid {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .grid th,
@@ -371,6 +373,7 @@ input::placeholder {
   border-bottom: 1px solid var(--raised);
   text-align: left;
   vertical-align: middle;
+  overflow-wrap: anywhere;
 }
 
 .grid th.num,
@@ -391,6 +394,8 @@ input::placeholder {
   text-transform: uppercase;
   color: var(--text-muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .grid tbody th {
@@ -401,7 +406,6 @@ input::placeholder {
    gap); the action cell fits its buttons so that the buttons of every row line up in the same columns. */
 .grid td:has(> .actions),
 .grid td:has(> .btn) {
-  width: 1%;
   white-space: nowrap;
 }
 
@@ -418,17 +422,64 @@ input::placeholder {
   width: 28px;
 }
 
-.agents-grid tbody tr {
+/* VIS, Tables: rows with selection checkboxes are selected by click, Shift-click, and drag, never by text selection. */
+.agents-grid tbody tr,
+.pick-grid tbody tr {
+  cursor: pointer;
+  user-select: none;
+}
+
+.agents-grid tbody tr:hover,
+.pick-grid tbody tr:hover {
+  background: var(--raised);
+}
+
+.agents-grid tbody tr.row-selected,
+.pick-grid tbody tr.row-selected {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* AVIEW, Header and Agent filters: a labelled group of controls, its label in the Label style above them. */
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolbar.agents-toolbar {
+  align-items: flex-end;
+}
+
+.button-pair {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.btn.filter-toggle {
+  width: 36px;
+  padding: 0;
+  color: var(--text-secondary);
+}
+
+.btn.filter-toggle.chip-on {
+  box-shadow: inset 0 -2px 0 var(--accent);
+  color: var(--text);
+}
+
+.check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 4px 0 6px;
+  font-size: 14px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.agents-grid tbody tr:hover {
-  background: var(--raised);
-}
-
-.agents-grid tbody tr.row-selected {
-  background: var(--raised);
-  box-shadow: inset 2px 0 0 var(--accent);
+.memorial-grid td {
+  vertical-align: top;
 }
 
 .row-busy td,
@@ -1257,11 +1308,6 @@ input[type='checkbox'] {
 
 .menu-side .btn-main {
   width: 100%;
-}
-
-.agents-grid td,
-.agents-grid th {
-  white-space: nowrap;
 }
 
 .campaign-card .grid td:last-child {

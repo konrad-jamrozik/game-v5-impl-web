@@ -29,7 +29,11 @@
 ## AVIEW: Agents View
 
 - src/web/screens/AgentsView.tsx
-- src/web/interruption.ts
+- src/engine/views/views.ts
+- src/engine/player-api.ts
+- src/engine/game-rules.ts
+- src/engine/index.ts
+- tests/mechanics/agents.test.ts
 - e2e/web.spec.ts
 
 ## BASICAI: Basic Autopilot AI
@@ -520,6 +524,8 @@ No files.
 - src/web/screens/TurnReportView.tsx
 - src/web/screens/ChartsView.tsx
 - src/web/screens/CompendiumView.tsx
+- src/web/row-selection.ts
+- tests/web/row-selection.test.ts
 
 ## WHIST: World History
 

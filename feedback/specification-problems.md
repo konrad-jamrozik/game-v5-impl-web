@@ -68,7 +68,9 @@
   Player-visible information of Campaign instances retained in World history, e.g. a Killed Agent or a Won Mission, of a Turn series, or of the GDR properties that several specifications declare
   Player-visible. No specification says which query returns them.
 - **Links:** DEC-015
-- **Resolution:** Open
+- **Resolution:** Open. Resolved in part in 163e921efbabf3bdaca1724eb1fa2a180644b6bd: WHIST, Current state, Turn report, and history now says
+  that `getHistory()` returns every Retired Campaign instance. Which query returns a Turn series and the GDR
+  properties is still not stated.
 
 ## PROB-007: Contents of the Turn report and of a History entry are a TODO
 
@@ -346,4 +348,17 @@
 - **Description:** Two GDRs of different Types may share an identifier, so a `subject` may identify more than one
   GDR, and then neither the article's subject nor its visibility under COMP, Article visibility is defined.
 - **Links:** DEC-045
+- **Resolution:** Open
+
+## PROB-029: No query tells the Agents View whether `assignAgents` would succeed
+
+- **Category:** Implicit gap
+- **Affected specifications:** AVIEW, Header: "A button is enabled only when pressing it would succeed with the
+  current selection" and "It would succeed when the engine would accept the Player action it makes". AVIEW, Agent
+  filters: each Assign to toggle shows "the Serving Agents that the button would succeed with if that Agent alone
+  were selected". WHIST, Current state, Turn report, and history: the three queries are stated to be complete.
+- **Description:** The Agents View must know, before the Player presses a button, whether the engine would accept
+  `assignAgents` with the selected Agents, and with each Agent alone, but no query is specified that reports it. An
+  interface can only repeat the preconditions of Assigning Agents itself.
+- **Links:** DEC-046
 - **Resolution:** Open

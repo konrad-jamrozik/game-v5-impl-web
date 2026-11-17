@@ -56,6 +56,12 @@ export interface AgentView {
   /** Whether the Agent would be able to fight if a Combat began now. */
   readonly ableToFight: boolean;
   readonly participationHistory: readonly Participation[];
+  /** AGENT, Service record: the number of Enemies the Agent's attacks have made dead. */
+  readonly enemiesKilled: number;
+  /** AGENT, Service record: absent for a Serving Agent. */
+  readonly turnTerminated: number | null;
+  /** AGENT, Service record: the Enemy and Mission site, by Instance ID; absent unless the Agent is Killed. */
+  readonly killedBy: { readonly enemy: string; readonly missionSite: string } | null;
   /** Reported for every Serving Agent. */
   readonly healthRecoveryRate: number | null;
   /** Absent unless the Current assignment is Recovery. */
@@ -290,6 +296,8 @@ export interface AvailableActionsView {
     readonly assignments: readonly SimpleAssignment[];
     /** How many more Agents can be ordered to Training under the Training cap. */
     readonly trainingPlacesLeft: number;
+    /** For each Assignment, the Agents that `assignAgents` would accept on their own; see DEC-046. */
+    readonly acceptedAlone: Readonly<Record<SimpleAssignment, readonly string[]>>;
   };
   /** The Agents that can be dismissed. */
   readonly dismissableAgents: readonly string[];
@@ -407,6 +415,8 @@ export interface PlayerApi {
     previewDeployment(missionSite: string | null, agents: readonly string[]): Result<DeploymentPreview>;
     /** Each Active Investigation that the listed Agents that can be assigned would leave; see DEC-040. */
     previewProgressLoss(agents: readonly string[]): Result<readonly ProgressLossPreview[]>;
+    /** Whether `assignAgents` would accept these Agents and Assignment now, changing nothing; see DEC-046. */
+    previewAssignAgents(agents: readonly string[], assignment: SimpleAssignment): Result<ActionAvailability>;
   };
   readonly actions: {
     assignAgents(agents: readonly string[], assignment: SimpleAssignment): Promise<Result<CommitOutcome>>;

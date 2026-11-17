@@ -98,6 +98,19 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     if ((s.status === 'Killed') !== (s.currentHealth === 0)) {
       fail(`${where}: current health does not agree with the Agent status`);
     }
+    // AGENT, Agent properties: Turn terminated is present exactly when Terminated, Killed by exactly when Killed.
+    if (isServing(s) !== (s.turnTerminated === null)) {
+      fail(`${where}: Turn terminated is not present exactly when the Agent is Terminated`);
+    }
+    if (s.turnTerminated !== null && s.turnTerminated < agent.constants.turnHired) {
+      fail(`${where}: Turn terminated is before Turn hired`);
+    }
+    if ((s.status === 'Killed') !== (s.killedBy !== null)) {
+      fail(`${where}: Killed by is not present exactly when the Agent is Killed`);
+    }
+    if (s.enemiesKilled < 0) {
+      fail(`${where}: Enemies killed is negative`);
+    }
     if (s.assignment?.kind === 'Deployed') {
       const mission = world.missions[s.assignment.mission];
       if (

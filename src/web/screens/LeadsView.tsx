@@ -9,7 +9,8 @@ import { confirmInterruption } from '../interruption.ts';
 import { progressBar } from '../progress-bar.ts';
 import { activeInvestigationRows, leadsToInvestigate, rangeText } from '../situation.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import { Button } from '../ui.tsx';
+import { useRowSelection } from '../row-selection.ts';
+import { Button, Cols } from '../ui.tsx';
 import { assignmentText } from './AgentsView.tsx';
 import { DetailView } from './DetailView.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
@@ -277,6 +278,12 @@ function Team(props: {
     (agent) => agent.canBeAssigned && agent.fitForWork && !members.has(agent.id),
   );
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
+  const selection = useRowSelection({
+    order: candidates.map((agent) => agent.id),
+    selected: team,
+    selectable: () => true,
+    onChange: setChecked,
+  });
   const none = team.length === 0 ? 'Check the Agents to add first.' : null;
   const agentById = (id: string) => state.agents.find((agent) => agent.id === id);
 
@@ -289,6 +296,7 @@ function Team(props: {
             <span className="figure tone-accent">{investigation.currentTeam.length}</span>
           </div>
           <table className="grid compact">
+            <Cols widths={[undefined, '90px', '64px', '110px']} />
             <tbody>
               {investigation.currentTeam.map((member) => (
                 <tr key={member.agent}>
@@ -326,21 +334,19 @@ function Team(props: {
       {candidates.length === 0 ? (
         <p className="muted small">No Agent that is Fit for work can be assigned now.</p>
       ) : (
-        <table className="grid compact">
+        <table className="grid compact pick-grid">
+          <Cols widths={['36px', '110px', undefined, '64px']} />
           <tbody>
             {candidates.map((agent) => {
               const on = team.includes(agent.id);
               return (
-                <tr key={agent.id} className={on ? 'row-selected' : ''}>
+                <tr key={agent.id} className={on ? 'row-selected' : ''} {...selection.row(agent.id)}>
                   <td className="check">
                     <input
                       type="checkbox"
                       aria-label={`Add ${agent.id}`}
                       data-testid={`team-pick-${agent.id}`}
-                      checked={on}
-                      onChange={() => {
-                        setChecked(on ? team.filter((id) => id !== agent.id) : [...team, agent.id]);
-                      }}
+                      {...selection.checkbox(agent.id)}
                     />
                   </td>
                   <td className="figure">{agent.id}</td>

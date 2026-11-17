@@ -5,7 +5,7 @@ import type { SaveHeader, SaveKind } from './storage.ts';
 /** The Save size limit: 100 MiB; see SAVES, Save size limit. */
 export const SAVE_SIZE_LIMIT_BYTES = 100 * 1024 * 1024;
 
-const FORMAT = 4;
+const FORMAT = 5;
 
 /** Encoded Turn-start states, reused while the same Turn-start state is written again; see DEC-008. */
 const turnStartCache = new WeakMap<object, string>();

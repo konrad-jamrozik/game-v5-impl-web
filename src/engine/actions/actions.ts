@@ -280,6 +280,8 @@ function dismissAgents(world: CurrentWorldState, args: Args): Rejection | null {
   for (const agent of agents) {
     agent.state.status = 'Dismissed';
     agent.state.assignment = null;
+    // AGENT, Service record: Turn terminated is the Turn in which dismissAgents dismissed it.
+    agent.state.turnTerminated = world.turn;
   }
   return null;
 }

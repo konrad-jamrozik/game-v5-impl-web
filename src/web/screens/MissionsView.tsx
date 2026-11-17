@@ -6,7 +6,8 @@ import { useState } from 'react';
 import type { ConsequenceView, CurrentStateView, MissionSiteView } from '../../engine/index.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { TIRED_DEPLOYMENT_EXHAUSTION, confirmTiredDeployment } from '../tired-deployment.ts';
-import { Button } from '../ui.tsx';
+import { useRowSelection } from '../row-selection.ts';
+import { Button, Cols } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { assignmentText } from './AgentsView.tsx';
 
@@ -217,6 +218,7 @@ function SiteDetails(props: {
         <span className="figure secondary">Combat rating {site.enemiesCombatRating}</span>
       </div>
       <table className="grid compact">
+        <Cols widths={[undefined, '76px', '88px', '80px']} />
         <thead>
           <tr>
             <th>Enemy</th>
@@ -277,6 +279,12 @@ function Deployment(props: {
       agent.canBeAssigned && (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training'),
   );
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
+  const selection = useRowSelection({
+    order: candidates.map((agent) => agent.id),
+    selected: team,
+    selectable: () => true,
+    onChange: onCheck,
+  });
   const taken = state.agency.deployedAgents + team.length;
   const over = taken > state.agency.transportCap;
   const preview = team.length === 0 ? null : player.queries.previewDeployment(site.id, team);
@@ -292,21 +300,19 @@ function Deployment(props: {
       {candidates.length === 0 ? (
         <p className="muted small">No Agent on Standby or in Training can be deployed now.</p>
       ) : (
-        <table className="grid compact">
+        <table className="grid compact pick-grid">
+          <Cols widths={['36px', '110px', undefined, '64px', '76px']} />
           <tbody>
             {candidates.map((agent) => {
               const on = team.includes(agent.id);
               return (
-                <tr key={agent.id} className={on ? 'row-selected' : ''}>
+                <tr key={agent.id} className={on ? 'row-selected' : ''} {...selection.row(agent.id)}>
                   <td className="check">
                     <input
                       type="checkbox"
                       aria-label={`Deploy ${agent.id}`}
                       data-testid={`deploy-pick-${agent.id}`}
-                      checked={on}
-                      onChange={() => {
-                        onCheck(on ? team.filter((id) => id !== agent.id) : [...team, agent.id]);
-                      }}
+                      {...selection.checkbox(agent.id)}
                     />
                   </td>
                   <td className="figure">{agent.id}</td>

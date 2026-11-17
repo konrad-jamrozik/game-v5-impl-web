@@ -34,6 +34,7 @@ import { healthRecoveryRate, recoveryTurnsRemaining } from '../mechanics/recover
 import { visibleArticles } from '../mechanics/compendium/compendium.ts';
 import type {
   ActionAvailability,
+  SimpleAssignment,
   ActivityLevelView,
   AgencyView,
   AgentView,
@@ -88,6 +89,9 @@ function agentView(agent: Agent, gdrs: GdrCatalog): AgentView {
     fitForWork: isFitForWork(s, gdrs.agentParameters),
     ableToFight: serving && isAbleToFight(s, gdrs.combatParameters, gdrs.agentParameters),
     participationHistory: s.participationHistory.map((item) => ({ ...item })),
+    enemiesKilled: s.enemiesKilled,
+    turnTerminated: s.turnTerminated,
+    killedBy: s.killedBy === null ? null : { ...s.killedBy },
     healthRecoveryRate: serving ? healthRecoveryRate(s.baseHealth, gdrs.recoveryParameters) : null,
     recoveryTurnsRemaining:
       serving && s.assignment?.kind === 'Recovery'
@@ -395,6 +399,47 @@ function tryAction(
   return applyGameAction(detach(world), { surface: 'player', name, args }, gdrs);
 }
 
+/** For each Assignment, the Agents that `assignAgents` would accept on their own; see DEC-046. */
+function acceptedAlone(
+  world: CurrentWorldState,
+  gdrs: GdrCatalog,
+  ended: boolean,
+): Record<SimpleAssignment, string[]> {
+  const result: Record<SimpleAssignment, string[]> = { Standby: [], Contracting: [], Training: [] };
+  if (ended) {
+    return result;
+  }
+  for (const agent of Object.values(world.agents)) {
+    if (!canBeAssigned(agent.state)) {
+      continue;
+    }
+    for (const assignment of ['Standby', 'Contracting', 'Training'] as const) {
+      if (tryAction(world, gdrs, 'assignAgents', { agents: [agent.id], assignment }) === null) {
+        result[assignment].push(agent.id);
+      }
+    }
+  }
+  return result;
+}
+
+/** `player.queries.previewAssignAgents(agents, assignment)`: the outcome `assignAgents` would have; see DEC-046. */
+export function previewAssignAgents(
+  state: CampaignState,
+  gdrs: GdrCatalog,
+  agents: unknown,
+  assignment: unknown,
+): ActionAvailability {
+  const world = state.world.current;
+  if (world.ending !== null) {
+    return {
+      available: false,
+      reason: 'campaign_ended',
+      message: `The Campaign has ended in ${world.ending}.`,
+    };
+  }
+  return availability(tryAction(world, gdrs, 'assignAgents', { agents, assignment }));
+}
+
 /** `player.queries.getAvailableActions()`. */
 export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): AvailableActionsView {
   const world = state.world.current;
@@ -432,6 +477,7 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
     assignAgents: {
       assignments: ['Standby', 'Contracting', 'Training'],
       trainingPlacesLeft: ended ? 0 : Math.max(0, caps.trainingCap - countTraining(states)),
+      acceptedAlone: acceptedAlone(world, gdrs, ended),
     },
     dismissableAgents: ended
       ? []
