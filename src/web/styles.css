@@ -1445,6 +1445,8 @@ input[type='checkbox'] {
   width: 16px;
   height: 16px;
   margin: 0;
+  /* The padding of other inputs would widen the square, because the box is never narrower than its padding. */
+  padding: 0;
   border: 1px solid var(--text-muted);
   border-radius: var(--radius);
   background: var(--background);

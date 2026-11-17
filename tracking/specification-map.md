@@ -555,6 +555,7 @@ No files.
 - tests/web/agent-condition-and-selection.test.ts
 - src/web/slider.ts
 - tests/web/slider.test.ts
+- tests/web/checkbox.test.ts
 - src/web/screens/MusicControl.tsx
 
 ## WHIST: World History

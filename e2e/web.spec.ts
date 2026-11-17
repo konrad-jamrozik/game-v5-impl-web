@@ -180,6 +180,9 @@ test('the Agents View keeps its columns, selects ranges, guards re-assigning, an
       .evaluateAll((cells) => cells.map((cell) => Math.round(cell.getBoundingClientRect().width)));
   const before = await columns();
   const box = (n: number) => id(page, `agent-agent-${n}`).getByRole('checkbox');
+  // VIS, Checkboxes: a checkbox is a 16 px square.
+  const size = await box(1).boundingBox();
+  expect([size?.width, size?.height]).toEqual([16, 16]);
 
   // VIS, Tables: clicking agent-4 and then Shift-clicking agent-2 selects agent-2 to agent-4.
   await id(page, 'agent-agent-4').click();
