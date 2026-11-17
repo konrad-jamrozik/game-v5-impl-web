@@ -249,8 +249,9 @@ No files.
 - public/globe/
 - src/web/globe/
 - src/web/screens/Globe.tsx
-- src/web/styles.css
 - package.json
+- eslint.config.js
+- .prettierignore
 - e2e/web.spec.ts
 
 ## GLOSS: Glossary Conventions

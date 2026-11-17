@@ -37,7 +37,6 @@
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "@types/three": "0.159.0",
     "@vitejs/plugin-react": "6.3.0",
     "eslint": "10.15.0",
     "fake-indexeddb": "6.2.8",

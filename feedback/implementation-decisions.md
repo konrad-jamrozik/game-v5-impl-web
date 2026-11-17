@@ -796,23 +796,20 @@
   values written under it stay exact.
 - **Links:** PROB-025
 
-## DEC-043: Globe Integration used with modifications
+## DEC-043: Globe Integration used as is
 
 - **Category:** Treatment of guidance
-- **Affected specifications:** GLOBE, Checking the globe: "One test is suggested: that the component mounts and
-  unmounts cleanly where WebGL is unavailable, as it is in a test environment without a browser." GLOBE, every other
-  section.
-- **Description:** Used with modifications. The four maps are copied unchanged into `public/globe/`, three.js and its
-  type declarations are dependencies at 0.159.0, `src/web/globe/globe-scene.ts` is the port of `globe.js` with its
-  shaders and SETTINGS unchanged, and `src/web/screens/Globe.tsx` shows it centred in the Globe stage of the Campaign
-  screen, behind every Detail view, loading it on first show and drawing only while no Detail view covers it and the
-  browser tab is in view. Before this, the Implementation had no globe, by the Engine designer's earlier choice. The
-  one modification: the suggested test is a browser test that takes WebGL 2 away from the page, because the unit
-  tests of this Implementation run without a DOM.
-- **Options considered:** A unit test in a simulated DOM; a browser test without WebGL 2.
-- **Option chosen:** A browser test without WebGL 2.
-- **Why:** The browser test exercises the real component with the real loading path, and adds no simulated DOM to the
-  toolchain for one test.
+- **Affected specifications:** GLOBE, every section.
+- **Description:** Used as is. The four maps are copied unchanged into `public/globe/`, and `globe.js`,
+  `globe-scene.js`, `globe.css`, and `globe.d.ts` unchanged into `src/web/globe/`, which the formatter and the linter
+  leave out; three.js is a dependency at 0.159.0. `src/web/screens/Globe.tsx`, the component of `lib/globe/README.md`,
+  mounts the globe in the Globe stage, hides it while a Detail view covers the Globe stage, and disposes of it with the
+  Campaign screen. The suggested test is a browser test of the Campaign screen without WebGL 2, and the other browser
+  tests that do not concern the globe also run without WebGL 2. Specification commit b2af76a4e82b0167a5fe852ac842e6a737007840 replaced the earlier TypeScript port of the globe with these copied files.
+- **Options considered:** Following the recipe as it is; porting the globe to TypeScript.
+- **Option chosen:** Following the recipe as it is.
+- **Why:** The copied files carry the globe's controls and failure handling exactly as the reference viewer has them,
+  and a later change to `lib/globe/` is applied by copying the files again.
 - **Links:** None.
 
 ## DEC-044: Autosave navigation prefers the Return Autosave among targets with the same Committed state

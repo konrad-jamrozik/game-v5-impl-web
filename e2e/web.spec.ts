@@ -369,13 +369,16 @@ test('the globe loads only when first shown, draws only while in view, and leave
   await expect(id(page, 'new-campaign')).toBeVisible();
   expect(maps).toEqual([]);
   await id(page, 'new-campaign').click();
-  await expect(id(page, 'globe')).toHaveAttribute('data-state', 'shown', { timeout: 30_000 });
-  await expect(id(page, 'globe')).toHaveAttribute('data-running', 'true');
+  await expect(page.locator('.globe-controls')).toBeVisible({ timeout: 30_000 });
   expect(maps).toHaveLength(4);
   await id(page, 'nav-agents').click();
-  await expect(id(page, 'globe')).toHaveAttribute('data-running', 'false');
+  await expect(page.locator('.globe-hud')).toBeHidden();
   await page.keyboard.press('Escape');
-  await expect(id(page, 'globe')).toHaveAttribute('data-running', 'true');
+  await expect(page.locator('.globe-controls')).toBeVisible();
+  await page.getByRole('button', { name: 'Stop rotation' }).click();
+  await page.getByRole('button', { name: /Clouds/ }).click();
+  await page.getByRole('button', { name: /Day and night/ }).click();
+  await expect(page.getByRole('button', { name: 'Day and night: 2× speed' })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -384,8 +387,7 @@ test('without WebGL 2 the globe shows a message and nothing else changes', async
   await withoutGlobe(page);
   await page.goto('/');
   await id(page, 'new-campaign').click();
-  await expect(id(page, 'globe')).toHaveAttribute('data-state', 'unavailable');
-  await expect(id(page, 'globe')).toContainText('WebGL 2');
+  await expect(page.locator('.globe-status')).toContainText('WebGL 2');
   await id(page, 'nav-agents').click();
   await id(page, 'hire').click();
   await expect(id(page, 'agent-agent-5')).toBeVisible();

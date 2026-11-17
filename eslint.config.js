@@ -25,6 +25,7 @@ export default tseslint.config(
       'dist/',
       '.data/',
       'src/gdr/generated/',
+      'src/web/globe/',
       'test-results/',
       'playwright-report/',
     ],
