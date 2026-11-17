@@ -227,7 +227,11 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
     leaveCurrentTeam(world, agent, left, gdrs);
     const newAssignment: Assignment = { kind: assignment as SimpleAssignment };
     // AGENT, Transit rule: a move between Base Assignments travels nowhere and is At assignment at once.
-    const withinBase = isBaseAssignment(agent.state.assignment) && isBaseAssignment(newAssignment);
+    // AGENT, Transit rule: only an Agent At assignment moves within base at once; an Agent In transit is re-routed.
+    const withinBase =
+      agent.state.status === 'AtAssignment' &&
+      isBaseAssignment(agent.state.assignment) &&
+      isBaseAssignment(newAssignment);
     agent.state.assignment = newAssignment;
     agent.state.status = withinBase ? 'AtAssignment' : 'InTransit';
   }
@@ -442,6 +446,11 @@ function deployAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
   const blocked = requireOrderable(agents);
   if (blocked) {
     return blocked;
+  }
+  // Condition 6: an Agent In transit can be assigned, but deploying it would let it skip its transit.
+  const travelling = agents.filter((agent) => agent.state.status === 'InTransit');
+  if (travelling.length > 0) {
+    return reject('agents_in_transit', `These Agents are In transit: ${list(travelling.map((a) => a.id))}.`);
   }
   // Condition 7: only an Agent on a Base Assignment can be deployed.
   const away = agents.filter((agent) => !isBaseAssignment(agent.state.assignment));

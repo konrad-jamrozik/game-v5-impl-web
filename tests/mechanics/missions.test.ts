@@ -110,7 +110,7 @@ describe('MISSION: Acceptance examples', () => {
       state,
       'deployAgents',
       { missionSite: other.site, agents: [agentIds(state)[4]] },
-      'agents_cannot_be_ordered',
+      'agents_in_transit',
     );
 
     // Resolution, Advance turn ending turn 6, with the Combat trace of the example.
@@ -366,7 +366,7 @@ describe('MISSION: Acceptance examples', () => {
     reject(s7.site, [a4, a5], 'transport_cap');
     reject(s7.site, [], 'agents_empty');
     reject(s7.site, [a4, a4], 'agents_duplicate');
-    reject(s7.site, [a6], 'agents_cannot_be_ordered');
+    reject(s7.site, [a6], 'agents_in_transit');
     reject(s7.site, [a7], 'agents_cannot_be_ordered');
     reject(s7.site, [a1], 'agents_cannot_be_ordered');
     reject(s7.site, [a8], 'agents_not_in_base');

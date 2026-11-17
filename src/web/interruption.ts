@@ -24,6 +24,8 @@ export function interruptionMessage(
     (agent) =>
       moving.has(agent.id) &&
       agent.canBeAssigned &&
+      // An Agent In transit is not working yet, so re-routing it interrupts nothing; see AGENT, Transit rule.
+      agent.agentStatus === 'AtAssignment' &&
       (agent.assignment?.kind === 'Contracting' || agent.assignment?.kind === 'Investigation'),
   );
   if (interrupted.length === 0) {

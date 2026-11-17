@@ -84,7 +84,9 @@ export function clampHealth(value: number, baseHealth: number): number {
 
 /** AGENT, Agents that can be assigned. */
 export function canBeAssigned(agent: Pick<AgentState, 'status' | 'assignment'>): boolean {
-  if (agent.status !== 'AtAssignment' || agent.assignment === null) {
+  // AGENT, Agents that can be assigned: At assignment or In transit, on Standby, Contracting, Training, or an
+  // Investigation. An Agent In transit to Recovery cannot be assigned.
+  if ((agent.status !== 'AtAssignment' && agent.status !== 'InTransit') || agent.assignment === null) {
     return false;
   }
   const kind = agent.assignment.kind;

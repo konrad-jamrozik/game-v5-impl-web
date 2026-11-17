@@ -35,6 +35,8 @@
 - src/engine/index.ts
 - tests/mechanics/agents.test.ts
 - e2e/web.spec.ts
+- src/web/agent-selection.ts
+- tests/web/agent-condition-and-selection.test.ts
 
 ## BASICAI: Basic Autopilot AI
 
@@ -527,6 +529,9 @@ No files.
 - src/web/screens/CompendiumView.tsx
 - src/web/row-selection.ts
 - tests/web/row-selection.test.ts
+- src/web/condition.tsx
+- src/web/condition-scale.ts
+- tests/web/agent-condition-and-selection.test.ts
 
 ## WHIST: World History
 

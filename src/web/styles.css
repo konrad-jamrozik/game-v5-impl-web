@@ -20,6 +20,9 @@
   --positive: #b7c77a;
   --danger: #ff7f78;
   --danger-border: #5e2a26;
+  /* VIS, Colours: Warning and Danger deep, for VIS, Agent condition. */
+  --warning: #e3c14b;
+  --danger-deep: #a3271f;
   --limit-band: rgb(229 72 77 / 12%);
   --accent-fill: rgb(255 122 26 / 14%);
   --scrim: rgb(13 13 11 / 72%);
@@ -51,6 +54,8 @@
   --positive: #4f6b12;
   --danger: #b8322c;
   --danger-border: #e3a9a5;
+  --warning: #8a6a00;
+  --danger-deep: #7a1a14;
   --limit-band: rgb(229 72 77 / 12%);
   --accent-fill: rgb(217 95 0 / 14%);
   --scrim: rgb(13 13 11 / 72%);
@@ -165,6 +170,21 @@ code {
 
 .tone-bad {
   color: var(--danger);
+}
+
+/* VIS, Agent condition */
+.tone-warning {
+  color: var(--warning);
+}
+
+.condition {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.warn-triangle {
+  flex: none;
 }
 
 .tone-muted {

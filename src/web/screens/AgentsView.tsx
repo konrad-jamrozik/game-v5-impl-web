@@ -1,7 +1,8 @@
 /**
- * AVIEW: the Agents View. One table of the Agents the chosen filter shows, because the Player compares Agents with one
- * another and acts on several at once, with each Agent's details one step away. The Memorial filter shows the
- * Terminated Agents instead, with how each one's service ended.
+ * AVIEW: the Agents View. One table of the Agents the row filter shows, because the Player compares Agents with one
+ * another and acts on several at once, with each Agent's details one step away. A selection filter decides which shown
+ * Agents can be selected, and every Agent that cannot is muted with its reason. The Memorial shows the Terminated
+ * Agents instead, with how each one's service ended.
  */
 import {
   createColumnHelper,
@@ -11,8 +12,16 @@ import {
   useReactTable,
   type SortingState,
 } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentView, CurrentStateView, HistoryView } from '../../engine/index.ts';
+import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
+import {
+  ASSIGNMENTS,
+  isReassigning,
+  unselectableReason,
+  type OrderAssignment,
+  type Selectability,
+} from '../agent-selection.ts';
 import { useRowSelection } from '../row-selection.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { Button, Cols } from '../ui.tsx';
@@ -22,20 +31,12 @@ import { DetailView } from './DetailView.tsx';
 const NUMERIC = new Set(['effectiveSkill', 'skill', 'currentHealth', 'exhaustion', 'weaponDamage']);
 
 /** VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. */
-const SERVING_WIDTHS = ['36px', '120px', '100px', '76px', '88px', '116px', '88px', undefined];
+const SERVING_WIDTHS = ['36px', '104px', '92px', '68px', '80px', '108px', '80px', undefined, '128px'];
 /** VIS, Tables: the fixed widths of the Memorial table. */
-const MEMORIAL_WIDTHS = ['120px', '76px', '80px', '120px', '110px', undefined];
+const MEMORIAL_WIDTHS = ['100px', '64px', '72px', '112px', '96px', '88px', '76px', '68px', undefined];
 
-const ASSIGNMENTS = ['Standby', 'Contracting', 'Training'] as const;
-type OrderAssignment = (typeof ASSIGNMENTS)[number];
-
-/** AVIEW, Agent filters: exactly one of the six is on at a time. */
-type Filter = 'all' | 'standby' | 'memorial' | `to-${OrderAssignment}`;
-
-/** AVIEW, Re-assigning: changing the Assignment of an Agent on Contracting or an Investigation. */
-export function isReassigning(agent: AgentView): boolean {
-  return agent.assignment?.kind === 'Contracting' || agent.assignment?.kind === 'Investigation';
-}
+/** AVIEW, Row filters: exactly one is on at a time. */
+type RowFilter = 'all' | 'assignable' | 'memorial';
 
 /** Instance IDs in their creation order, e.g. agent-9 before agent-10. */
 function byId(a: string, b: string): number {
@@ -81,36 +82,36 @@ function assignmentTone(agent: AgentView): string {
 }
 
 /**
- * AVIEW, Memorial: the two lines of a Terminated Agent's details: how its service ended, naming the Enemy and Mission
- * site its Killed by references by Instance ID and Archetype `name`, and its service in numbers.
+ * AVIEW, Memorial, Details: how a Terminated Agent's service ended, naming the Enemy and Mission site its Killed by
+ * references by Instance ID and Archetype `name`.
  */
 export function memorialDetails(
   agent: AgentView,
   state: CurrentStateView,
   history: HistoryView | null,
-): { ended: string; numbers: string } {
-  let ended: string = agent.agentStatus;
+): string {
   const killedBy = agent.killedBy;
-  if (agent.agentStatus === 'Killed' && killedBy !== null) {
-    const sites = [...state.missionSites, ...(history?.retained.missionSites ?? [])];
-    const site = sites.find((item) => item.id === killedBy.missionSite);
-    const enemy = sites.flatMap((item) => item.enemies).find((item) => item.id === killedBy.enemy);
-    const enemyText = enemy === undefined ? killedBy.enemy : `${killedBy.enemy}, ${enemy.archetypeName}`;
-    const siteText = site === undefined ? killedBy.missionSite : `${killedBy.missionSite}, ${site.name}`;
-    ended = `Killed by ${enemyText}, at ${siteText}`;
+  if (agent.agentStatus !== 'Killed' || killedBy === null) {
+    return agent.agentStatus;
   }
-  const missions = agent.participationHistory.filter((item) => item.kind === 'Mission').length;
-  const turns = (agent.turnTerminated ?? agent.turnHired) - agent.turnHired;
-  const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
-  const numbers = [
-    plural(missions, 'Mission', 'Missions'),
-    plural(turns, 'Turn with the Agency', 'Turns with the Agency'),
-    plural(agent.enemiesKilled, 'Enemy killed', 'Enemies killed'),
-  ].join(' · ');
-  return { ended, numbers };
+  const sites = [...state.missionSites, ...(history?.retained.missionSites ?? [])];
+  const site = sites.find((item) => item.id === killedBy.missionSite);
+  const enemy = sites.flatMap((item) => item.enemies).find((item) => item.id === killedBy.enemy);
+  const enemyText = enemy === undefined ? killedBy.enemy : `${killedBy.enemy}, ${enemy.archetypeName}`;
+  const siteText = site === undefined ? killedBy.missionSite : `${killedBy.missionSite}, ${site.name}`;
+  return `Killed by ${enemyText}, at ${siteText}`;
 }
 
-const helper = createColumnHelper<AgentView>();
+/** AVIEW, Memorial: the number columns of a Terminated Agent. */
+export function memorialNumbers(agent: AgentView): { missions: number; turns: number; kills: number } {
+  return {
+    missions: agent.participationHistory.filter((item) => item.kind === 'Mission').length,
+    turns: (agent.turnTerminated ?? agent.turnHired) - agent.turnHired,
+    kills: agent.enemiesKilled,
+  };
+}
+
+const helper = createColumnHelper<AgentView & { reason: string }>();
 
 function FunnelIcon() {
   return (
@@ -137,14 +138,17 @@ export function AgentsView(props: {
   const { player } = theEngine();
   const { snapshot, state, selected, locked, onSelect } = props;
   const actions = snapshot.actions;
+  const levels = exhaustionLevels(snapshot.gameData);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [filter, setFilterState] = useState<Filter>('all');
+  const [rowFilter, setRowFilter] = useState<RowFilter>('all');
+  const [selectionFilter, setSelectionFilter] = useState<OrderAssignment | null>(null);
   // AVIEW, Re-assigning: unchecked whenever the Agents View opens.
   const [allowReassign, setAllowReassign] = useState(false);
+  // VIS, Tables: Select all, which keeps the selection equal to the shown rows that can be selected.
+  const [selectAll, setSelectAll] = useState(false);
   const [details, setDetails] = useState<string | null>(null);
 
-  const assignable = useMemo(() => new Set(actions?.assignableAgents ?? []), [actions]);
-  const dismissable = useMemo(() => new Set(actions?.dismissableAgents ?? []), [actions]);
+  const memorial = rowFilter === 'memorial';
   const terminated = useMemo(
     () =>
       [...(snapshot.history?.retained.agents ?? [])].sort(
@@ -153,35 +157,64 @@ export function AgentsView(props: {
     [snapshot.history],
   );
 
-  /** AVIEW, Agent filters: the Serving Agents that the button would succeed with if that Agent alone were selected. */
-  const acceptedAlone = (assignment: OrderAssignment): AgentView[] => {
-    const accepted = new Set(actions?.assignAgents.acceptedAlone[assignment] ?? []);
-    return state.agents.filter((agent) => accepted.has(agent.id) && (allowReassign || !isReassigning(agent)));
-  };
-  const shownBy = (which: Filter): AgentView[] => {
-    if (which === 'all') {
-      return [...state.agents];
-    }
-    if (which === 'standby') {
-      return state.agents.filter((agent) => agent.assignment?.kind === 'Standby');
-    }
-    if (which === 'memorial') {
-      return [];
-    }
-    return acceptedAlone(which.slice(3) as OrderAssignment);
-  };
-  // TanStack Table needs a stable `data` reference: a new array on every render makes it re-render without end.
-  const rows = useMemo(() => shownBy(filter), [filter, state.agents, actions, allowReassign]);
-  const rowIds = rows.map((agent) => agent.id);
+  // DEC-046: the Agents each button of Assign to would accept alone, asked again whenever the Committed state changes.
+  const acceptedAlone = useMemo(() => {
+    const result = player.queries.previewAssignAgentsAlone();
+    return result.ok ? result.value : null;
+    // The preview depends on the Committed state, which the snapshot key names.
+  }, [player, snapshot.key]);
+  const selectability: Selectability = useMemo(
+    () => ({
+      acceptedAlone: acceptedAlone ?? { Standby: [], Contracting: [], Training: [] },
+      dismissable: actions?.dismissableAgents ?? [],
+      trainingPlacesLeft: actions?.assignAgents.trainingPlacesLeft ?? 0,
+      selectionFilter: memorial ? null : selectionFilter,
+      allowReassign,
+    }),
+    [acceptedAlone, actions, selectionFilter, allowReassign, memorial],
+  );
 
-  const setFilter = (next: Filter) => {
-    setFilterState(next);
-    // AVIEW, Agent filters: a selected Agent that the newly chosen filter does not show is no longer selected.
-    const shown = new Set(shownBy(next).map((agent) => agent.id));
-    if (selected.some((id) => !shown.has(id))) {
-      onSelect(selected.filter((id) => shown.has(id)));
+  // TanStack Table needs a stable `data` reference: a new array on every render makes it re-render without end.
+  const rows = useMemo(() => {
+    const shown =
+      rowFilter === 'all'
+        ? state.agents
+        : rowFilter === 'assignable'
+          ? state.agents.filter((agent) => agent.canBeAssigned && agent.fitForWork)
+          : [];
+    return shown.map((agent) => ({
+      ...agent,
+      reason: unselectableReason(agent, selectability, () => {
+        const preview = player.queries.previewAssignAgents(
+          [agent.id],
+          selectability.selectionFilter ?? 'Standby',
+        );
+        return preview.ok ? (preview.value.message ?? 'Cannot be selected') : preview.error.message;
+      }),
+    }));
+  }, [rowFilter, state.agents, selectability, player]);
+
+  const selectableIds = useMemo(() => rows.filter((row) => row.reason === '').map((row) => row.id), [rows]);
+  const selectableKey = selectableIds.join(',');
+
+  // AVIEW, Selection filters, and VIS, Tables: whenever what can be selected changes, the selection follows Select all
+  // while it is on, and otherwise drops every Agent that can no longer be selected or is no longer shown.
+  const latestSelected = useRef(selected);
+  latestSelected.current = selected;
+  useEffect(() => {
+    const current = latestSelected.current;
+    if (selectAll) {
+      if (current.length !== selectableIds.length || current.some((id) => !selectableIds.includes(id))) {
+        onSelect(selectableIds);
+      }
+      return;
     }
-  };
+    const kept = current.filter((id) => selectableIds.includes(id));
+    if (kept.length !== current.length) {
+      onSelect(kept);
+    }
+    // The selectable set is named by its key.
+  }, [selectableKey, selectAll]);
 
   const columns = useMemo(
     () => [
@@ -205,29 +238,13 @@ export function AgentsView(props: {
       helper.accessor('skill', { header: 'Skill' }),
       helper.accessor('currentHealth', {
         header: 'Health',
-        cell: (cell) => {
-          const agent = cell.row.original;
-          return (
-            <span className={agent.currentHealth < agent.baseHealth ? 'tone-accent' : ''}>
-              {agent.currentHealth}/{agent.baseHealth}
-            </span>
-          );
-        },
+        cell: (cell) => (
+          <Health current={cell.row.original.currentHealth} base={cell.row.original.baseHealth} />
+        ),
       }),
       helper.accessor('exhaustion', {
         header: 'Exhaustion',
-        cell: (cell) => {
-          const agent = cell.row.original;
-          // AVIEW, Agent table: an Agent that is not Fit for work shows its exhaustion in Accent text.
-          return (
-            <span
-              className={agent.fitForWork ? '' : 'tone-accent'}
-              title={agent.fitForWork ? 'Fit for work' : 'Not Fit for work: must rest before new work'}
-            >
-              {agent.exhaustion}
-            </span>
-          );
-        },
+        cell: (cell) => <Exhaustion value={cell.getValue()} levels={levels} />,
       }),
       helper.accessor('weaponDamage', { header: 'Damage' }),
       helper.accessor((agent) => assignmentText(agent, state, snapshot.history), {
@@ -235,8 +252,16 @@ export function AgentsView(props: {
         header: 'Assignment',
         cell: (cell) => <span className={assignmentTone(cell.row.original)}>{cell.getValue()}</span>,
       }),
+      helper.accessor('reason', {
+        header: 'Reason',
+        cell: (cell) => (
+          <span className="small" data-testid={`reason-${cell.row.original.id}`}>
+            {cell.getValue()}
+          </span>
+        ),
+      }),
     ],
-    [state, snapshot.history],
+    [state, snapshot.history, levels],
   );
 
   const table = useReactTable({
@@ -249,13 +274,16 @@ export function AgentsView(props: {
     getRowId: (agent) => agent.id,
   });
 
-  // AVIEW, Agent table: a checkbox is disabled for an Agent that no button can act on even with re-assigning allowed.
-  const actionable = (id: string) => assignable.has(id) || dismissable.has(id);
+  const canSelect = (id: string) => selectableIds.includes(id);
   const selection = useRowSelection({
     order: table.getRowModel().rows.map((row) => row.id),
     selected,
-    selectable: actionable,
-    onChange: onSelect,
+    selectable: canSelect,
+    onChange: (ids) => {
+      // VIS, Tables: a manual change to any row turns Select all off and keeps the selection as it then is.
+      setSelectAll(false);
+      onSelect(ids);
+    },
   });
 
   const chosenAgents = state.agents.filter((agent) => selected.includes(agent.id));
@@ -300,35 +328,32 @@ export function AgentsView(props: {
     );
   }
 
-  const memorial = filter === 'memorial';
   const count = selected.length;
   const none = count === 0 ? 'Select Agents first.' : null;
+  const terminatedReason = memorial ? 'No Player action acts on a Terminated Agent.' : null;
   const reassignReason =
     !allowReassign && chosenAgents.some(isReassigning)
-      ? 'A selected Agent is on Contracting or an Investigation: check Allow re-assigning to move it.'
+      ? 'A selected Agent is on Contracting or an Investigation, or In transit: check Allow re-assigning to move it.'
       : null;
   // AVIEW, Header: a button is enabled only when pressing it would succeed with the current selection.
   const orderReason = (assignment: OrderAssignment): string | null =>
-    locked ??
-    (memorial ? 'No Player action acts on a Terminated Agent.' : null) ??
-    none ??
-    reassignReason ??
-    previews.get(assignment) ??
-    null;
+    locked ?? terminatedReason ?? none ?? reassignReason ?? previews.get(assignment) ?? null;
   const dismissReason =
     locked ??
-    (memorial ? 'No Player action acts on a Terminated Agent.' : null) ??
+    terminatedReason ??
     none ??
-    (selected.every((id) => dismissable.has(id)) ? null : 'A selected Agent cannot be dismissed now.');
+    (selected.every((id) => selectability.dismissable.includes(id))
+      ? null
+      : 'A selected Agent cannot be dismissed now.');
 
-  const filterButton = (which: Filter, label: string, shown: number) => (
+  const rowFilterButton = (which: RowFilter, label: string, shown: number) => (
     <button
       type="button"
-      className={filter === which ? 'chip chip-on' : 'chip'}
-      aria-pressed={filter === which}
+      className={rowFilter === which ? 'chip chip-on' : 'chip'}
+      aria-pressed={rowFilter === which}
       data-testid={`filter-${which}`}
       onClick={() => {
-        setFilter(which);
+        setRowFilter(which);
       }}
     >
       {label} {shown}
@@ -351,9 +376,13 @@ export function AgentsView(props: {
             Show agents
           </span>
           <div className="chips">
-            {filterButton('all', 'All', state.agents.length)}
-            {filterButton('standby', 'In Standby', shownBy('standby').length)}
-            {filterButton('memorial', 'Memorial', terminated.length)}
+            {rowFilterButton('all', 'All', state.agents.length)}
+            {rowFilterButton(
+              'assignable',
+              'Assignable',
+              state.agents.filter((agent) => agent.canBeAssigned && agent.fitForWork).length,
+            )}
+            {rowFilterButton('memorial', 'Memorial', terminated.length)}
           </div>
         </div>
       }
@@ -379,7 +408,7 @@ export function AgentsView(props: {
           </span>
           <div className="actions">
             {ASSIGNMENTS.map((assignment) => {
-              const which: Filter = `to-${assignment}`;
+              const on = !memorial && selectionFilter === assignment;
               return (
                 <span key={assignment} className="button-pair">
                   <Button
@@ -390,20 +419,20 @@ export function AgentsView(props: {
                       // AVIEW, Re-assigning: with Allow re-assigning checked, no confirmation is asked.
                       const agents = [...selected];
                       act(() => player.actions.assignAgents(agents, assignment));
-                      onSelect([]);
                     }}
                   >
                     {assignment}
                   </Button>
                   <button
                     type="button"
-                    className={filter === which ? 'btn filter-toggle chip-on' : 'btn filter-toggle'}
-                    aria-pressed={filter === which}
-                    aria-label={`Show the Agents that can be assigned to ${assignment}`}
-                    title={`Show the Agents that can be assigned to ${assignment}`}
+                    className={on ? 'btn filter-toggle chip-on' : 'btn filter-toggle'}
+                    aria-pressed={on}
+                    disabled={memorial}
+                    aria-label={`Allow selecting only the Agents that can be assigned to ${assignment}`}
+                    title={`Allow selecting only the Agents that can be assigned to ${assignment}`}
                     data-testid={`filter-to-${assignment.toLowerCase()}`}
                     onClick={() => {
-                      setFilter(filter === which ? 'all' : which);
+                      setSelectionFilter(on ? null : assignment);
                     }}
                   >
                     <FunnelIcon />
@@ -416,6 +445,7 @@ export function AgentsView(props: {
                 type="checkbox"
                 data-testid="allow-reassigning"
                 checked={allowReassign}
+                disabled={memorial}
                 onChange={(event) => {
                   setAllowReassign(event.target.checked);
                 }}
@@ -432,13 +462,16 @@ export function AgentsView(props: {
             if (window.confirm(`Dismiss ${selected.join(', ')}? A Dismissed Agent never returns.`)) {
               const agents = [...selected];
               act(() => player.actions.dismissAgents(agents));
-              onSelect([]);
             }
           }}
         >
           Dismiss
         </Button>
-        {memorial ? null : <span className="muted small">{count} selected</span>}
+        {memorial ? null : (
+          <span className="muted small" data-testid="agents-selected">
+            {count} selected
+          </span>
+        )}
       </div>
       {memorial ? (
         <Memorial
@@ -456,7 +489,24 @@ export function AgentsView(props: {
             <thead>
               {table.getHeaderGroups().map((group) => (
                 <tr key={group.id}>
-                  <th className="check" aria-label="Selected" />
+                  <th className="check">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      data-testid="select-all"
+                      checked={selectAll}
+                      disabled={selectableIds.length === 0 && !selectAll}
+                      onChange={() => {
+                        if (selectAll) {
+                          setSelectAll(false);
+                          onSelect([]);
+                        } else {
+                          setSelectAll(true);
+                          onSelect(selectableIds);
+                        }
+                      }}
+                    />
+                  </th>
                   {group.headers.map((header) => (
                     <th
                       key={header.id}
@@ -485,7 +535,7 @@ export function AgentsView(props: {
               {table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className={`${selected.includes(row.id) ? 'row-selected' : ''} ${actionable(row.id) ? '' : 'row-busy'}`}
+                  className={`${selected.includes(row.id) ? 'row-selected' : ''} ${canSelect(row.id) ? '' : 'row-busy'}`}
                   data-testid={`agent-${row.id}`}
                   {...selection.row(row.id)}
                 >
@@ -501,62 +551,118 @@ export function AgentsView(props: {
               ))}
             </tbody>
           </table>
-          {rowIds.length === 0 ? <p className="muted pad">No Agents to show.</p> : null}
+          {rows.length === 0 ? <p className="muted pad">No Agents to show.</p> : null}
         </div>
       )}
     </DetailView>
   );
 }
 
-/** AVIEW, Memorial: one row per Terminated Agent, newest Turn terminated first, with no selection checkbox. */
+type MemorialKey =
+  'id' | 'skill' | 'baseHealth' | 'turnTerminated' | 'cause' | 'missions' | 'turns' | 'kills' | 'details';
+
+/** AVIEW, Memorial: one row per Terminated Agent, newest Turn terminated first, sorted by any column header. */
 function Memorial(props: {
   agents: readonly AgentView[];
   state: CurrentStateView;
   history: HistoryView | null;
   onOpen: (id: string) => void;
 }) {
+  const [sort, setSort] = useState<{ key: MemorialKey; desc: boolean } | null>(null);
+  const rows = props.agents.map((agent) => ({
+    agent,
+    details: memorialDetails(agent, props.state, props.history),
+    ...memorialNumbers(agent),
+  }));
+  type Row = (typeof rows)[number];
+  const value = (row: Row, key: MemorialKey): number | string => {
+    switch (key) {
+      case 'id':
+        return row.agent.id;
+      case 'skill':
+        return row.agent.skill;
+      case 'baseHealth':
+        return row.agent.baseHealth;
+      case 'turnTerminated':
+        return row.agent.turnTerminated ?? 0;
+      case 'cause':
+        return row.agent.agentStatus;
+      case 'missions':
+        return row.missions;
+      case 'turns':
+        return row.turns;
+      case 'kills':
+        return row.kills;
+      case 'details':
+        return row.details;
+    }
+  };
+  if (sort !== null) {
+    rows.sort((a, b) => {
+      const x = value(a, sort.key);
+      const y = value(b, sort.key);
+      const order = typeof x === 'number' && typeof y === 'number' ? x - y : byId(String(x), String(y));
+      return (sort.desc ? -order : order) || byId(a.agent.id, b.agent.id);
+    });
+  }
+  const header = (key: MemorialKey, label: string, numeric: boolean, title?: string) => (
+    <th
+      className={numeric ? 'sortable num' : 'sortable'}
+      title={title}
+      aria-sort={sort?.key === key ? (sort.desc ? 'descending' : 'ascending') : 'none'}
+      data-testid={`memorial-sort-${key}`}
+      onClick={() => {
+        setSort(sort?.key === key ? { key, desc: !sort.desc } : { key, desc: numeric });
+      }}
+    >
+      {label}
+      {sort?.key === key ? (sort.desc ? ' ▼' : ' ▲') : ''}
+    </th>
+  );
   return (
     <div className="table-scroll">
       <table className="grid memorial-grid" data-testid="memorial-grid">
         <Cols widths={MEMORIAL_WIDTHS} />
         <thead>
           <tr>
-            <th>Agent</th>
-            <th className="num">Skill</th>
-            <th className="num">Health</th>
-            <th className="num">Terminated</th>
-            <th>Cause</th>
-            <th>Details</th>
+            {header('id', 'Agent', false)}
+            {header('skill', 'Skill', true)}
+            {header('baseHealth', 'Health', true)}
+            {header('turnTerminated', 'Terminated', true)}
+            {header('cause', 'Cause', false)}
+            {header('missions', 'Missions', true)}
+            {header('turns', 'Turns', true, 'Turns with the Agency')}
+            {header('kills', 'Kills', true, 'Enemies killed')}
+            {header('details', 'Details', false)}
           </tr>
         </thead>
         <tbody>
-          {props.agents.map((agent) => {
-            const details = memorialDetails(agent, props.state, props.history);
-            return (
-              <tr key={agent.id} data-testid={`memorial-${agent.id}`}>
-                <td>
-                  <button
-                    type="button"
-                    className="id-link"
-                    data-testid={`agent-details-${agent.id}`}
-                    onClick={() => {
-                      props.onOpen(agent.id);
-                    }}
-                  >
-                    {agent.id}
-                  </button>
-                </td>
-                <td className="num">{agent.skill}</td>
-                <td className="num">{agent.baseHealth}</td>
-                <td className="num">T{agent.turnTerminated ?? '-'}</td>
-                <td className={agent.agentStatus === 'Killed' ? 'tone-bad' : 'muted'}>{agent.agentStatus}</td>
-                <td>
-                  {details.ended}
-                  <div className="secondary small">{details.numbers}</div>
-                </td>
-              </tr>
-            );
-          })}
+          {rows.map((row) => (
+            <tr key={row.agent.id} data-testid={`memorial-${row.agent.id}`}>
+              <td>
+                <button
+                  type="button"
+                  className="id-link"
+                  data-testid={`agent-details-${row.agent.id}`}
+                  onClick={() => {
+                    props.onOpen(row.agent.id);
+                  }}
+                >
+                  {row.agent.id}
+                </button>
+              </td>
+              <td className="num">{row.agent.skill}</td>
+              <td className="num">{row.agent.baseHealth}</td>
+              <td className="num">T{row.agent.turnTerminated ?? '-'}</td>
+              <td className={row.agent.agentStatus === 'Killed' ? 'tone-bad' : 'muted'}>
+                {row.agent.agentStatus}
+              </td>
+              <td className="num">{row.missions}</td>
+              <td className="num">{row.turns}</td>
+              <td className="num">{row.kills}</td>
+              <td>{row.details}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
       {props.agents.length === 0 ? <p className="muted pad">No Agent has left the Agency yet.</p> : null}

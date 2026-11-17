@@ -362,3 +362,17 @@
   interface can only repeat the preconditions of Assigning Agents itself.
 - **Links:** DEC-046
 - **Resolution:** Open
+
+## PROB-030: Whether re-routing an Agent In transit needs the confirmation of interrupted Assignments
+
+- **Category:** Implicit gap
+- **Affected specifications:** GUI, Confirming interrupted Assignments: "Before it makes any Player action that changes
+  the Assignment of an Agent on Contracting or an Investigation, whatever the new Assignment, the GUI asks the Player to
+  confirm". AGENT, Transit rule, Re-routing: an Agent given a new Assignment while In transit "arrives under statement 2
+  exactly when it would have arrived at the old one".
+- **Description:** An Agent In transit to Contracting or an Investigation now can be assigned elsewhere, e.g. from the
+  Leads View, and its Assignment is Contracting or an Investigation, so the wording asks for a confirmation. The
+  confirmation exists because the order interrupts work and costs an Advance turn In transit, and re-routing does
+  neither.
+- **Links:** DEC-047
+- **Resolution:** Open

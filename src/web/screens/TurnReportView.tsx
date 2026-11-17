@@ -5,6 +5,7 @@
 import { useState, type ReactNode } from 'react';
 import type { CombatReport, CurrentStateView, MissionSiteView, TurnReport } from '../../engine/index.ts';
 import { consequenceText, progressPoints } from '../format.ts';
+import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import type { Snapshot } from '../store.ts';
 import { percent, Cols } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -53,6 +54,7 @@ export function TurnReportView(props: {
       <DetailView id="report" title="Combat report" aside={heading} onClose={props.onClose}>
         <CombatReportDetails
           combat={shownCombat}
+          levels={exhaustionLevels(snapshot.gameData)}
           onBack={() => {
             setCombat(null);
           }}
@@ -244,7 +246,7 @@ function Sections(props: {
   );
 }
 
-function CombatReportDetails(props: { combat: CombatReport; onBack: () => void }) {
+function CombatReportDetails(props: { combat: CombatReport; levels: ExhaustionLevels; onBack: () => void }) {
   const { combat } = props;
   return (
     <div className="stack" data-testid="combat-report">
@@ -277,10 +279,23 @@ function CombatReportDetails(props: { combat: CombatReport; onBack: () => void }
                 {who.start.effectiveSkill} → {who.final.effectiveSkill}
               </td>
               <td className="num">
-                {who.start.currentHealth} → {who.final.currentHealth}
+                {who.start.currentHealth} →{' '}
+                {/* VIS, Agent condition: an Agent's values take their condition colours; an Enemy's do not. */}
+                {who.side === 'agent' ? (
+                  <span style={{ color: healthColor(who.final.currentHealth, who.start.baseHealth) }}>
+                    {who.final.currentHealth}
+                  </span>
+                ) : (
+                  who.final.currentHealth
+                )}
               </td>
               <td className="num">
-                {who.start.exhaustion} → {who.final.exhaustion}
+                {who.start.exhaustion} →{' '}
+                {who.side === 'agent' ? (
+                  <Exhaustion value={who.final.exhaustion} levels={props.levels} />
+                ) : (
+                  who.final.exhaustion
+                )}
               </td>
               <td className="num">{who.damageDealt}</td>
               <td className="num">{who.damageTaken}</td>

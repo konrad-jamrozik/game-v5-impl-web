@@ -10,10 +10,10 @@ import {
 import { ratio } from '../../src/kernel/index.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import {
-  availableActionsView,
   currentStateView,
   historyView,
   previewAssignAgents,
+  previewAssignAgentsAlone,
   turnReportView,
 } from '../../src/engine/views/views.ts';
 import {
@@ -146,12 +146,13 @@ describe('AGENT: Acceptance examples', () => {
       assignment: { kind: 'Contracting' },
       status: 'InTransit',
     });
-    expectRejected(
-      state,
-      'assignAgents',
-      { agents: [a1], assignment: 'Standby' },
-      'agents_cannot_be_ordered',
-    );
+    // AGENT, Transit rule, Re-routing: a second order re-routes a1, which stays In transit.
+    expect(
+      agent(act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' }), a1).state,
+    ).toMatchObject({
+      assignment: { kind: 'Standby' },
+      status: 'InTransit',
+    });
     const before = money(state);
     state = advance(state);
     expect(agent(state, a1).state.status).toBe('AtAssignment');
@@ -177,12 +178,13 @@ describe('AGENT: Acceptance examples', () => {
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
-    expectRejected(
-      state,
-      'assignAgents',
-      { agents: [a5], assignment: 'Training' },
-      'agents_cannot_be_ordered',
-    );
+    // AGENT, Transit rule, Re-routing: the hired Agent can be ordered to Training and stays In transit.
+    expect(
+      agent(act(state, 'assignAgents', { agents: [a5], assignment: 'Training' }), a5).state,
+    ).toMatchObject({
+      assignment: { kind: 'Training' },
+      status: 'InTransit',
+    });
     const before = money(state);
     state = advance(state);
     expect(money(state)).toBe(before + 20 - 50);
@@ -221,7 +223,8 @@ describe('AGENT: Acceptance examples', () => {
     expect(state.world.current.missions[mission]!.state.lifecycle).toBe('Won');
     expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
     expect(agent(state, a1).state.participationHistory).toEqual([{ kind: 'Mission', id: mission }]);
-    expect(canBeAssigned(agent(state, a1).state)).toBe(false);
+    // AGENT, Agents that can be assigned: In transit to Standby, it can be assigned, but not deployed.
+    expect(canBeAssigned(agent(state, a1).state)).toBe(true);
     state = advance(state);
     expect(agent(state, a1).state.status).toBe('AtAssignment');
     expect(canBeAssigned(agent(state, a1).state)).toBe(true);
@@ -319,12 +322,7 @@ describe('AGENT: Acceptance examples', () => {
     });
     expect(agent(state, a2).state.exhaustion).toBe(60);
     expect(agent(state, a3).state.exhaustion).toBe(21);
-    expectRejected(
-      state,
-      'assignAgents',
-      { agents: [a1], assignment: 'Standby' },
-      'agents_cannot_be_ordered',
-    );
+    expectRejected(state, 'assignAgents', { agents: [a1], assignment: 'Standby' }, 'already_assigned');
     expectRejected(
       state,
       'assignAgents',
@@ -381,7 +379,12 @@ describe('AGENT: Acceptance examples', () => {
     reject([], 'Standby', 'agents_empty');
     reject([a1, a1], 'Standby', 'agents_duplicate');
     reject([a1], 'Contracting', 'already_assigned');
-    reject([a1, a2], 'Training', 'agents_cannot_be_ordered');
+    expect(
+      agent(act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' }), a2).state,
+    ).toMatchObject({
+      assignment: { kind: 'Training' },
+      status: 'InTransit',
+    });
     reject([a3], 'Standby', 'agents_cannot_be_ordered');
     reject([a4], 'Standby', 'agents_cannot_be_ordered');
     reject([a6], 'Standby', 'agents_cannot_be_ordered');
@@ -532,7 +535,7 @@ describe('AGENT: Acceptance examples', () => {
     expect(previewAssignAgents(state, gdrs, [a3], 'Training')).toMatchObject({ available: false });
     expect(previewAssignAgents(state, gdrs, [], 'Training')).toMatchObject({ available: false });
     expect(JSON.stringify(state)).toBe(before);
-    const alone = availableActionsView(state, gdrs).assignAgents.acceptedAlone;
+    const alone = previewAssignAgentsAlone(state, gdrs);
     expect(alone.Contracting).toContain(a2);
     expect(alone.Contracting).not.toContain(a1);
     expect(alone.Contracting).not.toContain(a3);

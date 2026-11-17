@@ -16,6 +16,7 @@ import type {
   HistoryView,
   PlayerApi,
   ProgressLossPreview,
+  SimpleAssignment,
 } from './player-api.ts';
 import type { Result } from './result.ts';
 import {
@@ -167,6 +168,10 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
       previewProgressLoss: (agents) =>
         core.playerQuery(principal, 'previewProgressLoss', { agents: [...agents] }) as Result<
           readonly ProgressLossPreview[]
+        >,
+      previewAssignAgentsAlone: () =>
+        core.playerQuery(principal, 'previewAssignAgentsAlone') as Result<
+          Readonly<Record<SimpleAssignment, readonly string[]>>
         >,
       previewAssignAgents: (agents, assignment) =>
         core.playerQuery(principal, 'previewAssignAgents', {

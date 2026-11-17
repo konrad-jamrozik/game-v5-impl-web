@@ -20,6 +20,7 @@ import {
   inspectCampaignState,
   previewDeployment,
   previewAssignAgents,
+  previewAssignAgentsAlone,
   previewProgressLoss,
   turnReportView,
 } from './views/views.ts';
@@ -163,6 +164,9 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       }
       if (query === 'previewProgressLoss' && isRecord(args)) {
         return previewProgressLoss(state, gdrs, args['agents']);
+      }
+      if (query === 'previewAssignAgentsAlone') {
+        return previewAssignAgentsAlone(state, gdrs);
       }
       if (query === 'previewAssignAgents' && isRecord(args)) {
         return previewAssignAgents(state, gdrs, args['agents'], args['assignment']);

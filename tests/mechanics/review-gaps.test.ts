@@ -32,7 +32,9 @@ import {
   tweak,
   winning,
   withAgents,
+  tryAct,
 } from '../helpers/game.ts';
+import { isRejection } from '../../src/engine/result.ts';
 
 const invalid = (state: CampaignState, change: Parameters<typeof tweak>[1]) =>
   expect(checkInvariants(tweak(state, change), gdrs).length).toBeGreaterThan(0);
@@ -370,7 +372,10 @@ describe('INVSTG and LEAD: gaps', () => {
       expectRejected(state, 'startInvestigation', { lead, agents: list }, reason, 'player', catalog);
     reject([], 'agents_empty');
     reject([a1, a1], 'agents_duplicate');
-    reject([a1, a2], 'agents_cannot_be_ordered');
+    // AGENT, Transit rule, Re-routing: a2, In transit, can start an Investigation.
+    expect(
+      isRejection(tryAct(state, 'startInvestigation', { lead, agents: [a1, a2] }, 'player', catalog)),
+    ).toBe(false);
     reject([a3], 'agents_cannot_be_ordered');
     reject([a4], 'agents_cannot_be_ordered');
     const started = run(state, 'startInvestigation', { lead, agents: [a1, a7] });

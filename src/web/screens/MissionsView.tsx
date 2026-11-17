@@ -6,6 +6,7 @@ import { useState } from 'react';
 import type { ConsequenceView, CurrentStateView, MissionSiteView } from '../../engine/index.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { TIRED_DEPLOYMENT_EXHAUSTION, confirmTiredDeployment } from '../tired-deployment.ts';
+import { Exhaustion, exhaustionLevels } from '../condition.tsx';
 import { useRowSelection } from '../row-selection.ts';
 import { Button, Cols } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -272,11 +273,14 @@ function Deployment(props: {
   onDeploy: (team: readonly string[]) => void;
 }) {
   const { player } = theEngine();
-  const { site, state, checked, onCheck } = props;
+  const { site, snapshot, state, checked, onCheck } = props;
   // MVIEW, Deployment: the Agents that can be assigned and are on Standby or Training.
   const candidates = state.agents.filter(
     (agent) =>
-      agent.canBeAssigned && (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training'),
+      agent.canBeAssigned &&
+      // MISSION, Deploying Agents: an Agent In transit can be assigned but not deployed.
+      agent.agentStatus === 'AtAssignment' &&
+      (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training'),
   );
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
   const selection = useRowSelection({
@@ -318,10 +322,11 @@ function Deployment(props: {
                   <td className="figure">{agent.id}</td>
                   <td className="secondary">{assignmentText(agent, state)}</td>
                   <td className="num">{agent.effectiveSkill}</td>
-                  <td
-                    className={`num${agent.exhaustion >= TIRED_DEPLOYMENT_EXHAUSTION ? ' tone-accent' : ' muted'}`}
-                  >
-                    {agent.exhaustion >= TIRED_DEPLOYMENT_EXHAUSTION ? `exh ${agent.exhaustion}` : ''}
+                  <td className="num">
+                    {/* MVIEW, Deployment: a tired Agent shows its exhaustion, coloured under VIS, Agent condition. */}
+                    {agent.exhaustion >= TIRED_DEPLOYMENT_EXHAUSTION ? (
+                      <Exhaustion value={agent.exhaustion} levels={exhaustionLevels(snapshot.gameData)} />
+                    ) : null}
                   </td>
                 </tr>
               );

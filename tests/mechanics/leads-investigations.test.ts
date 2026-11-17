@@ -874,7 +874,7 @@ describe('INVSTG: Acceptance examples', () => {
       state,
       'assignAgentsToInvestigation',
       { investigation: i7, agents: [a1] },
-      'agents_cannot_be_ordered',
+      'already_in_current_team',
       'player',
       catalog,
     );
@@ -1018,12 +1018,11 @@ describe('INVSTG: Acceptance examples', () => {
       { investigation: i11, agents: [a1, a1] },
       'agents_duplicate',
     );
-    expectRejected(
-      state,
-      'assignAgentsToInvestigation',
-      { investigation: i11, agents: [a1, a2] },
-      'agents_cannot_be_ordered',
-    );
+    // AGENT, Transit rule, Re-routing: a2, In transit, can join i11 and stays In transit.
+    expect(
+      act(state, 'assignAgentsToInvestigation', { investigation: i11, agents: [a1, a2] }).world.current
+        .agents[a2]!.state,
+    ).toMatchObject({ assignment: { kind: 'Investigation', investigation: i11 }, status: 'InTransit' });
     expectRejected(
       state,
       'assignAgentsToInvestigation',

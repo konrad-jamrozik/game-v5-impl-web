@@ -399,12 +399,17 @@ function tryAction(
   return applyGameAction(detach(world), { surface: 'player', name, args }, gdrs);
 }
 
-/** For each Assignment, the Agents that `assignAgents` would accept on their own; see DEC-046. */
-function acceptedAlone(
-  world: CurrentWorldState,
+/**
+ * `player.queries.previewAssignAgentsAlone()`: for each Assignment, the Agents that `assignAgents` would accept on their
+ * own; see DEC-046. It is a query of its own, not part of `getAvailableActions()`, because it tries the action once per
+ * Agent and Assignment.
+ */
+export function previewAssignAgentsAlone(
+  state: CampaignState,
   gdrs: GdrCatalog,
-  ended: boolean,
 ): Record<SimpleAssignment, string[]> {
+  const world = state.world.current;
+  const ended = world.ending !== null;
   const result: Record<SimpleAssignment, string[]> = { Standby: [], Contracting: [], Training: [] };
   if (ended) {
     return result;
@@ -477,7 +482,6 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
     assignAgents: {
       assignments: ['Standby', 'Contracting', 'Training'],
       trainingPlacesLeft: ended ? 0 : Math.max(0, caps.trainingCap - countTraining(states)),
-      acceptedAlone: acceptedAlone(world, gdrs, ended),
     },
     dismissableAgents: ended
       ? []

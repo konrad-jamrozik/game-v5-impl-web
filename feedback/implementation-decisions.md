@@ -854,12 +854,26 @@
   were selected".
 - **Description:** Two queries are added to `player.queries`. `previewAssignAgents(agents, assignment)` returns
   whether `assignAgents` would accept those Agents and that Assignment in the current Committed state, with the
-  rejection reason and message when it would not, and changes nothing. `getAvailableActions()` also reports, under
-  `assignAgents.acceptedAlone`, for each of Standby, Contracting, and Training, the Agents that `assignAgents` would
-  accept on their own. Both apply the action to a copy of Current world state, so they agree with `assignAgents`
+  rejection reason and message when it would not, and changes nothing. `previewAssignAgentsAlone()` reports, for each
+  of Standby, Contracting, and Training, the Agents that `assignAgents` would accept on their own. It is a query of its
+  own rather than part of `getAvailableActions()`, because it tries the action once per Agent and Assignment and an
+  Autopilot AI asks for the available actions often. Both apply the action to a copy of Current world state, so they agree with `assignAgents`
   exactly and reveal nothing that its error would not.
 - **Options considered:** The GUI applying the preconditions of Assigning Agents itself; a preview query.
 - **Option chosen:** A preview query, plus the per-Agent lists for the filter toggles.
 - **Why:** As with `previewDeployment` under DEC-015, no interface repeats a game rule, so a change to the
   preconditions of `assignAgents` cannot leave the buttons and filters behind.
 - **Links:** PROB-029
+
+## DEC-047: Re-routing an Agent In transit asks no confirmation
+
+- **Category:** Gap resolution
+- **Affected specifications:** GUI, Confirming interrupted Assignments; AGENT, Transit rule, Re-routing.
+- **Description:** The confirmation of interrupted Assignments names only Agents At assignment on Contracting or an
+  Investigation. An Agent In transit is re-routed without a confirmation, because it is not working yet and arrives
+  when it would have arrived.
+- **Options considered:** Confirming every Agent whose Assignment is Contracting or an Investigation; confirming only
+  Agents At assignment.
+- **Option chosen:** Confirming only Agents At assignment.
+- **Why:** The confirmation guards against losing work and an Advance turn, and re-routing loses neither.
+- **Links:** PROB-030

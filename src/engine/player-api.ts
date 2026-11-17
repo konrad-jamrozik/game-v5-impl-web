@@ -296,8 +296,6 @@ export interface AvailableActionsView {
     readonly assignments: readonly SimpleAssignment[];
     /** How many more Agents can be ordered to Training under the Training cap. */
     readonly trainingPlacesLeft: number;
-    /** For each Assignment, the Agents that `assignAgents` would accept on their own; see DEC-046. */
-    readonly acceptedAlone: Readonly<Record<SimpleAssignment, readonly string[]>>;
   };
   /** The Agents that can be dismissed. */
   readonly dismissableAgents: readonly string[];
@@ -417,6 +415,8 @@ export interface PlayerApi {
     previewProgressLoss(agents: readonly string[]): Result<readonly ProgressLossPreview[]>;
     /** Whether `assignAgents` would accept these Agents and Assignment now, changing nothing; see DEC-046. */
     previewAssignAgents(agents: readonly string[], assignment: SimpleAssignment): Result<ActionAvailability>;
+    /** For each Assignment, the Agents that `assignAgents` would accept on their own; see DEC-046. */
+    previewAssignAgentsAlone(): Result<Readonly<Record<SimpleAssignment, readonly string[]>>>;
   };
   readonly actions: {
     assignAgents(agents: readonly string[], assignment: SimpleAssignment): Promise<Result<CommitOutcome>>;

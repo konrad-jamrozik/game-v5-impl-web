@@ -196,22 +196,34 @@ test('the Agents View keeps its columns, selects ranges, guards re-assigning, an
 
   await id(page, 'advance-turn').click();
   await afterAdvance(page, '2');
-  // AVIEW, Re-assigning: recalling an Agent from Contracting needs Allow re-assigning, and then asks no confirmation.
+  // AVIEW, Selection filters: an Agent the filter rules out stays in the table, muted, with its reason.
   page.on('dialog', (dialog) => {
     throw new Error(`Unexpected dialog: ${dialog.message()}`);
   });
-  await id(page, 'agent-agent-2').click();
-  await expect(id(page, 'order-standby')).toBeDisabled();
   await id(page, 'filter-to-contracting').click();
-  await expect(id(page, 'agent-agent-2')).toHaveCount(0);
-  await id(page, 'filter-all').click();
+  await expect(id(page, 'agent-agent-2')).toBeVisible();
+  await expect(id(page, 'reason-agent-2')).toHaveText('On assignment');
+  await expect(box(2)).toBeDisabled();
+  // VIS, Tables: Select all selects the selectable rows, and follows them when Allow re-assigning changes.
+  await id(page, 'select-all').check();
+  await expect(id(page, 'agents-selected')).toHaveText('1 selected');
   await id(page, 'allow-reassigning').check();
+  await expect(id(page, 'reason-agent-2')).toHaveText('Already on Contracting');
+  await id(page, 'filter-to-standby').click();
+  await expect(id(page, 'agents-selected')).toHaveText('3 selected');
+  // AVIEW, Re-assigning: with Allow re-assigning checked, recalling from Contracting asks no confirmation.
+  await id(page, 'select-all').uncheck();
   await id(page, 'agent-agent-2').click();
   await id(page, 'order-standby').click();
   await expect(id(page, 'agent-agent-2')).toContainText('Standby · In transit');
+  // AGENT, Transit rule, Re-routing: an Agent In transit can be assigned again and stays In transit.
+  await id(page, 'filter-to-standby').click();
+  await expect(box(2)).toBeEnabled();
   page.removeAllListeners('dialog');
 
-  // AVIEW, Memorial: a Dismissed Agent leaves the table and appears in the Memorial with its Turn terminated.
+  // AVIEW, Memorial: a Dismissed Agent leaves the table and appears in the Memorial with its own number columns.
+  await id(page, 'allow-reassigning').uncheck();
+  await expect(id(page, 'agents-selected')).toHaveText('0 selected');
   await id(page, 'agent-agent-1').click();
   page.once('dialog', (dialog) => void dialog.accept());
   await id(page, 'dismiss').click();
@@ -219,7 +231,6 @@ test('the Agents View keeps its columns, selects ranges, guards re-assigning, an
   await id(page, 'filter-memorial').click();
   await expect(id(page, 'memorial-agent-1')).toContainText('Dismissed');
   await expect(id(page, 'memorial-agent-1')).toContainText('T2');
-  await expect(id(page, 'memorial-agent-1')).toContainText('1 Turn with the Agency');
 });
 
 test('actions are offered only when the engine says they are available', async ({ page }) => {
