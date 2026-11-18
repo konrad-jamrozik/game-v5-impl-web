@@ -89,9 +89,11 @@
 - **Description:** Only the Combat report is specified as part of the Turn report. What else the Turn report holds,
   and what the reduced form in a History entry holds, is left open.
 - **Links:** DEC-016
-- **Resolution:** Open. Resolved in part in 59ccadfc6728d372f5eadb01026ff2d22256c11e: WHIST, Action record now
-  states that each History entry holds the Turn's Player actions in full, and ECON, Money in the Action record their
-  money changes; the DOM TODO stays and now also asks for every value the History View shows.
+- **Resolution:** Resolved in cc4d6a246a64d200440eec6f09cf4d953e0724c9, which the Implementation follows since this
+  update: a Turn report section in each of ECON, AGENT, RECOVER, INVSTG, MISSION, COMBAT, FACTION, and PANIC now
+  states what the Turn report and the History entry hold of its values, taken from DEC-016, and the DOM TODO is gone.
+  The only change it needed was listing Forced returns in Agent order. Earlier,
+  59ccadfc6728d372f5eadb01026ff2d22256c11e had added the Action record under WHIST and ECON.
 
 ## PROB-008: An Attempted Mission site is final yet still takes part in a Combat
 
