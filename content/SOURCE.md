@@ -12,6 +12,8 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `b73e0683afd500a3e7f4decbc1b141969195a083` on 2026-11-17.
 - `music/music_parameters.yaml`: copied unchanged from specification commit
   `c1ad3ed71949da59ac10f90795e852b2e0f27b2d` on 2026-11-18; 23 YAML files in all.
+- `economy-and-upgrades/upgrades.yaml` and `compendium/encyclopedia_articles.yaml`: patched unchanged from specification
+  commit `a07cdfad11eadb7df9767613de98508cbe4da855` on 2026-11-18.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

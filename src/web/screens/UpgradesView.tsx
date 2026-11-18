@@ -10,12 +10,37 @@ const CAPS: Record<string, { name: string; value: (state: CurrentStateView) => n
   training_cap: { name: 'Training cap', value: (state) => state.agency.trainingCap },
 };
 
+const RATES: Record<string, { name: string; unit: string; value: (state: CurrentStateView) => number }> = {
+  training_skill_gain: {
+    name: 'Training skill gain',
+    unit: '',
+    value: (state) => state.agency.trainingSkillGain,
+  },
+  exhaustion_recovery: {
+    name: 'Exhaustion recovery',
+    unit: '',
+    value: (state) => state.agency.exhaustionRecovery,
+  },
+  health_recovery: { name: 'Health recovery', unit: '%', value: (state) => state.agency.healthRecoveryPct },
+};
+
 /** UVIEW, Upgrade cards: what one more acquisition changes, by its `effect` and `increment`. */
 function change(upgrade: UpgradeView, state: CurrentStateView): { kind: string; text: string } {
   const cap = CAPS[upgrade.effect];
   if (cap !== undefined) {
     const now = cap.value(state);
     return { kind: 'Cap Upgrade', text: `${cap.name} ${now} → ${now + upgrade.increment}` };
+  }
+  const rate = RATES[upgrade.effect];
+  if (rate !== undefined) {
+    const now = rate.value(state);
+    return {
+      kind: 'Rate Upgrade',
+      text: `${rate.name} ${now}${rate.unit} → ${now + upgrade.increment}${rate.unit}`,
+    };
+  }
+  if (upgrade.effect === 'agent_base_health') {
+    return { kind: 'Base health Upgrade', text: `+${upgrade.increment} base health` };
   }
   return { kind: 'Weapon damage Upgrade', text: `+${upgrade.increment} base weapon damage` };
 }

@@ -226,6 +226,10 @@ export interface AgencyView {
   readonly agentCap: number;
   readonly transportCap: number;
   readonly trainingCap: number;
+  /** ECON, Rate Upgrades: the training skill gain, exhaustion recovery, and health recovery percentage. */
+  readonly trainingSkillGain: number;
+  readonly exhaustionRecovery: number;
+  readonly healthRecoveryPct: number;
   readonly servingAgents: number;
   readonly deployedAgents: number;
   readonly trainingAgents: number;

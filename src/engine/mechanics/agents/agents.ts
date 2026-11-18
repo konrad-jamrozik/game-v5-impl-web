@@ -132,15 +132,18 @@ export function createAgent(input: {
   weapon: WeaponGdr;
   /** The weapon damage increments of the Upgrades acquired so far; see ECON, Weapon damage effect. */
   weaponDamageBonus: number;
+  /** The base health increments of the Upgrades acquired so far; see ECON, Base health Upgrade. */
+  baseHealthBonus: number;
 }): Agent {
+  const baseHealth = input.archetype.baseHealth + input.baseHealthBonus;
   return {
     id: input.id,
     archetype: input.archetype.id,
     constants: { agency: input.agencyId, turnHired: input.turn },
     state: {
       skill: input.archetype.skill,
-      currentHealth: input.archetype.baseHealth,
-      baseHealth: input.archetype.baseHealth,
+      currentHealth: baseHealth,
+      baseHealth,
       exhaustion: 0,
       weapon: input.weapon.id,
       weaponDamage: input.weapon.damage + input.weaponDamageBonus,

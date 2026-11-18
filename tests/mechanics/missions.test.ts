@@ -669,8 +669,7 @@ describe('MISSION: Mission exhaustion', () => {
 
 describe('RECOVER: Acceptance examples', () => {
   it('Health recovery rate', () => {
-    const rate = (pct: number) =>
-      healthRecoveryRate(30, { ...gdrs.recoveryParameters, healthRecoveryPctPerTurn: pct });
+    const rate = (pct: number) => healthRecoveryRate(30, pct);
     expect([2, 1, 7, 50, 100].map(rate)).toEqual([1, 1, 3, 15, 30]);
     expectDefective((raw) => (raw.get('recovery')['health_recovery_pct_per_turn'] = 0));
     expectDefective((raw) => (raw.get('recovery')['exhaustion_recovery_per_turn'] = -1));
@@ -799,12 +798,16 @@ describe('RECOVER: Acceptance examples', () => {
   });
 
   it('Recovery clamp with a test Health recovery rate', () => {
-    const parameters = { ...gdrs.recoveryParameters, healthRecoveryPctPerTurn: 7 };
-    expect(healthRecoveryRate(30, parameters)).toBe(3);
-    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 22 }, parameters)).toBe(3);
-    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 25 }, parameters)).toBe(2);
-    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 28 }, parameters)).toBe(1);
-    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 30 }, gdrs.recoveryParameters)).toBe(0);
+    expect(healthRecoveryRate(30, 7)).toBe(3);
+    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 22 }, 7)).toBe(3);
+    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 25 }, 7)).toBe(2);
+    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 28 }, 7)).toBe(1);
+    expect(
+      recoveryTurnsRemaining(
+        { baseHealth: 30, currentHealth: 30 },
+        gdrs.recoveryParameters.healthRecoveryPctPerTurn,
+      ),
+    ).toBe(0);
     const catalog = catalogWith((raw) => (raw.get('recovery')['health_recovery_pct_per_turn'] = 7));
     let state = newCampaign({ money: 5000, catalog });
     const [e1] = agentIds(state) as [string];

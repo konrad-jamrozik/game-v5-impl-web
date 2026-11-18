@@ -3,7 +3,13 @@
  * receives only the values it needs; see DEC-003.
  */
 import { q, ratio, roundDown, type Rational } from '../../../kernel/index.ts';
-import type { EconomyParametersGdr, UpgradeEffect, UpgradeGdr } from '../../../gdr/index.ts';
+import type {
+  AgentParametersGdr,
+  EconomyParametersGdr,
+  RecoveryParametersGdr,
+  UpgradeEffect,
+  UpgradeGdr,
+} from '../../../gdr/index.ts';
 import { isServing, type AgentState } from '../../state/types.ts';
 
 type Acquisitions = Readonly<Record<string, number>>;
@@ -39,6 +45,31 @@ export function agencyCaps(
     agentCap: economy.baseAgentCap + effectTotal('agent_cap', upgrades, acquisitions),
     transportCap: economy.baseTransportCap + effectTotal('transport_cap', upgrades, acquisitions),
     trainingCap: economy.baseTrainingCap + effectTotal('training_cap', upgrades, acquisitions),
+  };
+}
+
+/** The rates a Rate Upgrade raises; see ECON, Rate Upgrades. */
+export interface UpgradedRates {
+  readonly trainingSkillGain: number;
+  readonly exhaustionRecovery: number;
+  readonly healthRecoveryPct: number;
+}
+
+/** ECON, Rate Upgrades: each rate = its GDR starting value + the Upgrade bonus of its effect. */
+export function upgradedRates(
+  agentParameters: Pick<AgentParametersGdr, 'trainingSkillGainPerTurn'>,
+  recoveryParameters: Pick<RecoveryParametersGdr, 'exhaustionRecoveryPerTurn' | 'healthRecoveryPctPerTurn'>,
+  upgrades: readonly UpgradeGdr[],
+  acquisitions: Acquisitions,
+): UpgradedRates {
+  return {
+    trainingSkillGain:
+      agentParameters.trainingSkillGainPerTurn + effectTotal('training_skill_gain', upgrades, acquisitions),
+    exhaustionRecovery:
+      recoveryParameters.exhaustionRecoveryPerTurn +
+      effectTotal('exhaustion_recovery', upgrades, acquisitions),
+    healthRecoveryPct:
+      recoveryParameters.healthRecoveryPctPerTurn + effectTotal('health_recovery', upgrades, acquisitions),
   };
 }
 

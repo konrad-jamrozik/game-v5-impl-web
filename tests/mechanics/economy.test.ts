@@ -57,6 +57,10 @@ describe('ECON: Acceptance examples', () => {
       ['transport_cap', 0],
       ['training_cap', 0],
       ['weapon_damage', 0],
+      ['base_health', 0],
+      ['training_skill_gain', 0],
+      ['exhaustion_recovery', 0],
+      ['health_recovery', 0],
     ]);
     expect(series(state)).toEqual({ start: [500], end: [] });
     expect(state.configuration).toEqual({ startingMoney: 500, startingFunding: 20 });
@@ -368,10 +372,61 @@ describe('ECON: Acceptance examples', () => {
     expect(gdrs.weapons.get('sidearm')!.damage).toBe(10);
   });
 
+  it('Base health and Rate Upgrades', () => {
+    let state = withAgents(setMoney(newCampaign(), 9050), 4);
+    const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
+    state = setAssignment(state, [a3], 'Training');
+    state = tweak(state, (world) => {
+      world.agents[a1]!.state.exhaustion = 12;
+      const recovering = world.agents[a2]!.state;
+      recovering.currentHealth = 20;
+      recovering.exhaustion = 8;
+      recovering.assignment = { kind: 'Recovery' };
+      recovering.status = 'Recovering';
+      const dead = world.agents[a4]!.state;
+      dead.status = 'Killed';
+      dead.turnTerminated = 1;
+      dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
+      dead.currentHealth = 0;
+      dead.exhaustion = 40;
+      dead.assignment = null;
+    });
+    const health = (s: CampaignState, id: string) => {
+      const { currentHealth, baseHealth } = agent(s, id).state;
+      return [currentHealth, baseHealth];
+    };
+
+    state = act(state, 'purchaseUpgrade', { upgrade: 'base_health' });
+    expect(money(state)).toBe(8550);
+    expect([a1, a2, a3, a4].map((id) => health(state, id))).toEqual([
+      [31, 31],
+      [21, 31],
+      [31, 31],
+      [0, 30],
+    ]);
+    state = act(state, 'hireAgent');
+    expect(money(state)).toBe(8500);
+    const a5 = agentIds(state).at(-1)!;
+    expect(agent(state, a5).state).toMatchObject({ status: 'InTransit', currentHealth: 31, baseHealth: 31 });
+    const before = state;
+    state = act(state, 'purchaseUpgrade', { upgrade: 'exhaustion_recovery' });
+    expect(agency(state)).toMatchObject({ money: 7500, exhaustionRecovery: 6 });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'health_recovery' });
+    expect(agency(state)).toMatchObject({ money: 5000, healthRecoveryPct: 3 });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'training_skill_gain' });
+    expect(agency(state)).toMatchObject({ money: 0, trainingSkillGain: 2 });
+    expect(agents(state)).toEqual(agents(before));
+
+    state = advance(state);
+    expect(agent(state, a3).state.skill).toBe(102);
+    expect(agent(state, a1).state.exhaustion).toBe(6);
+    expect(agent(state, a2).state).toMatchObject({ exhaustion: 2, currentHealth: 22, baseHealth: 31 });
+  });
+
   it('Purchase rejections and exact affordability', () => {
     let state = setMoney(newCampaign(), 199);
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'training_cap' }, 'not_enough_money');
-    expectRejected(state, 'purchaseUpgrade', { upgrade: 'agent_health' }, 'unknown_upgrade');
+    expectRejected(state, 'purchaseUpgrade', { upgrade: 'agent_morale' }, 'unknown_upgrade');
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'sidearm' }, 'unknown_upgrade');
     for (const amount of [0, -5, 2.5]) {
       expectRejected(state, 'addMoney', { amount }, 'invalid_amount', 'developer');
@@ -382,7 +437,7 @@ describe('ECON: Acceptance examples', () => {
   });
 
   it('GDR validation', () => {
-    expectDefective((raw) => (raw.get('weapon_damage')['effect'] = 'agent_health'));
+    expectDefective((raw) => (raw.get('weapon_damage')['effect'] = 'agent_morale'));
     expectDefective((raw) => delete raw.get('transport_cap')['increment']);
     expectDefective((raw) => (raw.get('agent_cap')['max_acquisitions'] = 3));
     expectDefective((raw) => (raw.get('training_cap')['price'] = -1));

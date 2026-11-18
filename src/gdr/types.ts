@@ -73,7 +73,15 @@ export interface EconomyParametersGdr {
   readonly baseTrainingCap: number;
 }
 
-export type UpgradeEffect = 'agent_cap' | 'transport_cap' | 'training_cap' | 'agent_weapon_damage';
+export type UpgradeEffect =
+  | 'agent_cap'
+  | 'transport_cap'
+  | 'training_cap'
+  | 'agent_weapon_damage'
+  | 'agent_base_health'
+  | 'training_skill_gain'
+  | 'exhaustion_recovery'
+  | 'health_recovery';
 
 export interface UpgradeGdr {
   readonly type: 'Upgrade';

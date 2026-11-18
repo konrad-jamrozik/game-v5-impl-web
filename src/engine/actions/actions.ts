@@ -4,7 +4,7 @@
  * Player action.
  */
 import { must } from '../../kernel/index.ts';
-import type { GdrCatalog } from '../../gdr/index.ts';
+import type { GdrCatalog, UpgradeEffect } from '../../gdr/index.ts';
 import {
   canBeAssigned,
   createAgent,
@@ -180,8 +180,8 @@ function settleLeftInvestigations(world: CurrentWorldState, left: Leaving): void
   }
 }
 
-function weaponDamageBonus(world: CurrentWorldState, gdrs: GdrCatalog): number {
-  return effectTotal('agent_weapon_damage', gdrs.upgrades, world.agency.state.acquisitions);
+function upgradeBonus(effect: UpgradeEffect, world: CurrentWorldState, gdrs: GdrCatalog): number {
+  return effectTotal(effect, gdrs.upgrades, world.agency.state.acquisitions);
 }
 
 function addAgent(world: CurrentWorldState, gdrs: GdrCatalog): void {
@@ -192,7 +192,8 @@ function addAgent(world: CurrentWorldState, gdrs: GdrCatalog): void {
     initialRoster: false,
     archetype: gdrs.agentArchetype,
     weapon: must(gdrs.weapons.get(gdrs.agentArchetype.weapon), 'Weapon of the AgentArchetype'),
-    weaponDamageBonus: weaponDamageBonus(world, gdrs),
+    weaponDamageBonus: upgradeBonus('agent_weapon_damage', world, gdrs),
+    baseHealthBonus: upgradeBonus('agent_base_health', world, gdrs),
   });
   world.agents[agent.id] = agent;
 }
@@ -314,11 +315,17 @@ function purchaseUpgrade(world: CurrentWorldState, args: Args, gdrs: GdrCatalog)
   }
   world.agency.state.money -= upgrade.price;
   world.agency.state.acquisitions[upgrade.id] = (world.agency.state.acquisitions[upgrade.id] ?? 0) + 1;
-  if (upgrade.effect === 'agent_weapon_damage') {
-    for (const agent of Object.values(world.agents)) {
-      if (isServing(agent.state)) {
-        agent.state.weaponDamage += upgrade.increment;
-      }
+  // Rate Upgrades change no stored value beyond the Acquisitions; see ECON, Rate Upgrades.
+  for (const agent of Object.values(world.agents)) {
+    if (!isServing(agent.state)) {
+      continue;
+    }
+    if (upgrade.effect === 'agent_weapon_damage') {
+      agent.state.weaponDamage += upgrade.increment;
+    } else if (upgrade.effect === 'agent_base_health') {
+      // ECON, Base health Upgrade: base health and current health rise together, so the health lost stays the same.
+      agent.state.baseHealth += upgrade.increment;
+      agent.state.currentHealth += upgrade.increment;
     }
   }
   return null;

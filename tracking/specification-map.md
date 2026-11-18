@@ -217,6 +217,9 @@ No files.
 - tests/mechanics/economy.test.ts
 - src/engine/game-rules.ts
 - tests/foundation/action-record.test.ts
+- src/engine/player-api.ts
+- src/engine/mechanics/agents/agents.ts
+- src/engine/mechanics/recovery/recovery.ts
 
 ## ENDING: Panic and Endings
 
@@ -493,6 +496,8 @@ No files.
 - src/gdr/types.ts
 - tests/mechanics/agents.test.ts
 - tests/mechanics/turn-advancement.test.ts
+- src/engine/views/views.ts
+- tests/mechanics/missions.test.ts
 
 ## REL: Artifact Relationships
 

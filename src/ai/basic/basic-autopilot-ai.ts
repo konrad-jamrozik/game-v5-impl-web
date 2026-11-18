@@ -415,7 +415,15 @@ class Turn {
     if (agency.trainingCap * 100 < agency.servingAgents * this.t.trainingCapPct) {
       return buy('training_cap');
     }
-    return buy('agent_weapon_damage');
+    // Otherwise rotate among the Upgrades that make every Agent more effective: the one bought least often comes
+    // first, and the cheaper of two bought equally often.
+    const effective = [...agency.upgrades]
+      .filter((item) => !item.effect.endsWith('_cap') && item.increment > 0)
+      .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price)[0];
+    if (effective === undefined || effective.price > budget) {
+      return false;
+    }
+    return this.act(`buy ${effective.id}`, () => this.player.actions.purchaseUpgrade(effective.id));
   }
 
   /** Makes the next Player action of the Turn routine. Returns false once it has advanced the turn. */

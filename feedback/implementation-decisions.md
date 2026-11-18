@@ -424,10 +424,13 @@
   when that order gives no winning team, with the most capable Rested Agents first. Among equally good choices it
   takes the first in the order of the roster, of the Mission sites, or of the Leads. Among Agents of equal preference the one with the higher effective skill comes first, then the order of
   the roster. The Expected income target and the Savings floor are rounded up. It buys nothing while Expected income
-  is below projected upkeep, it hires before it buys Agent cap, and the Upgrade it counts as improving Agents is the
-  one with the effect `agent_weapon_damage`. A Player action that was rejected is not tried again in that Turn. With
-  these thresholds it won
-  200 of 200 Campaigns of different Campaign seeds, in a median of 192 Turns, after the Investigation rework of
+  is below projected upkeep, and it hires before it buys Agent cap. Otherwise it rotates among the Upgrades other than
+  the Cap Upgrades: it buys the one bought least often, the cheaper first among equals, and buys nothing while that
+  one costs more than its budget. A Player action that was rejected is not tried again in that Turn. With these
+  thresholds it won 200 of 200 Campaigns of different Campaign seeds, in a median of 214 Turns (minimum 151, maximum
+  292), after the Base health and Rate Upgrades of specification commit a7dfd0a94b474cdea154c0d2b4935ccce9a795d4. Before
+  them, when the only Upgrade improving Agents was the one with the effect `agent_weapon_damage`, the median was 192
+  Turns, after the Investigation rework of
   specification commit 438b909e6ef6bf0cd581856d790a318ac8879628, i.e. a rolled Actual required progress, team efficiency,
   and Progress loss; after the exhaustion rework of specification commit e10913ff6cb326b4834eaa45c02d71ce5cbebf92 the
   median was 172 Turns, and before it 91 Turns.

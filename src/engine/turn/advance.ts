@@ -15,7 +15,7 @@ import {
   trainingGainProbability,
 } from '../mechanics/agents/agents.ts';
 import { fightCombat } from '../mechanics/combat/combat.ts';
-import { fundingAfter, income, upkeep } from '../mechanics/economy/economy.ts';
+import { fundingAfter, income, upgradedRates, upkeep } from '../mechanics/economy/economy.ts';
 import { applyPendingPanicChange, checkEnding } from '../mechanics/endings/endings.ts';
 import {
   applyFactionActivity,
@@ -82,6 +82,13 @@ export function applyAdvanceTurn(
   const before = turnEnd.world.current;
   const turn = world.turn;
   const agentParameters = gdrs.agentParameters;
+  // ECON, Rate Upgrades: the rates come from the Acquisitions of the Turn-end state.
+  const rates = upgradedRates(
+    agentParameters,
+    gdrs.recoveryParameters,
+    gdrs.upgrades,
+    before.agency.state.acquisitions,
+  );
 
   /** Serving and not In transit, that is At assignment or Recovering. */
   const atItsAssignment = (
@@ -153,7 +160,7 @@ export function applyAdvanceTurn(
         trainingGainProbability(agent.state, agentParameters),
       );
       if (gained) {
-        agent.state.skill += agentParameters.trainingSkillGainPerTurn;
+        agent.state.skill += rates.trainingSkillGain;
       }
       if (applyWorkExhaustion(agent.state, agentParameters.exhaustionPerTrainingTurn, agentParameters)) {
         // A Forced return from Training, a Base Assignment, is At assignment at once.
@@ -570,7 +577,7 @@ export function applyAdvanceTurn(
     if ((kind === 'Recovery' || kind === 'Standby') && worksNow(agent.id)) {
       const health = agent.state.currentHealth;
       const exhaustion = agent.state.exhaustion;
-      recoverAgent(agent.state, gdrs.recoveryParameters);
+      recoverAgent(agent.state, rates);
       const kindAfter: string | undefined = agent.state.assignment?.kind;
       if (
         agent.state.currentHealth !== health ||

@@ -15,7 +15,9 @@ import {
   countServing,
   countTraining,
   income,
+  upgradedRates,
   upkeep,
+  type UpgradedRates,
 } from '../mechanics/economy/economy.ts';
 import {
   isAssessedLead,
@@ -64,7 +66,16 @@ import type {
   TurnReport,
 } from '../state/types.ts';
 
-function agentView(agent: Agent, gdrs: GdrCatalog): AgentView {
+function ratesOf(world: CurrentWorldState, gdrs: GdrCatalog): UpgradedRates {
+  return upgradedRates(
+    gdrs.agentParameters,
+    gdrs.recoveryParameters,
+    gdrs.upgrades,
+    world.agency.state.acquisitions,
+  );
+}
+
+function agentView(agent: Agent, gdrs: GdrCatalog, healthRecoveryPct: number): AgentView {
   const s = agent.state;
   const serving = isServing(s);
   return {
@@ -92,11 +103,9 @@ function agentView(agent: Agent, gdrs: GdrCatalog): AgentView {
     enemiesKilled: s.enemiesKilled,
     turnTerminated: s.turnTerminated,
     killedBy: s.killedBy === null ? null : { ...s.killedBy },
-    healthRecoveryRate: serving ? healthRecoveryRate(s.baseHealth, gdrs.recoveryParameters) : null,
+    healthRecoveryRate: serving ? healthRecoveryRate(s.baseHealth, healthRecoveryPct) : null,
     recoveryTurnsRemaining:
-      serving && s.assignment?.kind === 'Recovery'
-        ? recoveryTurnsRemaining(s, gdrs.recoveryParameters)
-        : null,
+      serving && s.assignment?.kind === 'Recovery' ? recoveryTurnsRemaining(s, healthRecoveryPct) : null,
   };
 }
 
@@ -296,6 +305,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
       acquisitions: world.agency.state.acquisitions[upgrade.id] ?? 0,
     })),
     ...caps,
+    ...ratesOf(world, gdrs),
     servingAgents: serving,
     deployedAgents: countDeployed(agents),
     trainingAgents: countTraining(agents),
@@ -336,7 +346,7 @@ export function currentStateView(state: CampaignState, gdrs: GdrCatalog): Curren
     agency: agencyView(world, gdrs),
     agents: Object.values(world.agents)
       .filter((agent) => isServing(agent.state))
-      .map((agent) => agentView(agent, gdrs)),
+      .map((agent) => agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPct)),
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle === 'Active')
       .map((investigation) => investigationView(investigation, world, gdrs)),
@@ -369,7 +379,7 @@ export function historyView(state: CampaignState, gdrs: GdrCatalog): HistoryView
     retained: {
       agents: Object.values(world.agents)
         .filter((agent) => !isServing(agent.state))
-        .map((agent) => agentView(agent, gdrs)),
+        .map((agent) => agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPct)),
       investigations: Object.values(world.investigations)
         .filter((investigation) => investigation.state.lifecycle !== 'Active')
         .map((investigation) => investigationView(investigation, world, gdrs)),

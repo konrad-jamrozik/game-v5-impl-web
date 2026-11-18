@@ -2218,10 +2218,10 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 /* VIS, Alignment, Cards side by side: each card spans six rows of the shared grid, so each part takes the height of
-   its tallest instance in the row and starts at the same height on every card of the row. */
+   its tallest instance in the row and starts at the same height on every card of the row. UVIEW: four to a row. */
 .upgrade-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0 16px;
 }
 

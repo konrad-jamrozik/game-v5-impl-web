@@ -39,9 +39,9 @@ const finishing = (state: CampaignState, id: string) =>
   });
 
 describe('COMP: the Bootstrap EncyclopediaArticle GDRs', () => {
-  it('supplies six Guide articles and one article about each of 20 other GDRs, in Game build order', () => {
+  it('supplies six Guide articles and one article about each of 24 other GDRs, in Game build order', () => {
     const articles = gdrs.encyclopediaArticles;
-    expect(articles).toHaveLength(26);
+    expect(articles).toHaveLength(30);
     expect(articles.filter((article) => article.subject === null).map((article) => article.id)).toEqual([
       'guide_agency',
       'guide_agents',
@@ -99,6 +99,10 @@ describe('COMP: Acceptance examples', () => {
       'transport_cap_article',
       'training_cap_article',
       'weapon_damage_article',
+      'base_health_article',
+      'training_skill_gain_article',
+      'exhaustion_recovery_article',
+      'health_recovery_article',
       'red_dawn_article',
       'locate_red_dawn_member_article',
       'apprehend_member_article',
@@ -240,7 +244,7 @@ describe('COMP: Acceptance examples', () => {
       withoutArticles = advance(withoutArticles, {}, none);
     }
     expect(withoutArticles).toEqual(withArticles);
-    expect(visibleArticles(withArticles.world.current, gdrs)).toHaveLength(20);
+    expect(visibleArticles(withArticles.world.current, gdrs)).toHaveLength(24);
   });
 });
 
