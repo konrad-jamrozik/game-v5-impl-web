@@ -1,7 +1,7 @@
 /**
  * CSCR, Detail views; VIS, Detail views and navigation: the frame every Detail view shares. It covers the Globe stage
  * inset by 16 px, with its title on the left, its buttons in one row on the right ending 8 px before the close
- * control, and the close control at its upper right corner under VIS, Close controls. A Detail view taller than the
+ * control, and the close control ending that row as one of its controls under VIS, Close controls. A Detail view taller than the
  * Globe stage scrolls inside, keeping its title row in view.
  */
 import type { ReactNode } from 'react';

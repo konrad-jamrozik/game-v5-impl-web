@@ -533,6 +533,7 @@ No files.
 - src/web/interruption.ts
 - src/engine/session/global-configuration.ts
 - tests/web/sounds.test.ts
+- e2e/web.spec.ts
 
 ## STACK: Tech Stack Suggestion
 

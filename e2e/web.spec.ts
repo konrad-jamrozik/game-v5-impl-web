@@ -292,6 +292,12 @@ test('the Situation panel stays in view beside a Detail view and an item opens i
   await expect(id(page, 'view-leads')).toHaveCount(0);
   await id(page, 'nav-compendium').click();
   await expect(id(page, 'compendium-category-Guide')).toBeVisible();
+  // SOUNDS, Main click: selecting a category or an article of the Compendium View opens it to be read.
+  await expect(id(page, 'compendium-category-Guide')).toHaveAttribute('data-sound', 'main');
+  await expect(id(page, 'compendium-articles').locator('button').first()).toHaveAttribute(
+    'data-sound',
+    'main',
+  );
   await expect(id(page, 'article-locate_red_dawn_safehouse_article')).toHaveCount(0);
   await page.keyboard.press('Escape');
   await expect(id(page, 'view-compendium')).toHaveCount(0);

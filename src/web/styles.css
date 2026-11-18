@@ -1926,26 +1926,37 @@ label:has(> input[type='checkbox']:disabled) {
 
 /* VIS, Alignment: the controls of the title row share one centre line, and a labelled group stands its Label above
    its controls, so the row aligns on its bottom edge with every control equally tall. The title's 36 px line puts its
-   text on that centre line, and the figures after it share its baseline. VIS, Detail view: the title, in the Section
-   heading style, starts at the top of the inner padding in every Detail view; a taller row grows downward. */
+   text on that centre line, and the smaller figures after it are centred on its capitals. VIS, Detail view: the
+   title, in the Section heading style, starts at the top of the inner padding in every Detail view; a taller row
+   grows downward. */
 .detail-head {
   position: relative;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: flex-end;
   gap: 12px;
-  /* VIS, Detail view: the buttons end 8 px before the close control, which is no control of the title row. */
-  padding: 18px 62px 12px 18px;
+  padding: 18px 18px 12px;
 }
 
 .detail-head h2 {
   align-self: flex-start;
-  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 auto 0 0;
   line-height: 36px;
 }
 
+/* VIS, Close controls: in a Detail view the close control ends the title row as one of its controls, on their centre
+   line and level with the controls of a group under a Label; the buttons end 8 px before it. */
+.detail-head > .close-control {
+  position: static;
+  flex: 0 0 auto;
+  margin-left: -4px;
+}
+
 .detail-aside {
-  margin-left: 12px;
+  line-height: 1;
   font-family: var(--font-figure);
   font-size: 14px;
   font-weight: 400;
@@ -1994,10 +2005,12 @@ label:has(> input[type='checkbox']:disabled) {
   margin: 0 0 8px;
 }
 
-/* VIS, Typography, Pane heading: every heading inside a pane of a Detail view, e.g. a group name of the left pane,
-   the name of the selected item, and the heading of each part of the right pane. */
+/* VIS, Typography, Group heading: the heading of a group of items in a panel or a dialog, e.g. the Situation panel,
+   the Turn summary, and the Turn Report View, and every heading inside a pane of a Detail view, e.g. a group name of
+   the left pane, the name of the selected item, and the heading of each part of the right pane. Text nested under it
+   is never larger. */
 .pane .pane-title,
-.pane .sit-group-head > .label,
+.sit-group-head > .label,
 .pane .label.pane-sub {
   font-family: var(--font-heading);
   font-size: 16px;

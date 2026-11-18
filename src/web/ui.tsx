@@ -6,10 +6,11 @@ import { TIER_OPACITY, type SortTier } from './table-sort.ts';
 import { tallySquares } from './tally.ts';
 
 /**
- * VIS, Close controls: a square neutral 36 px button holding a ✕, at the upper right corner of its view's rectangle,
- * inset by the view's inner padding, level with the top of its title line; the view sets the inset through the
- * `--close-inset-top` and `--close-inset-right` custom properties and is the control's containing block. Closing is a
- * Go back, under SOUNDS, Go back.
+ * VIS, Close controls: a square neutral 36 px button holding a ✕ that ends its view's title row, inset by the view's
+ * inner padding. In a title row with no other control it sits at the upper right corner, centred on the title's
+ * 36 px line; the view sets the inset through the `--close-inset-top` and `--close-inset-right` custom properties and
+ * is the control's containing block. A Detail view places it in its title row's flow instead, among the row's
+ * controls. Closing is a Go back, under SOUNDS, Go back.
  */
 export function CloseControl(props: { onClose: () => void; title?: string; testId?: string }) {
   return (
