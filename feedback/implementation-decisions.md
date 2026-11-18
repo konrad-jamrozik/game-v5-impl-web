@@ -313,6 +313,7 @@
   mechanics, and made the Turn report list every Forced return in Agent order rather than step by step. The copies
   of each Mission site's MissionSiteArchetype and kind that the Turn report and the History entry keep go beyond what
   the specifications require.
+- **Options considered:** A History entry that repeats the whole Turn report; a reduced History entry.
 - **Option chosen:** A reduced History entry without the Combat log.
 - **Why:** The Combat log is the large part of a Turn report, and WHIST requires a History entry to bound what is
   retained.
