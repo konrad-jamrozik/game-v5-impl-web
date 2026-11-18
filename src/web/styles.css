@@ -813,11 +813,12 @@ input::placeholder {
   height: 100vh;
 }
 
-/* VIS, Status bar */
+/* VIS, Status bar; VIS, Alignment, Controls stay still: the facts wrap within their own column, so a growing value,
+   e.g. Money gaining a digit, never moves the buttons, which keep the top right of the bar. */
 .statusbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 14px 24px;
   padding: 16px 24px;
   background: var(--surface);
@@ -834,9 +835,10 @@ input::placeholder {
 
 .status-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
+  margin-top: 10px;
 }
 
 .fact {
@@ -2103,10 +2105,13 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 /* VIS, Buttons: a row of buttons that is a part of its own in a stacked card starts at its left content edge; VIS,
-   Alignment: the note beside the control sits 8 px after it on its row and wraps within the space left. */
+   Alignment: the note beside the control sits 8 px after it on its row and wraps within the space left. The note never
+   sets the row's height: the row is as tall as its button, and a wrapped note stays centred on the button's centre line,
+   extending above and below it into the spacing around the row. */
 .card-actions.upgrade-buy {
   flex-wrap: nowrap;
   justify-content: flex-start;
+  height: 36px;
 }
 
 .upgrade-missing {

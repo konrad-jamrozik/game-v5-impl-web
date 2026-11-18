@@ -252,6 +252,28 @@ test('the Agents View keeps its columns, selects ranges, guards re-assigning, an
   await expect(id(page, 'memorial-agent-1')).toContainText('T2');
 });
 
+test('controls stay still: a note never sets its row height and a changed value never moves a button', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('still');
+  await id(page, 'new-campaign').click();
+  await id(page, 'nav-upgrades').click();
+  const undoBefore = await id(page, 'undo').boundingBox();
+  // VIS, Alignment: the row of a Buy button is as tall as the button, whatever the note beside it.
+  const rows = page.locator('.upgrade-buy');
+  await expect(rows.first()).toBeVisible();
+  for (const row of await rows.all()) {
+    const rowBox = await row.boundingBox();
+    const buttonBox = await row.locator('.btn').boundingBox();
+    expect(rowBox?.height).toBe(buttonBox?.height);
+  }
+  // VIS, Controls stay still: buying changes Money in the Status bar and moves no button there.
+  await id(page, 'buy-training_cap').click();
+  await expect(id(page, 'undo')).toBeEnabled();
+  expect(await id(page, 'undo').boundingBox()).toEqual(undoBefore);
+});
+
 test('the Situation panel stays in view beside a Detail view and an item opens its Detail view', async ({
   page,
 }) => {
