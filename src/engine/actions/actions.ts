@@ -465,7 +465,7 @@ function deployAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
   }
   const id = newInstanceId(world, 'mission');
   const team = agents.map((agent) => agent.id);
-  site.state.lifecycle = 'Attempted';
+  site.state.lifecycle = 'Deployed';
   world.missions[id] = {
     id,
     archetype: gdrs.missionArchetype.id,

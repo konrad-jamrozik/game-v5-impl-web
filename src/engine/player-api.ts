@@ -53,6 +53,10 @@ export interface AgentView {
   readonly canBeAssigned: boolean;
   /** AGENT, Start-work gate: whether the exhaustion is at most exhaustion_work_start_max. */
   readonly fitForWork: boolean;
+  /** AGENT, Agent statuses: whether the Agent is In base; false for a Terminated Agent. A Derived value. */
+  readonly inBase: boolean;
+  /** AGENT, Agent statuses: whether the Agent is Away; false for a Terminated Agent. A Derived value. */
+  readonly away: boolean;
   /** Whether the Agent would be able to fight if a Combat began now. */
   readonly ableToFight: boolean;
   readonly participationHistory: readonly Participation[];
@@ -248,7 +252,7 @@ export interface CurrentStateView {
   /** Active Investigations. */
   readonly investigations: readonly InvestigationView[];
   readonly leads: readonly LeadView[];
-  /** Active and Attempted Mission sites. */
+  /** Active and Deployed Mission sites. */
   readonly missionSites: readonly MissionSiteView[];
   /** Deployed Missions. */
   readonly missions: readonly MissionView[];

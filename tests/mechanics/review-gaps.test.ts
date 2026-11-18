@@ -273,7 +273,7 @@ describe('ECON and MISSION: gaps', () => {
     expect(agents(state).map((a) => a.state.weaponDamage)).toEqual([12, 12, 12, 12, 12]);
   });
 
-  it('Structure of an Attempted Mission site: an Expired Mission site with Turns until expiration 1 is invalid', () => {
+  it('Structure of a Deployed Mission site: an Expired Mission site with Turns until expiration 1 is invalid', () => {
     const site = addMissionSite(newCampaign(), 'apprehend_member');
     invalid(site.state, (world) => (world.missionSites[site.site]!.state.lifecycle = 'Expired'));
   });

@@ -323,3 +323,51 @@ test('the Situation panel stays in view beside a Detail view and an item opens i
   await page.keyboard.press('Escape');
   await expect(id(page, 'view-compendium')).toHaveCount(0);
 });
+
+test('the Agents View shows free places and splits Agents In base and Away; Escape retraces the View trail', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('trail');
+  await id(page, 'new-campaign').click();
+  await id(page, 'nav-agents').click();
+  // AVIEW, Header: the free places under each cap, each with its cap bar.
+  await expect(id(page, 'agent-places-free')).toContainText('Agent places free');
+  await expect(id(page, 'training-places-free')).toContainText('Training places free');
+  await expect(id(page, 'agent-places-free').locator('.cap-bar')).toHaveCount(1);
+  // AVIEW, Row filters: In base and Away split the Serving Agents.
+  await id(page, 'agent-agent-1').click();
+  await id(page, 'order-contracting').click();
+  await expect(id(page, 'agent-agent-1')).toContainText('In transit');
+  const count = async (which: string) =>
+    Number((await id(page, `filter-${which}`).innerText()).split(' ').at(-1));
+  expect(await count('away')).toBe(1);
+  expect((await count('inBase')) + (await count('away'))).toBe(await count('all'));
+  await id(page, 'filter-away').click();
+  await expect(page.locator('[data-testid="agents-grid"] tbody tr')).toHaveCount(1);
+
+  // CSCR, View trail: an Agent's details are a Follow; the Back control and Escape return to the table as it was left.
+  await expect(id(page, 'view-back')).toHaveCount(0);
+  await id(page, 'agent-details-agent-1').click();
+  await expect(id(page, 'agent-details-view-agent-1')).toBeVisible();
+  await expect(id(page, 'view-back')).toHaveText('‹ Agents');
+  // VIS, Detail view: the Back control is the last button of the title row, before the close control.
+  const back = await id(page, 'view-back').boundingBox();
+  const close = await id(page, 'close-view').boundingBox();
+  expect((back?.x ?? 0) + (back?.width ?? 0)).toBeLessThan(close?.x ?? 0);
+  await expect(id(page, 'view-back')).toHaveAttribute('data-sound', 'back');
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'agents-grid')).toBeVisible();
+  await expect(id(page, 'filter-away')).toHaveAttribute('aria-pressed', 'true');
+  await expect(id(page, 'view-back')).toHaveCount(0);
+  // CSCR, View trail, Close: with an empty View trail, Escape closes the Detail view.
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'view-agents')).toHaveCount(0);
+
+  // CSCR, View trail, Start afresh: opening a Detail view from the Side panel empties the View trail.
+  await id(page, 'nav-agents').click();
+  await id(page, 'agent-details-agent-2').click();
+  await expect(id(page, 'view-back')).toBeVisible();
+  await id(page, 'nav-missions').click();
+  await expect(id(page, 'view-back')).toHaveCount(0);
+});

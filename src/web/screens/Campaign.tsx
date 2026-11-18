@@ -3,9 +3,11 @@
  * Detail view, the compact Situation panel, and the Autopilot footer; the Globe stage fills the rest, and the open
  * Detail view covers it. The globe, a decoration, is drawn in the Globe stage behind every Detail view.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
+import { PLACE_NAME_KEY, PlaceContext, type PlaceContextValue } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
+import { backLabel, follow, goBack, type Place, type ViewTrail } from '../view-trail.ts';
 import { SOUND } from '../sounds.ts';
 import { undoRedoStep } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
@@ -39,7 +41,7 @@ const SHORTCUTS = [
   ['N', 'Advance turn'],
   ['U / R', 'Undo / redo: one action, or one Turn when no action of this Turn is left'],
   ['1 to 8', 'Open or close a Detail view'],
-  ['Esc', 'Close the topmost open view'],
+  ['Esc', 'Close the topmost open view, or go back to the place a Detail view was reached from'],
   ['H', 'Hire an Agent'],
   ['S / C / T', 'Assign the selected Agents to Standby, Contracting, Training'],
   ['A', 'Select every Agent that can be assigned'],
@@ -59,11 +61,25 @@ interface OpenView {
   readonly item: string | null;
   /** Changes whenever an item is shown, so that the Detail view starts again with that item selected. */
   readonly serial: number;
+  /** CSCR, View trail, Go back: what the place shown again remembered, and its scroll position. */
+  readonly restored: Readonly<Record<string, unknown>>;
+  readonly scrollTop: number;
 }
+
+const NOTHING_RESTORED: Readonly<Record<string, unknown>> = {};
 
 export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: CurrentStateView }) {
   const { session, player } = theEngine();
   const [open, setOpen] = useState<OpenView | null>(null);
+  // CSCR, View trail: empty whenever the Campaign screen is shown anew, e.g. after a Campaign is loaded.
+  const [trail, setTrail] = useState<ViewTrail<DetailViewId>>([]);
+  const live = useRef<Record<string, unknown>>({});
+  // CSCR, View trail, New Turn: the View trail is emptied, and the open place stays open, when the Turn changes.
+  const [trailTurn, setTrailTurn] = useState(state.turn);
+  if (trailTurn !== state.turn) {
+    setTrailTurn(state.turn);
+    setTrail([]);
+  }
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [drawer, setDrawer] = useState(false);
   const [help, setHelp] = useState(false);
@@ -129,25 +145,92 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     });
   };
 
-  /** CSCR, Side panel: selecting the button of the open Detail view closes it, any other opens its Detail view. */
-  const toggleView = (id: DetailViewId) => {
-    setOpen((current) =>
-      current?.id === id ? null : { id, item: null, serial: (current?.serial ?? 0) + 1 },
-    );
-  };
-  const showItem = (id: DetailViewId, item: string | null) => {
-    setOpen((current) => ({ id, item, serial: (current?.serial ?? 0) + 1 }));
+  /** Opens a place afresh, or shows a place of the View trail again as it was left. */
+  const openPlace = (
+    id: DetailViewId,
+    item: string | null,
+    restored: Readonly<Record<string, unknown>> = NOTHING_RESTORED,
+    scrollTop = 0,
+  ) => {
+    live.current = {};
+    setOpen((current) => ({ id, item, serial: (current?.serial ?? 0) + 1, restored, scrollTop }));
   };
 
-  /** SITP: selecting an item opens the Detail view that details it, with that item selected. */
-  const show = (target: SituationTarget | ReportTarget) => {
-    if (target.kind === 'lead') {
-      showItem('leads', target.lead);
-    } else if (target.kind === 'missionSite') {
-      showItem('missions', target.missionSite);
-    } else {
-      showItem('agents', null);
+  /** CSCR, View trail: the place the open Detail view shows, as it would be added to the View trail. */
+  const shownPlace = (): Place<DetailViewId> | null => {
+    if (open === null) {
+      return null;
     }
+    const name = live.current[PLACE_NAME_KEY];
+    const body = document.querySelector<HTMLElement>(`[data-testid="view-${open.id}"] .detail-body`);
+    return {
+      id: open.id,
+      item: open.item,
+      memo: { ...live.current },
+      scrollTop: body?.scrollTop ?? 0,
+      name:
+        typeof name === 'string' ? name : (DETAIL_VIEWS.find((view) => view.id === open.id)?.name ?? open.id),
+    };
+  };
+  /** CSCR, View trail, Follow: the place the Player leaves is added to the end of the View trail. */
+  const followFrom = () => {
+    const left = shownPlace();
+    if (left !== null) {
+      setTrail((current) => follow(current, left));
+    }
+  };
+  /** CSCR, View trail, Go back: the last place leaves the View trail and is shown as the Player left it. */
+  const back = () => {
+    const step = goBack(trail);
+    if (step !== null) {
+      setTrail(step.trail);
+      openPlace(step.place.id, step.place.item, step.place.memo, step.place.scrollTop);
+    }
+  };
+
+  /**
+   * CSCR, Side panel: selecting the button of the open Detail view closes it, any other opens its Detail view; each
+   * empties the View trail.
+   */
+  const toggleView = (id: DetailViewId) => {
+    setTrail([]);
+    if (open?.id === id) {
+      setOpen(null);
+    } else {
+      openPlace(id, null);
+    }
+  };
+
+  const placeOf = (target: SituationTarget | ReportTarget): { id: DetailViewId; item: string | null } =>
+    target.kind === 'lead'
+      ? { id: 'leads', item: target.lead }
+      : target.kind === 'missionSite'
+        ? { id: 'missions', item: target.missionSite }
+        : { id: 'agents', item: null };
+
+  /**
+   * SITP: selecting an item opens the Detail view that details it, with that item selected. CSCR, View trail, Start
+   * afresh: opened from outside the open Detail view, it empties the View trail.
+   */
+  const show = (target: SituationTarget) => {
+    const to = placeOf(target);
+    setTrail([]);
+    openPlace(to.id, to.item);
+  };
+
+  /** TRVIEW: selecting an item opens the Detail view that details it, with it selected, as a Follow. */
+  const followTo = (target: ReportTarget) => {
+    const to = placeOf(target);
+    followFrom();
+    openPlace(to.id, to.item);
+  };
+
+  const placeContext: PlaceContextValue = {
+    restored: open?.restored ?? NOTHING_RESTORED,
+    restoredScrollTop: open?.scrollTop ?? 0,
+    live,
+    follow: followFrom,
+    back: backLabel(trail) === null ? null : { label: backLabel(trail) ?? '', go: back },
   };
 
   /** AVIEW, Header: a shortcut presses the Agents View button, which is enabled only when pressing it would succeed. */
@@ -209,8 +292,14 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           playSound(SOUND.back);
           setHelp(false);
         } else if (open !== null) {
+          // VIS, Close controls, and CSCR, View trail: in a Detail view that shows a Back control, Escape does what
+          // the Back control does; with an empty View trail it closes the Detail view.
           playSound(SOUND.back);
-          setOpen(null);
+          if (trail.length > 0) {
+            back();
+          } else {
+            close();
+          }
         }
       } else if (key === 'a') {
         setPicked(new Set(actions?.assignableAgents ?? []));
@@ -276,9 +365,11 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     leads: activeInvestigationRows(state).length + leadsToInvestigate(state).length,
     agents: state.agency.servingAgents,
   };
-  const close = () => {
+  /** CSCR, View trail, Close: the View trail is emptied when the open Detail view closes. */
+  function close() {
+    setTrail([]);
     setOpen(null);
-  };
+  }
 
   return (
     <div className="campaign">
@@ -406,22 +497,24 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         <main className="globe-stage" data-testid="globe-stage">
           <Globe covered={open !== null} />
           {open === null ? null : (
-            <OpenDetailView
-              key={`${open.id}-${open.serial}`}
-              open={open}
-              snapshot={snapshot}
-              state={state}
-              locked={locked}
-              selected={selected}
-              onSelect={(ids) => {
-                setPicked(new Set(ids));
-              }}
-              onShow={show}
-              onOpenSummary={() => {
-                setReopened(true);
-              }}
-              onClose={close}
-            />
+            <PlaceContext value={placeContext}>
+              <OpenDetailView
+                key={`${open.id}-${open.serial}`}
+                open={open}
+                snapshot={snapshot}
+                state={state}
+                locked={locked}
+                selected={selected}
+                onSelect={(ids) => {
+                  setPicked(new Set(ids));
+                }}
+                onShow={followTo}
+                onOpenSummary={() => {
+                  setReopened(true);
+                }}
+                onClose={close}
+              />
+            </PlaceContext>
           )}
         </main>
 
@@ -532,7 +625,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           currentTurn={state.turn}
           onDismiss={dismissSummary}
           onOpenReport={() => {
-            showItem('report', null);
+            // CSCR, View trail, Start afresh: the Turn summary is outside the open Detail view.
+            setTrail([]);
+            openPlace('report', null);
             dismissSummary();
           }}
         />
@@ -557,7 +652,7 @@ function OpenDetailView(props: {
   locked: string | null;
   selected: readonly string[];
   onSelect: (ids: readonly string[]) => void;
-  onShow: (target: SituationTarget | ReportTarget) => void;
+  onShow: (target: ReportTarget) => void;
   onOpenSummary: () => void;
   onClose: () => void;
 }) {

@@ -12,10 +12,13 @@ import {
   useReactTable,
   type SortingState,
 } from '@tanstack/react-table';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { AgentView, CurrentStateView, HistoryView } from '../../engine/index.ts';
 import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
 import { ASSIGNMENTS, blockedBy, type OrderAssignment, type Selectability } from '../agent-selection.ts';
+import { capBar, type CapBarModel } from '../cap-bar.ts';
+import { fillColour } from '../progress-bar.ts';
+import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import { useRowSelection } from '../row-selection.ts';
 import { confirmOrGoBack } from '../sound-player.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
@@ -39,7 +42,33 @@ const SERVING_WIDTHS = ['36px', '104px', '116px', '84px', '96px', '132px', '104p
 const MEMORIAL_WIDTHS = ['104px', '84px', '96px', '132px', '96px', '112px', '88px', '80px', '360px'];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
-type RowFilter = 'all' | 'assignable' | 'memorial';
+type RowFilter = 'all' | 'inBase' | 'away' | 'memorial';
+
+/** AVIEW, Header, and VIS, Cap bars: a Label above the free count against the cap, followed by its cap bar. */
+function CapFigure(props: { label: string; testId: string; model: CapBarModel }) {
+  const { model } = props;
+  return (
+    <span className="cap-figure" data-testid={props.testId}>
+      <span className="label">{props.label}</span>
+      <span className="cap-figure-line">
+        <span className="figure">
+          {model.free} / {model.cap}
+        </span>
+        <span
+          className="cap-bar"
+          role="img"
+          aria-label={`${props.label}: ${model.free} of ${model.cap}`}
+          data-taken-share={model.takenShare}
+        >
+          <span
+            className="cap-bar-fill"
+            style={{ width: `${model.takenShare * 100}%`, background: fillColour(model.takenShare) }}
+          />
+        </span>
+      </span>
+    </span>
+  );
+}
 
 /** Instance IDs in their creation order, e.g. agent-9 before agent-10. */
 function byId(a: string, b: string): number {
@@ -143,10 +172,13 @@ export function AgentsView(props: {
   const actions = snapshot.actions;
   const levels = exhaustionLevels(snapshot.gameData);
   // VIS, Tables: up to four sort tiers over the default order by Instance ID.
-  const [tiers, setTiers] = useState<SortTier<string>[]>([]);
-  const [rowFilter, setRowFilter] = useState<RowFilter>('all');
+  const [tiers, setTiers] = usePlaceState<SortTier<string>[]>('tiers', []);
+  const [rowFilter, setRowFilter] = usePlaceState<RowFilter>('rowFilter', 'all');
   // AVIEW, Assignment filters: none is on whenever the Agents View opens.
-  const [assignmentFilter, setAssignmentFilter] = useState<OrderAssignment | null>(null);
+  const [assignmentFilter, setAssignmentFilter] = usePlaceState<OrderAssignment | null>(
+    'assignmentFilter',
+    null,
+  );
   const memorialOn = rowFilter === 'memorial';
   // AVIEW, Agent table: while an Assignment filter is on, Blocked by is a locked first tier, ascending, so that the
   // Agents that can be selected come first, and the Player's tiers order the Agents within each group of it.
@@ -160,8 +192,14 @@ export function AgentsView(props: {
     [sortTiers],
   );
   // VIS, Tables: Select all, which keeps the selection equal to the shown rows that can be selected.
-  const [selectAll, setSelectAll] = useState(false);
-  const [details, setDetails] = useState<string | null>(null);
+  const [selectAll, setSelectAll] = usePlaceState('selectAll', false);
+  const [details, setDetails] = usePlaceState<string | null>('details', null);
+  const place = usePlace();
+  /** AVIEW, Agent details: they open one step away, in place of the table, as a Follow. */
+  const openDetails = (id: string) => {
+    place.follow();
+    setDetails(id);
+  };
 
   const memorial = memorialOn;
   const terminated = useMemo(
@@ -192,9 +230,11 @@ export function AgentsView(props: {
     const shown =
       rowFilter === 'all'
         ? state.agents
-        : rowFilter === 'assignable'
-          ? state.agents.filter((agent) => agent.canBeAssigned && agent.fitForWork)
-          : [];
+        : rowFilter === 'inBase'
+          ? state.agents.filter((agent) => agent.inBase)
+          : rowFilter === 'away'
+            ? state.agents.filter((agent) => agent.away)
+            : [];
     // AVIEW, Agent table: the default order is by Instance ID.
     return [...shown]
       .sort((x, y) => byId(x.id, y.id))
@@ -246,7 +286,7 @@ export function AgentsView(props: {
             className="id-link"
             data-testid={`agent-details-${cell.getValue()}`}
             onClick={() => {
-              setDetails(cell.getValue());
+              openDetails(cell.getValue());
             }}
           >
             {cell.getValue()}
@@ -332,17 +372,11 @@ export function AgentsView(props: {
       ? undefined
       : (state.agents.find((agent) => agent.id === details) ??
         terminated.find((agent) => agent.id === details));
+  usePlaceName(shownDetails === undefined ? null : `Agent ${shownDetails.id}`);
   if (shownDetails !== undefined) {
     return (
       <DetailView id="agents" title={`Agent ${shownDetails.id}`} onClose={props.onClose}>
-        <AgentDetails
-          agent={shownDetails}
-          snapshot={snapshot}
-          state={state}
-          onBack={() => {
-            setDetails(null);
-          }}
-        />
+        <AgentDetails agent={shownDetails} snapshot={snapshot} state={state} />
       </DetailView>
     );
   }
@@ -380,10 +414,19 @@ export function AgentsView(props: {
       id="agents"
       title="Agents"
       aside={
-        <>
-          {state.agency.servingAgents} / {state.agency.agentCap} · Training {state.agency.trainingAgents} /{' '}
-          {state.agency.trainingCap}
-        </>
+        // AVIEW, Header: the places still free under the Agent cap and the Training cap, each with its cap bar.
+        <span className="cap-figures">
+          <CapFigure
+            label="Agent places free"
+            testId="agent-places-free"
+            model={capBar(state.agency.servingAgents, state.agency.agentCap)}
+          />
+          <CapFigure
+            label="Training places free"
+            testId="training-places-free"
+            model={capBar(state.agency.trainingAgents, state.agency.trainingCap)}
+          />
+        </span>
       }
       actions={
         <div className="control-group" role="group" aria-labelledby="agent-filters-label">
@@ -392,11 +435,8 @@ export function AgentsView(props: {
           </span>
           <div className="chips">
             {rowFilterButton('all', 'All', state.agents.length)}
-            {rowFilterButton(
-              'assignable',
-              'Assignable',
-              state.agents.filter((agent) => agent.canBeAssigned && agent.fitForWork).length,
-            )}
+            {rowFilterButton('inBase', 'In base', state.agents.filter((agent) => agent.inBase).length)}
+            {rowFilterButton('away', 'Away', state.agents.filter((agent) => agent.away).length)}
             {rowFilterButton('memorial', 'Memorial', terminated.length)}
           </div>
         </div>
@@ -486,7 +526,7 @@ export function AgentsView(props: {
           state={state}
           history={snapshot.history}
           onOpen={(id) => {
-            setDetails(id);
+            openDetails(id);
           }}
         />
       ) : (
@@ -575,7 +615,7 @@ function Memorial(props: {
   onOpen: (id: string) => void;
 }) {
   // VIS, Tables: up to four sort tiers over the default order, newest Turn terminated first and then by Instance ID.
-  const [tiers, setTiers] = useState<SortTier<MemorialKey>[]>([]);
+  const [tiers, setTiers] = usePlaceState<SortTier<MemorialKey>[]>('memorialTiers', []);
   const unsorted = props.agents.map((agent) => ({
     agent,
     details: memorialDetails(agent, props.state, props.history),
@@ -669,12 +709,7 @@ function Memorial(props: {
   );
 }
 
-function AgentDetails(props: {
-  agent: AgentView;
-  snapshot: Snapshot;
-  state: CurrentStateView;
-  onBack: () => void;
-}) {
+function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: CurrentStateView }) {
   const { agent, snapshot, state } = props;
   const retained = snapshot.history?.retained;
   const participation = agent.participationHistory.map((item) => {
@@ -702,17 +737,6 @@ function AgentDetails(props: {
   });
   return (
     <div className="stack" data-testid={`agent-details-view-${agent.id}`}>
-      <div>
-        <button
-          type="button"
-          className="link"
-          data-testid="agent-details-back"
-          data-sound="back"
-          onClick={props.onBack}
-        >
-          ← Agents
-        </button>
-      </div>
       <dl className="pairs">
         <dt>Archetype</dt>
         <dd>{agent.archetypeName}</dd>

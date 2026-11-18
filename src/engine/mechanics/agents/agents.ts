@@ -102,6 +102,26 @@ export function isBaseAssignment(assignment: Assignment | null): boolean {
   return assignment !== null && (assignment.kind === 'Standby' || assignment.kind === 'Training');
 }
 
+/**
+ * AGENT, Agent statuses: a Serving Agent is In base exactly when it is At assignment on Standby or Training, or
+ * Recovering, whatever its current health and exhaustion. A Terminated Agent is neither In base nor Away.
+ */
+export function isInBase(agent: Pick<AgentState, 'status' | 'assignment'>): boolean {
+  return (
+    agent.status === 'Recovering' || (agent.status === 'AtAssignment' && isBaseAssignment(agent.assignment))
+  );
+}
+
+/**
+ * AGENT, Agent statuses: a Serving Agent is Away exactly when it is not In base, i.e. In transit, Deployed, or At
+ * assignment on Contracting or an Investigation.
+ */
+export function isAway(agent: Pick<AgentState, 'status' | 'assignment'>): boolean {
+  const serving =
+    agent.status === 'AtAssignment' || agent.status === 'InTransit' || agent.status === 'Recovering';
+  return serving && !isInBase(agent);
+}
+
 /** AGENT, Agent creation: the initial values of a new Agent. */
 export function createAgent(input: {
   id: string;

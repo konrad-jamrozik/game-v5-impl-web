@@ -42,6 +42,9 @@
 - src/web/screens/DetailView.tsx
 - assets/images/
 - src/web/styles.css
+- src/web/cap-bar.ts
+- tests/web/cap-bar.test.ts
+- src/web/place.tsx
 
 ## BASICAI: Basic Autopilot AI
 
@@ -138,6 +141,9 @@ No files.
 - tests/web/undo-redo.test.ts
 - src/web/ui.tsx
 - src/web/store.ts
+- src/web/view-trail.ts
+- src/web/place.tsx
+- tests/web/view-trail.test.ts
 
 ## CSTATE: Campaign State
 
@@ -280,6 +286,8 @@ No files.
 - index.html
 - tests/web/
 - e2e/web.spec.ts
+- src/web/view-trail.ts
+- src/web/place.tsx
 
 ## HEADLESS: Headless First
 
@@ -418,6 +426,8 @@ No files.
 - src/web/screens/DetailView.tsx
 - assets/images/
 - src/web/styles.css
+- src/engine/views/views.ts
+- src/engine/player-api.ts
 
 ## NUMBERS: Numbers
 
@@ -494,6 +504,7 @@ No files.
 - scripts/measure.ts
 - tests/foundation/timeline.test.ts
 - src/engine/saves/storage.ts
+- src/engine/saves/encoding.ts
 
 ## SCHEMA: Storage Schema
 
@@ -569,6 +580,10 @@ No files.
 - src/web/format.ts
 - src/web/turn-summary.ts
 - src/web/screens/Campaign.tsx
+- src/web/combat-log.ts
+- tests/web/combat-log.test.ts
+- src/web/place.tsx
+- src/web/styles.css
 
 ## TSUM: Turn Summary
 
@@ -645,6 +660,10 @@ No files.
 - tests/web/artwork.test.ts
 - src/web/artwork-names.ts
 - src/web/screens/SettingsPanel.tsx
+- src/web/cap-bar.ts
+- tests/web/cap-bar.test.ts
+- src/web/combat-log.ts
+- tests/web/combat-log.test.ts
 
 ## WHIST: World History
 

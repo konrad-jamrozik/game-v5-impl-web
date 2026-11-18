@@ -327,7 +327,8 @@
 - **Description:** A Mission site participates in current gameplay while it is Active and while it is Attempted and
   its Mission is Deployed, together with its Enemies. It is retained in World history once it is Expired or
   Cancelled, or once its Mission is Won or Lost. `getCurrentState()` and `getHistory()` divide Mission sites and
-  their Enemies accordingly.
+  their Enemies accordingly. Since 4a22cee51b5e5052c5003f5dbf6389edb183c220 the lifecycle state Attempted is named
+  Deployed, and the Implementation uses that name.
 - **Options considered:** Treating every Attempted Mission site as retained; treating it as current while its
   Mission is Deployed.
 - **Option chosen:** Current while its Mission is Deployed.
@@ -985,3 +986,19 @@
 - **Option chosen:** Reporting the first failed precondition in the listed order.
 - **Why:** The action is rejected as a whole either way, and the normative preconditions decide what is accepted.
 - **Links:** PROB-033, PROB-034
+
+## DEC-053: An excluded Track file is left out of the copy of the Soundtrack
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** MUSIC, Soundtrack: a file "that the Excluded tracks section of the directory's
+  `README.md` names" is not a Track "and it is never played". PLACE, Music in an Implementation: the Implementation
+  holds "its own copy of every Track file".
+- **Description:** A file the Excluded tracks section of `assets/music/README.md` in the Spec repo names, e.g.
+  `GEO-3.opus`, is not copied into `assets/music/` of this repository, so `import.meta.glob` under DEC-048 never lists
+  it. A Specification update that removes a file from that section copies it back.
+- **Options considered:** Copying the README and leaving out the files it names at build time; leaving the excluded
+  files out of the copy.
+- **Option chosen:** Leaving the excluded files out of the copy.
+- **Why:** The copy then holds exactly the Tracks, the Game build carries no file it never plays, and DEC-048 needs no
+  list to read.
+- **Links:** None.

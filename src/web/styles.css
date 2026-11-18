@@ -23,6 +23,9 @@
   /* VIS, Colours: Warning and Danger deep, for VIS, Agent condition. */
   --warning: #e3c14b;
   --danger-deep: #a3271f;
+  /* VIS, Colours: the fills of a Combat log row by its attacker's side. */
+  --agent-attack-tint: rgb(183 199 122 / 7%);
+  --enemy-attack-tint: rgb(255 127 120 / 7%);
   --limit-band: rgb(229 72 77 / 12%);
   --accent-fill: rgb(255 122 26 / 14%);
   --scrim: rgb(13 13 11 / 72%);
@@ -1282,6 +1285,81 @@ summary {
   padding: 4px 10px;
 }
 
+/* TRVIEW, Combat log colours: a row is filled by its attacker's side; the other values of the row are in Text, and
+   the outcome is coloured by whom it favours. */
+.grid.log tr.log-agent td {
+  background: var(--agent-attack-tint);
+  color: var(--text);
+}
+
+.grid.log tr.log-enemy td {
+  background: var(--enemy-attack-tint);
+  color: var(--text);
+}
+
+.grid.log tr td.log-outcome.tone-good {
+  color: var(--positive);
+}
+
+.grid.log tr td.log-outcome.tone-bad {
+  color: var(--danger);
+}
+
+.grid.log tr td.log-outcome.muted {
+  color: var(--text-muted);
+}
+
+/* MVIEW, Combat ratings: the Label "Combat rating" followed by the value in the Figure style and Accent text. The
+   Enemies' Combat rating ends at the right edge of the Enemies table, so the block is as wide as the table and the
+   spare width of a wide pane lies to its right. */
+.combat-rating {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.combat-rating .label {
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+
+.combat-rating .figure {
+  font-size: 16px;
+}
+
+.enemies-block {
+  width: max-content;
+  max-width: 100%;
+}
+
+.enemies-block > .sit-group-head {
+  align-items: center;
+}
+
+.deploy-figures {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  margin-bottom: 8px;
+}
+
+.combat-rating-row {
+  margin-top: 6px;
+}
+
+/* TRVIEW, Combat report: a pane heading with a note on its right, and the group rows of the participants table. */
+.pane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.grid .group-row th {
+  padding-top: 10px;
+  text-align: left;
+}
+
 /* VIS, Charts */
 .charts {
   display: grid;
@@ -1963,6 +2041,48 @@ label:has(> input[type='checkbox']:disabled) {
   letter-spacing: 0;
   text-transform: none;
   color: var(--text-secondary);
+}
+
+/* AVIEW, Header: the free places under each cap side by side, each its Label above its free count and cap bar, the
+   two together as tall as the title's 36 px line and centred on it. */
+.cap-figures {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 36px;
+}
+
+.cap-figure {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.cap-figure .label {
+  line-height: 1;
+}
+
+.cap-figure-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+}
+
+/* VIS, Cap bars: a solid bar 80 px wide and 8 px tall on a Divider track, filled from the left with the share taken,
+   coloured as the Fill of Progress bars. */
+.cap-bar {
+  position: relative;
+  display: inline-block;
+  width: 80px;
+  height: 8px;
+  background: var(--divider);
+}
+
+.cap-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
 }
 
 .detail-actions {

@@ -363,7 +363,7 @@ export function applyAdvanceTurn(
     }
     const result = report.outcome === 'Prevailed' ? 'Won' : 'Lost';
     mission.state.lifecycle = result;
-    // MISSION, Mission site lifecycle: Attempted to Concluded when its Mission becomes Won or Lost.
+    // MISSION, Mission site lifecycle: Deployed to Concluded when its Mission becomes Won or Lost.
     site.state.lifecycle = 'Concluded';
 
     const killed: string[] = [];

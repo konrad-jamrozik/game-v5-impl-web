@@ -6,7 +6,7 @@
 import { deepFreeze, detach, must, q } from '../../kernel/index.ts';
 import { GAME_BUILD, type GdrCatalog, type MissionSiteArchetypeGdr } from '../../gdr/index.ts';
 import { applyGameAction } from '../actions/actions.ts';
-import { canBeAssigned, effectiveSkill, isFitForWork } from '../mechanics/agents/agents.ts';
+import { canBeAssigned, effectiveSkill, isAway, isFitForWork, isInBase } from '../mechanics/agents/agents.ts';
 import { combatRating, isAbleToFight } from '../mechanics/combat/combat.ts';
 import {
   agencyCaps,
@@ -85,6 +85,8 @@ function agentView(agent: Agent, gdrs: GdrCatalog): AgentView {
     assignment: s.assignment === null ? null : { ...s.assignment },
     canBeAssigned: canBeAssigned(s),
     fitForWork: isFitForWork(s, gdrs.agentParameters),
+    inBase: isInBase(s),
+    away: isAway(s),
     ableToFight: serving && isAbleToFight(s, gdrs.combatParameters, gdrs.agentParameters),
     participationHistory: s.participationHistory.map((item) => ({ ...item })),
     enemiesKilled: s.enemiesKilled,
@@ -313,7 +315,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
  * Retired; see MISSION, Mission site properties.
  */
 function siteIsCurrent(site: MissionSite): boolean {
-  return site.state.lifecycle === 'Active' || site.state.lifecycle === 'Attempted';
+  return site.state.lifecycle === 'Active' || site.state.lifecycle === 'Deployed';
 }
 
 /** `player.queries.getCurrentState()`. */

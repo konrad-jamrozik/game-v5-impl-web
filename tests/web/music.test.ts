@@ -25,6 +25,11 @@ describe('MUSIC: Soundtrack', () => {
     expect(files.some((file) => file.endsWith('.mp3'))).toBe(true);
     expect(new Set(files.map(trackTitle)).size).toBe(files.length);
   });
+
+  it('leaves out every file that the Excluded tracks section of the music README names, e.g. GEO-3.opus', () => {
+    const files = readdirSync(new URL('../../assets/music/', import.meta.url));
+    expect(files).not.toContain('GEO-3.opus');
+  });
 });
 
 describe('MUSIC: Playing order', () => {

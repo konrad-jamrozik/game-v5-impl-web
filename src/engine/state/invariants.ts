@@ -182,9 +182,9 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
       mission.constants.missionSite,
       (missionsBySite.get(mission.constants.missionSite) ?? 0) + 1,
     );
-    const siteHasMission = site?.state.lifecycle === 'Attempted' || site?.state.lifecycle === 'Concluded';
+    const siteHasMission = site?.state.lifecycle === 'Deployed' || site?.state.lifecycle === 'Concluded';
     if (!siteHasMission || mission.archetype !== gdrs.missionArchetype.id) {
-      fail(`${where}: its Mission site is not Attempted or Concluded, or its Archetype does not resolve`);
+      fail(`${where}: its Mission site is not Deployed or Concluded, or its Archetype does not resolve`);
     }
     const deployed = mission.state.lifecycle === 'Deployed';
     const sameTeam =
@@ -228,9 +228,9 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
       fail(`${where}: Turns until expiration is 0 exactly when Expired`);
     }
     const missions = missionsBySite.get(site.id) ?? 0;
-    const hasMission = site.state.lifecycle === 'Attempted' || site.state.lifecycle === 'Concluded';
+    const hasMission = site.state.lifecycle === 'Deployed' || site.state.lifecycle === 'Concluded';
     if (missions !== (hasMission ? 1 : 0)) {
-      fail(`${where}: a Mission references it exactly when it is Attempted or Concluded, and at most one`);
+      fail(`${where}: a Mission references it exactly when it is Deployed or Concluded, and at most one`);
     }
     const expected = archetype.enemies.flatMap(([enemyArchetype, count]) =>
       new Array<string>(count).fill(enemyArchetype),

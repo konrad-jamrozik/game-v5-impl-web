@@ -5,6 +5,8 @@ import {
   clampExhaustion,
   clampHealth,
   effectiveSkill,
+  isAway,
+  isInBase,
   trainingGainProbability,
 } from '../../src/engine/mechanics/agents/agents.ts';
 import { ratio } from '../../src/kernel/index.ts';
@@ -583,5 +585,43 @@ describe('AGENT: Acceptance examples', () => {
     expect(alone.Standby).not.toContain(a3);
     expect(alone.Training).not.toContain(a3);
     expect(alone.Standby).not.toContain(a2);
+  });
+
+  it('Agent statuses: every Serving Agent is In base or Away, whatever its health and exhaustion', () => {
+    let state = withAgents(newCampaign(), 7);
+    const [a1, a2, a3, a4, a5, a6, a7] = agentIds(state) as [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ];
+    state = setAssignment(state, [a2], 'Training');
+    state = setAssignment(state, [a3], 'Contracting');
+    state = setAssignment(state, [a4], 'Standby', 'InTransit');
+    state = tweak(state, (world) => {
+      // a1 on Standby, At assignment, but too exhausted to start work and hurt: still In base.
+      world.agents[a1]!.state.exhaustion = 90;
+      world.agents[a1]!.state.currentHealth = 1;
+      world.agents[a5]!.state.assignment = { kind: 'Recovery' };
+      world.agents[a5]!.state.status = 'Recovering';
+      world.agents[a6]!.state.assignment = { kind: 'Deployed', mission: 'mission-1' };
+      world.agents[a7]!.state.status = 'Dismissed';
+      world.agents[a7]!.state.assignment = null;
+    });
+    const where = (id: string) => {
+      const found = currentStateView(state, gdrs).agents.find((a) => a.id === id);
+      return found === undefined ? null : { inBase: found.inBase, away: found.away };
+    };
+    expect(where(a1)).toEqual({ inBase: true, away: false });
+    expect(where(a2)).toEqual({ inBase: true, away: false });
+    expect(where(a3)).toEqual({ inBase: false, away: true });
+    expect(where(a4)).toEqual({ inBase: false, away: true });
+    expect(where(a5)).toEqual({ inBase: true, away: false });
+    expect(where(a6)).toEqual({ inBase: false, away: true });
+    expect(isInBase(agent(state, a7).state)).toBe(false);
+    expect(isAway(agent(state, a7).state)).toBe(false);
   });
 });

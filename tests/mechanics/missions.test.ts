@@ -93,8 +93,8 @@ describe('MISSION: Acceptance examples', () => {
     state = tweak(state, (world) => (world.agents[ids[0]!]!.state.exhaustion = 0));
     state = act(state, 'deployAgents', { missionSite: s1, agents: ids });
     const m1 = missionAt(state, s1);
-    expect(site(state, s1).state).toMatchObject({ lifecycle: 'Attempted', turnsUntilExpiration: 4 });
-    // An Attempted Mission site is an Unfinished Mission site: it blocks its Lead and is in Current world state.
+    expect(site(state, s1).state).toMatchObject({ lifecycle: 'Deployed', turnsUntilExpiration: 4 });
+    // An Deployed Mission site is an Unfinished Mission site: it blocks its Lead and is in Current world state.
     expect(
       currentStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
     ).toMatchObject({ conditions: { noUnfinishedMissionSite: false } });
@@ -536,7 +536,7 @@ describe('MISSION: Acceptance examples', () => {
       world.agents[agentIds(created.state)[0]!]!.state.assignment = { kind: 'Standby' };
     });
     expect(checkInvariants(state, gdrs)).toEqual([]);
-    // A Mission references the Mission site exactly when it is Attempted or Concluded.
+    // A Mission references the Mission site exactly when it is Deployed or Concluded.
     expect(
       checkInvariants(
         tweak(state, (world) => delete world.missions[m1]),
@@ -545,7 +545,7 @@ describe('MISSION: Acceptance examples', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('Structure of an Attempted Mission site and its Mission: invalid variants', () => {
+  it('Structure of a Deployed Mission site and its Mission: invalid variants', () => {
     const created = addMissionSite(newCampaign(), 'apprehend_member');
     const state = act(created.state, 'deployAgents', {
       missionSite: created.site,

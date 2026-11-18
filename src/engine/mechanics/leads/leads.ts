@@ -59,11 +59,11 @@ export function leadAvailability(lead: LeadGdr, world: LeadWorld): LeadAvailabil
   const prerequisitesHold = prerequisites.every((entry) => entry.holds);
   const noMissionWon = !won.some((site) => leadOfMissionSite(site, world.investigations) === lead.id);
 
-  // MISSION, Glossary: an Unfinished Mission site is Active or Attempted.
+  // MISSION, Glossary: an Unfinished Mission site is Active or Deployed.
   const unfinished = Object.values(world.missionSites).some(
     (site) =>
       leadOfMissionSite(site, world.investigations) === lead.id &&
-      (site.state.lifecycle === 'Active' || site.state.lifecycle === 'Attempted'),
+      (site.state.lifecycle === 'Active' || site.state.lifecycle === 'Deployed'),
   );
 
   const factionNotEliminated = faction !== undefined && !faction.state.eliminated;

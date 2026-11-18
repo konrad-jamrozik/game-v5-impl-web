@@ -35,6 +35,19 @@ export function consequenceParts(c: ConsequenceView, factionName: string): strin
 
 type ListItem = { readonly site: MissionSiteView; readonly detail: string; readonly tone?: string };
 
+/**
+ * MVIEW, Combat ratings: the one style the three Combat ratings share, so that each stands out from the figures around
+ * it: the Label "Combat rating" followed by the value in the Figure style and Accent text.
+ */
+function CombatRating(props: { value: number; testId: string }) {
+  return (
+    <span className="combat-rating" data-testid={props.testId}>
+      <span className="label">Combat rating</span>
+      <span className="figure tone-accent">{props.value}</span>
+    </span>
+  );
+}
+
 export function MissionsView(props: {
   snapshot: Snapshot;
   state: CurrentStateView;
@@ -181,6 +194,7 @@ function SiteDetails(props: {
   state: CurrentStateView;
   factionName: (id: string) => string;
 }) {
+  const { player } = theEngine();
   const { site, snapshot, state, factionName } = props;
   const target = factionName(site.targetFaction);
   const origin =
@@ -216,32 +230,15 @@ function SiteDetails(props: {
           </>
         )}
       </dl>
-      <div className="sit-group-head pane-sub">
-        <span className="label">Enemies</span>
-        <span className="figure secondary">Combat rating {site.enemiesCombatRating}</span>
+      {/* MVIEW, Combat ratings: the Enemies' Combat rating sits on the line of the Enemies heading and ends at the
+          right edge of the Enemies table. */}
+      <div className="enemies-block">
+        <div className="sit-group-head pane-sub">
+          <span className="label">Enemies</span>
+          <CombatRating value={site.enemiesCombatRating} testId="enemies-combat-rating" />
+        </div>
+        <EnemiesTable site={site} />
       </div>
-      <Grid widths={['180px', '76px', '88px', '88px']} className="compact">
-        <thead>
-          <tr>
-            <th>Enemy</th>
-            <th className="num">Skill</th>
-            <th className="num">Health</th>
-            <th className="num">Damage</th>
-          </tr>
-        </thead>
-        <tbody>
-          {site.enemies.map((enemy) => (
-            <tr key={enemy.id}>
-              <td>{enemy.archetypeName}</td>
-              <td className="num">{enemy.skill}</td>
-              <td className="num">
-                {enemy.currentHealth}/{enemy.baseHealth}
-              </td>
-              <td className="num">{enemy.weaponDamage}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Grid>
       <div className="label pane-sub">Consequences</div>
       <dl className="pairs">
         <dt>If won</dt>
@@ -258,9 +255,56 @@ function SiteDetails(props: {
             <dt>State</dt>
             <dd>{mission.lifecycle}</dd>
           </dl>
+          {/* MVIEW, Selected Mission site: while the Mission is Deployed, the Combat rating of its Current team; once
+              it is Won or Lost, its Combat report holds the ratings its Combat had. */}
+          {mission.lifecycle === 'Deployed' ? (
+            <div className="combat-rating-row">
+              <CombatRating
+                value={teamCombatRating(player, mission.currentTeam)}
+                testId="current-team-combat-rating"
+              />
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>
+  );
+}
+
+/** The Combat rating of Agents taken as one side, as the engine computes it. */
+function teamCombatRating(player: ReturnType<typeof theEngine>['player'], agents: readonly string[]): number {
+  if (agents.length === 0) {
+    return 0;
+  }
+  const preview = player.queries.previewDeployment(null, agents);
+  return preview.ok ? preview.value.teamCombatRating : 0;
+}
+
+function EnemiesTable(props: { site: MissionSiteView }) {
+  const { site } = props;
+  return (
+    <Grid widths={['180px', '76px', '88px', '88px']} className="compact">
+      <thead>
+        <tr>
+          <th>Enemy</th>
+          <th className="num">Skill</th>
+          <th className="num">Health</th>
+          <th className="num">Damage</th>
+        </tr>
+      </thead>
+      <tbody>
+        {site.enemies.map((enemy) => (
+          <tr key={enemy.id}>
+            <td>{enemy.archetypeName}</td>
+            <td className="num">{enemy.skill}</td>
+            <td className="num">
+              {enemy.currentHealth}/{enemy.baseHealth}
+            </td>
+            <td className="num">{enemy.weaponDamage}</td>
+          </tr>
+        ))}
+      </tbody>
+    </Grid>
   );
 }
 
@@ -298,9 +342,17 @@ function Deployment(props: {
     <div className="pane" data-testid="deployment">
       <div className="sit-group-head">
         <span className="label">Deploy</span>
+      </div>
+      {/* MVIEW, Deployment: the Transport cap places taken and, after it on the same line, the Combat rating of the
+          checked Agents taken as one side, 0 while none is checked. */}
+      <div className="deploy-figures">
         <span className={`figure${over ? ' tone-bad' : ' secondary'}`} data-testid="transport">
           Transport {taken} / {state.agency.transportCap}
         </span>
+        <CombatRating
+          value={preview !== null && preview.ok ? preview.value.teamCombatRating : 0}
+          testId="team-combat-rating"
+        />
       </div>
       {candidates.length === 0 ? (
         <p className="muted small">No Agent on Standby or in Training can be deployed now.</p>

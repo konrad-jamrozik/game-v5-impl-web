@@ -87,8 +87,7 @@ export function LeadsView(props: {
         .filter((lead) => lead.status === 'Inactive' && !investigated.has(lead.id))
         .map((lead) => {
           const site = state.missionSites.find(
-            (item) =>
-              item.lead === lead.id && (item.lifecycle === 'Active' || item.lifecycle === 'Attempted'),
+            (item) => item.lead === lead.id && (item.lifecycle === 'Active' || item.lifecycle === 'Deployed'),
           );
           return { lead, detail: site === undefined ? 'blocked' : `${site.name} open`, tone: 'muted' };
         }),
