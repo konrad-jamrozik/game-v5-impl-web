@@ -68,6 +68,7 @@ export function MusicControl({ snapshot }: { snapshot: Snapshot }) {
         aria-pressed={on}
         title={on ? 'Turn music off' : 'Turn music on'}
         data-testid="music-toggle"
+        data-sound="none"
         onClick={() => {
           act(() => session.globalConfiguration.set('musicOn', !on));
         }}

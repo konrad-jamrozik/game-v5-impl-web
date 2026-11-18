@@ -6,6 +6,7 @@
  * the engine's `previewProgressLoss` query, so the GUI applies no rule of Progress loss itself.
  */
 import type { CurrentStateView, ProgressLossPreview } from '../engine/index.ts';
+import { confirmOrGoBack } from './sound-player.ts';
 import { theEngine } from './store.ts';
 import { progressPoints } from './format.ts';
 
@@ -72,5 +73,5 @@ export function interruptionMessage(
 export function confirmInterruption(state: CurrentStateView, agentIds: readonly string[]): boolean {
   const preview = theEngine().player.queries.previewProgressLoss(agentIds);
   const message = interruptionMessage(state, agentIds, preview.ok ? preview.value : []);
-  return message === null || window.confirm(message);
+  return message === null || confirmOrGoBack(message);
 }

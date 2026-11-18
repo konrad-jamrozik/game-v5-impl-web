@@ -1,6 +1,8 @@
 /** The Main menu: new-Campaign setup, Campaign saves, and the Global configuration. */
 import { useEffect, useState } from 'react';
 import { GAME_BUILD, type SaveListEntry } from '../../engine/index.ts';
+import { confirmOrGoBack, playSound } from '../sound-player.ts';
+import { SOUND } from '../sounds.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { Button, NumberField, Section, Grid, typingIn } from '../ui.tsx';
 import { MusicControl } from './MusicControl.tsx';
@@ -69,18 +71,32 @@ export function SettingsPanel({ snapshot }: { snapshot: Snapshot }) {
                   Reset to {String(setting.gameBuildDefault)}
                 </Button>
               ) : null}
-              <NumberField
-                label={setting.name}
-                testId={`setting-${setting.setting}`}
-                stored={String(setting.effectiveValue)}
-                onCommit={(text) => {
-                  act(() =>
-                    text === ''
-                      ? session.globalConfiguration.reset(setting.setting)
-                      : session.globalConfiguration.set(setting.setting, Number(text)),
-                  );
-                }}
-              />
+              {typeof setting.gameBuildDefault === 'boolean' ? (
+                // SOUNDS, Sound settings: a setting of true or false, e.g. Sounds on, is a checkbox.
+                <input
+                  type="checkbox"
+                  aria-label={setting.name}
+                  data-testid={`setting-${setting.setting}`}
+                  checked={setting.effectiveValue === true}
+                  onChange={(event) => {
+                    const value = event.target.checked;
+                    act(() => session.globalConfiguration.set(setting.setting, value));
+                  }}
+                />
+              ) : (
+                <NumberField
+                  label={setting.name}
+                  testId={`setting-${setting.setting}`}
+                  stored={String(setting.effectiveValue)}
+                  onCommit={(text) => {
+                    act(() =>
+                      text === ''
+                        ? session.globalConfiguration.reset(setting.setting)
+                        : session.globalConfiguration.set(setting.setting, Number(text)),
+                    );
+                  }}
+                />
+              )}
             </div>
           </div>
         ))}
@@ -153,6 +169,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !typingIn(event.target)) {
         event.preventDefault();
+        playSound(SOUND.back);
         resume(left);
       }
     };
@@ -171,6 +188,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
           aria-label="Close"
           title="Back to the Campaign (Esc)"
           data-testid="menu-close"
+          data-sound="back"
           onClick={() => {
             resume(left);
           }}
@@ -232,7 +250,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                         onClick={() => {
                           // GUI, Main menu: deleting cannot be undone, so the Player confirms it first.
                           if (
-                            window.confirm(
+                            confirmOrGoBack(
                               `Delete Campaign ${group.campaignId.slice(0, 8)} with all its ${group.saves.length} Campaign saves? This cannot be undone.`,
                             )
                           ) {
@@ -283,7 +301,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                                       : (KIND_NAMES[save.autosaveKind] ?? save.autosaveKind);
                                   // GUI, Main menu: deleting cannot be undone, so the Player confirms it first.
                                   if (
-                                    window.confirm(
+                                    confirmOrGoBack(
                                       `Delete the ${kind} of Turn ${save.turn} of Campaign ${save.campaignId.slice(0, 8)}? This removes 1 Campaign save and cannot be undone.`,
                                     )
                                   ) {

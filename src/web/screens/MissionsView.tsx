@@ -87,6 +87,7 @@ export function MissionsView(props: {
             key={`${testId}-${item.site.id}`}
             type="button"
             className={`list-row${selected?.id === item.site.id ? ' list-row-on' : ''}`}
+            data-sound="none"
             data-testid={`site-${item.site.id}`}
             onClick={() => {
               setPicked(item.site.id);
@@ -110,6 +111,7 @@ export function MissionsView(props: {
           type="button"
           className={showFinished ? 'chip chip-on' : 'chip'}
           data-testid="missions-finished"
+          data-sound="none"
           onClick={() => {
             setShowFinished((on) => !on);
             setPicked(null);

@@ -6,6 +6,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { consequenceText, progressPoints } from '../format.ts';
 import { completedProgressBar } from '../progress-bar.ts';
 import { SOON_EXPIRING_TURNS } from '../situation.ts';
+import { playSound } from '../sound-player.ts';
+import { SOUND } from '../sounds.ts';
 import type { TurnSummaryModel } from '../turn-summary.ts';
 import { ProgressBar } from './ProgressBar.tsx';
 
@@ -53,6 +55,7 @@ export function TurnSummary(props: {
         data-testid="turn-summary"
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
+            playSound(SOUND.back);
             props.onDismiss();
           }
           // The Campaign screen's shortcuts do not reach the screen behind the dialog.
@@ -214,6 +217,7 @@ export function TurnSummary(props: {
             type="button"
             className="btn btn-primary"
             data-testid="turn-summary-continue"
+            data-sound="back"
             onClick={props.onDismiss}
           >
             Continue

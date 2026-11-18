@@ -3,6 +3,8 @@ import { Campaign } from './screens/Campaign.tsx';
 import { MainMenu } from './screens/MainMenu.tsx';
 import { musicSettings } from './screens/MusicControl.tsx';
 import { music } from './music-player.ts';
+import { configureSounds, installButtonSounds } from './sound-player.ts';
+import { soundSettings } from './sounds.ts';
 import { dismissNotice, useSnapshot } from './store.ts';
 
 export function App() {
@@ -13,6 +15,13 @@ export function App() {
   useEffect(() => {
     music.configure(musicOn, musicVolume);
   }, [musicOn, musicVolume]);
+
+  // SOUNDS, Sound settings and When Sounds play: one listener answers every button of every screen.
+  const { on: soundsOn, volume: soundsVolume } = soundSettings(snapshot.configuration.settings);
+  useEffect(() => {
+    configureSounds(soundsOn, soundsVolume);
+  }, [soundsOn, soundsVolume]);
+  useEffect(() => installButtonSounds(document), []);
 
   useEffect(() => {
     const newest = snapshot.notices.at(-1);
@@ -46,6 +55,7 @@ export function App() {
               type="button"
               className="notice-close"
               aria-label="Dismiss"
+              data-sound="back"
               onClick={() => {
                 dismissNotice(notice.id);
               }}

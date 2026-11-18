@@ -173,6 +173,7 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
               type="button"
               className={`list-row${name === shownCategory ? ' list-row-on' : ''}`}
               data-testid={`compendium-category-${name}`}
+              data-sound="none"
               onClick={() => {
                 setCategory(name);
                 setPicked(null);
@@ -190,6 +191,7 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
               type="button"
               className={`list-row${item.id === article?.id ? ' list-row-on' : ''}`}
               data-testid={`article-${item.id}`}
+              data-sound="none"
               onClick={() => {
                 setPicked(item.id);
               }}

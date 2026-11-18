@@ -23,6 +23,7 @@ import {
   type Selectability,
 } from '../agent-selection.ts';
 import { useRowSelection } from '../row-selection.ts';
+import { confirmOrGoBack } from '../sound-player.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { pressHeader, sortRows, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
@@ -360,6 +361,7 @@ export function AgentsView(props: {
       className={rowFilter === which ? 'chip chip-on' : 'chip'}
       aria-pressed={rowFilter === which}
       data-testid={`filter-${which}`}
+      data-sound="none"
       onClick={() => {
         setRowFilter(which);
       }}
@@ -439,6 +441,7 @@ export function AgentsView(props: {
                     aria-label={`Allow selecting only the Agents that can be assigned to ${assignment}`}
                     title={`Allow selecting only the Agents that can be assigned to ${assignment}`}
                     data-testid={`filter-to-${assignment.toLowerCase()}`}
+                    data-sound="none"
                     onClick={() => {
                       setSelectionFilter(on ? null : assignment);
                     }}
@@ -467,7 +470,7 @@ export function AgentsView(props: {
           testId="dismiss"
           disabledReason={dismissReason}
           onClick={() => {
-            if (window.confirm(`Dismiss ${selected.join(', ')}? A Dismissed Agent never returns.`)) {
+            if (confirmOrGoBack(`Dismiss ${selected.join(', ')}? A Dismissed Agent never returns.`)) {
               const agents = [...selected];
               act(() => player.actions.dismissAgents(agents));
             }
@@ -697,7 +700,13 @@ function AgentDetails(props: {
   return (
     <div className="stack" data-testid={`agent-details-view-${agent.id}`}>
       <div>
-        <button type="button" className="link" data-testid="agent-details-back" onClick={props.onBack}>
+        <button
+          type="button"
+          className="link"
+          data-testid="agent-details-back"
+          data-sound="back"
+          onClick={props.onBack}
+        >
           ← Agents
         </button>
       </div>

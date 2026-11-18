@@ -125,7 +125,9 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
     <aside className="drawer" aria-label="Developer" data-testid="developer-drawer">
       <header className="section-head">
         <h3>Developer</h3>
-        <Button onClick={onClose}>Close</Button>
+        <Button sound="back" onClick={onClose}>
+          Close
+        </Button>
       </header>
       <label className="inline">
         <input

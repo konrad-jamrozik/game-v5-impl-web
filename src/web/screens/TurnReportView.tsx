@@ -280,7 +280,13 @@ function CombatReportDetails(props: { combat: CombatReport; levels: ExhaustionLe
   return (
     <div className="stack" data-testid="combat-report">
       <div>
-        <button type="button" className="link" data-testid="combat-back" onClick={props.onBack}>
+        <button
+          type="button"
+          className="link"
+          data-testid="combat-back"
+          data-sound="back"
+          onClick={props.onBack}
+        >
           ← Turn report
         </button>
       </div>

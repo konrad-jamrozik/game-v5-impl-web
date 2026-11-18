@@ -127,6 +127,7 @@ export function LeadsView(props: {
                     type="button"
                     className="sit-group-head list-toggle"
                     data-testid="leads-archived-toggle"
+                    data-sound="none"
                     onClick={() => {
                       setArchivedOpen((open) => !open);
                     }}
@@ -145,6 +146,7 @@ export function LeadsView(props: {
                         type="button"
                         className={`list-row${selected?.id === item.lead.id ? ' list-row-on' : ''}`}
                         data-testid={`lead-${item.lead.id}`}
+                        data-sound="none"
                         onClick={() => {
                           setPicked(item.lead.id);
                         }}

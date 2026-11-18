@@ -197,13 +197,15 @@
 - **Affected specifications:** CONFIG, Global configuration: "Interface preferences belong to Global configuration,
   e.g. volume, language, and tutorial popups. So does a setting that governs the engine without being consulted by
   game behavior, e.g. the Autosave limit".
-- **Description:** This Game build has exactly three Global configuration settings: the Autosave limit, a whole
-  number of at least 0 with the Game build default 5; and Music on and Music volume, under MUSIC, Music settings, since
-  4594d57d7fd5629eb491f9749e7775a05395671a. The interface theme setting was removed under
+- **Description:** This Game build has exactly five Global configuration settings: the Autosave limit, a whole
+  number of at least 0 with the Game build default 5; Music on and Music volume, under MUSIC, Music settings, since
+  4594d57d7fd5629eb491f9749e7775a05395671a; and Sounds on and Sounds volume, under SOUNDS, Sound settings, since
+  7d818a25333f1fbcd53aefd0a354dad88714d682. The interface theme setting was removed under
   741432de4c8152c73ac65baeda155412f847b01c, which makes any setting that switches themes out of scope, as DEC-034
   records. The game has one language, so it offers no language setting.
 - **Options considered:** Only the Autosave limit; the Autosave limit and the settings the interfaces need.
-- **Option chosen:** The Autosave limit and the settings the interfaces need, now Music on and Music volume.
+- **Option chosen:** The Autosave limit and the settings the interfaces need, now Music on, Music volume, Sounds on,
+  and Sounds volume.
 - **Why:** These are the settings this Implementation reads; a setting nothing reads would mislead the player.
 - **Links:** PROB-002
 
@@ -905,3 +907,18 @@
 - **Why:** A hand-kept list can fall out of step with the files, and the same path as in the Spec repo makes the copy
   easy to compare.
 - **Links:** None.
+
+## DEC-049: The Sound set is bundled from `assets/sounds/`
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** PLACE, Sounds in an Implementation: "its Game build must serve that copy rather than the
+  `assets/sounds/` directory of the Spec repo; e.g., a web Implementation built with Vite copies the files to
+  `public/sounds/`."
+- **Description:** The copy of the Sound set is kept in `assets/sounds/`, the same path as in the Spec repo, without its
+  README, which is not a Sound. The web UI finds each Sound with Vite's `import.meta.glob`, which also emits each file
+  into the Game build, as DEC-048 does for the Soundtrack.
+- **Options considered:** `public/sounds/` with a hand-kept list of file names; `assets/sounds/` listed by
+  `import.meta.glob`.
+- **Option chosen:** `assets/sounds/` listed by `import.meta.glob`.
+- **Why:** The Soundtrack is bundled the same way, and the same path as in the Spec repo makes the copy easy to compare.
+- **Links:** DEC-048.

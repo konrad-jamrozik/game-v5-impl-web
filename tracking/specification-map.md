@@ -441,6 +441,8 @@ No files.
 
 - content/SOURCE.md
 - assets/music/
+- assets/sounds/
+- src/web/sound-player.ts
 - .node-version
 - .gitignore
 - package.json
@@ -502,6 +504,30 @@ No files.
 - src/web/completion.ts
 - tests/web/situation-and-summary.test.ts
 - e2e/web.spec.ts
+
+## SOUNDS: Sounds
+
+- assets/sounds/
+- src/web/sounds.ts
+- src/web/sound-player.ts
+- src/web/App.tsx
+- src/web/ui.tsx
+- src/web/screens/Campaign.tsx
+- src/web/screens/DetailView.tsx
+- src/web/screens/TurnSummary.tsx
+- src/web/screens/MainMenu.tsx
+- src/web/screens/AgentsView.tsx
+- src/web/screens/LeadsView.tsx
+- src/web/screens/MissionsView.tsx
+- src/web/screens/CompendiumView.tsx
+- src/web/screens/TurnReportView.tsx
+- src/web/screens/AutopilotBar.tsx
+- src/web/screens/MusicControl.tsx
+- src/web/screens/DeveloperDrawer.tsx
+- src/web/tired-deployment.ts
+- src/web/interruption.ts
+- src/engine/session/global-configuration.ts
+- tests/web/sounds.test.ts
 
 ## STACK: Tech Stack Suggestion
 

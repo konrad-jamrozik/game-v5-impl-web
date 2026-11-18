@@ -4,6 +4,7 @@
  * and asks to confirm. It is a warning, not a block.
  */
 import type { CurrentStateView } from '../engine/index.ts';
+import { confirmOrGoBack } from './sound-player.ts';
 
 /** The exhaustion from which the GUI warns; a constant of the GUI, not a GDR value, because no game rule reads it. */
 export const TIRED_DEPLOYMENT_EXHAUSTION = 20;
@@ -30,5 +31,5 @@ export function tiredDeploymentMessage(state: CurrentStateView, agentIds: readon
 /** Warns the Player before deploying tired Agents; true when the Player confirms or nothing needs a warning. */
 export function confirmTiredDeployment(state: CurrentStateView, agentIds: readonly string[]): boolean {
   const message = tiredDeploymentMessage(state, agentIds);
-  return message === null || window.confirm(message);
+  return message === null || confirmOrGoBack(message);
 }

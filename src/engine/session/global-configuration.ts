@@ -13,7 +13,7 @@ export interface SettingDescriptor {
   isPermitted(value: unknown): value is SettingValue;
 }
 
-/** The complete set of Global configuration settings of this Game build; see DEC-011 and MUSIC, Music settings. */
+/** The complete set of Global configuration settings of this Game build; see DEC-011, MUSIC, Music settings, and SOUNDS, Sound settings. */
 export const SETTINGS: readonly SettingDescriptor[] = [
   {
     setting: 'autosaveLimit',
@@ -33,6 +33,21 @@ export const SETTINGS: readonly SettingDescriptor[] = [
   {
     setting: 'musicVolume',
     name: 'Music volume',
+    gameBuildDefault: 50,
+    permitted: 'A whole number from 0 to 100',
+    isPermitted: (value): value is SettingValue =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 100,
+  },
+  {
+    setting: 'soundsOn',
+    name: 'Sounds on',
+    gameBuildDefault: true,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
+  {
+    setting: 'soundsVolume',
+    name: 'Sounds volume',
     gameBuildDefault: 50,
     permitted: 'A whole number from 0 to 100',
     isPermitted: (value): value is SettingValue =>

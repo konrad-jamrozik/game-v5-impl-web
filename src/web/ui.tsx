@@ -1,5 +1,6 @@
 /** Small presentational pieces shared by the screens. */
 import { useState, type ReactNode } from 'react';
+import type { ButtonSound } from './sounds.ts';
 import { TIER_OPACITY, type SortTier } from './table-sort.ts';
 import { tallySquares } from './tally.ts';
 
@@ -17,6 +18,8 @@ export function Button(props: {
   tooltip?: string | undefined;
   testId?: string;
   className?: string;
+  /** SOUNDS: a Main click unless it is a Go back or only selects, toggles, filters, sorts, or changes a tab. */
+  sound?: ButtonSound;
 }) {
   const disabled = props.disabledReason !== undefined && props.disabledReason !== null;
   const enabledTitle = [
@@ -33,6 +36,7 @@ export function Button(props: {
       title={disabled ? (props.disabledReason ?? '') : enabledTitle === '' ? undefined : enabledTitle}
       onClick={props.onClick}
       data-testid={props.testId}
+      data-sound={props.sound}
     >
       {props.children}
       {props.shortcut === undefined ? null : <kbd>{props.shortcut}</kbd>}

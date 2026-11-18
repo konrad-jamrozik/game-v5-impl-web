@@ -5,6 +5,8 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
+import { playAfterMainClick, playSound } from '../sound-player.ts';
+import { SOUND } from '../sounds.ts';
 import { undoRedoStep } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
@@ -113,6 +115,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       const report = player.queries.getTurnReport();
       if (!report.ok || !showsTurnSummary(ending, report.value)) {
         setRequestedTurn(null);
+      } else {
+        // SOUNDS, Turn summary: the news is announced once the Advance turn's main-click has ended.
+        playAfterMainClick(SOUND.turnSummary);
       }
     });
   };
@@ -154,9 +159,15 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         return;
       }
       const key = event.key.toLowerCase();
+      // SOUNDS, When Sounds play: a key that does what a button does plays that button's Sound; opening plays a
+      // Main click and closing a Go back.
+      const toggled = (wasOpen: boolean) => {
+        playSound(wasOpen ? SOUND.back : SOUND.main);
+      };
       // While the Turn summary is open, the screen behind it takes no shortcut; Escape dismisses it.
       if (summaryOpen) {
         if (key === 'escape') {
+          playSound(SOUND.back);
           dismissSummary();
           event.preventDefault();
         }
@@ -164,15 +175,21 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       }
       const numbered = DETAIL_VIEWS[Number(key) - 1];
       if (numbered !== undefined) {
+        toggled(open?.id === numbered.id);
         toggleView(numbered.id);
       } else if (key === '`') {
+        toggled(drawer);
         setDrawer((on) => !on);
       } else if (key === '?') {
+        toggled(help);
         setHelp((on) => !on);
       } else if (key === 'escape') {
+        // SOUNDS, Go back: Escape with nothing to close plays no Sound.
         if (help) {
+          playSound(SOUND.back);
           setHelp(false);
-        } else {
+        } else if (open !== null) {
+          playSound(SOUND.back);
           setOpen(null);
         }
       } else if (key === 'a') {
@@ -180,12 +197,24 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       } else if (autopilotActive) {
         return;
       } else if (key === 'n') {
+        if (actions?.advanceTurn.available === true) {
+          playSound(SOUND.main);
+        }
         advance();
       } else if (key === 'u') {
+        if (steps.undo !== null) {
+          playSound(SOUND.main);
+        }
         takeStep('undo');
       } else if (key === 'r') {
+        if (steps.redo !== null) {
+          playSound(SOUND.main);
+        }
         takeStep('redo');
       } else if (key === 'h') {
+        if (actions?.hireAgent.available === true) {
+          playSound(SOUND.main);
+        }
         act(() => player.actions.hireAgent());
       } else if (key === 's') {
         order('Standby');
@@ -393,6 +422,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                         type="button"
                         className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
                         aria-pressed={open?.id === view.id}
+                        data-sound={open?.id === view.id ? 'back' : 'main'}
                         title={`Shortcut: ${index}`}
                         data-testid={`nav-${view.id}`}
                         onClick={() => {
@@ -417,6 +447,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
               <button
                 type="button"
                 className="link"
+                data-sound={help ? 'back' : 'main'}
                 onClick={() => {
                   setHelp((on) => !on);
                 }}
@@ -427,6 +458,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                 type="button"
                 className="link"
                 data-testid="open-developer"
+                data-sound={drawer ? 'back' : 'main'}
                 onClick={() => {
                   setDrawer((on) => !on);
                 }}

@@ -56,6 +56,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
       className="autopilot-toggle"
       aria-expanded={expanded}
       data-testid="autopilot-toggle"
+      data-sound="none"
       onClick={() => {
         setExpanded((on) => !on);
       }}

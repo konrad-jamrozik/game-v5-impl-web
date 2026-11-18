@@ -73,6 +73,7 @@ export function DetailView(props: {
             type="button"
             className="btn btn-plain detail-close"
             aria-label="Close"
+            data-sound="back"
             title="Close (Esc)"
             data-testid="close-view"
             onClick={props.onClose}
