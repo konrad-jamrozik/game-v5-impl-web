@@ -204,7 +204,7 @@ export interface EncyclopediaArticleGdr {
 export interface MusicParametersGdr {
   readonly type: 'MusicParameters';
   readonly id: string;
-  /** The files of `assets/music/` that are not Tracks, each by its file name with its extension. */
+  /** The files of `assets/music/tracks/` that are not Tracks, each by its file name with its extension. */
   readonly excludedTracks: readonly string[];
 }
 

@@ -410,7 +410,7 @@ No files.
 
 ## MUSIC: Music
 
-- assets/music/
+- assets/music/tracks/
 - content/music/music_parameters.yaml
 - src/gdr/catalog.ts
 - src/gdr/types.ts
@@ -468,7 +468,7 @@ No files.
 ## PLACE: Implementation Placement
 
 - content/SOURCE.md
-- assets/music/
+- assets/music/tracks/
 - assets/sounds/
 - src/web/sound-player.ts
 - .node-version

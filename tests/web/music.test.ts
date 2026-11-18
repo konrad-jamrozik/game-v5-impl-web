@@ -13,16 +13,16 @@ function fixed(...values: number[]): () => number {
 describe('MUSIC: Soundtrack', () => {
   it('titles a Track by its file name without the extension, unchanged', () => {
     expect(trackTitle('Silent Threat Protocol.opus')).toBe('Silent Threat Protocol');
-    expect(trackTitle('../../assets/music/Black Orbit Watch.opus')).toBe('Black Orbit Watch');
-    expect(trackTitle('../../assets/music/Signal Intercept var1.mp3')).toBe('Signal Intercept var1');
-    expect(trackTitle('../../assets/music/v03AI UFO 4 - Scanning Protocol - Dark.mp3')).toBe(
+    expect(trackTitle('../../assets/music/tracks/Black Orbit Watch.opus')).toBe('Black Orbit Watch');
+    expect(trackTitle('../../assets/music/tracks/Signal Intercept var1.mp3')).toBe('Signal Intercept var1');
+    expect(trackTitle('../../assets/music/tracks/v03AI UFO 4 - Scanning Protocol - Dark.mp3')).toBe(
       'v03AI UFO 4 - Scanning Protocol - Dark',
     );
     expect(trackTitle('Depth Signal.mp3')).toBe(trackTitle('Depth Signal.opus'));
   });
 
   it('holds a copy of the Soundtrack, every Track an Ogg Opus or MP3 file with a distinct title', () => {
-    const files = readdirSync(new URL('../../assets/music/', import.meta.url));
+    const files = readdirSync(new URL('../../assets/music/tracks/', import.meta.url));
     expect(files.length).toBeGreaterThan(0);
     expect(files.every((file) => file.endsWith('.opus') || file.endsWith('.mp3'))).toBe(true);
     expect(files.some((file) => file.endsWith('.mp3'))).toBe(true);
@@ -42,9 +42,9 @@ describe('MUSIC: Soundtrack', () => {
 
   it('plays no file that the GDR `music` excludes, nor any file that is not Ogg Opus or MP3', () => {
     const excluded = ['Beneath the Grid.opus', 'v03AI UFO 1.mp3'];
-    expect(isTrack('../../assets/music/Beneath the Grid.opus', excluded)).toBe(false);
+    expect(isTrack('../../assets/music/tracks/Beneath the Grid.opus', excluded)).toBe(false);
     expect(isTrack('v03AI UFO 1.mp3', excluded)).toBe(false);
-    expect(isTrack('../../assets/music/Depth Signal.opus', excluded)).toBe(true);
+    expect(isTrack('../../assets/music/tracks/Depth Signal.opus', excluded)).toBe(true);
     expect(isTrack('Beneath the Grid.mp3', excluded)).toBe(true);
     expect(isTrack('Abyss Protocol.yaml', excluded)).toBe(false);
     expect(isTrack('README.md', excluded)).toBe(false);

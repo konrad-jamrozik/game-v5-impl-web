@@ -12,8 +12,8 @@ interface Track {
   readonly url: string;
 }
 
-/** PLACE, Music in an Implementation: the copy of the Soundtrack in assets/music/, served by the Game build. */
-const FILES = import.meta.glob<string>('../../assets/music/*.{opus,mp3}', {
+/** PLACE, Music in an Implementation: the copy of the Soundtrack in assets/music/tracks/, served by the Game build. */
+const FILES = import.meta.glob<string>('../../assets/music/tracks/*.{opus,mp3}', {
   eager: true,
   query: '?url',
   import: 'default',

@@ -913,20 +913,21 @@
   removed the confirmation.
 - **Links:** PROB-030
 
-## DEC-048: The Soundtrack is bundled from `assets/music/`
+## DEC-048: The Soundtrack is bundled from `assets/music/tracks/`
 
 - **Category:** Asked by the specifications
 - **Affected specifications:** PLACE, Music in an Implementation: "its Game build must serve that copy rather than the
-  `assets/music/` directory of the Spec repo; e.g., a web Implementation built with Vite copies the files to
+  `assets/music/tracks/` directory of the Spec repo; e.g., a web Implementation built with Vite copies the files to
   `public/music/`."
-- **Description:** The copy of the Soundtrack is kept in `assets/music/`, the same path as in the Spec repo, and the web
-  UI lists it with Vite's `import.meta.glob`, which also emits each file into the Game build. Adding a Track file adds
-  it to the Soundtrack with no list to edit.
-- **Options considered:** `public/music/` with a hand-kept list of file names; `assets/music/` listed by
+- **Description:** The copy of the Soundtrack is kept in `assets/music/tracks/`, the same path as in the Spec repo, and
+  the web UI lists it with Vite's `import.meta.glob`, which also emits each file into the Game build. Adding a Track
+  file adds it to the Soundtrack with no list to edit.
+- **Options considered:** `public/music/` with a hand-kept list of file names; the path of the Spec repo listed by
   `import.meta.glob`.
-- **Option chosen:** `assets/music/` listed by `import.meta.glob`.
+- **Option chosen:** The path of the Spec repo, `assets/music/tracks/`, listed by `import.meta.glob`.
 - **Why:** A hand-kept list can fall out of step with the files, and the same path as in the Spec repo makes the copy
-  easy to compare.
+  easy to compare. Specification revision f629d129c47dfbaba5ae6540c73bf0e8fdd0b2cd moved the Soundtrack of the Spec
+  repo from `assets/music/` to `assets/music/tracks/`, so the copy moved with it.
 - **Links:** None.
 
 ## DEC-049: The Sound set is bundled from `assets/sounds/`
@@ -1005,4 +1006,6 @@
   files from the music README into the GDR `music` (MUSIC, Soundtrack). The Game build now reads that list and plays
   no file it names, through `isTrack` in `src/web/music.ts`, so a copied file the GDR excludes is never played. The
   copy still leaves out every excluded file that the Spec repo holds, so the Game build carries no file it never plays.
+  Since Specification revision f629d129c47dfbaba5ae6540c73bf0e8fdd0b2cd, the Spec repo holds the Soundtrack in
+  `assets/music/tracks/`, and the copy is in `assets/music/tracks/` of this repository.
 - **Links:** None.
