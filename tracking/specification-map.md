@@ -375,6 +375,7 @@ No files.
 - e2e/web.spec.ts
 - src/web/store.ts
 - src/web/ui.tsx
+- tests/web/leave-campaign.test.ts
 
 ## MISSION: Missions
 

@@ -68,8 +68,14 @@ const listeners = new Set<() => void>();
 export async function leaveCampaign(): Promise<void> {
   const campaignId = theEngine().session.getStatus();
   const left = campaignId.ok ? campaignId.value.campaignId : null;
-  const closed = await run(() => theEngine().session.campaign.close());
-  if (closed !== null) {
+  // `close()` succeeds with the value null, which `run` also returns on failure, so success is read from the Result.
+  let closed = false;
+  await run(async () => {
+    const result = await theEngine().session.campaign.close();
+    closed = result.ok;
+    return result;
+  });
+  if (closed) {
     leftCampaign = left;
     changed();
   }
@@ -147,7 +153,7 @@ export async function boot(storage: GameStorage): Promise<void> {
   changed();
 }
 
-function snapshot(): Snapshot {
+export function snapshot(): Snapshot {
   const game = theEngine();
   const key = `${game.getRevision()}.${localRevision}`;
   if (cached?.key === key) {
