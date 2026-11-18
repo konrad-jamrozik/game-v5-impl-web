@@ -1001,4 +1001,8 @@
 - **Option chosen:** Leaving the excluded files out of the copy.
 - **Why:** The copy then holds exactly the Tracks, the Game build carries no file it never plays, and DEC-048 needs no
   list to read.
+- **Superseded in part:** Specification revision c1ad3ed71949da59ac10f90795e852b2e0f27b2d moves the list of excluded
+  files from the music README into the GDR `music` (MUSIC, Soundtrack). The Game build now reads that list and plays
+  no file it names, through `isTrack` in `src/web/music.ts`, so a copied file the GDR excludes is never played. The
+  copy still leaves out every excluded file that the Spec repo holds, so the Game build carries no file it never plays.
 - **Links:** None.

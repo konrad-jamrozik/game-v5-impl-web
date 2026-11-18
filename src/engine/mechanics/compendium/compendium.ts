@@ -57,9 +57,11 @@ export function articleVisible(
     case 'EndingParameters':
     case 'BackgroundArtwork':
       return true;
-    // No Player API value includes a Campaign configuration preset or the default-preset choice.
+    // No Player API value includes a Campaign configuration preset or the default-preset choice, nor the GDR
+    // `music`, which the Graphical User Interface reads from the Game build.
     case 'CampaignConfiguration':
     case 'ConfigurationParameters':
+    case 'MusicParameters':
       return false;
   }
 }

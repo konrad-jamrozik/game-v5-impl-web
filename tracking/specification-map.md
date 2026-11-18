@@ -411,6 +411,11 @@ No files.
 ## MUSIC: Music
 
 - assets/music/
+- content/music/music_parameters.yaml
+- src/gdr/catalog.ts
+- src/gdr/types.ts
+- src/engine/index.ts
+- src/engine/mechanics/compendium/compendium.ts
 - src/web/music.ts
 - src/web/music-player.ts
 - src/web/screens/MusicControl.tsx

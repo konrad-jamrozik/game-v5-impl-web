@@ -200,6 +200,14 @@ export interface EncyclopediaArticleGdr {
   readonly subject: string | null;
 }
 
+/** MUSIC, Soundtrack: Display content only; no game behavior reads it. */
+export interface MusicParametersGdr {
+  readonly type: 'MusicParameters';
+  readonly id: string;
+  /** The files of `assets/music/` that are not Tracks, each by its file name with its extension. */
+  readonly excludedTracks: readonly string[];
+}
+
 /** VIS, Background artwork: Display content only; no game behavior reads it. */
 export interface BackgroundArtworkGdr {
   readonly type: 'BackgroundArtwork';
@@ -234,7 +242,8 @@ export type AnyGdr =
   | MissionArchetypeGdr
   | EndingParametersGdr
   | EncyclopediaArticleGdr
-  | BackgroundArtworkGdr;
+  | BackgroundArtworkGdr
+  | MusicParametersGdr;
 
 /** An Encyclopedia article with its subject resolved to the Type of the subject GDR. */
 export interface CatalogEncyclopediaArticle extends EncyclopediaArticleGdr {
@@ -268,4 +277,6 @@ export interface GdrCatalog {
   readonly encyclopediaArticles: readonly CatalogEncyclopediaArticle[];
   /** VIS, Background artwork: every BackgroundArtwork, in Game build order. */
   readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
+  /** MUSIC, Soundtrack: the GDR `music`. */
+  readonly music: MusicParametersGdr;
 }

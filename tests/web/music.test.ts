@@ -1,7 +1,8 @@
 /** MUSIC: Track titles, the playing order in rounds, the fades, and the gain. */
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { drawRound, gain, stepToggleFade, trackFade, trackTitle } from '../../src/web/music.ts';
+import { excludedTracks } from '../../src/engine/index.ts';
+import { drawRound, gain, isTrack, stepToggleFade, trackFade, trackTitle } from '../../src/web/music.ts';
 
 /** A random source that returns the given numbers in turn. */
 function fixed(...values: number[]): () => number {
@@ -11,11 +12,13 @@ function fixed(...values: number[]): () => number {
 
 describe('MUSIC: Soundtrack', () => {
   it('titles a Track by its file name without the extension, unchanged', () => {
-    expect(trackTitle('GEO-6.opus')).toBe('GEO-6');
-    expect(trackTitle('../../assets/music/GEO-4.opus')).toBe('GEO-4');
-    expect(trackTitle('../../assets/music/GEO-14.mp3')).toBe('GEO-14');
-    expect(trackTitle('GEO-6.mp3')).toBe(trackTitle('GEO-6.opus'));
-    expect(trackTitle('Silent_Contact.opus')).toBe('Silent_Contact');
+    expect(trackTitle('Silent Threat Protocol.opus')).toBe('Silent Threat Protocol');
+    expect(trackTitle('../../assets/music/Black Orbit Watch.opus')).toBe('Black Orbit Watch');
+    expect(trackTitle('../../assets/music/Signal Intercept var1.mp3')).toBe('Signal Intercept var1');
+    expect(trackTitle('../../assets/music/v03AI UFO 4 - Scanning Protocol - Dark.mp3')).toBe(
+      'v03AI UFO 4 - Scanning Protocol - Dark',
+    );
+    expect(trackTitle('Depth Signal.mp3')).toBe(trackTitle('Depth Signal.opus'));
   });
 
   it('holds a copy of the Soundtrack, every Track an Ogg Opus or MP3 file with a distinct title', () => {
@@ -26,18 +29,25 @@ describe('MUSIC: Soundtrack', () => {
     expect(new Set(files.map(trackTitle)).size).toBe(files.length);
   });
 
-  it('leaves out every file that the Excluded tracks section of the music README names, e.g. GEO-3.opus', () => {
-    const files = readdirSync(new URL('../../assets/music/', import.meta.url));
-    for (const excluded of [
-      'GEO-3.opus',
-      'GEO-10.opus',
-      'GEO-12.opus',
-      'GEO-13.opus',
-      'GEO-14.mp3',
-      'GEO-15.mp3',
-    ]) {
-      expect(files).not.toContain(excluded);
-    }
+  it('takes the excluded files from the GDR `music`, e.g. Beneath the Grid.opus', () => {
+    expect(excludedTracks()).toEqual([
+      'Beneath the Grid.opus',
+      'Subsurface Directive.opus',
+      'Unseen Sector.opus',
+      'Unseen Threat Protocol.opus',
+      'v03AI UFO 1.mp3',
+      'v03AI UFO 2.mp3',
+    ]);
+  });
+
+  it('plays no file that the GDR `music` excludes, nor any file that is not Ogg Opus or MP3', () => {
+    const excluded = ['Beneath the Grid.opus', 'v03AI UFO 1.mp3'];
+    expect(isTrack('../../assets/music/Beneath the Grid.opus', excluded)).toBe(false);
+    expect(isTrack('v03AI UFO 1.mp3', excluded)).toBe(false);
+    expect(isTrack('../../assets/music/Depth Signal.opus', excluded)).toBe(true);
+    expect(isTrack('Beneath the Grid.mp3', excluded)).toBe(true);
+    expect(isTrack('Abyss Protocol.yaml', excluded)).toBe(false);
+    expect(isTrack('README.md', excluded)).toBe(false);
   });
 });
 

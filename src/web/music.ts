@@ -17,6 +17,15 @@ export function trackTitle(fileName: string): string {
 }
 
 /**
+ * MUSIC, Soundtrack: whether the file is a Track: an Ogg Opus or MP3 file whose name, with its extension, the GDR
+ * `music` does not exclude.
+ */
+export function isTrack(fileName: string, excluded: readonly string[]): boolean {
+  const base = fileName.slice(fileName.lastIndexOf('/') + 1);
+  return (base.endsWith('.opus') || base.endsWith('.mp3')) && !excluded.includes(base);
+}
+
+/**
  * MUSIC, Playing order: one round, every Track exactly once in a uniformly random order whose first Track is not
  * `previousLast` when there are two or more Tracks. `random` returns a number in [0, 1).
  */
