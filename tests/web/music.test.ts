@@ -28,13 +28,14 @@ describe('MUSIC: Soundtrack', () => {
 
   it('leaves out every file that the Excluded tracks section of the music README names, e.g. GEO-3.opus', () => {
     const files = readdirSync(new URL('../../assets/music/', import.meta.url));
-    expect(files).not.toContain('GEO-3.opus');
-    expect(files).not.toContain('GEO-14.mp3');
+    for (const excluded of ['GEO-3.opus', 'GEO-12.opus', 'GEO-13.opus', 'GEO-14.mp3', 'GEO-15.mp3']) {
+      expect(files).not.toContain(excluded);
+    }
   });
 });
 
 describe('MUSIC: Playing order', () => {
-  const tracks = ['GEO-5', 'GEO-6', 'GEO-12'];
+  const tracks = ['GEO-5', 'GEO-6', 'GEO-7'];
 
   it('plays every Track exactly once in each round', () => {
     for (let seed = 0; seed < 50; seed += 1) {
