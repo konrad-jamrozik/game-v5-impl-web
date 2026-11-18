@@ -45,6 +45,8 @@
 - src/web/cap-bar.ts
 - tests/web/cap-bar.test.ts
 - src/web/place.tsx
+- src/web/enemy-labels.ts
+- tests/web/enemy-labels.test.ts
 
 ## BASICAI: Basic Autopilot AI
 
@@ -288,6 +290,8 @@ No files.
 - e2e/web.spec.ts
 - src/web/view-trail.ts
 - src/web/place.tsx
+- src/web/enemy-labels.ts
+- tests/web/enemy-labels.test.ts
 
 ## HEADLESS: Headless First
 
@@ -584,6 +588,8 @@ No files.
 - tests/web/combat-log.test.ts
 - src/web/place.tsx
 - src/web/styles.css
+- src/web/enemy-labels.ts
+- src/web/consequences.tsx
 
 ## TSUM: Turn Summary
 
@@ -593,6 +599,9 @@ No files.
 - tests/web/situation-and-summary.test.ts
 - src/web/screens/Campaign.tsx
 - src/web/screens/TurnReportView.tsx
+- src/web/consequences.tsx
+- src/web/view-trail.ts
+- tests/web/view-trail.test.ts
 
 ## TURN: Turn Advancement
 
@@ -664,6 +673,9 @@ No files.
 - tests/web/cap-bar.test.ts
 - src/web/combat-log.ts
 - tests/web/combat-log.test.ts
+- src/web/consequences.tsx
+- src/web/format.ts
+- tests/web/consequences.test.ts
 
 ## WHIST: World History
 

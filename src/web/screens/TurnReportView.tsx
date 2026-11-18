@@ -5,7 +5,9 @@
 import type { ReactNode } from 'react';
 import type { CombatReport, CurrentStateView, MissionSiteView, TurnReport } from '../../engine/index.ts';
 import { combatLogRow } from '../combat-log.ts';
-import { consequenceText, progressPoints } from '../format.ts';
+import { Consequences } from '../consequences.tsx';
+import { enemyLabels } from '../enemy-labels.ts';
+import { progressPoints } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
@@ -76,10 +78,12 @@ export function TurnReportView(props: {
   const heading = `Turn ${report.turn} ended · Turn ${report.turn + 1} began`;
   if (shownCombat !== undefined) {
     const mission = report.missions.find((item) => item.mission === shownCombat.mission);
-    const siteName =
-      [...state.missionSites, ...(snapshot.history?.retained.missionSites ?? [])].find(
-        (item) => item.id === mission?.missionSite,
-      )?.name ?? mission?.missionSite;
+    const site = [...state.missionSites, ...(snapshot.history?.retained.missionSites ?? [])].find(
+      (item) => item.id === mission?.missionSite,
+    );
+    const siteName = site?.name ?? mission?.missionSite;
+    // GUI, Enemy labels: each Enemy by its Enemy label, each Agent by its Instance ID.
+    const labels = enemyLabels(site?.enemies ?? []);
     return (
       <DetailView
         id="report"
@@ -100,6 +104,7 @@ export function TurnReportView(props: {
       >
         <CombatReportDetails
           combat={shownCombat}
+          nameOf={(id) => labels.get(id) ?? id}
           levels={exhaustionLevels(snapshot.gameData)}
           logOpen={logOpen}
           onToggleLog={setLogOpen}
@@ -277,7 +282,9 @@ function Sections(props: {
         {report.expiredMissionSites.map((item) =>
           siteRow(
             item.missionSite,
-            <span className="tone-accent">Expired · {consequenceText(item.consequence)}</span>,
+            <span>
+              <span className="tone-accent">Expired</span> <Consequences consequence={item.consequence} />
+            </span>,
           ),
         )}
         {report.cancelledMissionSites.map((id) => siteRow(id, <span className="muted">Cancelled</span>))}
@@ -318,6 +325,8 @@ const LOG_WIDTHS = ['72px', '120px', '120px', '164px', '300px'];
 
 function CombatReportDetails(props: {
   combat: CombatReport;
+  /** How the participants table and the Combat log name a participant: an Agent by Instance ID, an Enemy by Enemy label. */
+  nameOf: (id: string) => string;
   levels: ExhaustionLevels;
   logOpen: boolean;
   onToggleLog: (open: boolean) => void;
@@ -359,7 +368,7 @@ function CombatReportDetails(props: {
                 const killed = who.side === 'agent' && who.final.condition === 'dead';
                 return (
                   <tr key={who.id} data-testid={`participant-${who.id}`}>
-                    <th scope="row">{who.id}</th>
+                    <th scope="row">{props.nameOf(who.id)}</th>
                     <td className="num">{who.start.skill}</td>
                     <td className="num">
                       {who.start.effectiveSkill} → {who.final.effectiveSkill}
@@ -451,8 +460,8 @@ function CombatReportDetails(props: {
                 return (
                   <tr key={index} className={`log-${row.tint}`} data-testid={`combat-log-row-${index}`}>
                     <td className="num">{attack.round}</td>
-                    <td>{attack.attacker}</td>
-                    <td>{attack.defender}</td>
+                    <td>{props.nameOf(attack.attacker)}</td>
+                    <td>{props.nameOf(attack.defender)}</td>
                     <td className="num">
                       {percent(attack.hitProbability)} ({attack.a} vs {attack.d})
                     </td>

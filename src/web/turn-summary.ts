@@ -21,8 +21,10 @@ export interface SummaryMission {
   readonly result: 'Won' | 'Lost';
   readonly combatOutcome: string;
   readonly teamSent: number;
-  readonly killed: readonly string[];
-  readonly toRecovery: readonly string[];
+  /** TSUM, Groups: the number of Agents Killed; the card names no Agent. */
+  readonly killed: number;
+  /** The number of Agents of its Team sent whose Assignment is now Recovery. */
+  readonly toRecovery: number;
   readonly enemiesDead: number;
   readonly enemiesPresent: number;
   readonly consequence: ConsequenceRecord;
@@ -131,8 +133,8 @@ export function turnSummary(
       result: mission.result,
       combatOutcome: combat?.outcome ?? '',
       teamSent: missions.get(mission.mission)?.teamSent.length ?? combat?.agents.length ?? 0,
-      killed: mission.killed,
-      toRecovery: mission.toRecovery,
+      killed: mission.killed.length,
+      toRecovery: mission.toRecovery.length,
       enemiesDead: enemies.filter((who) => who.final.condition === 'dead').length,
       enemiesPresent: enemies.length,
       consequence: mission.consequence,

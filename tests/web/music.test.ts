@@ -29,6 +29,7 @@ describe('MUSIC: Soundtrack', () => {
   it('leaves out every file that the Excluded tracks section of the music README names, e.g. GEO-3.opus', () => {
     const files = readdirSync(new URL('../../assets/music/', import.meta.url));
     expect(files).not.toContain('GEO-3.opus');
+    expect(files).not.toContain('GEO-14.mp3');
   });
 });
 

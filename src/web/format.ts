@@ -11,23 +11,45 @@ function signedNumber(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
 
-/** What one consequence of a Mission or a Mission site changed, e.g. "money +80, Panic −3". */
-export function consequenceText(c: ConsequenceRecord): string {
-  const parts: string[] = [];
+/** One Consequence that applied, and whether it is good or bad for the Player. */
+export interface ConsequencePart {
+  readonly text: string;
+  readonly tone: 'good' | 'bad';
+}
+
+/**
+ * The Consequences that applied, in order, each with its tone under VIS, Consequences: a gain of money or funding, a
+ * Panic reduction, and an Eliminated Faction are good; a loss of funding and a Panic increase are bad. A loss of money,
+ * which no Consequence gives today, would be bad too.
+ */
+export function consequenceParts(c: ConsequenceRecord): ConsequencePart[] {
+  const parts: ConsequencePart[] = [];
   if (c.money !== 0) {
-    parts.push(`money ${signedNumber(c.money)}`);
+    parts.push({ text: `money ${signedNumber(c.money)}`, tone: c.money > 0 ? 'good' : 'bad' });
   }
   if (c.fundingChange !== 0) {
-    parts.push(`funding ${signedNumber(c.fundingChange)}`);
+    parts.push({
+      text: `funding ${signedNumber(c.fundingChange)}`,
+      tone: c.fundingChange > 0 ? 'good' : 'bad',
+    });
   }
   if (c.panicIncrease !== 0) {
-    parts.push(`Panic +${c.panicIncrease}`);
+    parts.push({ text: `Panic +${c.panicIncrease}`, tone: 'bad' });
   }
   if (c.panicReduction !== 0) {
-    parts.push(`Panic −${c.panicReduction}`);
+    parts.push({ text: `Panic −${c.panicReduction}`, tone: 'good' });
   }
   if (c.eliminatedFaction !== null) {
-    parts.push(`eliminated ${c.eliminatedFaction}`);
+    parts.push({ text: `eliminated ${c.eliminatedFaction}`, tone: 'good' });
   }
-  return parts.join(', ') || 'no consequence';
+  return parts;
+}
+
+/** What one consequence of a Mission or a Mission site changed, e.g. "money +80, Panic −3". */
+export function consequenceText(c: ConsequenceRecord): string {
+  return (
+    consequenceParts(c)
+      .map((part) => part.text)
+      .join(', ') || 'no consequence'
+  );
 }

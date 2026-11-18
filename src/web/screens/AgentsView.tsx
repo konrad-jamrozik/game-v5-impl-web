@@ -17,6 +17,7 @@ import type { AgentView, CurrentStateView, HistoryView } from '../../engine/inde
 import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
 import { ASSIGNMENTS, blockedBy, type OrderAssignment, type Selectability } from '../agent-selection.ts';
 import { capBar, type CapBarModel } from '../cap-bar.ts';
+import { enemyLabels } from '../enemy-labels.ts';
 import { fillColour } from '../progress-bar.ts';
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import { useRowSelection } from '../row-selection.ts';
@@ -114,8 +115,9 @@ function assignmentTone(agent: AgentView): string {
 }
 
 /**
- * AVIEW, Memorial, Details: how a Terminated Agent's service ended, naming the Enemy and Mission site its Killed by
- * references by Instance ID and Archetype `name`.
+ * AVIEW, Memorial, Details: how a Terminated Agent's service ended, naming the Enemy its Killed by references by its
+ * Enemy label, and the Mission site by Instance ID and Archetype `name`, e.g. "Killed by initiate-2 at
+ * mission-site-5, Apprehend member".
  */
 export function memorialDetails(
   agent: AgentView,
@@ -128,10 +130,10 @@ export function memorialDetails(
   }
   const sites = [...state.missionSites, ...(history?.retained.missionSites ?? [])];
   const site = sites.find((item) => item.id === killedBy.missionSite);
-  const enemy = sites.flatMap((item) => item.enemies).find((item) => item.id === killedBy.enemy);
-  const enemyText = enemy === undefined ? killedBy.enemy : `${killedBy.enemy}, ${enemy.archetypeName}`;
+  // GUI, Enemy labels: an Enemy label is unique only within its Mission site, so the Mission site is named with it.
+  const label = site === undefined ? undefined : enemyLabels(site.enemies).get(killedBy.enemy);
   const siteText = site === undefined ? killedBy.missionSite : `${killedBy.missionSite}, ${site.name}`;
-  return `Killed by ${enemyText}, at ${siteText}`;
+  return `Killed by ${label ?? killedBy.enemy} at ${siteText}`;
 }
 
 /** AVIEW, Memorial: the number columns of a Terminated Agent. */

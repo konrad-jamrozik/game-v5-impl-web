@@ -7,7 +7,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
 import { PLACE_NAME_KEY, PlaceContext, type PlaceContextValue } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
-import { backLabel, follow, goBack, type Place, type ViewTrail } from '../view-trail.ts';
+import {
+  backLabel,
+  closeReturnsTo,
+  follow,
+  fromTurnSummary,
+  goBack,
+  TURN_SUMMARY,
+  type Place,
+  type ViewTrail,
+} from '../view-trail.ts';
 import { SOUND } from '../sounds.ts';
 import { undoRedoStep } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
@@ -68,11 +77,14 @@ interface OpenView {
 
 const NOTHING_RESTORED: Readonly<Record<string, unknown>> = {};
 
+/** CSCR, View trail: a place is a Detail view's, or the Turn summary's together with the place it was shown over. */
+type TrailId = DetailViewId | typeof TURN_SUMMARY;
+
 export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: CurrentStateView }) {
   const { session, player } = theEngine();
   const [open, setOpen] = useState<OpenView | null>(null);
   // CSCR, View trail: empty whenever the Campaign screen is shown anew, e.g. after a Campaign is loaded.
-  const [trail, setTrail] = useState<ViewTrail<DetailViewId>>([]);
+  const [trail, setTrail] = useState<ViewTrail<TrailId>>([]);
   const live = useRef<Record<string, unknown>>({});
   // CSCR, View trail, New Turn: the View trail is emptied, and the open place stays open, when the Turn changes.
   const [trailTurn, setTrailTurn] = useState(state.turn);
@@ -179,13 +191,39 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       setTrail((current) => follow(current, left));
     }
   };
+  /** Shows a place of the View trail again as it was left, or the globe for null. */
+  const showPlace = (place: Place<TrailId> | null | undefined) => {
+    if (place === null || place === undefined || place.id === TURN_SUMMARY) {
+      setOpen(null);
+    } else {
+      openPlace(place.id, place.item, place.memo, place.scrollTop);
+    }
+  };
+  /** CSCR, View trail: the Turn summary shows again, over the place it was shown over. */
+  const showSummaryAgain = (summary: Place<TrailId>) => {
+    showPlace(summary.under);
+    setReopened(true);
+  };
   /** CSCR, View trail, Go back: the last place leaves the View trail and is shown as the Player left it. */
   const back = () => {
     const step = goBack(trail);
     if (step !== null) {
       setTrail(step.trail);
-      openPlace(step.place.id, step.place.item, step.place.memo, step.place.scrollTop);
+      if (step.place.id === TURN_SUMMARY) {
+        showSummaryAgain(step.place);
+      } else {
+        showPlace(step.place);
+      }
     }
+  };
+  /**
+   * CSCR, View trail, From the Turn summary: the Turn summary closes, the Turn Report View opens, showing `restored`,
+   * and the View trail holds the Turn summary, over the place it was shown over, as its only place.
+   */
+  const openFromSummary = (restored: Readonly<Record<string, unknown>>) => {
+    setTrail(fromTurnSummary<DetailViewId>(shownPlace()));
+    openPlace('report', null, restored);
+    dismissSummary();
   };
 
   /**
@@ -365,10 +403,18 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     leads: activeInvestigationRows(state).length + leadsToInvestigate(state).length,
     agents: state.agency.servingAgents,
   };
-  /** CSCR, View trail, Close: the View trail is emptied when the open Detail view closes. */
+  /**
+   * CSCR, View trail, Close: the View trail is emptied when the open Detail view closes, which shows the globe, or the
+   * Turn summary again when it is the first place of the View trail.
+   */
   function close() {
+    const summary = closeReturnsTo(trail);
     setTrail([]);
-    setOpen(null);
+    if (summary === null) {
+      setOpen(null);
+    } else {
+      showSummaryAgain(summary);
+    }
   }
 
   return (
@@ -625,10 +671,11 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           currentTurn={state.turn}
           onDismiss={dismissSummary}
           onOpenReport={() => {
-            // CSCR, View trail, Start afresh: the Turn summary is outside the open Detail view.
-            setTrail([]);
-            openPlace('report', null);
-            dismissSummary();
+            openFromSummary(NOTHING_RESTORED);
+          }}
+          onOpenCombat={(mission) => {
+            // TSUM, Mission cards: the Turn Report View opens with that Mission's Combat report one step away.
+            openFromSummary({ combat: mission, logOpen: false });
           }}
         />
       ) : null}

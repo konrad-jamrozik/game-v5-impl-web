@@ -3,7 +3,8 @@
  * something listed; styled under VIS, Dialogs. The content comes from `turn-summary.ts`.
  */
 import { useEffect, useRef, type ReactNode } from 'react';
-import { consequenceText, progressPoints } from '../format.ts';
+import { Consequences } from '../consequences.tsx';
+import { progressPoints } from '../format.ts';
 import { completedProgressBar } from '../progress-bar.ts';
 import { SOON_EXPIRING_TURNS } from '../situation.ts';
 import { playSound } from '../sound-player.ts';
@@ -25,13 +26,12 @@ function Group(props: { title: string; count: number; testId: string; children: 
   );
 }
 
-function Agents({ ids, tone }: { ids: readonly string[]; tone: string }) {
-  return (
-    <span>
-      <span className={`figure ${tone}`}>{ids.length}</span>{' '}
-      {ids.length === 0 ? null : <span className="secondary small">{ids.join(', ')}</span>}
-    </span>
-  );
+/**
+ * TSUM, Mission cards: a number of Agents, in its tone only when above 0. The card names no Agent: the Combat report
+ * names each participant.
+ */
+function AgentCount({ count, tone }: { count: number; tone: string }) {
+  return <span className={`figure${count > 0 ? ` ${tone}` : ''}`}>{count}</span>;
 }
 
 export function TurnSummary(props: {
@@ -39,6 +39,8 @@ export function TurnSummary(props: {
   currentTurn: number;
   onDismiss: () => void;
   onOpenReport: () => void;
+  /** TSUM, Mission cards: the Combat report button opens that Mission's Combat report in the Turn Report View. */
+  onOpenCombat: (mission: string) => void;
 }) {
   const { model } = props;
   const dismiss = useRef<HTMLButtonElement>(null);
@@ -91,13 +93,13 @@ export function TurnSummary(props: {
                     <div>
                       <dt className="label">Killed</dt>
                       <dd>
-                        <Agents ids={mission.killed} tone="tone-bad" />
+                        <AgentCount count={mission.killed} tone="tone-bad" />
                       </dd>
                     </div>
                     <div>
                       <dt className="label">To Recovery</dt>
                       <dd>
-                        <Agents ids={mission.toRecovery} tone="tone-accent" />
+                        <AgentCount count={mission.toRecovery} tone="tone-accent" />
                       </dd>
                     </div>
                     <div>
@@ -107,7 +109,19 @@ export function TurnSummary(props: {
                       </dd>
                     </div>
                   </dl>
-                  <p className="small secondary">Consequences: {consequenceText(mission.consequence)}</p>
+                  <div className="sit-line">
+                    <Consequences consequence={mission.consequence} label="Consequences" className="small" />
+                    <button
+                      type="button"
+                      className="btn btn-plain"
+                      data-testid={`summary-combat-${mission.mission}`}
+                      onClick={() => {
+                        props.onOpenCombat(mission.mission);
+                      }}
+                    >
+                      Combat report
+                    </button>
+                  </div>
                 </article>
               ))}
             </Group>
@@ -182,7 +196,7 @@ export function TurnSummary(props: {
                   <div className="sit-line">
                     <span>{site.name}</span>
                     {site.consequence === null ? null : (
-                      <span className="muted small">Consequences: {consequenceText(site.consequence)}</span>
+                      <Consequences consequence={site.consequence} label="Consequences" className="small" />
                     )}
                   </div>
                   <span className="sit-sub">
