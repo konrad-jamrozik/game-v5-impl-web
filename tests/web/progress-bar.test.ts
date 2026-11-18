@@ -5,6 +5,7 @@ import {
   completedProgressBar,
   fillColour,
   progressBar,
+  rangeLabels,
   type ScaledBar,
 } from '../../src/web/progress-bar.ts';
 
@@ -61,5 +62,25 @@ describe('GUI: Progress bar', () => {
     expect(bar.beforeShare).toBeCloseTo(528 / 900);
     expect(bar.finalShare).toBeCloseTo(702 / 900);
     expect(bar.tickShare).toBeCloseTo(6 / 9);
+  });
+
+  it('VIS, Progress bars: leaves out the value of the range that the final progress would overlap', () => {
+    // GUI, Progress bar: on a bar from 0 to 15, a final Investigation progress of 16.50 has its mark at the bar's end,
+    // so the greatest value of the range gives way to its label.
+    const pastEnd = completedProgressBar(10, 15, 1650, 400);
+    expect(pastEnd.finalShare).toBe(1);
+    expect(rangeLabels(pastEnd)).toEqual({ requiredProgress: true, rangeMax: false });
+    // A final progress equal to the Required progress overlaps the tick's label instead.
+    const atTick = completedProgressBar(10, 15, 1000, 400);
+    expect(rangeLabels(atTick)).toEqual({ requiredProgress: false, rangeMax: true });
+    // Far from both, both values of the range are written.
+    expect(rangeLabels(completedProgressBar(10, 15, 1250, 100))).toEqual({
+      requiredProgress: true,
+      rangeMax: true,
+    });
+    expect(rangeLabels(progressBar(assessed, 1400, 300, 25) as ScaledBar)).toEqual({
+      requiredProgress: true,
+      rangeMax: true,
+    });
   });
 });

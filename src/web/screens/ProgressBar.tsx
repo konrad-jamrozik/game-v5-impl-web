@@ -1,13 +1,10 @@
 /** GUI, Progress bar, styled under VIS, Progress bars. The geometry comes from `progress-bar.ts`. */
 import type { CSSProperties } from 'react';
 import { progressPoints } from '../format.ts';
-import { fillColour, type ProgressBarModel } from '../progress-bar.ts';
+import { fillColour, rangeLabels, type ProgressBarModel } from '../progress-bar.ts';
 
 /** The Required progress and its range are whole progress points, e.g. 6. */
 const whole = (hundredths: number) => String(hundredths / 100);
-
-/** Whether two labels under the bar would overlap; the Required progress label then gives way. */
-const near = (a: number, b: number) => Math.abs(a - b) < 0.08;
 
 const pct = (value: number) => `${Math.round(value * 10000) / 100}%`;
 
@@ -35,6 +32,7 @@ export function ProgressBar(props: {
     );
   }
 
+  const shown = rangeLabels(model);
   const label =
     model.kind === 'completed'
       ? `Completed at ${progressPoints(model.final)}, required ${whole(model.requiredProgress)}`
@@ -83,13 +81,12 @@ export function ProgressBar(props: {
             {progressPoints(model.before)}
           </span>
         ) : null}
-        {model.kind === 'completed' &&
-        (near(model.tickShare, model.beforeShare) || near(model.tickShare, model.finalShare)) ? null : (
+        {shown.requiredProgress ? (
           <span className="pbar-axis" style={{ left: pct(model.tickShare) }}>
             {whole(model.requiredProgress)}
           </span>
-        )}
-        <span className="pbar-axis pbar-axis-end">{whole(model.rangeMax)}</span>
+        ) : null}
+        {shown.rangeMax ? <span className="pbar-axis pbar-axis-end">{whole(model.rangeMax)}</span> : null}
         {model.kind === 'completed' ? (
           <span className="pbar-axis pbar-final" style={{ left: pct(model.finalShare) }}>
             {progressPoints(model.final)}

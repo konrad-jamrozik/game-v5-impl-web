@@ -138,6 +138,29 @@ export function completedProgressBar(
   };
 }
 
+/** Labels under the bar closer than this share of its width would overlap. */
+const LABEL_GAP_SHARE = 0.08;
+
+const near = (a: number, b: number) => Math.abs(a - b) < LABEL_GAP_SHARE;
+
+/**
+ * VIS, Progress bars: which values of the range are written under the bar. On a Completed Investigation, a value of
+ * the range that the final Investigation progress would overlap is left out, and the final Investigation progress
+ * keeps its place; the Required progress also gives way to the progress before the last Advance turn, under DEC-042.
+ */
+export function rangeLabels(model: ScaledBar | CompletedBar): {
+  readonly requiredProgress: boolean;
+  readonly rangeMax: boolean;
+} {
+  if (model.kind === 'scaled') {
+    return { requiredProgress: true, rangeMax: true };
+  }
+  return {
+    requiredProgress: !near(model.tickShare, model.beforeShare) && !near(model.tickShare, model.finalShare),
+    rangeMax: !near(1, model.finalShare),
+  };
+}
+
 /**
  * VIS, Progress bars: the fill colour, linear from Accent dim at 0 to Accent at the Required progress, as a CSS colour
  * over the Design tokens so that it follows the theme.

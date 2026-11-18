@@ -716,8 +716,9 @@
   `exhaustion_incapacitation` 100, `exhaustion_free_points` 30, `skill_penalty_pct_per_exhaustion` 1,
   `exhaustion_per_attack` 1, `exhaustion_per_defense` 1, `exhaustion_per_mission` 5, `exhaustion_per_pct_killed` 1,
   `exhaustion_per_contracting_turn` 1, `exhaustion_per_training_turn` 1, `exhaustion_per_investigation_turn` 1,
-  `exhaustion_work_start_max` 30, `exhaustion_work_limit` 70, and `training_skill_gain_per_turn` 1. It no longer
-  copies the specifications' file.
+  `exhaustion_work_start_max` 30, `exhaustion_work_limit` 70, and `training_skill_gain_per_turn` 1. It stopped
+  copying the specifications' file until Specification revision 91fc82bff04323b75d171653db7f0f63f7449f73 gave that
+  file exactly these properties and values; since then the Implementation copies it again.
 - **Options considered:** Copy the specifications' YAML file unchanged; take the values the Acceptance examples and
   BOOT state.
 - **Option chosen:** The values the Acceptance examples and BOOT state.
@@ -800,9 +801,11 @@
   the tick and under the bar's end".
 - **Description:** Every position on a Progress bar is clamped to the bar: a fill, preview segment, last-gain segment,
   or completion mark past the greatest value of the range ends at the bar's end, and the labels under it still give
-  the actual values, e.g. the final Investigation progress. When the progress before the last Advance turn or the
-  final Investigation progress lies within 8% of the bar's width of the tick, the Required progress label under the
-  tick is left out, because the Turn summary row already gives the range. The Required progress and the greatest value
+  the actual values, e.g. the final Investigation progress. Labels within 8% of the bar's width of each other overlap.
+  The Required progress label under the tick is also left out when the progress before the last Advance turn, which
+  the Implementation writes under the bar, overlaps it, because the Turn summary row already gives the range.
+  Specification revision 91fc82bff04323b75d171653db7f0f63f7449f73 adopted the clamping and states which value of the
+  range the final Investigation progress displaces, which the Implementation follows. The Required progress and the greatest value
   of the range are written as whole progress points, e.g. "3" and "4", and Investigation progress and its gains with
   two decimals. The number of Turns of a Completed Investigation is the Turn the Advance turn ended minus its Turn
   started, as in the Situation panel.

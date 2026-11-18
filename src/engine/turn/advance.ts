@@ -616,7 +616,8 @@ export function applyAdvanceTurn(
     income: incomeReport,
     upkeep: upkeepReport,
     training,
-    forcedReturns,
+    // AGENT, Turn report: every Forced return of the Advance turn, whichever step made it, in Agent order.
+    forcedReturns: sortByAgent(world, forcedReturns),
     investigations: investigationReports,
     investigationsCompleted: investigationReports
       .filter((item) => item.completed)

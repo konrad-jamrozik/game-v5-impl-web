@@ -224,9 +224,13 @@
   Timeline navigation, saving, and Autopilot. The specification states only that the GUI opens at the Main menu and
   leaves the rest open.
 - **Links:** DEC-007
-- **Resolution:** Open. Resolved in part in ddfc832151b01718f269431459ea7597f379a2d7: CSCR, Undo and redo now states
-  how the Campaign screen reaches Timeline navigation, and MENU, Layout adds Resume and the close button. The MENU
-  TODO and the CSCR TODO on Advance turn, saving, and Autopilot remain.
+- **Resolution:** Resolved in 91fc82bff04323b75d171653db7f0f63f7449f73, which the Implementation follows since this
+  update: CSCR, Status bar controls and Autopilot controls now state the status bar's controls and the Autopilot
+  footer, and MENU, New Campaign states the New Campaign panel and that everything the Main menu offers is on it at
+  once. The Implementation already matched them, except that the Autopilot AI selector is now disabled, with the
+  reason as its tooltip, whenever the engaging buttons are, and a Preset edit the engine rejects shows the reason in
+  its field instead of only in a notice. Earlier, ddfc832151b01718f269431459ea7597f379a2d7 had settled Timeline
+  navigation, Resume, and the close button.
 
 ## PROB-018: The light theme's Design tokens are a TODO
 
@@ -317,7 +321,9 @@
   validation, and its values contradict every Acceptance example that reads `agent_parameters`. The values the
   specifications intend are stated only in the Acceptance examples' tables of values read.
 - **Links:** DEC-038
-- **Resolution:** Open
+- **Resolution:** Resolved in 91fc82bff04323b75d171653db7f0f63f7449f73, which the Implementation follows since this
+  update: the Bootstrap `content/agents/agent_parameters.yaml` now has exactly the AgentParameters properties, with the
+  values DEC-038 chose, so the Implementation copies the specifications' file again.
 
 ## PROB-024: Where the Campaign screen details each item a Situation panel row shows is not yet specified
 
@@ -348,7 +354,10 @@
   mark are drawn past the bar's end, nor what happens when the labels under the bar fall on one another, e.g. a final
   Investigation progress equal to the Required progress.
 - **Links:** DEC-042
-- **Resolution:** Open
+- **Resolution:** Resolved in 91fc82bff04323b75d171653db7f0f63f7449f73, which the Implementation follows since this
+  update: GUI, Progress bar now clamps a preview segment, gain segment, or completion mark to the bar's end, as DEC-042
+  chose, and VIS, Progress bars leaves out the value of the range, the Required progress or the greatest value, that
+  the final Investigation progress would overlap. The Implementation now also leaves out the greatest value.
 
 ## PROB-026: Which Autosave navigation loads when two targets hold the same Committed state
 

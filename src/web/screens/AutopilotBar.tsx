@@ -94,10 +94,13 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
   return (
     <section className="autopilot" aria-label="Autopilot" data-testid="autopilot-bar">
       {toggle}
+      {/* CSCR, Autopilot controls: the selector is disabled, with the reason as its tooltip, exactly when the engaging
+          buttons are. */}
       <select
         aria-label="Autopilot AI"
         value={aiId}
-        disabled={active !== null}
+        disabled={reason !== null}
+        title={reason ?? undefined}
         onChange={(event) => {
           setAiId(event.target.value);
         }}

@@ -65,6 +65,8 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
   const { session } = theEngine();
   const [saves, setSaves] = useState<SaveListEntry[]>([]);
   const [seed, setSeed] = useState('');
+  // MENU, New Campaign: a value the engine rejects changes nothing, and its field shows the reason the engine reports.
+  const [editErrors, setEditErrors] = useState<Readonly<Record<string, string>>>({});
 
   useEffect(() => {
     let live = true;
@@ -257,6 +259,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                 data-testid="preset-select"
                 value={selected?.preset ?? ''}
                 onChange={(event) => {
+                  setEditErrors({});
                   act(() => session.newCampaignSetup.selectPreset(event.target.value));
                 }}
               >
@@ -281,19 +284,25 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                         placeholder={`${value.presetValue} (preset)`}
                         stored={value.presetEdit === null ? '' : String(value.presetEdit)}
                         onCommit={(text) => {
-                          act(() =>
+                          const result =
                             text === ''
                               ? session.newCampaignSetup.removePresetEdit(selected.preset, value.key)
                               : session.newCampaignSetup.setPresetEdit(selected.preset, {
                                   key: value.key,
                                   value: Number(text),
-                                }),
+                                });
+                          setEditErrors(({ [value.key]: _previous, ...rest }) =>
+                            result.ok ? rest : { ...rest, [value.key]: result.error.message },
                           );
+                          if (result.ok) {
+                            act(() => result);
+                          }
                         }}
                       />
                       {value.presetEdit === null ? null : (
                         <Button
                           onClick={() => {
+                            setEditErrors(({ [value.key]: _cleared, ...rest }) => rest);
                             act(() => session.newCampaignSetup.removePresetEdit(selected.preset, value.key));
                           }}
                         >
@@ -301,6 +310,11 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                         </Button>
                       )}
                     </div>
+                    {editErrors[value.key] === undefined ? null : (
+                      <span className="field-error tone-bad" data-testid={`preset-edit-error-${value.key}`}>
+                        {editErrors[value.key]}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

@@ -285,6 +285,23 @@ describe('AGENT: Acceptance examples', () => {
     expect(agent(gains, a2).state).toMatchObject({ skill: 101, exhaustion: 51 });
   });
 
+  it('Turn report: Forced returns are listed in Agent order, whichever step made them', () => {
+    let state = withAgents(newCampaign(), 2);
+    const [a1, a2] = agentIds(state) as [string, string];
+    // a2 returns in the Agency income step, before a1 returns in the later Training step.
+    state = setAssignment(state, [a1], 'Training');
+    state = setAssignment(state, [a2], 'Contracting');
+    state = tweak(state, (world) => {
+      world.agents[a1]!.state.exhaustion = 69;
+      world.agents[a2]!.state.exhaustion = 69;
+    });
+    state = advance(state, { [`agent.trainingGain.${a1}`]: [false] });
+    expect(state.world.history.turnReport?.forcedReturns).toEqual([
+      { agent: a1, from: 'Training' },
+      { agent: a2, from: 'Contracting' },
+    ]);
+  });
+
   it('Start-work gate and Forced return', () => {
     let state = withAgents(newCampaign(), 4);
     const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
