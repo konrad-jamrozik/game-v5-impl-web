@@ -425,6 +425,9 @@ No files.
 ## MVIEW: Missions View
 
 - src/web/screens/MissionsView.tsx
+- src/web/deploy-table.ts
+- tests/web/deploy-table.test.ts
+- src/web/table-sort.ts
 - src/web/tired-deployment.ts
 - src/web/artwork.ts
 - src/web/screens/DetailView.tsx

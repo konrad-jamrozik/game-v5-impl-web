@@ -2,13 +2,15 @@
  * MVIEW: the Missions View. Three panes read left to right as the Player decides: which Mission site, what is there,
  * and who goes.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ConsequenceView, CurrentStateView, MissionSiteView } from '../../engine/index.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { TIRED_DEPLOYMENT_EXHAUSTION, confirmTiredDeployment } from '../tired-deployment.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
+import { DEPLOY_NUMERIC, deployRows, type DeployKey } from '../deploy-table.ts';
 import { useRowSelection } from '../row-selection.ts';
-import { Button, Grid } from '../ui.tsx';
+import { pressHeader, type SortTier } from '../table-sort.ts';
+import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { assignmentText } from './AgentsView.tsx';
 
@@ -327,13 +329,46 @@ function Deployment(props: {
       agent.agentStatus === 'AtAssignment' &&
       (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training'),
   );
+  // MVIEW, Deployment: sorting reorders the rows only; `checked` keeps the order in which the Agents were checked.
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
+  // VIS, Tables: up to four sort tiers over the default order, by Instance ID.
+  const [tiers, setTiers] = useState<SortTier<DeployKey>[]>([]);
+  const rows = deployRows(candidates, tiers, (agent) => assignmentText(agent, state));
+  const candidateIds = rows.map((agent) => agent.id);
+  // VIS, Tables: Select all checks every row, follows the shown rows while on, and is cleared by any row change.
+  const [selectAll, setSelectAll] = useState(false);
+  const candidateKey = [...candidateIds].sort().join(',');
+  useEffect(() => {
+    if (selectAll && (team.length !== candidateIds.length || candidateIds.some((id) => !team.includes(id)))) {
+      onCheck([...team, ...candidateIds.filter((id) => !team.includes(id))]);
+    }
+    // The candidate set is named by its key.
+  }, [candidateKey, selectAll]);
   const selection = useRowSelection({
-    order: candidates.map((agent) => agent.id),
+    order: candidateIds,
     selected: team,
     selectable: () => true,
-    onChange: onCheck,
+    onChange: (ids) => {
+      setSelectAll(false);
+      onCheck(ids);
+    },
   });
+  const header = (key: DeployKey, label: string) => {
+    const numeric = DEPLOY_NUMERIC.has(key);
+    return (
+      <th
+        className={numeric ? 'sortable num' : 'sortable'}
+        aria-sort={ariaSort(tiers, key)}
+        data-testid={`deploy-sort-${key}`}
+        onClick={() => {
+          setTiers(pressHeader(tiers, key, numeric));
+        }}
+      >
+        {label}
+        <SortMark tiers={tiers} column={key} />
+      </th>
+    );
+  };
   const taken = state.agency.deployedAgents + team.length;
   const over = taken > state.agency.transportCap;
   const preview = team.length === 0 ? null : player.queries.previewDeployment(site.id, team);
@@ -357,9 +392,38 @@ function Deployment(props: {
       {candidates.length === 0 ? (
         <p className="muted small">No Agent on Standby or in Training can be deployed now.</p>
       ) : (
-        <Grid widths={['36px', '110px', '220px', '64px', '96px']} className="compact pick-grid">
+        <Grid
+          widths={['36px', '110px', '220px', '96px', '112px']}
+          className="compact pick-grid"
+          testId="deploy-grid"
+        >
+          <thead>
+            <tr>
+              <th className="check">
+                <input
+                  type="checkbox"
+                  aria-label="Select all"
+                  data-testid="deploy-select-all"
+                  checked={selectAll}
+                  onChange={() => {
+                    if (selectAll) {
+                      setSelectAll(false);
+                      onCheck([]);
+                    } else {
+                      setSelectAll(true);
+                      onCheck([...team, ...candidateIds.filter((id) => !team.includes(id))]);
+                    }
+                  }}
+                />
+              </th>
+              {header('id', 'Agent')}
+              {header('assignment', 'Assignment')}
+              {header('effectiveSkill', 'Effective')}
+              {header('exhaustion', 'Exhaustion')}
+            </tr>
+          </thead>
           <tbody>
-            {candidates.map((agent) => {
+            {rows.map((agent) => {
               const on = team.includes(agent.id);
               return (
                 <tr key={agent.id} className={on ? 'row-selected' : ''} {...selection.row(agent.id)}>
