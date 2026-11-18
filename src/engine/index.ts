@@ -15,7 +15,6 @@ import type {
   GameDataView,
   HistoryView,
   PlayerApi,
-  ProgressLossPreview,
   SimpleAssignment,
 } from './player-api.ts';
 import type { Result } from './result.ts';
@@ -165,10 +164,6 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
           missionSite,
           agents,
         }) as Result<DeploymentPreview>,
-      previewProgressLoss: (agents) =>
-        core.playerQuery(principal, 'previewProgressLoss', { agents: [...agents] }) as Result<
-          readonly ProgressLossPreview[]
-        >,
       estimateTeamProgressGain: (agents) =>
         core.playerQuery(principal, 'estimateTeamProgressGain', { agents: [...agents] }) as Result<number>,
       previewAssignAgentsAlone: () =>

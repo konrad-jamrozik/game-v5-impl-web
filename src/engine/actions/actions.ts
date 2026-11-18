@@ -111,6 +111,20 @@ function requireFitForWork(agents: readonly Agent[], gdrs: GdrCatalog): Rejectio
 }
 
 /**
+ * AGENT, Agents that can be assigned, From away: an Agent on Contracting or an Investigation can only be recalled to
+ * Standby, so Contracting, Training, an Investigation, and deployment each require a Base Assignment.
+ */
+function requireInBase(agents: readonly Agent[]): Rejection | null {
+  const away = agents.filter((agent) => !isBaseAssignment(agent.state.assignment));
+  return away.length > 0
+    ? reject(
+        'agents_not_in_base',
+        `These Agents are on Contracting or an Investigation and can only be recalled to Standby: ${list(away.map((a) => a.id))}.`,
+      )
+    : null;
+}
+
+/**
  * The Investigations that members leave in one Player action, each with what INVSTG, Progress loss reads of the
  * Committed state in which the action is requested: the members At assignment and their effective skill.
  */
@@ -207,7 +221,7 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
     );
   }
   if (assignment === 'Contracting' || assignment === 'Training') {
-    const tired = requireFitForWork(agents, gdrs);
+    const tired = requireFitForWork(agents, gdrs) ?? requireInBase(agents);
     if (tired) {
       return tired;
     }
@@ -227,11 +241,7 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
     leaveCurrentTeam(world, agent, left, gdrs);
     const newAssignment: Assignment = { kind: assignment as SimpleAssignment };
     // AGENT, Transit rule: a move between Base Assignments travels nowhere and is At assignment at once.
-    // AGENT, Transit rule: only an Agent At assignment moves within base at once; an Agent In transit is re-routed.
-    const withinBase =
-      agent.state.status === 'AtAssignment' &&
-      isBaseAssignment(agent.state.assignment) &&
-      isBaseAssignment(newAssignment);
+    const withinBase = isBaseAssignment(agent.state.assignment) && isBaseAssignment(newAssignment);
     agent.state.assignment = newAssignment;
     agent.state.status = withinBase ? 'AtAssignment' : 'InTransit';
   }
@@ -345,7 +355,7 @@ function startInvestigation(
   if (isRejected(agents)) {
     return agents;
   }
-  const blocked = requireOrderable(agents) ?? requireFitForWork(agents, gdrs);
+  const blocked = requireOrderable(agents) ?? requireFitForWork(agents, gdrs) ?? requireInBase(agents);
   if (blocked) {
     return blocked;
   }
@@ -357,9 +367,8 @@ function startInvestigation(
     range.max,
   );
   const id = newInstanceId(world, 'investigation');
-  const left: Leaving = new Map();
+  // Every Agent is on a Base Assignment, so none leaves another Investigation.
   for (const agent of agents) {
-    leaveCurrentTeam(world, agent, left, gdrs);
     agent.state.assignment = { kind: 'Investigation', investigation: id };
     agent.state.status = 'InTransit';
   }
@@ -374,7 +383,6 @@ function startInvestigation(
       currentTeam: agents.map((agent) => agent.id),
     },
   };
-  settleLeftInvestigations(world, left);
   return null;
 }
 
@@ -411,18 +419,16 @@ function assignAgentsToInvestigation(
       `These Agents already belong to its Current team: ${list(members.map((a) => a.id))}.`,
     );
   }
-  const tired = requireFitForWork(agents, gdrs);
+  const tired = requireFitForWork(agents, gdrs) ?? requireInBase(agents);
   if (tired) {
     return tired;
   }
-  const left: Leaving = new Map();
+  // Every Agent is on a Base Assignment, so none leaves another Investigation.
   for (const agent of agents) {
-    leaveCurrentTeam(world, agent, left, gdrs);
     agent.state.assignment = { kind: 'Investigation', investigation: investigation.id };
     agent.state.status = 'InTransit';
     investigation.state.currentTeam.push(agent.id);
   }
-  settleLeftInvestigations(world, left);
   return null;
 }
 
@@ -443,22 +449,11 @@ function deployAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
   if (isRejected(agents)) {
     return agents;
   }
-  const blocked = requireOrderable(agents);
+  // Condition 6: an Agent that cannot be assigned, e.g. one In transit, cannot be deployed.
+  // Condition 7: only an Agent on a Base Assignment can be deployed.
+  const blocked = requireOrderable(agents) ?? requireInBase(agents);
   if (blocked) {
     return blocked;
-  }
-  // Condition 6: an Agent In transit can be assigned, but deploying it would let it skip its transit.
-  const travelling = agents.filter((agent) => agent.state.status === 'InTransit');
-  if (travelling.length > 0) {
-    return reject('agents_in_transit', `These Agents are In transit: ${list(travelling.map((a) => a.id))}.`);
-  }
-  // Condition 7: only an Agent on a Base Assignment can be deployed.
-  const away = agents.filter((agent) => !isBaseAssignment(agent.state.assignment));
-  if (away.length > 0) {
-    return reject(
-      'agents_not_in_base',
-      `These Agents are not on Standby or Training and must first be recalled to base: ${list(away.map((a) => a.id))}.`,
-    );
   }
   const deployed = countDeployed(Object.values(world.agents).map((agent) => agent.state));
   const cap = agencyCaps(gdrs.economy, gdrs.upgrades, world.agency.state.acquisitions).transportCap;

@@ -89,7 +89,9 @@
 - **Description:** Only the Combat report is specified as part of the Turn report. What else the Turn report holds,
   and what the reduced form in a History entry holds, is left open.
 - **Links:** DEC-016
-- **Resolution:** Open
+- **Resolution:** Open. Resolved in part in 59ccadfc6728d372f5eadb01026ff2d22256c11e: WHIST, Action record now
+  states that each History entry holds the Turn's Player actions in full, and ECON, Money in the Action record their
+  money changes; the DOM TODO stays and now also asks for every value the History View shows.
 
 ## PROB-008: An Attempted Mission site is final yet still takes part in a Combat
 
@@ -415,4 +417,57 @@
   confirmation exists because the order interrupts work and costs an Advance turn In transit, and re-routing does
   neither.
 - **Links:** DEC-047
+- **Resolution:** Resolved in 0558ca9bc3c3126195925e66217f6d6174f6b368: AGENT, Transit rule, No orders in transit
+  replaced Re-routing, so an Agent In transit cannot be assigned at all, and the GUI lost Confirming interrupted
+  Assignments, since Undo Action takes an order back.
+
+## PROB-031: The Agents View Header example enables Standby for a selection with an Agent already on Standby
+
+- **Category:** Conflict
+- **Severity:** Low
+- **Affected specifications:** AVIEW, Header: "A button is enabled only when pressing it would succeed with the
+  current selection" and "E.g., with agent-1 on Contracting and agent-5 on Standby selected, only Standby is enabled".
+  AGENT, Assigning Agents, precondition 6: the action is rejected, as a whole, when "An Agent in `agents` already has
+  `assignment` as its Assignment."
+- **Description:** With agent-5 on Standby among the selected Agents, `assignAgents` to Standby is rejected as a whole
+  under precondition 6, so the rule of the Header disables Standby too, and every button of Assign to is disabled. The
+  example says Standby is enabled.
+- **Links:** DEC-050
+- **Resolution:** Open
+
+## PROB-032: Developer inspection and the Action record of the current Turn
+
+- **Category:** Conflict
+- **Severity:** Low
+- **Affected specifications:** WHIST, Action record, Kept during the Turn: "No query returns the Action record of the
+  current Turn." DEV: Developer API offers full Campaign state inspection.
+- **Description:** The Action record of the current Turn is Campaign state in World history, which full inspection
+  would return, while WHIST says no query returns it.
+- **Links:** DEC-051
+- **Resolution:** Open
+
+## PROB-033: An Assigning Agents example gives a reason that another failed precondition shadows
+
+- **Category:** Conflict
+- **Severity:** Low
+- **Affected specifications:** AGENT, Acceptance examples, Assigning Agents: "`assignAgents([a1, a5], Training)` |
+  Rejected: a1 is on Contracting, an Away Assignment, which it can leave only for Standby. a5 is not changed either."
+  AGENT, Assigning Agents, precondition 6: rejected when "An Agent in `agents` already has `assignment` as its
+  Assignment."
+- **Description:** In that example a5 is on Training, so precondition 6 fails too, and the example names only a1's
+  failed precondition 8 as the reason. Which failed precondition the error names is not stated, so the example reads as
+  if a5 were acceptable on its own; an Agent on Standby in its place would show precondition 8 alone.
+- **Links:** DEC-052
+- **Resolution:** Open
+
+## PROB-034: Abandonment still gives an example of assigning Investigation members to Contracting
+
+- **Category:** Conflict
+- **Severity:** Low
+- **Affected specifications:** INVSTG, Abandonment: "e.g. an `assignAgents` action that assigns the last member of
+  each of two Investigations to Contracting." AGENT, Agents that can be assigned, From away: an Agent on an Away
+  Assignment "can only be recalled, i.e. assigned to Standby."
+- **Description:** An Agent on an Investigation can no longer be assigned to Contracting, so the example describes an
+  action the engine rejects; with Standby in its place it holds.
+- **Links:** DEC-052
 - **Resolution:** Open

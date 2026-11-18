@@ -86,6 +86,8 @@ export function createCampaignState(
         turnReport: null,
         historyEntries: [],
         currentTurnStart: summarize(world),
+        // WHIST, Action record: empty in the Turn-start state.
+        currentActions: [],
         // ECON, Turn series of money: Money at the start of turn for the first Turn.
         moneyAtStartOfTurn: [{ turn: 1, value: configuration.startingMoney }],
         moneyAtEndOfTurn: [],

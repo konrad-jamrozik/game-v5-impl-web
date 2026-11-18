@@ -396,18 +396,6 @@ export interface DeploymentPreview {
   readonly message: string | null;
 }
 
-/**
- * What INVSTG, Progress loss would do to one Active Investigation if the listed Agents were assigned elsewhere now;
- * progress is in hundredths of a progress point.
- */
-export interface ProgressLossPreview {
-  readonly investigation: string;
-  readonly progressBefore: number;
-  readonly progressAfter: number;
-  /** Whether no member would remain, so that the Investigation would become Abandoned. */
-  readonly abandoned: boolean;
-}
-
 /** Player API: ordinary gameplay queries and actions. */
 export interface PlayerApi {
   readonly queries: {
@@ -420,8 +408,6 @@ export interface PlayerApi {
     /** COMP: the Player-visible Encyclopedia articles, in Game build order. */
     getEncyclopediaArticles(): Result<readonly EncyclopediaArticleView[]>;
     previewDeployment(missionSite: string | null, agents: readonly string[]): Result<DeploymentPreview>;
-    /** Each Active Investigation that the listed Agents that can be assigned would leave; see DEC-040. */
-    previewProgressLoss(agents: readonly string[]): Result<readonly ProgressLossPreview[]>;
     /**
      * INVSTG, Team progress estimate: the gain per Advance turn, in hundredths of a progress point, of a team of
      * exactly these Serving Agents once they all work; 0 for an empty list.

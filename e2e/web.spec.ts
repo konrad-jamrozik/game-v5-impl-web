@@ -154,7 +154,7 @@ test('a reload continues the Campaign from its Current Autosave, with its Undone
   await expect(id(page, 'money')).toHaveText('320');
 });
 
-test('the Agents View keeps its columns, selects ranges, guards re-assigning, and lists the Memorial', async ({
+test('the Agents View keeps its columns, selects ranges, locks Blocked by under an Assignment filter, and lists the Memorial', async ({
   page,
 }) => {
   await page.goto('/');
@@ -215,33 +215,54 @@ test('the Agents View keeps its columns, selects ranges, guards re-assigning, an
 
   await id(page, 'advance-turn').click();
   await afterAdvance(page, '2');
-  // AVIEW, Selection filters: an Agent the filter rules out stays in the table, muted, with its reason.
+  // AVIEW, Assignment filters: an Agent the filter rules out stays in the table, muted, with what blocks it, and the
+  // locked Blocked by tier puts the Agents that can be selected first, above the Player's tiers.
   page.on('dialog', (dialog) => {
     throw new Error(`Unexpected dialog: ${dialog.message()}`);
   });
   await id(page, 'filter-to-contracting').click();
   await expect(id(page, 'agent-agent-2')).toBeVisible();
-  await expect(id(page, 'reason-agent-2')).toHaveText('On assignment');
+  await expect(id(page, 'blocked-by-agent-2')).toHaveText('On assignment');
   await expect(box(2)).toBeDisabled();
-  // VIS, Tables: Select all selects the selectable rows, and follows them when Allow re-assigning changes.
+  const lockedMarks = [
+    'agents-sort-effectiveSkill ▼ 0.45',
+    'agents-sort-assignment ▲ 0.7',
+    'agents-sort-blockedBy ▲ 1',
+  ];
+  expect(await marks()).toEqual(lockedMarks);
+  await expect(page.locator('[data-testid="agents-grid"] tbody tr').first()).toHaveAttribute(
+    'data-testid',
+    'agent-agent-1',
+  );
+  // VIS, Tables: pressing a locked tier's header changes nothing.
+  await id(page, 'agents-sort-blockedBy').click();
+  expect(await marks()).toEqual(lockedMarks);
+  // VIS, Tables: Select all selects the selectable rows, and follows them when the Assignment filter changes.
   await id(page, 'select-all').check();
   await expect(id(page, 'agents-selected')).toHaveText('1 selected');
-  await id(page, 'allow-reassigning').check();
-  await expect(id(page, 'reason-agent-2')).toHaveText('Already on Contracting');
   await id(page, 'filter-to-standby').click();
+  await expect(id(page, 'blocked-by-agent-1')).toHaveText('Already on Standby');
   await expect(id(page, 'agents-selected')).toHaveText('3 selected');
-  // AVIEW, Re-assigning: with Allow re-assigning checked, recalling from Contracting asks no confirmation.
+  // AVIEW, Header: recalling from Contracting is made at once, without a confirmation.
   await id(page, 'select-all').uncheck();
   await id(page, 'agent-agent-2').click();
   await id(page, 'order-standby').click();
   await expect(id(page, 'agent-agent-2')).toContainText('Standby · In transit');
-  // AGENT, Transit rule, Re-routing: an Agent In transit can be assigned again and stays In transit.
+  // AGENT, Transit rule, No orders in transit: an Agent In transit cannot be selected while a filter is on.
+  await expect(id(page, 'blocked-by-agent-2')).toHaveText('In transit');
+  await expect(box(2)).toBeDisabled();
+  // AVIEW, Assignment filters: with none on, every Agent can be selected and the buttons follow the whole selection.
   await id(page, 'filter-to-standby').click();
+  expect(await marks()).toEqual(['agents-sort-effectiveSkill ▼ 0.7', 'agents-sort-assignment ▲ 1']);
   await expect(box(2)).toBeEnabled();
+  await box(2).check();
+  await expect(id(page, 'order-standby')).toBeDisabled();
+  await expect(id(page, 'order-training')).toBeDisabled();
+  await expect(id(page, 'dismiss')).toBeDisabled();
   page.removeAllListeners('dialog');
 
   // AVIEW, Memorial: a Dismissed Agent leaves the table and appears in the Memorial with its own number columns.
-  await id(page, 'allow-reassigning').uncheck();
+  await box(2).uncheck();
   await expect(id(page, 'agents-selected')).toHaveText('0 selected');
   await id(page, 'agent-agent-1').click();
   page.once('dialog', (dialog) => void dialog.accept());

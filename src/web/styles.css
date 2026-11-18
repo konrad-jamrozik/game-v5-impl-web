@@ -202,7 +202,7 @@ select:focus-visible {
 }
 
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -2176,6 +2176,51 @@ label:has(> input[type='checkbox']:disabled) {
   .help {
     right: 16px;
   }
+}
+
+/* HVIEW, Player actions list: the count opens the list directly under its Turn's row, which stays one line tall. */
+.history-actions-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.history-actions-toggle:hover,
+.history-actions-toggle:focus-visible {
+  color: var(--accent-text);
+}
+
+.history-actions-row td {
+  background: var(--raised);
+}
+
+.history-actions {
+  margin: 0;
+  padding: 4px 0 4px 64px;
+  list-style: none;
+}
+
+/* Number, what the action did, and its money change, each in a column of its own. */
+.history-actions li {
+  display: grid;
+  grid-template-columns: 40px 420px 64px;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.history-actions li + li {
+  margin-top: 4px;
+}
+
+.history-actions .num {
+  text-align: right;
+}
+
+/* HVIEW, Events: labels side by side on one line. */
+.history-event {
+  margin-right: 12px;
 }
 
 /* AVIEW, Agent details: an Agent's Instance ID opens its details. */

@@ -146,7 +146,7 @@ describe('ECON: Acceptance examples', () => {
     state = setMoney(state, 300, 20);
     state = setAssignment(state, [a2], 'Contracting', 'InTransit');
     state = setAssignment(state, [a5], 'Contracting');
-    state = setAssignment(state, [a6], 'Training', 'InTransit');
+    state = setAssignment(state, [a6], 'Standby', 'InTransit');
     state = tweak(state, (world) => {
       world.agents[a4]!.state.currentHealth = 20;
       world.agents[a4]!.state.assignment = { kind: 'Recovery' };
@@ -310,6 +310,10 @@ describe('ECON: Acceptance examples', () => {
     state = setAssignment(state, [t1, t2, t3], 'Training');
     expectRejected(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' }, 'training_cap');
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Training' });
+    expect(agent(state, a1).state).toMatchObject({
+      assignment: { kind: 'Training' },
+      status: 'AtAssignment',
+    });
     expect(agency(state).trainingAgents).toBe(4);
     expectRejected(state, 'assignAgents', { agents: [a2], assignment: 'Training' }, 'training_cap');
     state = act(state, 'assignAgents', { agents: [a2], assignment: 'Contracting' });

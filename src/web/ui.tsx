@@ -2,7 +2,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { sliderFill } from './slider.ts';
 import type { ButtonSound } from './sounds.ts';
-import { TIER_OPACITY, type SortTier } from './table-sort.ts';
+import { tierOpacity, type SortTier } from './table-sort.ts';
 import { tallySquares } from './tally.ts';
 
 /**
@@ -271,7 +271,7 @@ export function SortMark<K extends string>(props: { tiers: readonly SortTier<K>[
     return null;
   }
   return (
-    <span className="sort-mark" style={{ opacity: TIER_OPACITY[index] }} aria-hidden="true">
+    <span className="sort-mark" style={{ opacity: tierOpacity(index) }} aria-hidden="true">
       {(props.tiers[index] as SortTier<K>).desc ? '▼' : '▲'}
     </span>
   );

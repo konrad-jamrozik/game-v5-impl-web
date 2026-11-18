@@ -19,7 +19,6 @@ import {
 } from '../mechanics/economy/economy.ts';
 import {
   isAssessedLead,
-  progressAfterLoss,
   progressGain,
   requiredProgressRange,
 } from '../mechanics/investigations/investigations.ts';
@@ -51,7 +50,6 @@ import type {
   LeadView,
   MissionSiteView,
   MissionView,
-  ProgressLossPreview,
 } from '../player-api.ts';
 import { reject, type Rejection } from '../result.ts';
 import { isServing } from '../state/types.ts';
@@ -513,52 +511,6 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
       transportPlacesLeft: ended ? 0 : Math.max(0, caps.transportCap - countDeployed(states)),
     },
   };
-}
-
-/**
- * INVSTG, Progress loss, previewed: for each Active Investigation with a member among the listed Agents that can be
- * assigned, its progress now and after those Agents leave it, and whether it would become Abandoned.
- */
-export function previewProgressLoss(
-  state: CampaignState,
-  gdrs: GdrCatalog,
-  agentIds: unknown,
-): ProgressLossPreview[] {
-  const world = state.world.current;
-  const ids = Array.isArray(agentIds) ? agentIds.filter((id): id is string => typeof id === 'string') : [];
-  const leaving = new Set(
-    ids.filter((id) => {
-      const agent = world.agents[id];
-      return agent !== undefined && canBeAssigned(agent.state);
-    }),
-  );
-  return Object.values(world.investigations)
-    .filter(
-      (investigation) =>
-        investigation.state.lifecycle === 'Active' &&
-        investigation.state.currentTeam.some((member) => leaving.has(member)),
-    )
-    .map((investigation) => {
-      let skillBefore = 0;
-      let skillAfter = 0;
-      for (const member of investigation.state.currentTeam) {
-        const agent = must(world.agents[member], `Agent ${member}`);
-        if (agent.state.status !== 'AtAssignment') {
-          continue;
-        }
-        const skill = effectiveSkill(agent.state, gdrs.agentParameters);
-        skillBefore += skill;
-        if (!leaving.has(member)) {
-          skillAfter += skill;
-        }
-      }
-      return {
-        investigation: investigation.id,
-        progressBefore: investigation.state.progress,
-        progressAfter: progressAfterLoss(investigation.state.progress, skillBefore, skillAfter),
-        abandoned: investigation.state.currentTeam.every((member) => leaving.has(member)),
-      };
-    });
 }
 
 /**

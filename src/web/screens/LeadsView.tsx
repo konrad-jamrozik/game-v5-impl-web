@@ -4,10 +4,9 @@
  */
 import { useMemo, useState } from 'react';
 import type { AgentView, CurrentStateView, InvestigationView, LeadView } from '../../engine/index.ts';
-import { agentsToAddOrder } from '../agents-to-add.ts';
+import { agentsToAddOrder, isInBase } from '../agents-to-add.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
 import { progressPoints } from '../format.ts';
-import { confirmInterruption } from '../interruption.ts';
 import { progressBar } from '../progress-bar.ts';
 import { activeInvestigationRows, leadsToInvestigate, rangeText } from '../situation.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
@@ -280,10 +279,9 @@ function Team(props: {
   const { lead, investigation, snapshot, state, locked } = props;
   const [checked, setChecked] = useState<readonly string[]>([]);
   const actions = snapshot.actions;
-  const members = new Set(investigation?.currentTeam.map((member) => member.agent) ?? []);
-  // LVIEW, Team: the Agents that can be assigned, are Fit for work, and are not on this Investigation.
+  // LVIEW, Team: the Agents that can be assigned, whose Assignment is a Base Assignment, and that are Fit for work.
   const candidates = state.agents.filter(
-    (agent) => agent.canBeAssigned && agent.fitForWork && !members.has(agent.id),
+    (agent) => agent.canBeAssigned && isInBase(agent) && agent.fitForWork,
   );
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
   // VIS, Tables: up to four sort tiers over the default order of LVIEW, Team.
@@ -347,12 +345,13 @@ function Team(props: {
                         locked ??
                         (actions?.assignableAgents.includes(member.agent) === true
                           ? null
-                          : 'This Agent cannot be assigned now.')
+                          : member.agentStatus === 'InTransit'
+                            ? 'An Agent In transit cannot be assigned until it arrives.'
+                            : 'This Agent cannot be assigned now.')
                       }
                       onClick={() => {
-                        if (confirmInterruption(state, [member.agent])) {
-                          act(() => player.actions.assignAgents([member.agent], 'Standby'));
-                        }
+                        // LVIEW, Team: at once, without a confirmation, because Undo Action takes it back.
+                        act(() => player.actions.assignAgents([member.agent], 'Standby'));
                       }}
                     >
                       Recall
@@ -434,10 +433,8 @@ function Team(props: {
                 : 'An Investigation cannot be started for this Lead now.')
             }
             onClick={() => {
-              if (confirmInterruption(state, team)) {
-                act(() => player.actions.startInvestigation(lead.id, team));
-                setChecked([]);
-              }
+              act(() => player.actions.startInvestigation(lead.id, team));
+              setChecked([]);
             }}
           >
             Start · {team.length}
@@ -454,10 +451,8 @@ function Team(props: {
                 : 'This Investigation accepts no Agents now.')
             }
             onClick={() => {
-              if (confirmInterruption(state, team)) {
-                act(() => player.actions.assignAgentsToInvestigation(investigation.id, team));
-                setChecked([]);
-              }
+              act(() => player.actions.assignAgentsToInvestigation(investigation.id, team));
+              setChecked([]);
             }}
           >
             Assign · {team.length}

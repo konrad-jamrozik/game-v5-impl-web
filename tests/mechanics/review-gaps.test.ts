@@ -32,9 +32,7 @@ import {
   tweak,
   winning,
   withAgents,
-  tryAct,
 } from '../helpers/game.ts';
-import { isRejection } from '../../src/engine/result.ts';
 
 const invalid = (state: CampaignState, change: Parameters<typeof tweak>[1]) =>
   expect(checkInvariants(tweak(state, change), gdrs).length).toBeGreaterThan(0);
@@ -347,9 +345,9 @@ describe('RECOVER: gaps', () => {
 });
 
 describe('INVSTG and LEAD: gaps', () => {
-  it('Rejections of startInvestigation, and Agents taken from another Investigation', () => {
+  it('Rejections of startInvestigation, and Agents of another Investigation', () => {
     let state = withAgents(newCampaign(), 7);
-    const [a1, a2, a3, a4, a7] = agentIds(state) as [string, string, string, string, string];
+    const [a1, a2, a3, a4, a7, a6] = agentIds(state) as [string, string, string, string, string, string];
     const catalog = catalogWith((raw) =>
       raw.add('leads-and-progression/leads.yaml', { ...raw.get('locate_red_dawn_member'), id: 'other_lead' }),
     );
@@ -372,18 +370,37 @@ describe('INVSTG and LEAD: gaps', () => {
       expectRejected(state, 'startInvestigation', { lead, agents: list }, reason, 'player', catalog);
     reject([], 'agents_empty');
     reject([a1, a1], 'agents_duplicate');
-    // AGENT, Transit rule, Re-routing: a2, In transit, can start an Investigation.
-    expect(
-      isRejection(tryAct(state, 'startInvestigation', { lead, agents: [a1, a2] }, 'player', catalog)),
-    ).toBe(false);
+    // a1 is on Contracting, an Away Assignment, which it can leave only for Standby.
+    reject([a1], 'agents_not_in_base');
+    // AGENT, Transit rule, No orders in transit: a2 must arrive first.
+    reject([a2], 'agents_cannot_be_ordered');
     reject([a3], 'agents_cannot_be_ordered');
     reject([a4], 'agents_cannot_be_ordered');
-    const started = run(state, 'startInvestigation', { lead, agents: [a1, a7] });
-    expect(started.world.current.investigations[i11]!.state).toMatchObject({
-      lifecycle: 'Abandoned',
-      currentTeam: [],
+    expectRejected(
+      state,
+      'assignAgentsToInvestigation',
+      { investigation: i11, agents: [a1] },
+      'agents_not_in_base',
+      'player',
+      catalog,
+    );
+    // startInvestigation never takes an Agent off another Investigation: i11 keeps a7.
+    reject([a7], 'agents_not_in_base');
+    expect(state.world.current.investigations[i11]!.state).toMatchObject({
+      lifecycle: 'Active',
+      currentTeam: [a7],
     });
-    expect(Object.values(started.world.current.investigations)[1]!.state.currentTeam).toEqual([a1, a7]);
+    // a6, on Training At assignment, can join i11 or start a new Investigation.
+    state = setAssignment(state, [a6], 'Training');
+    const joined = run(state, 'assignAgentsToInvestigation', { investigation: i11, agents: [a6] });
+    expect(joined.world.current.investigations[i11]!.state.currentTeam).toEqual([a7, a6]);
+    expect(joined.world.current.agents[a6]!.state).toMatchObject({
+      assignment: { kind: 'Investigation', investigation: i11 },
+      status: 'InTransit',
+    });
+    const started = run(state, 'startInvestigation', { lead, agents: [a6] });
+    expect(Object.values(started.world.current.investigations)[1]!.state.currentTeam).toEqual([a6]);
+    expect(started.world.current.investigations[i11]!.state.currentTeam).toEqual([a7]);
   });
 
   it('Game build without a Lead: a Campaign is created', () => {

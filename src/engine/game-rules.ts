@@ -2,6 +2,7 @@
  * The game behavior of the Mechanics family, assembled behind the GameRules seam that the engine subsystems use.
  */
 import { produce } from 'immer';
+import { detach } from '../kernel/values.ts';
 import { GAME_BUILD, type GdrCatalog } from '../gdr/index.ts';
 import { applyGameAction } from './actions/actions.ts';
 import { seededRandom, type Random } from './random.ts';
@@ -22,7 +23,6 @@ import {
   previewDeployment,
   previewAssignAgents,
   previewAssignAgentsAlone,
-  previewProgressLoss,
   turnReportView,
 } from './views/views.ts';
 
@@ -62,7 +62,22 @@ export function applyActionTo(
   const next = produce(state, (draft) => {
     rejection = applyGameAction(draft.world.current, record, gdrs, random);
   });
-  return rejection ?? next;
+  if (rejection !== null) {
+    return rejection;
+  }
+  // An action with no effect is not a Player action, so it adds nothing to the Action record.
+  if (next === state) {
+    return state;
+  }
+  // WHIST, Action record, and ECON, Money in the Action record: every Player action other than Advance turn, including
+  // a Player cheat action, adds its item to the end of the current Turn's Action record.
+  return produce(next, (draft) => {
+    draft.world.history.currentActions.push({
+      operation: record.name,
+      args: detach(record.args),
+      moneyChange: next.world.current.agency.state.money - state.world.current.agency.state.money,
+    });
+  });
 }
 
 /**
@@ -144,7 +159,8 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
         Array.isArray(history['historyEntries']) &&
         Array.isArray(history['moneyAtStartOfTurn']) &&
         Array.isArray(history['moneyAtEndOfTurn']) &&
-        isRecord(history['currentTurnStart'])
+        isRecord(history['currentTurnStart']) &&
+        Array.isArray(history['currentActions'])
       );
     },
 
@@ -162,9 +178,6 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       }
       if (query === 'previewDeployment' && isRecord(args)) {
         return previewDeployment(state, gdrs, args['missionSite'], args['agents']);
-      }
-      if (query === 'previewProgressLoss' && isRecord(args)) {
-        return previewProgressLoss(state, gdrs, args['agents']);
       }
       if (query === 'estimateTeamProgressGain' && isRecord(args)) {
         return estimateTeamProgressGain(state, gdrs, args['agents']);

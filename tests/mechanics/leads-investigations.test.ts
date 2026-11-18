@@ -279,7 +279,7 @@ describe('LEAD: Acceptance examples', () => {
     state = act(state, 'startInvestigation', { lead: MEMBER, agents: [a1] });
     const i1 = investigations(state)[0]!.id;
     expect(blocking(state)[MEMBER]).toEqual([]);
-    state = act(arrive(state), 'assignAgents', { agents: [a1], assignment: 'Contracting' });
+    state = act(arrive(state), 'assignAgents', { agents: [a1], assignment: 'Standby' });
     expect(state.world.current.investigations[i1]!.state).toMatchObject({
       lifecycle: 'Abandoned',
       currentTeam: [],
@@ -751,7 +751,8 @@ describe('INVSTG: Acceptance examples', () => {
     expect(investigation().progress).toBe(0);
     state = advance(state);
     expect(investigation()).toMatchObject({ progress: 174, assessed: true });
-    state = act(state, 'assignAgents', { agents: [a2], assignment: 'Contracting' });
+    state = act(state, 'assignAgents', { agents: [a2], assignment: 'Standby' });
+    expect(agent(state, a2).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
     // a2 takes half of the effective skill At assignment with it: round down(174 × 100 / 200) = 87.
     expect(investigation()).toMatchObject({
       progress: 87,
@@ -829,7 +830,7 @@ describe('INVSTG: Acceptance examples', () => {
     expect(leads(state)[MEMBER]).toMatchObject({ assessed: true, requiredProgressRange: { min: 3, max: 4 } });
   });
 
-  it('Agents taken from another Investigation', () => {
+  it('Moving a member to another Investigation', () => {
     const catalog = catalogWith((raw) => {
       raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l1', required_progress: 2 });
       raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l2', required_progress: 4 });
@@ -841,68 +842,64 @@ describe('INVSTG: Acceptance examples', () => {
     state = arrive(start(state, 'l1', [a1, a2], 2, catalog));
     const i6 = investigations(state)[0]!.id;
     state = tweak(state, (world) => (world.investigations[i6]!.state.progress = 150));
+
+    // a1 is on i6, an Away Assignment, which it can leave only for Standby.
     expectRejected(
       state,
       'startInvestigation',
-      { lead: 'l1', agents: [a1, a2] },
-      'lead_has_active_investigation',
+      { lead: 'l2', agents: [a1] },
+      'agents_not_in_base',
       'player',
       catalog,
     );
-
-    state = start(state, 'l2', [a1], 5, catalog);
-    const i7 = investigations(state)[1]!.id;
+    state = run(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
+    expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
+    expect(agent(state, a1).state.participationHistory).toEqual([{ kind: 'Investigation', id: i6 }]);
     expect(state.world.current.investigations[i6]!.state).toMatchObject({
       lifecycle: 'Active',
       currentTeam: [a2],
       progress: 75,
     });
-    expect(agent(state, a1).state.participationHistory).toEqual([{ kind: 'Investigation', id: i6 }]);
+    // a1 is In transit and cannot be assigned.
     expectRejected(
       state,
       'startInvestigation',
-      { lead: 'l2', agents: [a2] },
-      'lead_has_active_investigation',
+      { lead: 'l2', agents: [a1] },
+      'agents_cannot_be_ordered',
       'player',
       catalog,
     );
-    state = run(state, 'assignAgentsToInvestigation', { investigation: i7, agents: [a2] });
+
+    // In the Advance turn ending Turn 30, a1 arrives on Standby; in Turn 31 it can start the new Investigation.
+    state = advance(state, {}, catalog);
+    expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'AtAssignment' });
+    state = start(state, 'l2', [a1], 5, catalog);
+    const i7 = investigations(state)[1]!.id;
+    expect(state.world.current.investigations[i7]!.state).toMatchObject({ currentTeam: [a1], progress: 0 });
+    expect(agent(state, a1).state).toMatchObject({
+      assignment: { kind: 'Investigation', investigation: i7 },
+      status: 'InTransit',
+    });
+    // Rejected both because l2 has an Active Investigation and because a2 is on i6; either error is reported.
+    const second = tryAct(state, 'startInvestigation', { lead: 'l2', agents: [a2] }, 'player', catalog);
+    expect(isRejection(second) ? second.reason : 'accepted').toMatch(
+      /^(lead_has_active_investigation|agents_not_in_base)$/,
+    );
+    // Rejected both because a1 already belongs to i7's Current team and because it is In transit.
+    const again = tryAct(
+      state,
+      'assignAgentsToInvestigation',
+      { investigation: i7, agents: [a1] },
+      'player',
+      catalog,
+    );
+    expect(isRejection(again) ? again.reason : 'accepted').toMatch(
+      /^(already_in_current_team|agents_cannot_be_ordered)$/,
+    );
     expect(state.world.current.investigations[i6]!.state).toMatchObject({
-      lifecycle: 'Abandoned',
-      progress: 0,
-      currentTeam: [],
+      lifecycle: 'Active',
+      currentTeam: [a2],
     });
-    expect(state.world.current.investigations[i7]!.state).toMatchObject({
-      currentTeam: [a1, a2],
-      progress: 0,
-    });
-    expectRejected(
-      state,
-      'assignAgentsToInvestigation',
-      { investigation: i7, agents: [a1] },
-      'already_in_current_team',
-      'player',
-      catalog,
-    );
-    expectRejected(
-      arrive(state),
-      'assignAgentsToInvestigation',
-      { investigation: i7, agents: [a1] },
-      'already_in_current_team',
-      'player',
-      catalog,
-    );
-    expectRejected(
-      state,
-      'assignAgentsToInvestigation',
-      { investigation: i6, agents: [agentIds(state)[2]] },
-      'investigation_not_active',
-      'player',
-      catalog,
-    );
-    // The Lead of the Abandoned Investigation can be investigated again, from progress 0.
-    state = run(state, 'startInvestigation', { lead: 'l1', agents: [agentIds(state)[2]] });
-    expect(investigations(state)[2]!.state.progress).toBe(0);
     expect(checkInvariants(state, catalog)).toEqual([]);
   });
 
@@ -917,7 +914,7 @@ describe('INVSTG: Acceptance examples', () => {
       world.agents[a2]!.state.skill = 0;
     });
     expect(view(state, i).projectedProgressGain).toBe(0);
-    state = act(state, 'assignAgents', { agents: [a1], assignment: 'Contracting' });
+    state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
     expect(progressOf(state, i)).toBe(50);
   });
 
@@ -1024,11 +1021,20 @@ describe('INVSTG: Acceptance examples', () => {
       { investigation: i11, agents: [a1, a1] },
       'agents_duplicate',
     );
-    // AGENT, Transit rule, Re-routing: a2, In transit, can join i11 and stays In transit.
-    expect(
-      act(state, 'assignAgentsToInvestigation', { investigation: i11, agents: [a1, a2] }).world.current
-        .agents[a2]!.state,
-    ).toMatchObject({ assignment: { kind: 'Investigation', investigation: i11 }, status: 'InTransit' });
+    // AGENT, Transit rule, No orders in transit: a2 must arrive first.
+    expectRejected(
+      state,
+      'assignAgentsToInvestigation',
+      { investigation: i11, agents: [a2] },
+      'agents_cannot_be_ordered',
+    );
+    // a1 is on Contracting, an Away Assignment, which it can leave only for Standby.
+    expectRejected(
+      state,
+      'assignAgentsToInvestigation',
+      { investigation: i11, agents: [a1] },
+      'agents_not_in_base',
+    );
     expectRejected(
       state,
       'assignAgentsToInvestigation',
@@ -1047,10 +1053,17 @@ describe('INVSTG: Acceptance examples', () => {
       { investigation: 'nothing', agents: [a1] },
       'unknown_investigation',
     );
-    const joined = act(state, 'assignAgentsToInvestigation', { investigation: i11, agents: [a1] });
+    // a6, on Training At assignment, joins without changing i11's progress.
+    const a6 = agentIds(state)[5]!;
+    const training = setAssignment(state, [a6], 'Training');
+    const joined = act(training, 'assignAgentsToInvestigation', { investigation: i11, agents: [a6] });
     expect(joined.world.current.investigations[i11]!.state).toMatchObject({
-      currentTeam: [a7, a1],
+      currentTeam: [a7, a6],
       progress: 100,
+    });
+    expect(joined.world.current.agents[a6]!.state).toMatchObject({
+      assignment: { kind: 'Investigation', investigation: i11 },
+      status: 'InTransit',
     });
   });
 

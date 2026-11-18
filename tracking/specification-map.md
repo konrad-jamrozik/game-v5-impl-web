@@ -207,6 +207,8 @@ No files.
 - src/gdr/catalog.ts
 - src/gdr/types.ts
 - tests/mechanics/economy.test.ts
+- src/engine/game-rules.ts
+- tests/foundation/action-record.test.ts
 
 ## ENDING: Panic and Endings
 
@@ -288,6 +290,9 @@ No files.
 ## HVIEW: History View
 
 - src/web/screens/HistoryView.tsx
+- src/web/history-actions.ts
+- tests/web/history-actions.test.ts
+- src/web/styles.css
 
 ## ICONV: Implementation Specification Conventions
 
@@ -313,13 +318,11 @@ No files.
 - content/investigations/investigation_parameters.yaml
 - src/web/screens/LeadsView.tsx
 - src/web/screens/TurnReportView.tsx
-- src/web/interruption.ts
 - src/web/format.ts
 - src/web/progress-bar.ts
 - src/web/turn-summary.ts
 - tests/mechanics/leads-investigations.test.ts
 - tests/mechanics/turn-advancement.test.ts
-- tests/web/interruption.test.ts
 - tests/web/progress-bar.test.ts
 - tests/web/situation-and-summary.test.ts
 - tests/engine/campaign.test.ts
@@ -361,7 +364,6 @@ No files.
 - src/web/screens/LeadsView.tsx
 - src/web/screens/ProgressBar.tsx
 - src/web/progress-bar.ts
-- src/web/interruption.ts
 - e2e/web.spec.ts
 - src/web/agents-to-add.ts
 - tests/web/agents-to-add.test.ts
@@ -530,7 +532,6 @@ No files.
 - src/web/screens/DeveloperDrawer.tsx
 - src/web/screens/SettingsPanel.tsx
 - src/web/tired-deployment.ts
-- src/web/interruption.ts
 - src/engine/session/global-configuration.ts
 - tests/web/sounds.test.ts
 - e2e/web.spec.ts
@@ -656,3 +657,6 @@ No files.
 - tests/foundation/timeline.test.ts
 - tests/mechanics/turn-advancement.test.ts
 - src/web/turn-summary.ts
+- src/engine/game-rules.ts
+- src/engine/state/create.ts
+- tests/foundation/action-record.test.ts

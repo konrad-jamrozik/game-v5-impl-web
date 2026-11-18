@@ -84,9 +84,9 @@ export function clampHealth(value: number, baseHealth: number): number {
 
 /** AGENT, Agents that can be assigned. */
 export function canBeAssigned(agent: Pick<AgentState, 'status' | 'assignment'>): boolean {
-  // AGENT, Agents that can be assigned: At assignment or In transit, on Standby, Contracting, Training, or an
-  // Investigation. An Agent In transit to Recovery cannot be assigned.
-  if ((agent.status !== 'AtAssignment' && agent.status !== 'InTransit') || agent.assignment === null) {
+  // AGENT, Agents that can be assigned: At assignment, on Standby, Contracting, Training, or an Investigation. An
+  // Agent In transit, whatever its Assignment, must arrive first; see AGENT, Transit rule, No orders in transit.
+  if (agent.status !== 'AtAssignment' || agent.assignment === null) {
     return false;
   }
   const kind = agent.assignment.kind;
@@ -95,7 +95,8 @@ export function canBeAssigned(agent: Pick<AgentState, 'status' | 'assignment'>):
 
 /**
  * AGENT, Assignments: a Base Assignment is Standby or Training, carried out in the Agency's base. Moving between Base
- * Assignments takes no transit, and only an Agent on one can be deployed.
+ * Assignments takes no transit, and only an Agent on one can be deployed or given an Away Assignment. An Agent on an
+ * Away Assignment, Contracting or an Investigation, can only be recalled to Standby.
  */
 export function isBaseAssignment(assignment: Assignment | null): boolean {
   return assignment !== null && (assignment.kind === 'Standby' || assignment.kind === 'Training');

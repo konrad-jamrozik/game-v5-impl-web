@@ -15,6 +15,32 @@ export const MAX_SORT_TIERS = 4;
 /** VIS, Tables: the opacity of the direction arrow of the first, second, third, and fourth tier. */
 export const TIER_OPACITY: readonly number[] = [1, 0.7, 0.45, 0.25];
 
+/** VIS, Tables: the opacity of a tier's arrow; a locked tier counts as the first, and every tier past the fourth is 25%. */
+export function tierOpacity(index: number): number {
+  return TIER_OPACITY[Math.min(index, TIER_OPACITY.length - 1)] ?? 0.25;
+}
+
+/**
+ * VIS, Tables: the tiers a table sorts by when a view locks a tier above the up to four the Player chose, e.g. the
+ * Blocked by tier of the Agent table while an Assignment filter is on.
+ */
+export function withLockedTier<K extends string>(
+  locked: SortTier<K> | null,
+  tiers: readonly SortTier<K>[],
+): SortTier<K>[] {
+  return locked === null ? [...tiers] : [locked, ...tiers.filter((tier) => tier.key !== locked.key)];
+}
+
+/** VIS, Tables: pressing a locked tier's header changes nothing; any other header changes the tiers under it. */
+export function pressHeaderUnderLock<K extends string>(
+  tiers: readonly SortTier<K>[],
+  key: K,
+  numeric: boolean,
+  lockedKey: K | null,
+): SortTier<K>[] {
+  return key === lockedKey ? [...tiers] : pressHeader(tiers, key, numeric);
+}
+
 /**
  * VIS, Tables: the tiers after the Player presses the header of column `key`. A column in no tier becomes the first
  * tier, descending when it holds numbers; the first tier flips its direction; a lower tier becomes the first with the

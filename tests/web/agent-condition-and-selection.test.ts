@@ -1,7 +1,7 @@
-/** VIS, Agent condition; AVIEW, Filters and Agent table. */
+/** VIS, Agent condition; AVIEW, Assignment filters and Agent table. */
 import { describe, expect, it } from 'vitest';
 import { currentStateView } from '../../src/engine/views/views.ts';
-import { isSelectable, unselectableReason, type Selectability } from '../../src/web/agent-selection.ts';
+import { blockedBy, isSelectable, type Selectability } from '../../src/web/agent-selection.ts';
 import { exhaustionTone, healthColor } from '../../src/web/condition-scale.ts';
 import { agentIds, gdrs, newCampaign, setAssignment, tweak, withAgents } from '../helpers/game.ts';
 
@@ -24,7 +24,7 @@ describe('VIS: Agent condition', () => {
   });
 });
 
-describe('AVIEW: Selection filters and reasons', () => {
+describe('AVIEW: Assignment filters and Blocked by', () => {
   let state = withAgents(newCampaign(), 5);
   const [a1, a2, a3, a4, a5] = agentIds(state) as [string, string, string, string, string];
   state = setAssignment(state, [a1], 'Contracting');
@@ -38,33 +38,33 @@ describe('AVIEW: Selection filters and reasons', () => {
   const agents = currentStateView(state, gdrs).agents;
   const view = (id: string) => agents.find((agent) => agent.id === id)!;
   const base: Selectability = {
-    acceptedAlone: { Standby: [a1, a2, a3], Contracting: [a2, a4], Training: [a1, a2, a4] },
-    dismissable: [a3, a4],
+    acceptedAlone: { Standby: [a1, a3], Contracting: [a4], Training: [a4] },
     trainingPlacesLeft: 4,
-    selectionFilter: 'Contracting',
-    allowReassign: false,
+    assignmentFilter: 'Contracting',
   };
-  const reason = (id: string, s: Selectability) => unselectableReason(view(id), s, () => 'engine says no');
+  const blocked = (id: string, s: Selectability) => blockedBy(view(id), s, () => 'engine says no');
 
-  it('mutes Agents the selection filter rules out, with the first reason that applies', () => {
+  it('mutes Agents the Assignment filter rules out, with the first reason that applies', () => {
     expect(isSelectable(view(a4), base)).toBe(true);
-    expect(reason(a4, base)).toBe('');
-    expect(reason(a1, base)).toBe('On assignment');
-    expect(reason(a2, base)).toBe('In transit');
-    expect(reason(a3, base)).toBe('Too exhausted');
-    expect(reason(a5, base)).toBe('Recovering');
+    expect(blocked(a4, base)).toBe('');
+    expect(blocked(a1, base)).toBe('On assignment');
+    expect(blocked(a2, base)).toBe('In transit');
+    expect(blocked(a3, base)).toBe('Too exhausted');
+    expect(blocked(a5, base)).toBe('Recovering');
   });
 
-  it('lets Allow re-assigning make Agents on assignment or In transit selectable', () => {
-    const allow = { ...base, allowReassign: true };
-    expect(isSelectable(view(a2), allow)).toBe(true);
-    expect(reason(a1, allow)).toBe('Already on Contracting');
+  it('with the Standby Assignment filter, an Agent on Contracting can be selected and one In transit cannot', () => {
+    const standby = { ...base, assignmentFilter: 'Standby' as const };
+    expect(isSelectable(view(a1), standby)).toBe(true);
+    expect(blocked(a2, standby)).toBe('In transit');
+    expect(blocked(a4, standby)).toBe('Already on Standby');
   });
 
-  it('without a selection filter, selects an Agent any button would succeed with', () => {
-    const none = { ...base, selectionFilter: null };
-    expect(isSelectable(view(a3), none)).toBe(true);
-    expect(isSelectable(view(a1), none)).toBe(false);
-    expect(reason(a5, none)).toBe('Recovering');
+  it('without an Assignment filter, every shown Agent can be selected and no row is blocked', () => {
+    const none = { ...base, assignmentFilter: null };
+    for (const id of [a1, a2, a3, a4, a5]) {
+      expect(isSelectable(view(id), none)).toBe(true);
+      expect(blocked(id, none)).toBe('');
+    }
   });
 });

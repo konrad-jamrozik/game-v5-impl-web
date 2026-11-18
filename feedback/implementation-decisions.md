@@ -183,7 +183,10 @@
   saved one. Committed state A is earlier than B exactly when the stamp of A is among the stamps leading to B. Stamps
   are kept beside the Timeline and are not Campaign state. The Current, Engagement, and Return Autosaves of a
   Campaign each have one fixed Campaign save ID derived from the Campaign ID, and a Turn-end Autosave has one derived
-  from the Campaign ID and its Turn, so writing one replaces the earlier one.
+  from the Campaign ID and its Turn, so writing one replaces the earlier one. The package version changes whenever
+  the Campaign state a save holds, or the rules its Timeline entries replay under, change incompatibly, e.g. 0.2.0
+  for specification commits 0558ca9bc3c3126195925e66217f6d6174f6b368 and 59ccadfc6728d372f5eadb01026ff2d22256c11e,
+  which ended re-routing and added the Action record.
 - **Options considered:** Comparing Turn numbers and action counts; a hash chain of actions; a stamp for each
   Committed state.
 - **Option chosen:** A stamp for each Committed state.
@@ -304,6 +307,8 @@
   report requires the Mission sites created, Expired, and Cancelled, each by Instance ID; the Turn report holds them as
   `investigationsCompleted`, `createdMissionSites`, `expiredMissionSites`, and `cancelledMissionSites`, and the History
   entry holds the same four lists unreduced instead of the Instance IDs alone it held for the Investigations completed.
+  Specification commit 59ccadfc6728d372f5eadb01026ff2d22256c11e added the Action record: a History entry also holds
+  `actions`, each item the operation's name, its arguments as called, and its money change.
 - **Options considered:** A History entry that repeats the whole Turn report; a reduced History entry.
 - **Option chosen:** A reduced History entry without the Combat log.
 - **Why:** The Combat log is the large part of a Turn report, and WHIST requires a History entry to bound what is
@@ -757,6 +762,9 @@
 - **Options considered:** Computing Progress loss in the GUI from the effective skill the Agents grid shows; a Player
   API query that applies the engine's rule.
 - **Option chosen:** A Player API query.
+- **Update:** Specification commit 0558ca9bc3c3126195925e66217f6d6174f6b368 removed Confirming interrupted
+  Assignments from the GUI, so the confirmation and the `previewProgressLoss` query were removed; the Leads panel
+  part of this decision still applies.
 - **Why:** Every user interface is an adapter over the engine API and implements no gameplay rule of its own, so the
   rule stays in one place and the confirmation always agrees with the action.
 - **Links:** None.
@@ -876,7 +884,9 @@
 - **Options considered:** The GUI applying the preconditions of Assigning Agents itself; a preview query.
 - **Option chosen:** A preview query, plus the per-Agent lists for the filter toggles.
 - **Why:** As with `previewDeployment` under DEC-015, no interface repeats a game rule, so a change to the
-  preconditions of `assignAgents` cannot leave the buttons and filters behind.
+  preconditions of `assignAgents` cannot leave the buttons and filters behind. Specification commit
+  0558ca9bc3c3126195925e66217f6d6174f6b368 renamed the filter toggles Assignment filters; `previewAssignAgentsAlone()`
+  still decides which Agents one of them lets the Player select.
 - **Links:** PROB-029
 
 ## DEC-047: Re-routing an Agent In transit asks no confirmation
@@ -890,6 +900,9 @@
   Agents At assignment.
 - **Option chosen:** Confirming only Agents At assignment.
 - **Why:** The confirmation guards against losing work and an Advance turn, and re-routing loses neither.
+  Specification commit 0558ca9bc3c3126195925e66217f6d6174f6b368 overrode this decision: an Agent In transit can no
+  longer be assigned, and the GUI asks no confirmation of interrupted Assignments at all, so the Implementation
+  removed the confirmation.
 - **Links:** PROB-030
 
 ## DEC-048: The Soundtrack is bundled from `assets/music/`
@@ -922,3 +935,46 @@
 - **Option chosen:** `assets/sounds/` listed by `import.meta.glob`.
 - **Why:** The Soundtrack is bundled the same way, and the same path as in the Spec repo makes the copy easy to compare.
 - **Links:** DEC-048.
+
+## DEC-050: An Assign to button follows the engine, not the Header example
+
+- **Category:** Conflict resolution
+- **Affected specifications:** AVIEW, Header; AGENT, Assigning Agents, precondition 6.
+- **Description:** A button of Assign to is enabled exactly when `previewAssignAgents` reports that the engine would
+  accept its `assignAgents` with the whole selection. With an Agent on Contracting and an Agent on Standby selected,
+  every button of Assign to is therefore disabled, Standby included, because the Agent on Standby already has that
+  Assignment.
+- **Options considered:** Following the example by leaving out of the action the selected Agents that already have the
+  Assignment; following the rule of the Header and the engine's precondition.
+- **Option chosen:** Following the rule of the Header and the engine's precondition.
+- **Why:** The rule and the precondition are normative and agree with each other, and a button that sent a different
+  list of Agents than the Player selected would hide what it does.
+- **Links:** PROB-031
+
+## DEC-051: Developer inspection leaves out the current Turn's Action record
+
+- **Category:** Conflict resolution
+- **Affected specifications:** WHIST, Action record, Kept during the Turn; DEV, full Campaign state inspection.
+- **Description:** The Action record of the current Turn is kept in World history as `currentActions`, which undo,
+  redo, and load restore with the rest of the Committed state, but no query returns it, not even Developer
+  inspection. Every History entry's Action record is returned in full by `getHistory()` and by inspection.
+- **Options considered:** Inspection returning it as part of full Campaign state; no query returning it.
+- **Option chosen:** No query returning it.
+- **Why:** WHIST states the exception specifically, and the same Player actions are already visible to the Session
+  controller through the Timeline.
+- **Links:** PROB-032
+
+## DEC-052: Stale examples yield to the rules they illustrate
+
+- **Category:** Conflict resolution
+- **Affected specifications:** AGENT, Acceptance examples, Assigning Agents; INVSTG, Abandonment; AGENT, Agents that
+  can be assigned.
+- **Description:** `assignAgents([a1, a5], Training)` with a5 already on Training is rejected with the error of
+  precondition 6, `already_assigned`, the first failed precondition in the order AGENT lists them; the test checks a1's
+  precondition 8, `agents_not_in_base`, with a1 alone. `assignAgents` to Contracting of an Agent on an Investigation is
+  rejected, and the last members of two Investigations leave both in one Player action only when recalled to Standby.
+- **Options considered:** Reporting the precondition the example names; reporting the first failed precondition in
+  the listed order.
+- **Option chosen:** Reporting the first failed precondition in the listed order.
+- **Why:** The action is rejected as a whole either way, and the normative preconditions decide what is accepted.
+- **Links:** PROB-033, PROB-034

@@ -392,11 +392,24 @@ export interface StateSummary {
   readonly activeMissionSites: number;
 }
 
+/**
+ * WHIST, Action record: one Player action other than Advance turn, with the operation's name, the arguments it was
+ * called with, and, under ECON, Money in the Action record, the Agency's money after it minus the money before it.
+ */
+export interface ActionRecordItem {
+  readonly operation: string;
+  /** Plain data, exactly as the action was called with it; every Instance ID in it stays resolvable. */
+  readonly args: unknown;
+  readonly moneyChange: number;
+}
+
 /** One ended Turn in reduced form; see DEC-016. */
 export interface HistoryEntry {
   readonly turn: number;
   readonly turnStart: StateSummary;
   readonly turnEnd: StateSummary;
+  /** WHIST, Action record: the Player actions of the Turn, in full, in the order they were committed. */
+  readonly actions: readonly ActionRecordItem[];
   /** The reduced form of the Turn report of the Advance turn that ended the Turn. */
   readonly report: {
     readonly income: number;
@@ -442,6 +455,8 @@ export interface WorldHistory {
   historyEntries: HistoryEntry[];
   /** The reduced form of the Turn-start state of the current Turn, for its History entry. */
   currentTurnStart: StateSummary;
+  /** WHIST, Action record, Kept during the Turn: the Action record of the current Turn; no query returns it. */
+  currentActions: ActionRecordItem[];
   /** ECON, Turn series of money. */
   moneyAtStartOfTurn: TurnSeriesValue[];
   moneyAtEndOfTurn: TurnSeriesValue[];

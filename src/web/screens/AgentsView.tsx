@@ -1,8 +1,8 @@
 /**
  * AVIEW: the Agents View. One table of the Agents the row filter shows, because the Player compares Agents with one
- * another and acts on several at once, with each Agent's details one step away. A selection filter decides which shown
- * Agents can be selected, and every Agent that cannot is muted with its reason. The Memorial shows the Terminated
- * Agents instead, with how each one's service ended.
+ * another and acts on several at once, with each Agent's details one step away. An Assignment filter decides which
+ * shown Agents can be selected, every Agent that cannot is muted with what blocks it, and those that can come first. The
+ * Memorial shows the Terminated Agents instead, with how each one's service ended.
  */
 import {
   createColumnHelper,
@@ -15,17 +15,18 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentView, CurrentStateView, HistoryView } from '../../engine/index.ts';
 import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
-import {
-  ASSIGNMENTS,
-  isReassigning,
-  unselectableReason,
-  type OrderAssignment,
-  type Selectability,
-} from '../agent-selection.ts';
+import { ASSIGNMENTS, blockedBy, type OrderAssignment, type Selectability } from '../agent-selection.ts';
 import { useRowSelection } from '../row-selection.ts';
 import { confirmOrGoBack } from '../sound-player.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import { pressHeader, sortRows, type SortTier } from '../table-sort.ts';
+import {
+  compareValues,
+  pressHeader,
+  pressHeaderUnderLock,
+  sortRows,
+  withLockedTier,
+  type SortTier,
+} from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
@@ -113,7 +114,7 @@ export function memorialNumbers(agent: AgentView): { missions: number; turns: nu
   };
 }
 
-const helper = createColumnHelper<AgentView & { reason: string }>();
+const helper = createColumnHelper<AgentView & { blockedBy: string }>();
 
 function FunnelIcon() {
   return (
@@ -143,19 +144,26 @@ export function AgentsView(props: {
   const levels = exhaustionLevels(snapshot.gameData);
   // VIS, Tables: up to four sort tiers over the default order by Instance ID.
   const [tiers, setTiers] = useState<SortTier<string>[]>([]);
-  const sorting = useMemo<SortingState>(
-    () => tiers.map((tier) => ({ id: tier.key, desc: tier.desc })),
-    [tiers],
-  );
   const [rowFilter, setRowFilter] = useState<RowFilter>('all');
-  const [selectionFilter, setSelectionFilter] = useState<OrderAssignment | null>(null);
-  // AVIEW, Re-assigning: unchecked whenever the Agents View opens.
-  const [allowReassign, setAllowReassign] = useState(false);
+  // AVIEW, Assignment filters: none is on whenever the Agents View opens.
+  const [assignmentFilter, setAssignmentFilter] = useState<OrderAssignment | null>(null);
+  const memorialOn = rowFilter === 'memorial';
+  // AVIEW, Agent table: while an Assignment filter is on, Blocked by is a locked first tier, ascending, so that the
+  // Agents that can be selected come first, and the Player's tiers order the Agents within each group of it.
+  const locksBlockedBy = assignmentFilter !== null && !memorialOn;
+  const sortTiers = useMemo(
+    () => withLockedTier(locksBlockedBy ? { key: 'blockedBy', desc: false } : null, tiers),
+    [locksBlockedBy, tiers],
+  );
+  const sorting = useMemo<SortingState>(
+    () => sortTiers.map((tier) => ({ id: tier.key, desc: tier.desc })),
+    [sortTiers],
+  );
   // VIS, Tables: Select all, which keeps the selection equal to the shown rows that can be selected.
   const [selectAll, setSelectAll] = useState(false);
   const [details, setDetails] = useState<string | null>(null);
 
-  const memorial = rowFilter === 'memorial';
+  const memorial = memorialOn;
   const terminated = useMemo(
     () =>
       [...(snapshot.history?.retained.agents ?? [])].sort(
@@ -173,12 +181,10 @@ export function AgentsView(props: {
   const selectability: Selectability = useMemo(
     () => ({
       acceptedAlone: acceptedAlone ?? { Standby: [], Contracting: [], Training: [] },
-      dismissable: actions?.dismissableAgents ?? [],
       trainingPlacesLeft: actions?.assignAgents.trainingPlacesLeft ?? 0,
-      selectionFilter: memorial ? null : selectionFilter,
-      allowReassign,
+      assignmentFilter: memorial ? null : assignmentFilter,
     }),
-    [acceptedAlone, actions, selectionFilter, allowReassign, memorial],
+    [acceptedAlone, actions, assignmentFilter, memorial],
   );
 
   // TanStack Table needs a stable `data` reference: a new array on every render makes it re-render without end.
@@ -194,20 +200,23 @@ export function AgentsView(props: {
       .sort((x, y) => byId(x.id, y.id))
       .map((agent) => ({
         ...agent,
-        reason: unselectableReason(agent, selectability, () => {
+        blockedBy: blockedBy(agent, selectability, () => {
           const preview = player.queries.previewAssignAgents(
             [agent.id],
-            selectability.selectionFilter ?? 'Standby',
+            selectability.assignmentFilter ?? 'Standby',
           );
           return preview.ok ? (preview.value.message ?? 'Cannot be selected') : preview.error.message;
         }),
       }));
   }, [rowFilter, state.agents, selectability, player]);
 
-  const selectableIds = useMemo(() => rows.filter((row) => row.reason === '').map((row) => row.id), [rows]);
+  const selectableIds = useMemo(
+    () => rows.filter((row) => row.blockedBy === '').map((row) => row.id),
+    [rows],
+  );
   const selectableKey = selectableIds.join(',');
 
-  // AVIEW, Selection filters, and VIS, Tables: whenever what can be selected changes, the selection follows Select all
+  // AVIEW, Assignment filters, and VIS, Tables: whenever what can be selected changes, the selection follows Select all
   // while it is on, and otherwise drops every Agent that can no longer be selected or is no longer shown.
   const latestSelected = useRef(selected);
   latestSelected.current = selected;
@@ -262,10 +271,12 @@ export function AgentsView(props: {
         header: 'Assignment',
         cell: (cell) => <span className={assignmentTone(cell.row.original)}>{cell.getValue()}</span>,
       }),
-      helper.accessor('reason', {
-        header: 'Reason',
+      helper.accessor('blockedBy', {
+        header: 'Blocked by',
+        // Ascending puts the empty Blocked by of the Agents that can be selected first.
+        sortingFn: (a, b) => compareValues(a.original.blockedBy, b.original.blockedBy),
         cell: (cell) => (
-          <span className="small" data-testid={`reason-${cell.row.original.id}`}>
+          <span className="small" data-testid={`blocked-by-${cell.row.original.id}`}>
             {cell.getValue()}
           </span>
         ),
@@ -295,7 +306,6 @@ export function AgentsView(props: {
     },
   });
 
-  const chosenAgents = state.agents.filter((agent) => selected.includes(agent.id));
   const previews = useMemo(() => {
     const result = new Map<OrderAssignment, string | null>();
     for (const assignment of ASSIGNMENTS) {
@@ -340,20 +350,15 @@ export function AgentsView(props: {
   const count = selected.length;
   const none = count === 0 ? 'Select Agents first.' : null;
   const terminatedReason = memorial ? 'No Player action acts on a Terminated Agent.' : null;
-  const reassignReason =
-    !allowReassign && chosenAgents.some(isReassigning)
-      ? 'A selected Agent is on Contracting or an Investigation, or In transit: check Allow re-assigning to move it.'
-      : null;
   // AVIEW, Header: a button is enabled only when pressing it would succeed with the current selection.
   const orderReason = (assignment: OrderAssignment): string | null =>
-    locked ?? terminatedReason ?? none ?? reassignReason ?? previews.get(assignment) ?? null;
+    locked ?? terminatedReason ?? none ?? previews.get(assignment) ?? null;
+  const dismissable = actions?.dismissableAgents ?? [];
   const dismissReason =
     locked ??
     terminatedReason ??
     none ??
-    (selected.every((id) => selectability.dismissable.includes(id))
-      ? null
-      : 'A selected Agent cannot be dismissed now.');
+    (selected.every((id) => dismissable.includes(id)) ? null : 'A selected Agent cannot be dismissed now.');
 
   const rowFilterButton = (which: RowFilter, label: string, shown: number) => (
     <button
@@ -418,7 +423,7 @@ export function AgentsView(props: {
           </span>
           <div className="actions">
             {ASSIGNMENTS.map((assignment) => {
-              const on = !memorial && selectionFilter === assignment;
+              const on = !memorial && assignmentFilter === assignment;
               return (
                 <span key={assignment} className="button-pair">
                   <Button
@@ -426,7 +431,7 @@ export function AgentsView(props: {
                     testId={`order-${assignment.toLowerCase()}`}
                     disabledReason={orderReason(assignment)}
                     onClick={() => {
-                      // AVIEW, Re-assigning: with Allow re-assigning checked, no confirmation is asked.
+                      // AVIEW, Header: at once and without a confirmation, because Undo Action takes it back.
                       const agents = [...selected];
                       act(() => player.actions.assignAgents(agents, assignment));
                     }}
@@ -443,7 +448,10 @@ export function AgentsView(props: {
                     data-testid={`filter-to-${assignment.toLowerCase()}`}
                     data-sound="none"
                     onClick={() => {
-                      setSelectionFilter(on ? null : assignment);
+                      // AVIEW, Agent table: turning one on locks the Blocked by tier above the Player's tiers;
+                      // turning it off drops that tier and keeps the tiers the Player chose.
+                      setTiers(tiers.filter((tier) => tier.key !== 'blockedBy'));
+                      setAssignmentFilter(on ? null : assignment);
                     }}
                   >
                     <FunnelIcon />
@@ -451,18 +459,6 @@ export function AgentsView(props: {
                 </span>
               );
             })}
-            <label className="check-label">
-              <input
-                type="checkbox"
-                data-testid="allow-reassigning"
-                checked={allowReassign}
-                disabled={memorial}
-                onChange={(event) => {
-                  setAllowReassign(event.target.checked);
-                }}
-              />
-              Allow re-assigning
-            </label>
           </div>
         </div>
         <Button
@@ -521,14 +517,21 @@ export function AgentsView(props: {
                     <th
                       key={header.id}
                       className={NUMERIC.has(header.column.id) ? 'sortable num' : 'sortable'}
-                      aria-sort={ariaSort(tiers, header.column.id)}
+                      aria-sort={ariaSort(sortTiers, header.column.id)}
                       data-testid={`agents-sort-${header.column.id}`}
                       onClick={() => {
-                        setTiers(pressHeader(tiers, header.column.id, NUMERIC.has(header.column.id)));
+                        setTiers(
+                          pressHeaderUnderLock(
+                            tiers,
+                            header.column.id,
+                            NUMERIC.has(header.column.id),
+                            locksBlockedBy ? 'blockedBy' : null,
+                          ),
+                        );
                       }}
                     >
                       {flexRender(header.column.columnDef.header, header.getContext())}
-                      <SortMark tiers={tiers} column={header.column.id} />
+                      <SortMark tiers={sortTiers} column={header.column.id} />
                     </th>
                   ))}
                 </tr>

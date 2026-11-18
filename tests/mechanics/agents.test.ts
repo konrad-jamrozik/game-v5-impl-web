@@ -146,13 +146,20 @@ describe('AGENT: Acceptance examples', () => {
       assignment: { kind: 'Contracting' },
       status: 'InTransit',
     });
-    // AGENT, Transit rule, Re-routing: a second order re-routes a1, which stays In transit.
-    expect(
-      agent(act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' }), a1).state,
-    ).toMatchObject({
-      assignment: { kind: 'Standby' },
-      status: 'InTransit',
-    });
+    // AGENT, Transit rule, No orders in transit: a second order naming a1 is rejected, and so is deploying it.
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a1], assignment: 'Standby' },
+      'agents_cannot_be_ordered',
+    );
+    const site = addMissionSite(state, 'apprehend_member');
+    expectRejected(
+      site.state,
+      'deployAgents',
+      { missionSite: site.site, agents: [a1] },
+      'agents_cannot_be_ordered',
+    );
     const before = money(state);
     state = advance(state);
     expect(agent(state, a1).state.status).toBe('AtAssignment');
@@ -178,13 +185,14 @@ describe('AGENT: Acceptance examples', () => {
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
-    // AGENT, Transit rule, Re-routing: the hired Agent can be ordered to Training and stays In transit.
-    expect(
-      agent(act(state, 'assignAgents', { agents: [a5], assignment: 'Training' }), a5).state,
-    ).toMatchObject({
-      assignment: { kind: 'Training' },
-      status: 'InTransit',
-    });
+    // AGENT, Transit rule, No orders in transit: the hired Agent cannot be ordered to Training until it arrives.
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a5], assignment: 'Training' },
+      'agents_cannot_be_ordered',
+    );
+    expect(canBeAssigned(agent(state, a5).state)).toBe(false);
     const before = money(state);
     state = advance(state);
     expect(money(state)).toBe(before + 20 - 50);
@@ -192,6 +200,7 @@ describe('AGENT: Acceptance examples', () => {
       assignment: { kind: 'Standby' },
       status: 'AtAssignment',
     });
+    expect(canBeAssigned(agent(state, a5).state)).toBe(true);
   });
 
   it('Transit: returning survivors; Deployed at once', () => {
@@ -223,8 +232,14 @@ describe('AGENT: Acceptance examples', () => {
     expect(state.world.current.missions[mission]!.state.lifecycle).toBe('Won');
     expect(agent(state, a1).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
     expect(agent(state, a1).state.participationHistory).toEqual([{ kind: 'Mission', id: mission }]);
-    // AGENT, Agents that can be assigned: In transit to Standby, it can be assigned, but not deployed.
-    expect(canBeAssigned(agent(state, a1).state)).toBe(true);
+    // AGENT, Agents that can be assigned: In transit to Standby, it cannot be assigned.
+    expect(canBeAssigned(agent(state, a1).state)).toBe(false);
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a1], assignment: 'Training' },
+      'agents_cannot_be_ordered',
+    );
     state = advance(state);
     expect(agent(state, a1).state.status).toBe('AtAssignment');
     expect(canBeAssigned(agent(state, a1).state)).toBe(true);
@@ -322,7 +337,14 @@ describe('AGENT: Acceptance examples', () => {
     });
     expect(agent(state, a2).state.exhaustion).toBe(60);
     expect(agent(state, a3).state.exhaustion).toBe(21);
-    expectRejected(state, 'assignAgents', { agents: [a1], assignment: 'Standby' }, 'already_assigned');
+    // a1 is In transit, so it cannot be assigned at all, whatever its exhaustion.
+    expect(canBeAssigned(agent(state, a1).state)).toBe(false);
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a1], assignment: 'Training' },
+      'agents_cannot_be_ordered',
+    );
     expectRejected(
       state,
       'assignAgents',
@@ -379,12 +401,12 @@ describe('AGENT: Acceptance examples', () => {
     reject([], 'Standby', 'agents_empty');
     reject([a1, a1], 'Standby', 'agents_duplicate');
     reject([a1], 'Contracting', 'already_assigned');
-    expect(
-      agent(act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' }), a2).state,
-    ).toMatchObject({
-      assignment: { kind: 'Training' },
-      status: 'InTransit',
-    });
+    // a1 is on Contracting, an Away Assignment, which it can leave only for Standby. The [a1, a5] call of the
+    // example also names a5, already on Training, so it is rejected as a whole; the error reports a5's failed
+    // precondition first, and a1 alone shows a1's.
+    reject([a1, a5], 'Training', 'already_assigned');
+    reject([a1], 'Training', 'agents_not_in_base');
+    reject([a2], 'Standby', 'agents_cannot_be_ordered');
     reject([a3], 'Standby', 'agents_cannot_be_ordered');
     reject([a4], 'Standby', 'agents_cannot_be_ordered');
     reject([a6], 'Standby', 'agents_cannot_be_ordered');
@@ -409,9 +431,10 @@ describe('AGENT: Acceptance examples', () => {
       status: 'InTransit',
     });
 
-    const moved = act(state, 'assignAgents', { agents: [a7], assignment: 'Training' });
+    reject([a7], 'Training', 'agents_not_in_base');
+    const moved = act(state, 'assignAgents', { agents: [a7], assignment: 'Standby' });
     expect(agent(moved, a7).state).toMatchObject({
-      assignment: { kind: 'Training' },
+      assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
     expect(agent(moved, a7).state.participationHistory).toEqual([
