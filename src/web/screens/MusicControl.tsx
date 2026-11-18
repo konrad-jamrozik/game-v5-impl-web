@@ -1,11 +1,12 @@
 /**
- * MUSIC, Music control: the Music toggle, the Skip button, the Volume slider with its value, and the Track title of the Current Track.
- * It is shown in the Settings panel of the Main menu and in the footer of the Side panel of the Campaign screen.
+ * MUSIC, Music control: the Music toggle, the Skip button, and the Track title of the Current Track. It is shown above
+ * the Settings panel of the Main menu and in the footer of the Side panel of the Campaign screen. MUSIC, Music volume
+ * slider: the row of the Settings panel that sets the Music volume.
  */
-import { useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { music } from '../music-player.ts';
-import { sliderFill } from '../slider.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
+import { VolumeSlider } from '../ui.tsx';
 
 /** The effective Music on and Music volume of the Global configuration in `snapshot`. */
 export function musicSettings(snapshot: Snapshot): { on: boolean; volume: number } {
@@ -16,7 +17,8 @@ export function musicSettings(snapshot: Snapshot): { on: boolean; volume: number
   return { on: on !== false, volume: typeof volume === 'number' ? volume : 50 };
 }
 
-function Speaker({ off }: { off: boolean }) {
+/** A speaker, struck through while `off`; the Music toggle and the Sounds toggle both show it. */
+export function Speaker({ off }: { off: boolean }) {
   return (
     <svg
       width="18"
@@ -39,36 +41,21 @@ function Speaker({ off }: { off: boolean }) {
 
 export function MusicControl({ snapshot }: { snapshot: Snapshot }) {
   const { session } = theEngine();
-  const { on, volume } = musicSettings(snapshot);
+  const { on } = musicSettings(snapshot);
   const status = useSyncExternalStore(music.subscribe, music.getStatus);
-  const [dragging, setDragging] = useState<number | null>(null);
-  const shown = dragging ?? volume;
-
-  const commit = () => {
-    if (dragging === null) {
-      return;
-    }
-    const value = dragging;
-    setDragging(null);
-    music.preview(null);
-    if (value !== volume) {
-      // A rejected value leaves the control showing the previous one, which the snapshot still holds.
-      act(() => session.globalConfiguration.set('musicVolume', value));
-    }
-  };
 
   const title = on ? (status.title === null ? '' : `♪ ${status.title}`) : 'Music off';
 
   return (
     <div className="music-control" data-testid="music-control">
+      {/* SOUNDS, Main click: the Music toggle changes a setting of Global configuration, whichever way it turns. */}
       <button
         type="button"
-        className="btn btn-plain music-toggle"
+        className="btn btn-plain speaker-toggle"
         aria-label={on ? 'Music on' : 'Music off'}
         aria-pressed={on}
         title={on ? 'Turn music off' : 'Turn music on'}
         data-testid="music-toggle"
-        data-sound="none"
         onClick={() => {
           act(() => session.globalConfiguration.set('musicOn', !on));
         }}
@@ -88,26 +75,6 @@ export function MusicControl({ snapshot }: { snapshot: Snapshot }) {
       >
         ⏭
       </button>
-      <span className="slider music-volume" style={{ '--fill': sliderFill(shown, 0, 100) } as CSSProperties}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={shown}
-          aria-label="Music volume"
-          data-testid="music-volume"
-          onChange={(event) => {
-            const value = Number(event.target.value);
-            setDragging(value);
-            music.preview(value);
-          }}
-          onPointerUp={commit}
-          onKeyUp={commit}
-          onBlur={commit}
-        />
-      </span>
-      <span className="figure music-volume-value">{shown}</span>
       <span
         className={`music-title${on ? '' : ' muted'}`}
         title={on && status.title !== null ? status.title : undefined}
@@ -116,5 +83,38 @@ export function MusicControl({ snapshot }: { snapshot: Snapshot }) {
         {title}
       </span>
     </div>
+  );
+}
+
+/**
+ * MUSIC, Music volume slider: while the Player drags it the gain follows at once; the Music volume is stored when the
+ * Player releases it, and the slider stays enabled while Music on is false.
+ */
+export function MusicVolumeSlider({ snapshot }: { snapshot: Snapshot }) {
+  const { session } = theEngine();
+  const { volume } = musicSettings(snapshot);
+  const [dragging, setDragging] = useState<number | null>(null);
+  return (
+    <VolumeSlider
+      label="Music volume"
+      testId="music-volume"
+      value={dragging ?? volume}
+      onDrag={(value) => {
+        setDragging(value);
+        music.preview(value);
+      }}
+      onRelease={() => {
+        if (dragging === null) {
+          return;
+        }
+        const value = dragging;
+        setDragging(null);
+        music.preview(null);
+        if (value !== volume) {
+          // A rejected value leaves the slider showing the previous one, which the snapshot still holds.
+          act(() => session.globalConfiguration.set('musicVolume', value));
+        }
+      }}
+    />
   );
 }

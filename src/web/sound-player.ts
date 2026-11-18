@@ -18,9 +18,7 @@ const URLS: ReadonlyMap<string, string> = new Map(
 );
 
 let soundsOn = true;
-let soundsVolume = 50;
-/** Settles when the latest `main-click` has ended, or at once when it did not play. */
-let mainClickDone: Promise<void> = Promise.resolve();
+let soundsVolume = 100;
 
 /** SOUNDS, Sound settings: a change applies to the Sounds that start after it. */
 export function configureSounds(on: boolean, volume: number): void {
@@ -28,38 +26,20 @@ export function configureSounds(on: boolean, volume: number): void {
   soundsVolume = volume;
 }
 
-/** Plays a Sound once, from its beginning to its end; resolves when it ends or cannot play. */
-function start(name: SoundName): Promise<void> {
+/**
+ * Plays a Sound once, from its beginning to its end, over the music and any Sound already playing. `at` plays it at
+ * that Sounds volume whatever Sounds on holds, for a Sound that answers a change of the Sound settings themselves
+ * before the stored settings reach this player, under SOUNDS, Main click and Sound settings.
+ */
+export function playSound(name: SoundName, at?: { readonly volume: number }): void {
   const url = URLS.get(name);
-  if (!soundsOn || url === undefined || typeof Audio === 'undefined') {
-    return Promise.resolve();
+  if ((at === undefined && !soundsOn) || url === undefined || typeof Audio === 'undefined') {
+    return;
   }
   const audio = new Audio(url);
-  audio.volume = soundGain(soundsVolume);
-  return new Promise((resolve) => {
-    audio.addEventListener('ended', () => {
-      resolve();
-    });
-    audio.addEventListener('error', () => {
-      resolve();
-    });
-    audio.play().catch(() => {
-      resolve();
-    });
-  });
-}
-
-export function playSound(name: SoundName): void {
-  const done = start(name);
-  if (name === SOUND.main) {
-    mainClickDone = done;
-  }
-}
-
-/** SOUNDS, Turn summary: starts no sooner than the `main-click` before it ends, so the two never overlap. */
-export function playAfterMainClick(name: SoundName): void {
-  void mainClickDone.then(() => {
-    playSound(name);
+  audio.volume = soundGain(at?.volume ?? soundsVolume);
+  audio.play().catch(() => {
+    // SOUNDS, Edge cases and failure behavior: a Sound that cannot play is silent.
   });
 }
 

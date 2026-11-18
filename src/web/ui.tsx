@@ -1,8 +1,66 @@
 /** Small presentational pieces shared by the screens. */
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
+import { sliderFill } from './slider.ts';
 import type { ButtonSound } from './sounds.ts';
 import { TIER_OPACITY, type SortTier } from './table-sort.ts';
 import { tallySquares } from './tally.ts';
+
+/**
+ * VIS, Close controls: a square neutral 36 px button holding a ✕, at the upper right corner of its view's rectangle,
+ * inset by the view's inner padding, level with the top of its title line; the view sets the inset through the
+ * `--close-inset-top` and `--close-inset-right` custom properties and is the control's containing block. Closing is a
+ * Go back, under SOUNDS, Go back.
+ */
+export function CloseControl(props: { onClose: () => void; title?: string; testId?: string }) {
+  return (
+    <button
+      type="button"
+      className="btn btn-plain close-control"
+      aria-label="Close"
+      title={props.title ?? 'Close (Esc)'}
+      data-sound="back"
+      data-testid={props.testId}
+      onClick={props.onClose}
+    >
+      ✕
+    </button>
+  );
+}
+
+/**
+ * VIS, Sliders: a horizontal volume slider from 0 to 100 in steps of 1, followed by its value in the Figure style.
+ * `onDrag` follows every step; `onRelease` runs once when the Player lets go, by pointer, key, or leaving it.
+ */
+export function VolumeSlider(props: {
+  label: string;
+  testId: string;
+  value: number;
+  onDrag: (value: number) => void;
+  onRelease: () => void;
+}) {
+  return (
+    <span className="volume-slider">
+      <span className="slider" style={{ '--fill': sliderFill(props.value, 0, 100) } as CSSProperties}>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={props.value}
+          aria-label={props.label}
+          data-testid={props.testId}
+          onChange={(event) => {
+            props.onDrag(Number(event.target.value));
+          }}
+          onPointerUp={props.onRelease}
+          onKeyUp={props.onRelease}
+          onBlur={props.onRelease}
+        />
+      </span>
+      <span className="figure volume-value">{props.value}</span>
+    </span>
+  );
+}
 
 export function Button(props: {
   children: ReactNode;

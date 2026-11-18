@@ -1,10 +1,12 @@
 /**
  * CSCR, Detail views; VIS, Detail views and navigation: the frame every Detail view shares. It covers the Globe stage
- * inset by 16 px, with its title on the left and its buttons, then its close control, in one row on the right. A
- * Detail view taller than the Globe stage scrolls inside, keeping its title row in view.
+ * inset by 16 px, with its title on the left, its buttons in one row on the right ending 8 px before the close
+ * control, and the close control at its upper right corner under VIS, Close controls. A Detail view taller than the
+ * Globe stage scrolls inside, keeping its title row in view.
  */
 import type { ReactNode } from 'react';
 import { useArtwork } from '../artwork.ts';
+import { CloseControl } from '../ui.tsx';
 
 export type DetailViewId =
   'missions' | 'leads' | 'agents' | 'upgrades' | 'report' | 'history' | 'charts' | 'compendium';
@@ -67,20 +69,8 @@ export function DetailView(props: {
           {props.title}
           {props.aside === undefined ? null : <span className="detail-aside">{props.aside}</span>}
         </h2>
-        <div className="detail-actions">
-          {props.actions}
-          <button
-            type="button"
-            className="btn btn-plain detail-close"
-            aria-label="Close"
-            data-sound="back"
-            title="Close (Esc)"
-            data-testid="close-view"
-            onClick={props.onClose}
-          >
-            ✕
-          </button>
-        </div>
+        <div className="detail-actions">{props.actions}</div>
+        <CloseControl testId="close-view" onClose={props.onClose} />
       </header>
       <div className="detail-body">{props.children}</div>
     </section>

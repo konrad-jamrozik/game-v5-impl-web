@@ -117,6 +117,8 @@ async function viaWeb(page: Page): Promise<unknown> {
   await id(page, 'advance-turn').click();
   await afterAdvance(page, '4');
 
+  // GUI, Settings panel: the developer tools open from the Tools row of the Settings panel.
+  await id(page, 'open-settings').click();
   await id(page, 'open-developer').click();
   await id(page, 'dev-mode').check();
   await id(page, 'dev-inspect').click();

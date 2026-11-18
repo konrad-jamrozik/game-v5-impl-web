@@ -4,11 +4,8 @@ import { GAME_BUILD, type SaveListEntry } from '../../engine/index.ts';
 import { confirmOrGoBack, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
-import { Button, NumberField, Section, Grid, typingIn } from '../ui.tsx';
-import { MusicControl } from './MusicControl.tsx';
-
-/** MENU, Layout: Music on and Music volume are set through the Music control, not rows of their own. */
-const MUSIC_SETTINGS = new Set(['musicOn', 'musicVolume']);
+import { Button, CloseControl, NumberField, Section, Grid, typingIn } from '../ui.tsx';
+import { MenuSettingsPanel } from './SettingsPanel.tsx';
 
 const KIND_NAMES: Record<string, string> = {
   current: 'Current Autosave',
@@ -41,72 +38,6 @@ function groupByCampaign(saves: readonly SaveListEntry[]): CampaignGroup[] {
     writtenAt: list.reduce((latest, save) => (save.writtenAt > latest ? save.writtenAt : latest), ''),
     saves: list,
   }));
-}
-
-export function SettingsPanel({ snapshot }: { snapshot: Snapshot }) {
-  const { session } = theEngine();
-  return (
-    <Section title="Settings" testId="settings">
-      <div className="settings-row settings-music">
-        <div>Music</div>
-        <MusicControl snapshot={snapshot} />
-      </div>
-      {snapshot.configuration.settings
-        .filter((setting) => !MUSIC_SETTINGS.has(setting.setting))
-        .map((setting) => (
-          <div key={setting.setting} className="settings-row">
-            <div>
-              {setting.name}
-              <span className="hint">
-                {setting.permitted} · {setting.stored ? 'your value' : 'build default'}
-              </span>
-            </div>
-            <div className="actions">
-              {setting.stored ? (
-                <Button
-                  onClick={() => {
-                    act(() => session.globalConfiguration.reset(setting.setting));
-                  }}
-                >
-                  Reset to {String(setting.gameBuildDefault)}
-                </Button>
-              ) : null}
-              {typeof setting.gameBuildDefault === 'boolean' ? (
-                // SOUNDS, Sound settings: a setting of true or false, e.g. Sounds on, is a checkbox.
-                <input
-                  type="checkbox"
-                  aria-label={setting.name}
-                  data-testid={`setting-${setting.setting}`}
-                  checked={setting.effectiveValue === true}
-                  onChange={(event) => {
-                    const value = event.target.checked;
-                    act(() => session.globalConfiguration.set(setting.setting, value));
-                  }}
-                />
-              ) : (
-                <NumberField
-                  label={setting.name}
-                  testId={`setting-${setting.setting}`}
-                  stored={String(setting.effectiveValue)}
-                  onCommit={(text) => {
-                    act(() =>
-                      text === ''
-                        ? session.globalConfiguration.reset(setting.setting)
-                        : session.globalConfiguration.set(setting.setting, Number(text)),
-                    );
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        ))}
-      {snapshot.configuration.problems.map((problem) => (
-        <p key={problem} className="warning-text">
-          {problem}
-        </p>
-      ))}
-    </Section>
-  );
 }
 
 /**
@@ -160,7 +91,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
     null,
   );
 
-  // MENU, Layout: with a close button, the Escape key does what Resume does for the Campaign the Player left.
+  // MENU, Layout: with a close control, the Escape key does what Resume does for the Campaign the Player left.
   const left = campaigns.find((group) => group.campaignId === snapshot.leftCampaign) ?? null;
   useEffect(() => {
     if (left === null) {
@@ -181,20 +112,15 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
 
   return (
     <main className="menu">
+      {/* MENU, Layout: the close control sits at the upper right corner of the Main menu's content. */}
       {left === null ? null : (
-        <button
-          type="button"
-          className="btn menu-close"
-          aria-label="Close"
+        <CloseControl
+          testId="menu-close"
           title="Back to the Campaign (Esc)"
-          data-testid="menu-close"
-          data-sound="back"
-          onClick={() => {
+          onClose={() => {
             resume(left);
           }}
-        >
-          ✕
-        </button>
+        />
       )}
       <header className="menu-head">
         <div>
@@ -402,7 +328,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
             </Button>
           </Section>
 
-          <SettingsPanel snapshot={snapshot} />
+          <MenuSettingsPanel snapshot={snapshot} />
         </div>
       </div>
     </main>

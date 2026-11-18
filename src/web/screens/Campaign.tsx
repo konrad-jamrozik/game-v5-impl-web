@@ -5,13 +5,13 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
-import { playAfterMainClick, playSound } from '../sound-player.ts';
+import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { undoRedoStep } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
-import { Badge, Button, Fact, Meter, typingIn, Grid } from '../ui.tsx';
+import { Badge, Button, CloseControl, Fact, Meter, typingIn, Grid } from '../ui.tsx';
 import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
 import { ChartsView } from './ChartsView.tsx';
@@ -23,6 +23,7 @@ import { Globe } from './Globe.tsx';
 import { HistoryView } from './HistoryView.tsx';
 import { LeadsView } from './LeadsView.tsx';
 import { MissionsView } from './MissionsView.tsx';
+import { SettingsDialog } from './SettingsPanel.tsx';
 import { SituationPanel, type SituationTarget } from './SituationPanel.tsx';
 import { TurnReportView, type ReportTarget } from './TurnReportView.tsx';
 import { TurnSummary } from './TurnSummary.tsx';
@@ -38,12 +39,12 @@ const SHORTCUTS = [
   ['N', 'Advance turn'],
   ['U / R', 'Undo / redo: one action, or one Turn when no action of this Turn is left'],
   ['1 to 8', 'Open or close a Detail view'],
-  ['Esc', 'Close the open Detail view'],
+  ['Esc', 'Close the topmost open view'],
   ['H', 'Hire an Agent'],
   ['S / C / T', 'Assign the selected Agents to Standby, Contracting, Training'],
   ['A', 'Select every Agent that can be assigned'],
-  ['`', 'Developer drawer'],
-  ['?', 'This list'],
+  ['`', 'Developer tools'],
+  ['?', 'Keyboard shortcuts'],
 ] as const;
 
 /** CSCR, Undo and redo: the label of each button for an Action step and for a Turn step. */
@@ -66,6 +67,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [drawer, setDrawer] = useState(false);
   const [help, setHelp] = useState(false);
+  const [settings, setSettings] = useState(false);
   const [autosaves, setAutosaves] = useState<AutosaveStatus | null>(null);
   /**
    * GUI, Turn summary: the Turn ended by the Advance turn the Player requested through this screen, until the Player
@@ -109,15 +111,20 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
 
   const advance = () => {
     const ending = state.turn;
+    const audible = !autopilotActive && actions?.advanceTurn.available === true;
     // Set before the Advance turn commits, so that the Turn summary appears in the same render as its new Turn.
     setRequestedTurn(ending);
     void run(() => player.actions.advanceTurn()).then(() => {
       const report = player.queries.getTurnReport();
+      // SOUNDS, Turn summary: the Advance turn plays one Sound, chosen when it ends: interesting-turn-summary at
+      // once as the Turn summary appears, and main-click otherwise.
       if (!report.ok || !showsTurnSummary(ending, report.value)) {
         setRequestedTurn(null);
-      } else {
-        // SOUNDS, Turn summary: the news is announced once the Advance turn's main-click has ended.
-        playAfterMainClick(SOUND.turnSummary);
+        if (audible) {
+          playSound(SOUND.main);
+        }
+      } else if (audible) {
+        playSound(SOUND.turnSummary);
       }
     });
   };
@@ -173,6 +180,15 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         }
         return;
       }
+      // GUI, Settings panel: while it is open over its Scrim, the screen behind takes no shortcut; Escape closes it.
+      if (settings) {
+        if (key === 'escape') {
+          playSound(SOUND.back);
+          setSettings(false);
+          event.preventDefault();
+        }
+        return;
+      }
       const numbered = DETAIL_VIEWS[Number(key) - 1];
       if (numbered !== undefined) {
         toggled(open?.id === numbered.id);
@@ -184,8 +200,12 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         toggled(help);
         setHelp((on) => !on);
       } else if (key === 'escape') {
-        // SOUNDS, Go back: Escape with nothing to close plays no Sound.
-        if (help) {
+        // VIS, Close controls: Escape does what the close control of the topmost open view does. SOUNDS, Go back:
+        // Escape with nothing to close plays no Sound.
+        if (drawer) {
+          playSound(SOUND.back);
+          setDrawer(false);
+        } else if (help) {
           playSound(SOUND.back);
           setHelp(false);
         } else if (open !== null) {
@@ -197,9 +217,6 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       } else if (autopilotActive) {
         return;
       } else if (key === 'n') {
-        if (actions?.advanceTurn.available === true) {
-          playSound(SOUND.main);
-        }
         advance();
       } else if (key === 'u') {
         if (steps.undo !== null) {
@@ -359,6 +376,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             main
             shortcut="N"
             testId="advance-turn"
+            sound="none"
             disabledReason={
               locked ??
               (actions?.advanceTurn.available === true
@@ -443,36 +461,54 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
 
           <footer className="side-footer">
             <AutopilotBar snapshot={snapshot} />
-            <div className="side-links">
+            {/* CSCR, Side panel: the bottom row holds the Music control and, at its right end, the Settings button. */}
+            <div className="side-footer-row">
+              <MusicControl snapshot={snapshot} />
               <button
                 type="button"
-                className="link"
-                data-sound={help ? 'back' : 'main'}
+                className="btn btn-plain settings-button"
+                aria-label="Settings"
+                title="Settings"
+                data-testid="open-settings"
                 onClick={() => {
-                  setHelp((on) => !on);
+                  setSettings(true);
                 }}
               >
-                Shortcuts (?)
-              </button>
-              <button
-                type="button"
-                className="link"
-                data-testid="open-developer"
-                data-sound={drawer ? 'back' : 'main'}
-                onClick={() => {
-                  setDrawer((on) => !on);
-                }}
-              >
-                Developer (`)
+                <Cogwheel />
               </button>
             </div>
-            <MusicControl snapshot={snapshot} />
           </footer>
         </aside>
       </div>
 
+      {settings ? (
+        <SettingsDialog
+          snapshot={snapshot}
+          onClose={() => {
+            setSettings(false);
+          }}
+          onShortcuts={() => {
+            setSettings(false);
+            setHelp(true);
+          }}
+          onDeveloper={() => {
+            setSettings(false);
+            setDrawer(true);
+          }}
+        />
+      ) : null}
+
       {help ? (
-        <div className="help" role="dialog" aria-label="Keyboard shortcuts">
+        <div className="help" role="dialog" aria-labelledby="shortcuts-title">
+          <header className="view-head">
+            <h3 id="shortcuts-title">Keyboard shortcuts</h3>
+          </header>
+          <CloseControl
+            testId="close-shortcuts"
+            onClose={() => {
+              setHelp(false);
+            }}
+          />
           <Grid widths={['140px', '440px']}>
             <tbody>
               {SHORTCUTS.map(([keys, what]) => (
@@ -571,6 +607,26 @@ function OpenDetailView(props: {
     case 'compendium':
       return <CompendiumView snapshot={snapshot} state={state} onClose={onClose} />;
   }
+}
+
+/** CSCR, Side panel: the cogwheel of the Settings button. */
+function Cogwheel() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    </svg>
+  );
 }
 
 function siteArchetypeName(snapshot: Snapshot, archetype: string): string {

@@ -48,7 +48,7 @@ export const SETTINGS: readonly SettingDescriptor[] = [
   {
     setting: 'soundsVolume',
     name: 'Sounds volume',
-    gameBuildDefault: 50,
+    gameBuildDefault: 100,
     permitted: 'A whole number from 0 to 100',
     isPermitted: (value): value is SettingValue =>
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 100,

@@ -535,7 +535,12 @@ input::placeholder {
 }
 
 /* Main menu */
+/* MENU, Layout: the Main menu's content is the rectangle whose upper right corner, inset by its padding, holds the
+   close control when the Player reached it from the Campaign screen. */
 .menu {
+  --close-inset-top: 40px;
+  --close-inset-right: 32px;
+  position: relative;
   max-width: 1216px;
   margin: 0 auto;
   padding: 40px 32px 60px;
@@ -649,7 +654,14 @@ input::placeholder {
   max-width: 380px;
 }
 
-/* MUSIC, Music control: toggle, Skip button, volume slider with its value, and the Track title, in one row. */
+/* GUI, Settings panel: the input of a row, e.g. the Sounds toggle and the Sounds volume slider, in one row. */
+.settings-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* MUSIC, Music control: toggle, Skip button, and the Track title, in one row. */
 .music-control {
   display: flex;
   align-items: center;
@@ -657,7 +669,7 @@ input::placeholder {
   min-width: 0;
 }
 
-.music-toggle,
+.speaker-toggle,
 .music-skip {
   display: inline-flex;
   align-items: center;
@@ -668,7 +680,7 @@ input::placeholder {
   flex: none;
 }
 
-.music-toggle[aria-pressed='false'] {
+.speaker-toggle[aria-pressed='false'] {
   color: var(--text-muted);
 }
 
@@ -739,12 +751,19 @@ input::placeholder {
   background: var(--accent);
 }
 
-.music-volume {
-  width: 84px;
+/* MUSIC, Music volume slider; SOUNDS, Sound settings: a volume slider followed by its value. */
+.volume-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.volume-slider .slider {
+  width: 140px;
   flex: none;
 }
 
-.music-volume-value {
+.volume-value {
   width: 3ch;
   flex: none;
   text-align: right;
@@ -1016,6 +1035,7 @@ input::placeholder {
 }
 
 .dialog {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -1031,6 +1051,24 @@ input::placeholder {
   align-items: baseline;
   gap: 12px;
   padding: 18px 18px 8px;
+}
+
+/* GUI, Settings panel: on the Campaign screen, a dialog with no buttons at its bottom, closed by its close control. */
+.settings-dialog {
+  max-width: 560px;
+}
+
+.settings-dialog .dialog-head {
+  padding-right: 62px;
+}
+
+.settings-dialog .dialog-head h2 {
+  margin: 0;
+  line-height: 36px;
+}
+
+.settings-body {
+  padding-bottom: 18px;
 }
 
 .dialog-body {
@@ -1398,6 +1436,18 @@ summary {
   max-width: calc(100vw - 48px);
 }
 
+/* VIS, Close controls: the title of the keyboard shortcuts and the developer tools, on the 36 px line that the close
+   control at the upper right corner shares. */
+.view-head {
+  padding-right: 44px;
+  margin-bottom: 12px;
+}
+
+.view-head h3 {
+  margin: 0;
+  line-height: 36px;
+}
+
 .drawer {
   top: 0;
   right: 0;
@@ -1626,10 +1676,21 @@ label:has(> input[type='checkbox']:disabled) {
   border-top: 1px solid var(--divider);
 }
 
-.side-links {
+/* CSCR, Side panel: the bottom row of the footer, the Music control and then the Settings button at its right end. */
+.side-footer-row {
   display: flex;
-  justify-content: flex-end;
-  gap: 16px;
+  align-items: center;
+  gap: 8px;
+}
+
+.side-footer-row .music-control {
+  flex: 1;
+}
+
+.settings-button {
+  width: 36px;
+  padding: 0;
+  flex: none;
 }
 
 .autopilot-toggle {
@@ -1821,14 +1882,15 @@ label:has(> input[type='checkbox']:disabled) {
   visibility: hidden;
 }
 
-/* MENU, Layout: the close button at the upper right corner of a Main menu reached from the Campaign screen. */
-.menu-close {
-  position: fixed;
-  top: 16px;
-  right: 16px;
+/* VIS, Close controls: a square neutral 36 px button holding a ✕ at the upper right corner of its view's rectangle,
+   inset by the view's inner padding, 18 px unless the view says otherwise; the view is its containing block. */
+.close-control {
+  position: absolute;
+  top: var(--close-inset-top, 18px);
+  right: var(--close-inset-right, 18px);
+  z-index: 1;
   width: 36px;
   padding: 0;
-  z-index: 2;
 }
 
 /* VIS, Artwork tuning: the Detail view, Opacity, and Image controls stacked 16 px apart, each under its Label, and
@@ -1865,11 +1927,13 @@ label:has(> input[type='checkbox']:disabled) {
    text on that centre line, and the figures after it share its baseline. VIS, Detail view: the title, in the Section
    heading style, starts at the top of the inner padding in every Detail view; a taller row grows downward. */
 .detail-head {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
   gap: 12px;
-  padding: 18px 18px 12px;
+  /* VIS, Detail view: the buttons end 8 px before the close control, which is no control of the title row. */
+  padding: 18px 62px 12px 18px;
 }
 
 .detail-head h2 {
@@ -1896,13 +1960,6 @@ label:has(> input[type='checkbox']:disabled) {
 
 .detail-actions .chip {
   height: 36px;
-}
-
-/* VIS, Detail view: the close control is a square neutral button, 36 px wide and tall, holding a ✕. */
-.detail-close {
-  width: 36px;
-  padding: 0;
-  justify-content: center;
 }
 
 .detail-body {

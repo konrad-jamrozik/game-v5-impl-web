@@ -32,7 +32,7 @@ export function soundSettings(
   const find = (setting: string) => settings.find((item) => item.setting === setting)?.effectiveValue;
   const on = find('soundsOn');
   const volume = find('soundsVolume');
-  return { on: on !== false, volume: typeof volume === 'number' ? volume : 50 };
+  return { on: on !== false, volume: typeof volume === 'number' ? volume : 100 };
 }
 
 /**

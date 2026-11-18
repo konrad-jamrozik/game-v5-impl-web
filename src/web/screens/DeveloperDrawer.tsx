@@ -7,7 +7,7 @@ import { detailViewName, fileName } from '../artwork-names.ts';
 import { IMAGE_PATHS, resetTuning, shownTuning, tune, useTunings } from '../artwork.ts';
 import { sliderFill } from '../slider.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import { Button, Section } from '../ui.tsx';
+import { Button, CloseControl, Section } from '../ui.tsx';
 import { DETAIL_VIEWS } from './DetailView.tsx';
 
 function parse(text: string): string | number | boolean {
@@ -123,12 +123,10 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
 
   return (
     <aside className="drawer" aria-label="Developer" data-testid="developer-drawer">
-      <header className="section-head">
-        <h3>Developer</h3>
-        <Button sound="back" onClick={onClose}>
-          Close
-        </Button>
+      <header className="view-head">
+        <h3>Developer tools</h3>
       </header>
+      <CloseControl testId="close-developer" onClose={onClose} />
       <label className="inline">
         <input
           type="checkbox"

@@ -127,6 +127,7 @@ No files.
 ## CSCR: Campaign Screen
 
 - src/web/screens/MusicControl.tsx
+- src/web/screens/SettingsPanel.tsx
 - src/web/screens/Globe.tsx
 - src/web/screens/Campaign.tsx
 - src/web/screens/DetailView.tsx
@@ -370,6 +371,7 @@ No files.
 ## MENU: Main Menu
 
 - src/web/screens/MusicControl.tsx
+- src/web/screens/SettingsPanel.tsx
 - src/web/screens/MainMenu.tsx
 - src/web/styles.css
 - e2e/web.spec.ts
@@ -398,6 +400,8 @@ No files.
 - src/web/music.ts
 - src/web/music-player.ts
 - src/web/screens/MusicControl.tsx
+- src/web/screens/SettingsPanel.tsx
+- src/web/ui.tsx
 - src/web/App.tsx
 - src/engine/session/global-configuration.ts
 - src/web/styles.css
@@ -524,6 +528,7 @@ No files.
 - src/web/screens/AutopilotBar.tsx
 - src/web/screens/MusicControl.tsx
 - src/web/screens/DeveloperDrawer.tsx
+- src/web/screens/SettingsPanel.tsx
 - src/web/tired-deployment.ts
 - src/web/interruption.ts
 - src/engine/session/global-configuration.ts
@@ -637,6 +642,7 @@ No files.
 - src/web/screens/DeveloperDrawer.tsx
 - tests/web/artwork.test.ts
 - src/web/artwork-names.ts
+- src/web/screens/SettingsPanel.tsx
 
 ## WHIST: World History
 

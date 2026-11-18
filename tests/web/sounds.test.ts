@@ -40,11 +40,11 @@ describe('SOUNDS: Sound settings', () => {
     const on = SETTINGS.find((item) => item.setting === 'soundsOn');
     const volume = SETTINGS.find((item) => item.setting === 'soundsVolume');
     expect(on?.gameBuildDefault).toBe(true);
-    expect(volume?.gameBuildDefault).toBe(50);
+    expect(volume?.gameBuildDefault).toBe(100);
     expect(on?.isPermitted('yes')).toBe(false);
     expect(volume?.isPermitted(101)).toBe(false);
     expect(volume?.isPermitted(7.5)).toBe(false);
-    expect(soundSettings([])).toEqual({ on: true, volume: 50 });
+    expect(soundSettings([])).toEqual({ on: true, volume: 100 });
     expect(
       soundSettings([
         { setting: 'soundsOn', effectiveValue: false },
