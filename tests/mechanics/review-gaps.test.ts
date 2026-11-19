@@ -59,11 +59,14 @@ describe('AGENT: gaps', () => {
     });
     state = act(state, 'assignAgentsToInvestigation', { investigation: i2, agents: [a3] });
     state = advance(state);
-    // a3 arrived and added no progress, yet leaves with the other member when the Investigation completes.
+    // a3 is still In transit, adds no progress, and leaves with the other member when the Investigation completes.
     expect(state.world.history.turnReport!.investigations[0]).toMatchObject({
       progressGain: 100,
       completed: true,
     });
+    // TURN, Transit across the steps, Departure: the redirect starts a new transit, which does not arrive in the
+    // Previous turn transit arrivals step of this Advance turn.
+    expect(state.world.history.turnReport!.transit.arrived).toEqual([]);
     for (const id of [a1, a3]) {
       expect(units(agent(state, id).state)).toMatchObject({
         assignment: { kind: 'Standby' },
@@ -73,6 +76,7 @@ describe('AGENT: gaps', () => {
     }
     state = advance(state);
     expect(agent(state, a3).state.status).toBe('AtAssignment');
+    expect(state.world.history.turnReport!.transit.arrived).toEqual([a1, a3]);
   });
 
   it('Agent status and Assignment structure: a Deployed Agent In transit is invalid', () => {

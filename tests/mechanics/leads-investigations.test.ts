@@ -468,7 +468,7 @@ describe('LEAD: examples', () => {
     const i1 = investigations(state)[0]!.id;
     state = advance(finishing(arrive(state), i1), {}, catalog);
     expect(state.world.current.investigations[i1]!.state.lifecycle).toBe('Completed');
-    // The Investigation completed in step 5; the Lead is discovered from the World state the Advance turn produces.
+    // The Investigation completed in step 4; the Lead is discovered from the World state the Advance turn produces.
     expect(discovered(state)).toEqual(['test_lead']);
     expect(state.world.current.discoveredLeads).toEqual([MEMBER, 'test_lead']);
     expect(leads(state, catalog)['test_never']).toBeUndefined();
@@ -536,7 +536,7 @@ describe('LEAD: examples', () => {
     state = act(state, 'startInvestigation', { lead: 'test_lead', agents: [a2] }, 'player', catalog);
     const [i1, i2] = investigations(state).map((item) => item.id) as [string, string];
     state = advance(finishing(finishing(arrive(state), i1), i2), {}, catalog);
-    // Both complete in step 5; member's completion means test_site cannot exist, so it is Cancelled in step 6.
+    // Both complete in step 4; member's completion means test_site cannot exist, so it is Cancelled in step 5.
     const created = sites(state).find((site) => site.archetype === 'test_site')!;
     expect(created.state.lifecycle).toBe('Cancelled');
     expect(turnReportView(state)!.cancelledMissionSites).toEqual([created.id]);
@@ -1189,7 +1189,7 @@ describe('INVSTG: examples', () => {
       world.ending = null;
     });
     expect(onlyFaction(state).state.eliminated).toBe(true);
-    // It made its progress in step 5 first, and loses it.
+    // It made its progress in step 4 first, and loses it.
     expect(
       turnReportView(state)!.investigations.find((item) => item.investigation === i1)!.progressGain,
     ).toBe(100);
@@ -1205,6 +1205,9 @@ describe('INVSTG: examples', () => {
       });
       expect(agent(state, member).state.participationHistory.at(-1)).toMatchObject({ id: i1 });
     }
+    // TURN, Transit across the steps, Destination ends during transit: ids[9]'s transit was redirected, so it does
+    // not arrive in the Previous turn transit arrivals step of this Advance turn.
+    expect(state.world.history.turnReport!.transit.arrived).not.toContain(ids[9]);
     // It creates no Mission site, and the Turn report and History entry list it with its Lead.
     expect(sites(state).filter((site) => site.archetype === 'apprehend_member')).toHaveLength(0);
     expect(turnReportView(state)!.investigationsInterrupted).toEqual([{ investigation: i1, lead: MEMBER }]);

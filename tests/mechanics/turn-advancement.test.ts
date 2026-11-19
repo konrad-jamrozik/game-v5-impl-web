@@ -396,7 +396,7 @@ describe('TURN: examples', () => {
     expect(report.missions.map((m) => m.result)).toEqual(['Won', 'Lost']);
     expect(report.combatReports[1]!.outcome).toBe('Wiped');
     expect(report.income.funding).toBe(0);
-    // Step 6: max(0, 0 + 5 − 1) = 4; step 7: max(0, 4 − 1) = 3.
+    // Step 5: max(0, 0 + 5 − 1) = 4; step 6: max(0, 4 − 1) = 3.
     expect(funding(forward)).toBe(3);
     expect(forward.world.current.panic).toBe(20 - 2 + 8 + 8);
     expect(currentStateView(forward, gdrs).agency.projectedIncome).toBe(3);
@@ -416,7 +416,7 @@ describe('TURN: examples', () => {
     const reversed = advance(state, injected, gdrs, (items) => [...items].reverse());
     expect(reversed).toEqual(forward);
     expect(units(agent(forward, a1).state)).toMatchObject({ skill: 121, exhaustion: 1 });
-    // a2 reaches 70: a Forced return to Standby, At assignment, and then it recovers in step 9 to 65.
+    // a2 reaches 70: a Forced return to Standby, At assignment, and then it recovers in step 8 to 65.
     expect(units(agent(forward, a2).state)).toMatchObject({
       skill: 136,
       exhaustion: 65,
@@ -425,7 +425,7 @@ describe('TURN: examples', () => {
     });
   });
 
-  it('Work exhaustion before recovery: a Forced return from Contracting is In transit at step 9', () => {
+  it('Work exhaustion before recovery: a Forced return from Contracting is In transit at step 8', () => {
     let state = setAssignment(newCampaign(), agentIds(newCampaign()).slice(0, 1), 'Contracting');
     const [a1] = agentIds(state) as [string];
     state = tweak(state, (world) => (world.agents[a1]!.state.exactExhaustionHundredths = 6900));

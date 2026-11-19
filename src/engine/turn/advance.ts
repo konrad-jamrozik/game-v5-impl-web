@@ -58,6 +58,7 @@ import {
   isServing,
   type AgentState,
   type AgentStatus,
+  type Assignment,
   type CampaignState,
   type CombatReport,
   type ConsequenceRecord,
@@ -114,34 +115,23 @@ export function applyAdvanceTurn(
   const valuesOf = (agent: { readonly state: AgentState }): CombatantValues =>
     agentCombatantValues(agent.state, bonus);
 
-  /** Serving and not In transit, that is At assignment or Recovering. */
-  const atItsAssignment = (
-    agent: { readonly state: { readonly status: AgentStatus } } | undefined,
-  ): boolean => agent?.state.status === 'AtAssignment' || agent?.state.status === 'Recovering';
   /**
-   * TURN, Transit across the steps: at its Assignment (At assignment or Recovering) in the Turn-end state and still
-   * at it now.
+   * TURN, Transit across the steps: At assignment or Recovering as a Step-start value. The arrivals step comes last
+   * among the steps that apply to Agents, so an Agent In transit in the Turn-end state is still In transit here.
    */
-  const worksNow = (agentId: string): boolean =>
-    atItsAssignment(before.agents[agentId]) && atItsAssignment(world.agents[agentId]);
+  const worksNow = (agentId: string): boolean => {
+    const status: AgentStatus | undefined = world.agents[agentId]?.state.status;
+    return status === 'AtAssignment' || status === 'Recovering';
+  };
 
   let pendingPanicChange = 0;
   const panicBefore = world.panic;
   const fundingBefore = world.agency.state.funding;
 
-  // Step 1: Transit.
-  const arrived: string[] = [];
-  for (const agent of Object.values(world.agents)) {
-    if (agent.state.status === 'InTransit') {
-      agent.state.status = agent.state.assignment?.kind === 'Recovery' ? 'Recovering' : 'AtAssignment';
-      arrived.push(agent.id);
-    }
-  }
-
   // AGENT, Forced return: the Agents a step sent back to Standby after their work, in the order of the steps.
   const forcedReturns: { agent: string; from: 'Contracting' | 'Training' | 'Investigation' }[] = [];
 
-  // Step 2: Agency income, from the Step-start effective skills; then each counted Agent's work exhaustion and
+  // Step 1: Agency income, from the Step-start effective skills; then each counted Agent's work exhaustion and
   // Forced return (TURN, Exceptions to Step-start values).
   const contracting = Object.values(world.agents).filter(
     (agent) => agent.state.assignment?.kind === 'Contracting' && worksNow(agent.id),
@@ -167,13 +157,13 @@ export function applyAdvanceTurn(
   }
   sortByAgent(world, forcedReturns);
 
-  // Step 3: Upkeep.
+  // Step 2: Upkeep.
   const serving = Object.values(world.agents).filter((agent) => isServing(agent.state)).length;
   const upkeepAmount = upkeep(serving, gdrs.economy);
   world.agency.state.money -= upkeepAmount;
   const upkeepReport = { servingAgents: serving, upkeep: upkeepAmount, moneyAfter: world.agency.state.money };
 
-  // Step 4: Training.
+  // Step 3: Training.
   // AGENT, Training growth: the Training gain outcome and any gain, then work exhaustion and the Forced return.
   const training: {
     agent: string;
@@ -208,7 +198,7 @@ export function applyAdvanceTurn(
   sortByAgent(world, training);
   forcedReturns.push(...sortByAgent(world, trainingReturns));
 
-  // Step 5: Investigation progress.
+  // Step 4: Investigation progress.
   const investigationResults = new Map<
     string,
     {
@@ -256,6 +246,8 @@ export function applyAdvanceTurn(
     );
     if (completes) {
       investigation.state.lifecycle = 'Completed';
+      // INVSTG, Completion: every member goes to Standby, In transit, including one still In transit to the
+      // Investigation, whose new transit does not arrive in step 9 of this Advance turn.
       for (const member of investigation.state.currentTeam) {
         const agent = must(world.agents[member], `Agent ${member}`);
         agent.state.assignment = { kind: 'Standby' };
@@ -358,11 +350,11 @@ export function applyAdvanceTurn(
     });
   }
 
-  // Step 6: Mission resolution, then cancellation.
+  // Step 5: Mission resolution, then cancellation, then interruption.
   const missionResults = new Map<string, MissionResultRecord>();
   const combatReports = new Map<string, CombatReport>();
   const missionFunding: number[] = [];
-  const fundingAtStep6 = world.agency.state.funding;
+  const fundingAtStep5 = world.agency.state.funding;
   for (const mission of order(Object.values(world.missions))) {
     if (mission.state.lifecycle !== 'Deployed') {
       continue;
@@ -519,7 +511,7 @@ export function applyAdvanceTurn(
       consequence: toRecord(amounts, eliminatedFaction),
     });
   }
-  world.agency.state.funding = fundingAfter(fundingAtStep6, missionFunding);
+  world.agency.state.funding = fundingAfter(fundingAtStep5, missionFunding);
   // MISSION, Cancellation: every Active Mission site that cannot exist, read after every resolution of the step.
   const cancelledMissionSites: string[] = [];
   for (const site of Object.values(world.missionSites)) {
@@ -536,8 +528,9 @@ export function applyAdvanceTurn(
     }
   }
   // INVSTG, Lead no longer available: after the Cancellation part, every Active Investigation whose Lead is not
-  // available is interrupted. Its members go to Standby, In transit, and leave its Current team; it becomes Abandoned
-  // with Investigation progress 0 and creates no Mission site.
+  // available is interrupted. Its members, including one still In transit to it, go to Standby, In transit, and leave
+  // its Current team; it becomes Abandoned with Investigation progress 0 and creates no Mission site. Their new transit
+  // does not arrive in step 9 of this Advance turn.
   const investigationsInterrupted: InvestigationInterruptedRecord[] = [];
   for (const investigation of Object.values(world.investigations).sort(byInstanceId)) {
     if (investigation.state.lifecycle !== 'Active') {
@@ -592,9 +585,9 @@ export function applyAdvanceTurn(
     });
   }
 
-  // Step 7: Mission site expiration.
+  // Step 6: Mission site expiration.
   const expiryFunding: number[] = [];
-  const fundingAtStep7 = world.agency.state.funding;
+  const fundingAtStep6 = world.agency.state.funding;
   const expiredMissionSites: TurnReport['expiredMissionSites'][number][] = [];
   for (const site of order(Object.values(world.missionSites))) {
     if (site.state.lifecycle !== 'Active' || before.missionSites[site.id] === undefined) {
@@ -625,10 +618,10 @@ export function applyAdvanceTurn(
       consequence: toRecord(amounts, null),
     });
   }
-  world.agency.state.funding = fundingAfter(fundingAtStep7, expiryFunding);
+  world.agency.state.funding = fundingAfter(fundingAtStep6, expiryFunding);
   expiredMissionSites.sort((a, b) => siteIndex(world, a.missionSite) - siteIndex(world, b.missionSite));
 
-  // Step 8: Faction activity.
+  // Step 7: Faction activity.
   const occurrences = new Map<string, FactionOperationOccurrence | null>();
   const levelBefore = new Map<string, string>();
   for (const faction of order(Object.values(world.factions))) {
@@ -692,7 +685,7 @@ export function applyAdvanceTurn(
     }
   }
 
-  // Step 9: Agent recovery.
+  // Step 8: Agent recovery.
   const recovery: TurnReport['recovery'][number][] = [];
   for (const agent of order(Object.values(world.agents))) {
     const kind = agent.state.assignment?.kind;
@@ -717,6 +710,22 @@ export function applyAdvanceTurn(
     }
   }
   recovery.sort((a, b) => agentIndex(world, a.agent) - agentIndex(world, b.agent));
+
+  // Step 9: Previous turn transit arrivals. TURN, Values a step uses: the only transit read of the Turn-end state. An
+  // Agent arrives exactly when it is In transit with the same Assignment both in the Turn-end state and now, so every
+  // transit started in this Advance turn, including a redirect from an Investigation that ended, is skipped.
+  const arrived: string[] = [];
+  for (const agent of Object.values(world.agents)) {
+    const atTurnEnd = before.agents[agent.id]?.state;
+    if (
+      agent.state.status === 'InTransit' &&
+      atTurnEnd?.status === 'InTransit' &&
+      sameAssignment(atTurnEnd.assignment, agent.state.assignment)
+    ) {
+      agent.state.status = agent.state.assignment?.kind === 'Recovery' ? 'Recovering' : 'AtAssignment';
+      arrived.push(agent.id);
+    }
+  }
 
   // Step 10: Panic.
   world.panic = applyPendingPanicChange(world.panic, pendingPanicChange);
@@ -790,6 +799,20 @@ function toRecord(
     panicReduction: amounts.panicReduction,
     eliminatedFaction,
   };
+}
+
+/** AGENT, Transit rule, Arrival: whether an Agent kept the Assignment it was In transit to. */
+function sameAssignment(a: Assignment | null | undefined, b: Assignment | null | undefined): boolean {
+  if (a === null || a === undefined || b === null || b === undefined) {
+    return a === b;
+  }
+  if (a.kind === 'Investigation' && b.kind === 'Investigation') {
+    return a.investigation === b.investigation;
+  }
+  if (a.kind === 'Deployed' && b.kind === 'Deployed') {
+    return a.mission === b.mission;
+  }
+  return a.kind === b.kind;
 }
 
 function agentIndex(world: CurrentWorldState, id: string): number {
