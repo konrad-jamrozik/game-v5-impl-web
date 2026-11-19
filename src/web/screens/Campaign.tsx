@@ -22,7 +22,8 @@ import { undoRedoStep } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
-import { Badge, Button, CloseControl, Fact, Meter, typingIn, Grid } from '../ui.tsx';
+import { Button, CloseControl, Fact, Meter, typingIn, Grid } from '../ui.tsx';
+import { turnsSinceLastFactionActivity } from '../faction-activity.ts';
 import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
 import { ChartsView } from './ChartsView.tsx';
@@ -450,14 +451,14 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
               <Meter value={state.panic} max={state.panicLimit} label={`Panic ${state.panic}%`} />
             </span>
           </div>
-          <div className="fact">
-            <span className="fact-label">Factions</span>
-            <span className="fact-value factions">
-              {state.factions.map((faction) => (
-                <Badge key={faction.id} tone={faction.eliminated ? 'good' : 'warn'}>
-                  {faction.name} · {faction.eliminated ? 'eliminated' : faction.activityLevel.name}
-                </Badge>
-              ))}
+          {/* CSCR, Status bar values, 6: its label may wrap onto two lines, so the controls keep one row. */}
+          <div className="fact fact-wrapping">
+            <span className="fact-label">Turns since last faction activity</span>
+            <span className="fact-value" data-testid="turns-since-faction-activity">
+              {turnsSinceLastFactionActivity(state.turn, [
+                ...state.missionSites,
+                ...(snapshot.history?.retained.missionSites ?? []),
+              ])}
             </span>
           </div>
         </div>

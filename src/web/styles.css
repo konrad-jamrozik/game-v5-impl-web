@@ -872,11 +872,13 @@ input::placeholder {
   font-size: 13px;
 }
 
-.fact-value.factions {
-  font-family: var(--font-body);
-  font-size: 15px;
-  font-weight: 600;
-  white-space: normal;
+/* CSCR, Status bar values: a long label wraps onto two lines over its value. */
+.fact-wrapping {
+  max-width: 140px;
+}
+
+.fact-wrapping .fact-label {
+  line-height: 1.2;
 }
 
 .meter-figure {
@@ -1365,6 +1367,11 @@ summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
+}
+
+/* CVIEW, Faction charts: three side by side to a row, however many Factions there are. */
+.charts-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .chart {

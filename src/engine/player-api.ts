@@ -17,6 +17,7 @@ import type {
   MissionSiteKind,
   MissionSiteLifecycle,
   MissionSiteOrigin,
+  OpenHistoryEntry,
   Participation,
   SimpleAssignment,
   TurnReport,
@@ -29,6 +30,7 @@ export type {
   CommitOutcome,
   TurnReport,
   HistoryEntry,
+  OpenHistoryEntry,
   Assignment,
   SimpleAssignment,
 };
@@ -269,6 +271,11 @@ export interface CurrentStateView {
  */
 export interface HistoryView {
   readonly entries: readonly HistoryEntry[];
+  /**
+   * WHIST, Open History entry: the current Turn as its History entry would be if Advance turn ended it now, without
+   * the Turn report part. It follows `entries` in Turn order; every Player action, undo, and redo changes it.
+   */
+  readonly openEntry: OpenHistoryEntry;
   readonly turnSeries: {
     readonly moneyAtStartOfTurn: readonly TurnSeriesValue[];
     readonly moneyAtEndOfTurn: readonly TurnSeriesValue[];

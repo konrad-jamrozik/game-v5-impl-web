@@ -1,10 +1,11 @@
 /**
  * HVIEW: the History View, the Turn by Turn table that finds the Turn in which something changed, with what the player
- * did in each Turn one press away.
+ * did in each Turn one press away, and the current Turn on top as if it ended now.
  */
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import type { HistoryEntry } from '../../engine/index.ts';
 import { actionLines, expenditures, type ActionNames } from '../history-actions.ts';
+import { historyRows } from '../history-rows.ts';
 import type { Snapshot } from '../store.ts';
 import { Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -64,9 +65,23 @@ function MoneyChange(props: { value: number }) {
 }
 
 export function HistoryView({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
-  const entries = snapshot.history?.entries ?? [];
-  // HVIEW, Player actions list: every list is closed when the View opens; several can be open at once.
+  const rows = historyRows(snapshot);
+  // HVIEW, Player actions list: every list is closed when the View opens; several can be open at once. A list is kept
+  // by its Turn number, so the current Turn's list stays open while its Action record changes and when Advance turn
+  // ends that Turn.
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
+  const current = rows.find((row) => row.now);
+  const emptied = current !== undefined && current.actions.length === 0 && open.has(current.turn);
+  // HVIEW, Player actions list: the current Turn's list closes when an undo empties its Action record.
+  useEffect(() => {
+    if (emptied) {
+      setOpen((before) => {
+        const next = new Set(before);
+        next.delete(current.turn);
+        return next;
+      });
+    }
+  }, [emptied, current]);
   const state = snapshot.state;
   const retained = snapshot.history?.retained;
   const investigations = [...(state?.investigations ?? []), ...(retained?.investigations ?? [])];
@@ -92,91 +107,90 @@ export function HistoryView({ snapshot, onClose }: { snapshot: Snapshot; onClose
   };
   return (
     <DetailView id="history" title="History" aside="Turn by Turn · newest first" onClose={onClose}>
-      {entries.length === 0 ? (
-        <p className="muted" data-testid="history">
-          No Turn has ended yet.
-        </p>
-      ) : (
-        <div className="table-scroll" data-testid="history">
-          <Grid
-            widths={['64px', '120px', '120px', '112px', '92px', '92px', '76px', '84px', '128px', '440px']}
-            testId="history-table"
-            scroll={false}
-          >
-            <thead>
-              <tr>
-                <th className="num">Turn</th>
-                <th className="num">Money start</th>
-                <th className="num">Expenditures</th>
-                <th className="num">Money end</th>
-                <th className="num">Income</th>
-                <th className="num">Upkeep</th>
-                <th className="num">Panic</th>
-                <th className="num">Agents</th>
-                <th className="num">Player actions</th>
-                <th>Events</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...entries].reverse().map((entry) => {
-                const spent = expenditures(entry.actions);
-                const isOpen = open.has(entry.turn);
-                return (
-                  <Fragment key={entry.turn}>
-                    <tr data-testid={`history-turn-${entry.turn}`}>
-                      <td className="num">{entry.turn}</td>
-                      <td className="num">{entry.turnStart.money}</td>
-                      <td className={spent > 0 ? 'num tone-bad' : 'num muted'}>
-                        {spent > 0 ? `−${spent}` : '0'}
-                      </td>
-                      <td className="num">{entry.turnEnd.money}</td>
-                      <td className="num tone-good">+{entry.report.income}</td>
-                      <td className="num tone-bad">−{entry.report.upkeep}</td>
-                      <td className="num">{entry.report.panicAfter}%</td>
-                      <td className="num">{entry.turnEnd.servingAgents}</td>
-                      <td className="num">
-                        {entry.actions.length === 0 ? (
-                          <span className="muted">0</span>
-                        ) : (
-                          <button
-                            type="button"
-                            className="history-actions-toggle figure"
-                            aria-expanded={isOpen}
-                            data-testid={`history-actions-${entry.turn}`}
-                            onClick={() => {
-                              toggle(entry.turn);
-                            }}
-                          >
-                            {isOpen ? '▾' : '▸'} {entry.actions.length}
-                          </button>
-                        )}
-                      </td>
-                      <td>
-                        <Events entry={entry} missionSiteName={missionSiteName} />
+      <div className="table-scroll" data-testid="history">
+        <Grid
+          widths={['64px', '120px', '120px', '112px', '92px', '92px', '76px', '84px', '128px', '440px']}
+          testId="history-table"
+          scroll={false}
+        >
+          <thead>
+            <tr>
+              <th className="num">Turn</th>
+              <th className="num">Money start</th>
+              <th className="num">Expenditures</th>
+              <th className="num">Money end</th>
+              <th className="num">Income</th>
+              <th className="num">Upkeep</th>
+              <th className="num">Panic</th>
+              <th className="num">Agents</th>
+              <th className="num">Player actions</th>
+              <th>Events</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const spent = expenditures(row.actions);
+              const isOpen = open.has(row.turn) && row.actions.length > 0;
+              return (
+                <Fragment key={row.turn}>
+                  <tr data-testid={row.now ? 'history-turn-now' : `history-turn-${row.turn}`}>
+                    <td className="num">
+                      {row.turn}
+                      {row.now ? <span className="muted"> now</span> : null}
+                    </td>
+                    <td className="num">{row.moneyStart}</td>
+                    <td className={spent > 0 ? 'num tone-bad' : 'num muted'}>
+                      {spent > 0 ? `−${spent}` : '0'}
+                    </td>
+                    <td className="num">{row.moneyEnd}</td>
+                    <td className="num tone-good">+{row.income}</td>
+                    <td className="num tone-bad">−{row.upkeep}</td>
+                    <td className="num">{row.panic}%</td>
+                    <td className="num">{row.agents}</td>
+                    <td className="num">
+                      {row.actions.length === 0 ? (
+                        <span className="muted">0</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="history-actions-toggle figure"
+                          aria-expanded={isOpen}
+                          data-testid={`history-actions-${row.turn}`}
+                          onClick={() => {
+                            toggle(row.turn);
+                          }}
+                        >
+                          {isOpen ? '▾' : '▸'} {row.actions.length}
+                        </button>
+                      )}
+                    </td>
+                    <td>
+                      {row.entry === null ? null : (
+                        <Events entry={row.entry} missionSiteName={missionSiteName} />
+                      )}
+                    </td>
+                  </tr>
+                  {isOpen ? (
+                    <tr className="history-actions-row" data-testid={`history-actions-list-${row.turn}`}>
+                      <td colSpan={COLUMNS}>
+                        <ol className="history-actions">
+                          {actionLines(row.actions, names).map((line) => (
+                            <li key={line.numbers}>
+                              <span className="figure muted num">{line.numbers}</span>
+                              <span>{line.text}</span>
+                              <MoneyChange value={line.moneyChange} />
+                            </li>
+                          ))}
+                        </ol>
                       </td>
                     </tr>
-                    {isOpen ? (
-                      <tr className="history-actions-row" data-testid={`history-actions-list-${entry.turn}`}>
-                        <td colSpan={COLUMNS}>
-                          <ol className="history-actions">
-                            {actionLines(entry.actions, names).map((line) => (
-                              <li key={line.numbers}>
-                                <span className="figure muted num">{line.numbers}</span>
-                                <span>{line.text}</span>
-                                <MoneyChange value={line.moneyChange} />
-                              </li>
-                            ))}
-                          </ol>
-                        </td>
-                      </tr>
-                    ) : null}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </Grid>
-        </div>
-      )}
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </Grid>
+      </div>
     </DetailView>
   );
 }

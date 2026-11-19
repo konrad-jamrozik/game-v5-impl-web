@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { visibleArticles } from '../../src/engine/mechanics/compendium/compendium.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
 import { encyclopediaArticlesView } from '../../src/engine/views/views.ts';
-import type { GdrCatalog } from '../../src/gdr/index.ts';
+import { bootstrapGdrCatalog, type GdrCatalog } from '../../src/gdr/index.ts';
 import { ok, startEngine } from '../helpers/engine.ts';
 import {
   act,
@@ -16,6 +16,7 @@ import {
   missionAt,
   newCampaign,
   onlyFaction,
+  RED_DAWN_ONLY_FILES,
   tweak,
   winning,
 } from '../helpers/game.ts';
@@ -39,9 +40,9 @@ const finishing = (state: CampaignState, id: string) =>
   });
 
 describe('COMP: the Bootstrap EncyclopediaArticle GDRs', () => {
-  it('supplies six Guide articles and one article about each of 24 other GDRs, in Game build order', () => {
-    const articles = gdrs.encyclopediaArticles;
-    expect(articles).toHaveLength(30);
+  it('supplies six Guide articles and one article about each of 32 other GDRs, in Game build order', () => {
+    const articles = bootstrapGdrCatalog().encyclopediaArticles;
+    expect(articles).toHaveLength(38);
     expect(articles.filter((article) => article.subject === null).map((article) => article.id)).toEqual([
       'guide_agency',
       'guide_agents',
@@ -250,7 +251,7 @@ describe('COMP: Acceptance examples', () => {
 
 describe('COMP: Player API', () => {
   it('getEncyclopediaArticles returns the Player-visible articles, and follows the Committed state on undo', async () => {
-    const { engine } = await startEngine();
+    const { engine } = await startEngine({ gdrFiles: RED_DAWN_ONLY_FILES });
     expect(engine.player.queries.getEncyclopediaArticles().ok).toBe(false);
     ok(await engine.session.campaign.create({ seed: 'compendium' }));
     const initial = ok(engine.player.queries.getEncyclopediaArticles());

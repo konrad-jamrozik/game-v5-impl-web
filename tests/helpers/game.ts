@@ -18,10 +18,34 @@ import {
   type Faction,
 } from '../../src/engine/state/types.ts';
 import { newInstanceId, type ProcessingOrder } from '../../src/engine/turn/advance.ts';
-import { RAW_GDR_FILES, bootstrapGdrCatalog, buildGdrCatalog, type GdrCatalog } from '../../src/gdr/index.ts';
+import { RAW_GDR_FILES, buildGdrCatalog, type GdrCatalog, type RawGdrFile } from '../../src/gdr/index.ts';
 import { must, seedRng } from '../../src/kernel/index.ts';
 
-export const gdrs = bootstrapGdrCatalog();
+/** The FactionArchetypes that the test Game build of the acceptance examples leaves out. */
+const LEFT_OUT_FACTIONS = new Set(['exalt', 'black_lotus']);
+
+/**
+ * The test Game build that the acceptance examples of the Mechanics specifications use: the Bootstrap GDRs without the
+ * FactionArchetypes `exalt` and `black_lotus`, their Leads, and the Encyclopedia articles about them, so that the
+ * Campaign has the one Faction Red Dawn.
+ */
+export const RED_DAWN_ONLY_FILES: readonly RawGdrFile[] = (() => {
+  const files = structuredClone(RAW_GDR_FILES) as { path: string; gdrs: Record<string, unknown>[] }[];
+  const leftOut = new Set<unknown>(LEFT_OUT_FACTIONS);
+  for (const file of files) {
+    for (const gdr of file.gdrs) {
+      if (gdr['type'] === 'Lead' && LEFT_OUT_FACTIONS.has(gdr['faction'] as string)) {
+        leftOut.add(gdr['id']);
+      }
+    }
+  }
+  return files.map((file) => ({
+    path: file.path,
+    gdrs: file.gdrs.filter((gdr) => !leftOut.has(gdr['id']) && !leftOut.has(gdr['subject'])),
+  }));
+})();
+
+export const gdrs = buildGdrCatalog(RED_DAWN_ONLY_FILES);
 
 export type Injected = Record<string, (number | boolean | string)[]>;
 
@@ -339,7 +363,10 @@ export function combatEnemy(id: string, archetypeId: string, catalog: GdrCatalog
 
 type RawGdr = Record<string, any>;
 
-/** A changeable copy of the Bootstrap GDR files, for tests that use test GDRs or check GDR validation. */
+/**
+ * A changeable copy of the GDR files of the test Game build with Red Dawn only, for tests that use test GDRs or check
+ * GDR validation.
+ */
 export function rawGdrs(): {
   files: { path: string; gdrs: RawGdr[] }[];
   get(id: string): RawGdr;
@@ -347,7 +374,7 @@ export function rawGdrs(): {
   /** Removes every Encyclopedia article whose subject the test GDRs no longer supply (COMP, rule 4). */
   pruneArticles(): void;
 } {
-  const files = structuredClone(RAW_GDR_FILES) as { path: string; gdrs: RawGdr[] }[];
+  const files = structuredClone(RED_DAWN_ONLY_FILES) as { path: string; gdrs: RawGdr[] }[];
   return {
     files,
     get(id) {

@@ -134,27 +134,39 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('BOOT: the Bootstrap GDRs', () => {
-  it('supplies 74 GDRs in 23 files, and a Victory path from the first Lead to the Faction elimination', () => {
+  it('supplies 90 GDRs in 23 files, and for each Faction a Victory path from its first Lead to its elimination', () => {
     expect(RAW_GDR_FILES).toHaveLength(23);
-    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(74);
+    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(90);
     const catalog = bootstrapGdrCatalog();
-    const leads = catalog.leads;
     const sites = catalog.missionSiteArchetypes;
-    // Follow the Leads from one without prerequisites to one whose Mission site eliminates the Faction.
-    let lead = leads.find((item) => item.requires.length === 0);
-    const path: string[] = [];
-    while (lead !== undefined) {
-      const current = lead;
-      path.push(current.id);
-      const site = sites.find((item) => item.id === current.onCompletion.createMissionSite);
-      if (site?.onWin?.eliminateTargetFaction === true) {
-        break;
+    expect(catalog.factionArchetypes.map((faction) => faction.id)).toEqual([
+      'red_dawn',
+      'exalt',
+      'black_lotus',
+    ]);
+    for (const faction of catalog.factionArchetypes) {
+      // BOOT, Victory path: a prerequisite holds only for a Won Mission targeting the Lead's own Faction.
+      const leads = catalog.leads.filter((item) => item.faction === faction.id);
+      // Follow the Leads from one without prerequisites to one whose Mission site eliminates the Faction.
+      let lead = leads.find((item) => item.requires.length === 0);
+      const path: string[] = [];
+      while (lead !== undefined) {
+        const current = lead;
+        path.push(current.id);
+        const site = sites.find((item) => item.id === current.onCompletion.createMissionSite);
+        if (site?.onWin?.eliminateTargetFaction === true) {
+          break;
+        }
+        lead = leads.find((item) =>
+          item.requires.some((required) => required.missionWon === current.onCompletion.createMissionSite),
+        );
       }
-      lead = leads.find((item) =>
-        item.requires.some((required) => required.missionWon === current.onCompletion.createMissionSite),
-      );
+      expect(path).toEqual([
+        `locate_${faction.id}_member`,
+        `locate_${faction.id}_safehouse`,
+        `locate_${faction.id}_hq`,
+      ]);
+      expect(lead).toBeDefined();
     }
-    expect(path).toEqual(['locate_red_dawn_member', 'locate_red_dawn_safehouse', 'locate_red_dawn_hq']);
-    expect(lead).toBeDefined();
   });
 });

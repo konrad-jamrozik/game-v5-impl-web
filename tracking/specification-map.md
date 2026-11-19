@@ -146,6 +146,8 @@ No files.
 - src/web/view-trail.ts
 - src/web/place.tsx
 - tests/web/view-trail.test.ts
+- src/web/faction-activity.ts
+- tests/web/faction-activity.test.ts
 
 ## CSTATE: Campaign State
 
@@ -160,6 +162,9 @@ No files.
 - src/web/screens/ChartsView.tsx
 - src/web/screens/LineChart.tsx
 - e2e/web.spec.ts
+- src/web/faction-activity.ts
+- tests/web/faction-activity.test.ts
+- src/web/styles.css
 
 ## DCONV: Design Specification Conventions
 
@@ -308,6 +313,8 @@ No files.
 - src/web/history-actions.ts
 - tests/web/history-actions.test.ts
 - src/web/styles.css
+- src/web/history-rows.ts
+- tests/web/history-rows.test.ts
 
 ## ICONV: Implementation Specification Conventions
 
@@ -704,3 +711,4 @@ No files.
 - src/engine/game-rules.ts
 - src/engine/state/create.ts
 - tests/foundation/action-record.test.ts
+- src/engine/player-api.ts

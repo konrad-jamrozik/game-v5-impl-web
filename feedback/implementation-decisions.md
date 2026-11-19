@@ -974,6 +974,9 @@
 - **Option chosen:** No query returning it.
 - **Why:** WHIST states the exception specifically, and the same Player actions are already visible to the Session
   controller through the Timeline.
+- **Superseded:** Specification revision e8c0df392d633573975c72dd71f2dc4be1447718 drops the exception (WHIST, Open
+  History entry): `getHistory()` returns the current Turn's Action record in its `openEntry`, and Developer inspection
+  returns it as `currentActions` of World history.
 - **Links:** PROB-032
 
 ## DEC-052: Stale examples yield to the rules they illustrate
@@ -1011,4 +1014,34 @@
   copy still leaves out every excluded file that the Spec repo holds, so the Game build carries no file it never plays.
   Since Specification revision f629d129c47dfbaba5ae6540c73bf0e8fdd0b2cd, the Spec repo holds the Soundtrack in
   `assets/music/tracks/`, and the copy is in `assets/music/tracks/` of this repository.
+- **Links:** None.
+
+## DEC-054: `getHistory()` returns the Open History entry as `openEntry`
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** WHIST, Current state, Turn report, and history: `getHistory()` returns "every History
+  entry, in Turn order, from Turn 1, followed by the Open History entry".
+- **Description:** `HistoryView` keeps `entries` for the History entries and adds `openEntry` for the Open History
+  entry, which holds `turn`, `turnStart`, `turnEnd`, and `actions` like a History entry and has no `report`. It is
+  derived on each query from `currentTurnStart`, `currentActions`, and the current state, never stored.
+- **Options considered:** Appending the Open History entry to `entries`, with an optional `report`; a separate
+  `openEntry` field after `entries`.
+- **Option chosen:** A separate `openEntry` field.
+- **Why:** Every History entry keeps its Turn report part, so code that reads `entries`, e.g. the Charts View, still
+  reads only ended Turns, while the order the specification states is kept: `openEntry` is the Turn after the last of
+  `entries`.
+- **Links:** None.
+
+## DEC-055: Acceptance examples run on a test Game build with Red Dawn only
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** FACTION, LEAD, MISSION, PANIC, and TURN, Acceptance examples: each uses "a test Game
+  build that supplies the Bootstrap GDRs without the FactionArchetypes `exalt` and `black_lotus` and their Leads".
+- **Description:** `RED_DAWN_ONLY_FILES` in `tests/helpers/game.ts` is that test Game build, and also leaves out the
+  Encyclopedia articles about the left-out GDRs, which COMP, Encyclopedia article GDR validation, would otherwise
+  reject. The shared test catalog `gdrs` and `rawGdrs()` start from it. Tests of the Bootstrap GDRs themselves, e.g.
+  BOOT and the COMP article count, and whole Campaigns played by the Basic Autopilot AI, use the full Bootstrap GDRs.
+- **Options considered:** Rewriting every example test for three Factions; one test Game build shared by all of them.
+- **Option chosen:** One shared test Game build.
+- **Why:** It is the Game build the examples state, so their injected outcomes and values hold unchanged.
 - **Links:** None.

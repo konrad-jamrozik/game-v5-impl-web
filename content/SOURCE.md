@@ -17,6 +17,9 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 - `music/music_parameters.yaml`: patched unchanged from specification commit
   `1431954675e589453268587817cb242e1823e2cb` on 2026-11-18, naming the excluded tracks under the music README's
   naming scheme.
+- `factions/faction_archetypes.yaml`, `leads-and-progression/leads.yaml`, and `compendium/encyclopedia_articles.yaml`:
+  patched unchanged from specification commit `e8c0df392d633573975c72dd71f2dc4be1447718` on 2026-11-18, adding the
+  Factions Exalt and Black Lotus with their Leads and articles.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

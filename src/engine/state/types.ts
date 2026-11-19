@@ -444,6 +444,18 @@ export interface HistoryEntry {
   };
 }
 
+/**
+ * WHIST, Open History entry: the History entry the current Turn would get if Advance turn ended it at the current
+ * Committed state, without the Turn report part. It is a Derived value, never stored: `turnStart` and `actions` are
+ * `currentTurnStart` and `currentActions` of World history, and `turnEnd` is the reduced form of the current state.
+ */
+export interface OpenHistoryEntry {
+  readonly turn: number;
+  readonly turnStart: StateSummary;
+  readonly turnEnd: StateSummary;
+  readonly actions: readonly ActionRecordItem[];
+}
+
 export interface TurnSeriesValue {
   readonly turn: number;
   readonly value: number;
@@ -455,7 +467,7 @@ export interface WorldHistory {
   historyEntries: HistoryEntry[];
   /** The reduced form of the Turn-start state of the current Turn, for its History entry. */
   currentTurnStart: StateSummary;
-  /** WHIST, Action record, Kept during the Turn: the Action record of the current Turn; no query returns it. */
+  /** WHIST, Action record, Kept during the Turn: the Action record of the current Turn, i.e. of the Open History entry. */
   currentActions: ActionRecordItem[];
   /** ECON, Turn series of money. */
   moneyAtStartOfTurn: TurnSeriesValue[];

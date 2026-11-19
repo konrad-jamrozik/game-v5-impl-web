@@ -455,7 +455,9 @@
 - **Description:** The Action record of the current Turn is Campaign state in World history, which full inspection
   would return, while WHIST says no query returns it.
 - **Links:** DEC-051
-- **Resolution:** Open
+- **Resolution:** Resolved in e8c0df392d633573975c72dd71f2dc4be1447718, which the Implementation follows since this
+  update: WHIST, Action record, Kept during the Turn now says the Action record of the current Turn is that of the Open
+  History entry, which `getHistory()` returns in full, and the exception is gone.
 
 ## PROB-033: An Assigning Agents example gives a reason that another failed precondition shadows
 

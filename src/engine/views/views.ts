@@ -54,6 +54,7 @@ import type {
   MissionView,
 } from '../player-api.ts';
 import { reject, type Rejection } from '../result.ts';
+import { summarize } from '../state/summary.ts';
 import { isServing } from '../state/types.ts';
 import type {
   Agent,
@@ -372,6 +373,12 @@ export function historyView(state: CampaignState, gdrs: GdrCatalog): HistoryView
   const history = state.world.history;
   return {
     entries: detach(history.historyEntries),
+    openEntry: {
+      turn: world.turn,
+      turnStart: detach(history.currentTurnStart),
+      turnEnd: summarize(world),
+      actions: detach(history.currentActions),
+    },
     turnSeries: {
       moneyAtStartOfTurn: detach(history.moneyAtStartOfTurn),
       moneyAtEndOfTurn: detach(history.moneyAtEndOfTurn),
@@ -767,6 +774,8 @@ export function inspectCampaignState(state: CampaignState): unknown {
             moneyAtEndOfTurn: state.world.history.moneyAtEndOfTurn,
           },
           currentTurnStart: state.world.history.currentTurnStart,
+          // WHIST, Action record: the Action record of the current Turn, i.e. of the Open History entry; see DEC-051.
+          currentActions: state.world.history.currentActions,
           retainedCampaignInstances: {
             agents: agents.retained,
             investigations: investigations.retained,

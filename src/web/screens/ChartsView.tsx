@@ -1,7 +1,8 @@
 /**
  * CVIEW: the Charts View. It leads with a full-width Panic chart, because Panic is how a Campaign is lost, above three
- * smaller trend charts of the resources the agency runs on.
+ * smaller trend charts of the resources the agency runs on, and one Faction chart for each Faction below them.
  */
+import { responseSitesSeries } from '../faction-activity.ts';
 import type { Snapshot } from '../store.ts';
 import { DetailView } from './DetailView.tsx';
 import { LineChart } from './LineChart.tsx';
@@ -9,7 +10,9 @@ import { LineChart } from './LineChart.tsx';
 export function ChartsView({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
   const history = snapshot.history;
   const entries = history?.entries ?? [];
-  const panicLimit = snapshot.state?.panicLimit;
+  const state = snapshot.state;
+  const panicLimit = state?.panicLimit;
+  const sites = [...(state?.missionSites ?? []), ...(history?.retained.missionSites ?? [])];
   return (
     <DetailView id="charts" title="Charts" onClose={onClose}>
       <div className="stack" data-testid="charts">
@@ -33,6 +36,17 @@ export function ChartsView({ snapshot, onClose }: { snapshot: Snapshot; onClose:
             title="Funding"
             points={entries.map((entry) => ({ turn: entry.turn, value: entry.report.fundingAfter }))}
           />
+        </div>
+        {/* CVIEW, Faction charts: three side by side to a row, in the order of the Factions in Campaign state. */}
+        <div className="charts charts-three">
+          {(state?.factions ?? []).map((faction) => (
+            <LineChart
+              key={faction.id}
+              title={`${faction.name} · response sites`}
+              points={responseSitesSeries(faction.id, state?.turn ?? 1, sites)}
+              testId={`faction-chart-${faction.id}`}
+            />
+          ))}
         </div>
       </div>
     </DetailView>

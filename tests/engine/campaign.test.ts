@@ -21,7 +21,7 @@ async function playTurn(engine: Engine): Promise<void> {
 describe('A Campaign is playable through Player API without Dev mode', () => {
   it('reaches Victory', async () => {
     const { engine } = await startEngine();
-    ok(await engine.session.campaign.create({ seed: 'victory path' }));
+    ok(await engine.session.campaign.create({ seed: 'c' }));
     let turns = 0;
     while (ok(engine.player.queries.getCurrentState()).ending === null && turns < 400) {
       await playTurn(engine);
