@@ -8,9 +8,11 @@
 import { formatInstanceId, must } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import {
+  addExhaustion,
   applyWorkExhaustion,
-  clampExhaustion,
   effectiveSkill,
+  enemyCombatantValues,
+  exhaustionOf,
   recordParticipation,
   trainingGainProbability,
 } from '../mechanics/agents/agents.ts';
@@ -151,7 +153,12 @@ export function applyAdvanceTurn(
 
   // Step 4: Training.
   // AGENT, Training growth: the Training gain outcome and any gain, then work exhaustion and the Forced return.
-  const training: { agent: string; gained: boolean; skillAfter: number; exhaustionAfter: number }[] = [];
+  const training: {
+    agent: string;
+    gained: boolean;
+    skillAfterHundredths: number;
+    exhaustionAfter: number;
+  }[] = [];
   const trainingReturns: typeof forcedReturns = [];
   for (const agent of order(Object.values(world.agents))) {
     if (agent.state.assignment?.kind === 'Training' && worksNow(agent.id)) {
@@ -160,7 +167,8 @@ export function applyAdvanceTurn(
         trainingGainProbability(agent.state, agentParameters),
       );
       if (gained) {
-        agent.state.skill += rates.trainingSkillGain;
+        // AGENT, Training growth: no rounding occurs, as the sum of two Decimal quantities is one.
+        agent.state.skillHundredths += rates.trainingSkillGainHundredths;
       }
       if (applyWorkExhaustion(agent.state, agentParameters.exhaustionPerTrainingTurn, agentParameters)) {
         // A Forced return from Training, a Base Assignment, is At assignment at once.
@@ -170,8 +178,8 @@ export function applyAdvanceTurn(
       training.push({
         agent: agent.id,
         gained,
-        skillAfter: agent.state.skill,
-        exhaustionAfter: agent.state.exhaustion,
+        skillAfterHundredths: agent.state.skillHundredths,
+        exhaustionAfter: exhaustionOf(agent.state),
       });
     }
   }
@@ -342,13 +350,28 @@ export function applyAdvanceTurn(
       `MissionSiteArchetype ${site.archetype}`,
     );
     const team = mission.state.currentTeam.map((id) => must(world.agents[id], `Agent ${id}`));
+    // An Enemy fights in the hundredths form of an Agent and its whole values are written back after the Combat;
+    // see DEC-056.
+    const siteEnemies = site.state.enemies.map((id) => must(world.enemies[id], `Enemy ${id}`));
+    const enemyStates = siteEnemies.map((enemy) => ({
+      ...enemyCombatantValues(enemy.state),
+      weaponDamage: enemy.state.weaponDamage,
+    }));
     const report = fightCombat({
       missionId: mission.id,
       agents: team.map((agent) => ({ id: agent.id, state: agent.state })),
-      enemies: site.state.enemies.map((id) => ({ id, state: must(world.enemies[id], `Enemy ${id}`).state })),
+      enemies: siteEnemies.map((enemy, index) => ({
+        id: enemy.id,
+        state: must(enemyStates[index], 'Enemy'),
+      })),
       combat: gdrs.combatParameters,
       agentParameters,
       random,
+    });
+    siteEnemies.forEach((enemy, index) => {
+      const fought = must(enemyStates[index], 'Enemy');
+      enemy.state.currentHealth = fought.currentHealthHundredths / 100;
+      enemy.state.exhaustion = fought.exactExhaustionHundredths / 100;
     });
     combatReports.set(mission.id, report);
     // AGENT, Service record, and COMBAT, Killed and Incapacitated: each attack that leaves its defender dead raises
@@ -377,18 +400,18 @@ export function applyAdvanceTurn(
     const toRecovery: string[] = [];
     const toStandby: string[] = [];
     // MISSION, Mission exhaustion: every survivor gains the same amount, from K Killed of the D sent.
-    const killedCount = team.filter((agent) => agent.state.currentHealth === 0).length;
+    const killedCount = team.filter((agent) => agent.state.currentHealthHundredths === 0).length;
     const survivorExhaustion = missionExhaustion(killedCount, team.length, agentParameters);
     for (const agent of team) {
       recordParticipation(agent.state, 'Mission', mission.id);
-      if (agent.state.currentHealth === 0) {
+      if (agent.state.currentHealthHundredths === 0) {
         agent.state.status = 'Killed';
         agent.state.assignment = null;
         // AGENT, Service record: the Turn that this Advance turn ends.
         agent.state.turnTerminated = turn;
         killed.push(agent.id);
       } else {
-        if (agent.state.currentHealth < agent.state.baseHealth) {
+        if (agent.state.currentHealthHundredths < agent.state.baseHealth * 100) {
           agent.state.assignment = { kind: 'Recovery' };
           toRecovery.push(agent.id);
         } else {
@@ -396,7 +419,7 @@ export function applyAdvanceTurn(
           toStandby.push(agent.id);
         }
         agent.state.status = 'InTransit';
-        agent.state.exhaustion = clampExhaustion(agent.state.exhaustion + survivorExhaustion);
+        addExhaustion(agent.state, survivorExhaustion);
       }
     }
     mission.state.currentTeam = [];
@@ -575,19 +598,20 @@ export function applyAdvanceTurn(
   for (const agent of order(Object.values(world.agents))) {
     const kind = agent.state.assignment?.kind;
     if ((kind === 'Recovery' || kind === 'Standby') && worksNow(agent.id)) {
-      const health = agent.state.currentHealth;
-      const exhaustion = agent.state.exhaustion;
+      const health = agent.state.currentHealthHundredths;
+      const exactExhaustion = agent.state.exactExhaustionHundredths;
       recoverAgent(agent.state, rates);
       const kindAfter: string | undefined = agent.state.assignment?.kind;
       if (
-        agent.state.currentHealth !== health ||
-        agent.state.exhaustion !== exhaustion ||
+        agent.state.currentHealthHundredths !== health ||
+        agent.state.exactExhaustionHundredths !== exactExhaustion ||
         kind === 'Recovery'
       ) {
         recovery.push({
           agent: agent.id,
-          healthAfter: agent.state.currentHealth,
-          exhaustionAfter: agent.state.exhaustion,
+          healthAfterHundredths: agent.state.currentHealthHundredths,
+          exactExhaustionAfterHundredths: agent.state.exactExhaustionHundredths,
+          exhaustionAfter: exhaustionOf(agent.state),
           recovered: kind === 'Recovery' && kindAfter === 'Standby',
         });
       }

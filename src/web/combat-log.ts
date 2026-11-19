@@ -3,6 +3,7 @@
  * presentation; no gameplay rule.
  */
 import type { CombatReport } from '../engine/index.ts';
+import { combatantValueText } from './format.ts';
 
 type Attack = CombatReport['log'][number];
 
@@ -25,7 +26,7 @@ export function combatLogRow(attack: Attack, sideOf: (id: string) => 'agent' | '
   return {
     tint,
     tone: tint === 'agent' ? 'good' : 'bad',
-    outcome: `hit for ${attack.damage ?? 0}, health ${attack.defenderAfter.currentHealth}`,
+    outcome: `hit for ${attack.damage ?? 0}, health ${combatantValueText(attack.defenderAfter.currentHealthHundredths, sideOf(attack.defender))}`,
     decisive: attack.defenderDead ? 'dead' : attack.defenderIncapacitated ? 'incapacitated' : null,
   };
 }

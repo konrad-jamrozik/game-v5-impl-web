@@ -6,8 +6,16 @@
 import { deepFreeze, detach, must, q } from '../../kernel/index.ts';
 import { GAME_BUILD, type GdrCatalog, type MissionSiteArchetypeGdr } from '../../gdr/index.ts';
 import { applyGameAction } from '../actions/actions.ts';
-import { canBeAssigned, effectiveSkill, isAway, isFitForWork, isInBase } from '../mechanics/agents/agents.ts';
-import { combatRating, isAbleToFight } from '../mechanics/combat/combat.ts';
+import {
+  canBeAssigned,
+  effectiveSkill,
+  enemyCombatantValues,
+  exhaustionOf,
+  isAway,
+  isFitForWork,
+  isInBase,
+} from '../mechanics/agents/agents.ts';
+import { combatRating, isAbleToFight, type CombatantState } from '../mechanics/combat/combat.ts';
 import {
   agencyCaps,
   contractingAtAssignment,
@@ -31,7 +39,7 @@ import {
   leadStatus,
 } from '../mechanics/leads/leads.ts';
 import { consequencesOf, type ConsequenceAmounts } from '../mechanics/missions/missions.ts';
-import { healthRecoveryRate, recoveryTurnsRemaining } from '../mechanics/recovery/recovery.ts';
+import { healthRecoveryRateHundredths, recoveryTurnsRemaining } from '../mechanics/recovery/recovery.ts';
 import { visibleArticles } from '../mechanics/compendium/compendium.ts';
 import type {
   ActionAvailability,
@@ -76,7 +84,12 @@ function ratesOf(world: CurrentWorldState, gdrs: GdrCatalog): UpgradedRates {
   );
 }
 
-function agentView(agent: Agent, gdrs: GdrCatalog, healthRecoveryPct: number): AgentView {
+/** An Enemy's values in the hundredths form that effective skill and a Combat read; see DEC-056. */
+function enemyCombatant(enemy: Enemy['state']): CombatantState {
+  return { ...enemyCombatantValues(enemy), weaponDamage: enemy.weaponDamage };
+}
+
+function agentView(agent: Agent, gdrs: GdrCatalog, healthRecoveryPctHundredths: number): AgentView {
   const s = agent.state;
   const serving = isServing(s);
   return {
@@ -86,11 +99,12 @@ function agentView(agent: Agent, gdrs: GdrCatalog, healthRecoveryPct: number): A
     agency: agent.constants.agency,
     turnHired: agent.constants.turnHired,
     agentStatus: s.status,
-    skill: s.skill,
+    skillHundredths: s.skillHundredths,
     effectiveSkill: effectiveSkill(s, gdrs.agentParameters),
-    currentHealth: s.currentHealth,
+    currentHealthHundredths: s.currentHealthHundredths,
     baseHealth: s.baseHealth,
-    exhaustion: s.exhaustion,
+    exhaustion: exhaustionOf(s),
+    exactExhaustionHundredths: s.exactExhaustionHundredths,
     weapon: s.weapon,
     weaponName: gdrs.weapons.get(s.weapon)?.name ?? s.weapon,
     weaponDamage: s.weaponDamage,
@@ -104,9 +118,13 @@ function agentView(agent: Agent, gdrs: GdrCatalog, healthRecoveryPct: number): A
     enemiesKilled: s.enemiesKilled,
     turnTerminated: s.turnTerminated,
     killedBy: s.killedBy === null ? null : { ...s.killedBy },
-    healthRecoveryRate: serving ? healthRecoveryRate(s.baseHealth, healthRecoveryPct) : null,
+    healthRecoveryRateHundredths: serving
+      ? healthRecoveryRateHundredths(s.baseHealth, healthRecoveryPctHundredths)
+      : null,
     recoveryTurnsRemaining:
-      serving && s.assignment?.kind === 'Recovery' ? recoveryTurnsRemaining(s, healthRecoveryPct) : null,
+      serving && s.assignment?.kind === 'Recovery'
+        ? recoveryTurnsRemaining(s, healthRecoveryPctHundredths)
+        : null,
   };
 }
 
@@ -118,7 +136,7 @@ function enemyView(enemy: Enemy, gdrs: GdrCatalog): EnemyView {
     archetypeName: gdrs.enemyArchetypes.get(enemy.archetype)?.name ?? enemy.archetype,
     missionSite: enemy.constants.missionSite,
     skill: s.skill,
-    effectiveSkill: effectiveSkill(s, gdrs.agentParameters),
+    effectiveSkill: effectiveSkill(enemyCombatantValues(s), gdrs.agentParameters),
     currentHealth: s.currentHealth,
     baseHealth: s.baseHealth,
     exhaustion: s.exhaustion,
@@ -167,7 +185,7 @@ function missionSiteView(site: MissionSite, world: CurrentWorldState, gdrs: GdrC
     turnsUntilExpiration: site.state.turnsUntilExpiration,
     enemies: enemies.map((enemy) => enemyView(enemy, gdrs)),
     enemiesCombatRating: combatRating(
-      enemies.map((enemy) => enemy.state),
+      enemies.map((enemy) => enemyCombatant(enemy.state)),
       gdrs.combatParameters,
       gdrs.agentParameters,
     ),
@@ -302,7 +320,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
       name: upgrade.name,
       price: upgrade.price,
       effect: upgrade.effect,
-      increment: upgrade.increment,
+      incrementHundredths: upgrade.incrementHundredths,
       acquisitions: world.agency.state.acquisitions[upgrade.id] ?? 0,
     })),
     ...caps,
@@ -347,7 +365,7 @@ export function currentStateView(state: CampaignState, gdrs: GdrCatalog): Curren
     agency: agencyView(world, gdrs),
     agents: Object.values(world.agents)
       .filter((agent) => isServing(agent.state))
-      .map((agent) => agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPct)),
+      .map((agent) => agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths)),
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle === 'Active')
       .map((investigation) => investigationView(investigation, world, gdrs)),
@@ -386,7 +404,7 @@ export function historyView(state: CampaignState, gdrs: GdrCatalog): HistoryView
     retained: {
       agents: Object.values(world.agents)
         .filter((agent) => !isServing(agent.state))
-        .map((agent) => agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPct)),
+        .map((agent) => agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths)),
       investigations: Object.values(world.investigations)
         .filter((investigation) => investigation.state.lifecycle !== 'Active')
         .map((investigation) => investigationView(investigation, world, gdrs)),
@@ -587,7 +605,7 @@ export function previewDeployment(
       site === undefined
         ? null
         : combatRating(
-            site.state.enemies.map((id) => must(world.enemies[id], `Enemy ${id}`).state),
+            site.state.enemies.map((id) => enemyCombatant(must(world.enemies[id], `Enemy ${id}`).state)),
             gdrs.combatParameters,
             gdrs.agentParameters,
           ),

@@ -15,6 +15,7 @@ import {
 import { useEffect, useMemo, useRef } from 'react';
 import type { AgentView, CurrentStateView, HistoryView } from '../../engine/index.ts';
 import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
+import { decimalText } from '../format.ts';
 import { ASSIGNMENTS, blockedBy, type OrderAssignment, type Selectability } from '../agent-selection.ts';
 import { capBar, type CapBarModel } from '../cap-bar.ts';
 import { enemyLabels } from '../enemy-labels.ts';
@@ -35,7 +36,13 @@ import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
-const NUMERIC = new Set(['effectiveSkill', 'skill', 'currentHealth', 'exhaustion', 'weaponDamage']);
+const NUMERIC = new Set([
+  'effectiveSkill',
+  'skillHundredths',
+  'currentHealthHundredths',
+  'exhaustion',
+  'weaponDamage',
+]);
 
 /** VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. */
 const SERVING_WIDTHS = ['36px', '104px', '116px', '84px', '96px', '132px', '104px', '280px', '220px'];
@@ -296,12 +303,11 @@ export function AgentsView(props: {
         ),
       }),
       helper.accessor('effectiveSkill', { header: 'Effective' }),
-      helper.accessor('skill', { header: 'Skill' }),
-      helper.accessor('currentHealth', {
+      // GUI, Decimal quantities shown: base skill and current health with two decimals, e.g. "101.10", "29.40/30".
+      helper.accessor('skillHundredths', { header: 'Skill', cell: (cell) => decimalText(cell.getValue()) }),
+      helper.accessor('currentHealthHundredths', {
         header: 'Health',
-        cell: (cell) => (
-          <Health current={cell.row.original.currentHealth} base={cell.row.original.baseHealth} />
-        ),
+        cell: (cell) => <Health currentHundredths={cell.getValue()} base={cell.row.original.baseHealth} />,
       }),
       helper.accessor('exhaustion', {
         header: 'Exhaustion',
@@ -629,7 +635,7 @@ function Memorial(props: {
       case 'id':
         return row.agent.id;
       case 'skill':
-        return row.agent.skill;
+        return row.agent.skillHundredths;
       case 'baseHealth':
         return row.agent.baseHealth;
       case 'turnTerminated':
@@ -692,7 +698,7 @@ function Memorial(props: {
                   {row.agent.id}
                 </button>
               </td>
-              <td className="num">{row.agent.skill}</td>
+              <td className="num">{decimalText(row.agent.skillHundredths)}</td>
               <td className="num">{row.agent.baseHealth}</td>
               <td className="num">T{row.agent.turnTerminated ?? '-'}</td>
               <td className={row.agent.agentStatus === 'Killed' ? 'tone-bad' : 'muted'}>

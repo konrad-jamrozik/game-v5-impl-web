@@ -1,26 +1,35 @@
 /** RECOVER (Agent Recovery): the Health recovery rate, Recovery turns remaining, and the recovery of one Agent. */
-import { percentOf, q, roundUp } from '../../../kernel/index.ts';
+import { fromHundredths, percentOf, roundUp, roundUpToHundredths } from '../../../kernel/index.ts';
 import type { AgentState } from '../../state/types.ts';
 import type { UpgradedRates } from '../economy/economy.ts';
 
 /** The rates the Agent recovery step reads: RecoveryParameters raised by Rate Upgrades; see ECON, Rate Upgrades. */
-export type RecoveryRates = Pick<UpgradedRates, 'healthRecoveryPct' | 'exhaustionRecovery'>;
+export type RecoveryRates = Pick<
+  UpgradedRates,
+  'healthRecoveryPctHundredths' | 'exhaustionRecoveryHundredths'
+>;
 
 /**
- * RECOVER, Health recovery: Health recovery rate = round up( p × base health / 100 ), where p is the health recovery
- * percentage.
+ * RECOVER, Health recovery: Health recovery rate = round up to hundredths( p × base health / 100 ), where p is the
+ * health recovery percentage, a Decimal quantity in hundredths. The result is in hundredths, and it is both what the
+ * engine API reports and what each recovery adds; see NUMBERS, Decimal quantities.
  */
-export function healthRecoveryRate(baseHealth: number, healthRecoveryPct: number): number {
-  return roundUp(percentOf(healthRecoveryPct, baseHealth));
+export function healthRecoveryRateHundredths(
+  baseHealth: number,
+  healthRecoveryPctHundredths: number,
+): number {
+  return roundUpToHundredths(percentOf(fromHundredths(healthRecoveryPctHundredths), baseHealth));
 }
 
 /** RECOVER: Recovery turns remaining = round up( (base health − current health) / Health recovery rate ). */
 export function recoveryTurnsRemaining(
-  agent: Pick<AgentState, 'baseHealth' | 'currentHealth'>,
-  healthRecoveryPct: number,
+  agent: Pick<AgentState, 'baseHealth' | 'currentHealthHundredths'>,
+  healthRecoveryPctHundredths: number,
 ): number {
   return roundUp(
-    q(agent.baseHealth - agent.currentHealth).div(healthRecoveryRate(agent.baseHealth, healthRecoveryPct)),
+    fromHundredths(agent.baseHealth * 100 - agent.currentHealthHundredths).div(
+      fromHundredths(healthRecoveryRateHundredths(agent.baseHealth, healthRecoveryPctHundredths)),
+    ),
   );
 }
 
@@ -31,13 +40,19 @@ export function recoveryTurnsRemaining(
 export function recoverAgent(agent: AgentState, rates: RecoveryRates): void {
   const onRecovery = agent.assignment?.kind === 'Recovery';
   if (onRecovery) {
-    agent.currentHealth = Math.min(
-      agent.baseHealth,
-      agent.currentHealth + healthRecoveryRate(agent.baseHealth, rates.healthRecoveryPct),
+    // No rounding occurs: every term is a Decimal quantity, and the comparison with base health is exact.
+    agent.currentHealthHundredths = Math.min(
+      agent.baseHealth * 100,
+      agent.currentHealthHundredths +
+        healthRecoveryRateHundredths(agent.baseHealth, rates.healthRecoveryPctHundredths),
     );
   }
-  agent.exhaustion = Math.max(0, agent.exhaustion - rates.exhaustionRecovery);
-  if (onRecovery && agent.currentHealth === agent.baseHealth) {
+  // RECOVER, Exhaustion recovery: only this rule reads and lowers Exact exhaustion by an amount that need not be whole.
+  agent.exactExhaustionHundredths = Math.max(
+    0,
+    agent.exactExhaustionHundredths - rates.exhaustionRecoveryHundredths,
+  );
+  if (onRecovery && agent.currentHealthHundredths === agent.baseHealth * 100) {
     agent.assignment = { kind: 'Standby' };
     agent.status = 'AtAssignment';
   }

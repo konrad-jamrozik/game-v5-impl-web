@@ -1,5 +1,6 @@
 /** VIS, Agent condition: the coloured exhaustion and current health values; the scales are in condition-scale.ts. */
 import { exhaustionTone, healthColor, type ExhaustionLevels } from './condition-scale.ts';
+import { decimalText } from './format.ts';
 
 export { exhaustionLevels, exhaustionTone, healthColor, type ExhaustionLevels } from './condition-scale.ts';
 
@@ -29,11 +30,14 @@ export function Exhaustion(props: { value: number; levels: ExhaustionLevels }) {
   );
 }
 
-/** An Agent's current health against its base health, coloured under VIS, Agent condition. */
-export function Health(props: { current: number; base: number }) {
+/**
+ * An Agent's current health, a Decimal quantity in hundredths, against its base health, coloured under VIS, Agent
+ * condition from the exact share and shown with two decimals under GUI, Decimal quantities shown, e.g. "29.40/30".
+ */
+export function Health(props: { currentHundredths: number; base: number }) {
   return (
-    <span className="condition" style={{ color: healthColor(props.current, props.base) }}>
-      {props.current}/{props.base}
+    <span className="condition" style={{ color: healthColor(props.currentHundredths / 100, props.base) }}>
+      {decimalText(props.currentHundredths)}/{props.base}
     </span>
   );
 }

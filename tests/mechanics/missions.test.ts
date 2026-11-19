@@ -5,7 +5,11 @@ import {
   missionExhaustion,
   selectResponseArchetype,
 } from '../../src/engine/mechanics/missions/missions.ts';
-import { healthRecoveryRate, recoveryTurnsRemaining } from '../../src/engine/mechanics/recovery/recovery.ts';
+import { exhaustionOf } from '../../src/engine/mechanics/agents/agents.ts';
+import {
+  healthRecoveryRateHundredths,
+  recoveryTurnsRemaining,
+} from '../../src/engine/mechanics/recovery/recovery.ts';
 import { injectedRandom } from '../../src/engine/random.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
@@ -31,6 +35,7 @@ import {
   tweak,
   winning,
   withAgents,
+  units,
 } from '../helpers/game.ts';
 
 const set = (
@@ -90,7 +95,7 @@ describe('MISSION: Acceptance examples', () => {
 
     // Deploying, Turn 6. The example's Agents have exhaustion 0; a1's work on i1 gave it 1.
     state = setAssignment(state, ids, 'Standby');
-    state = tweak(state, (world) => (world.agents[ids[0]!]!.state.exhaustion = 0));
+    state = tweak(state, (world) => (world.agents[ids[0]!]!.state.exactExhaustionHundredths = 0));
     state = act(state, 'deployAgents', { missionSite: s1, agents: ids });
     const m1 = missionAt(state, s1);
     expect(site(state, s1).state).toMatchObject({ lifecycle: 'Deployed', turnsUntilExpiration: 4 });
@@ -145,12 +150,14 @@ describe('MISSION: Acceptance examples', () => {
     expect(report.combatReports[0]!.participants.slice(0, 4).map((p) => p.final.exhaustion)).toEqual([
       4, 2, 1, 1,
     ]);
-    expect([a1, a2, a3, a4].map((id) => agent(state, id).state.exhaustion)).toEqual([9, 7, 6, 6]);
+    expect([a1, a2, a3, a4].map((id) => agent(state, id).state.exactExhaustionHundredths / 100)).toEqual([
+      9, 7, 6, 6,
+    ]);
     expect(site(state, s1).state).toMatchObject({ lifecycle: 'Concluded', turnsUntilExpiration: 4 });
     expect(mission(state, m1).state).toEqual({ lifecycle: 'Won', currentTeam: [] });
     expect(mission(state, m1).constants.teamSent).toEqual(ids);
     for (const id of ids) {
-      expect(agent(state, id).state).toMatchObject({
+      expect(units(agent(state, id).state)).toMatchObject({
         assignment: { kind: 'Standby' },
         status: 'InTransit',
         participationHistory: [
@@ -249,13 +256,13 @@ describe('MISSION: Acceptance examples', () => {
     const lostReport = lost.world.history.turnReport!;
     expect(lostReport.combatReports[0]).toMatchObject({ outcome: 'Retreated', rounds: 1 });
     expect(lostReport.combatReports[0]!.participants[0]!.final).toMatchObject({
-      currentHealth: 9,
+      currentHealthHundredths: 900,
       exhaustion: 7,
       effectiveSkill: 30,
     });
     expect(mission(lost, missionAt(lost, s2)).state.lifecycle).toBe('Lost');
     // Mission exhaustion raises 7 to 12, as it would after a win.
-    expect(agent(lost, a1).state).toMatchObject({
+    expect(units(agent(lost, a1).state)).toMatchObject({
       assignment: { kind: 'Recovery' },
       status: 'InTransit',
       exhaustion: 12,
@@ -286,14 +293,16 @@ describe('MISSION: Acceptance examples', () => {
     expect(mission(won, missionAt(won, s2)).state.lifecycle).toBe('Won');
     expect([money(won), funding(won), won.world.current.panic]).toEqual([330, 25, 10]);
     for (const id of [a1, a2, a3, a4]) {
-      expect(agent(won, id).state).toMatchObject({
+      expect(units(agent(won, id).state)).toMatchObject({
         currentHealth: 30,
         assignment: { kind: 'Standby' },
         status: 'InTransit',
       });
     }
     // The Combat leaves a1 with 11 and the others with 3; Mission exhaustion adds 5 to each.
-    expect([a1, a2, a3, a4].map((id) => agent(won, id).state.exhaustion)).toEqual([16, 8, 8, 8]);
+    expect([a1, a2, a3, a4].map((id) => agent(won, id).state.exactExhaustionHundredths / 100)).toEqual([
+      16, 8, 8, 8,
+    ]);
   });
 
   it('A Won raid_hq Mission eliminates Red Dawn and cancels an Active Mission site', () => {
@@ -354,7 +363,7 @@ describe('MISSION: Acceptance examples', () => {
     state = tweak(s8.state, (world) => {
       world.missionSites[s8.site]!.state.lifecycle = 'Expired';
       world.missionSites[s8.site]!.state.turnsUntilExpiration = 0;
-      world.agents[a7]!.state.currentHealth = 12;
+      world.agents[a7]!.state.currentHealthHundredths = 1200;
       world.agents[a7]!.state.assignment = { kind: 'Recovery' };
       world.agents[a7]!.state.status = 'Recovering';
     });
@@ -411,7 +420,7 @@ describe('MISSION: Acceptance examples', () => {
     });
     // An Agent on Training is deployed at once, without first being recalled.
     const deployed = act(state, 'deployAgents', { missionSite: created.site, agents: [a1] });
-    expect(agent(deployed, a1).state).toMatchObject({
+    expect(units(agent(deployed, a1).state)).toMatchObject({
       assignment: { kind: 'Deployed', mission: missionAt(deployed, created.site) },
       status: 'AtAssignment',
     });
@@ -630,8 +639,8 @@ describe('MISSION: Mission exhaustion', () => {
     const [a1, a2] = agentIds(state) as [string, string];
     // a2 has the highest effective skill, so the first Enemy attack targets it, and 5 health is all it has.
     state = tweak(state, (world) => {
-      world.agents[a2]!.state.skill = 1000;
-      world.agents[a2]!.state.currentHealth = 5;
+      world.agents[a2]!.state.skillHundredths = 100000;
+      world.agents[a2]!.state.currentHealthHundredths = 500;
     });
     state = act(state, 'deployAgents', { missionSite: created.site, agents: [a1, a2] });
     const enemies = site(state, created.site).state.enemies;
@@ -648,8 +657,8 @@ describe('MISSION: Mission exhaustion', () => {
     const report = after.world.history.turnReport!;
     expect(report.missions[0]!.killed).toEqual([a2]);
     const combatExhaustion = report.combatReports[0]!.participants.find((x) => x.id === a1)!.final.exhaustion;
-    expect(agent(after, a1).state.exhaustion).toBe(combatExhaustion + 55);
-    expect(agent(after, a2).state.exhaustion).toBe(
+    expect(agent(after, a1).state.exactExhaustionHundredths / 100).toBe(combatExhaustion + 55);
+    expect(agent(after, a2).state.exactExhaustionHundredths / 100).toBe(
       report.combatReports[0]!.participants.find((x) => x.id === a2)!.final.exhaustion,
     );
   });
@@ -658,7 +667,7 @@ describe('MISSION: Mission exhaustion', () => {
     const created = addMissionSite(newCampaign(), 'apprehend_member');
     let state = tweak(created.state, (world) => {
       for (const agent of Object.values(world.agents)) {
-        agent.state.exhaustion = 90;
+        agent.state.exactExhaustionHundredths = 9000;
       }
     });
     const [a1] = agentIds(state) as [string];
@@ -669,9 +678,13 @@ describe('MISSION: Mission exhaustion', () => {
 
 describe('RECOVER: Acceptance examples', () => {
   it('Health recovery rate', () => {
-    const rate = (pct: number) => healthRecoveryRate(30, pct);
-    expect([2, 1, 7, 50, 100].map(rate)).toEqual([1, 1, 3, 15, 30]);
+    // The percentage and the rate are Decimal quantities in hundredths: p 2.2 is 220, and a rate of 0.60 is 60.
+    const rate = (pct: number) => healthRecoveryRateHundredths(30, pct);
+    expect([200, 100, 220, 700, 1, 5000, 10000].map(rate)).toEqual([60, 30, 66, 210, 1, 1500, 3000]);
+    expect([healthRecoveryRateHundredths(31, 200), healthRecoveryRateHundredths(31, 220)]).toEqual([62, 69]);
     expectDefective((raw) => (raw.get('recovery')['health_recovery_pct_per_turn'] = 0));
+    expectDefective((raw) => (raw.get('recovery')['health_recovery_pct_per_turn'] = { $decimal: '0.125' }));
+    expectDefective((raw) => (raw.get('recovery')['exhaustion_recovery_per_turn'] = { $decimal: '1.605' }));
     expectDefective((raw) => (raw.get('recovery')['exhaustion_recovery_per_turn'] = -1));
     expectDefective((raw) => (raw.get('recovery')['extra'] = 1));
     expectDefective((raw) =>
@@ -680,28 +693,28 @@ describe('RECOVER: Acceptance examples', () => {
   });
 
   it('Returning from a Combat until Standby', () => {
-    // The Combat is stipulated to leave a1 with current health 22 and exhaustion 14, on Recovery, In transit; no
+    // The Combat is stipulated to leave a1 with current health 27 and exhaustion 14, on Recovery, In transit; no
     // Agent of its team was Killed, so Mission exhaustion raises its exhaustion by 5, to 19.
     let state = newCampaign({ money: 5000 });
     const [a1] = agentIds(state) as [string];
     expect(missionExhaustion(0, 1, gdrs.agentParameters)).toBe(5);
     state = tweak(state, (world) => {
       const s = world.agents[a1]!.state;
-      s.currentHealth = 22;
-      s.exhaustion = 14 + 5;
+      s.currentHealthHundredths = 2700;
+      s.exactExhaustionHundredths = (14 + 5) * 100;
       s.assignment = { kind: 'Recovery' };
       s.status = 'InTransit';
     });
     const view = (s: CampaignState) => currentStateView(s, gdrs).agents.find((a) => a.id === a1)!;
     expect(view(state)).toMatchObject({
-      healthRecoveryRate: 1,
-      recoveryTurnsRemaining: 8,
+      healthRecoveryRateHundredths: 60,
+      recoveryTurnsRemaining: 5,
       canBeAssigned: false,
     });
     state = advance(state); // arrives; no recovery
-    expect(agent(state, a1).state).toMatchObject({
-      currentHealth: 22,
-      exhaustion: 19,
+    expect(units(agent(state, a1).state)).toMatchObject({
+      currentHealthHundredths: 2700,
+      exactExhaustionHundredths: 1900,
       status: 'Recovering',
     });
     expectRejected(
@@ -710,27 +723,26 @@ describe('RECOVER: Acceptance examples', () => {
       { agents: [a1], assignment: 'Standby' },
       'agents_cannot_be_ordered',
     );
-    const expected: [number, number][] = [
-      [23, 14],
-      [24, 9],
-      [25, 4],
-      [26, 0],
-      [27, 0],
-      [28, 0],
-      [29, 0],
+    // Current health and exhaustion in hundredths, and the Recovery turns remaining after each Advance turn.
+    const expected: [number, number, number][] = [
+      [2760, 1400, 4],
+      [2820, 900, 3],
+      [2880, 400, 2],
+      [2940, 0, 1],
     ];
-    for (const [health, exhaustion] of expected) {
+    for (const [health, exhaustion, remaining] of expected) {
       state = advance(state);
-      expect(agent(state, a1).state).toMatchObject({
-        currentHealth: health,
-        exhaustion,
+      expect(units(agent(state, a1).state)).toMatchObject({
+        currentHealthHundredths: health,
+        exactExhaustionHundredths: exhaustion,
         assignment: { kind: 'Recovery' },
       });
-      expect(view(state).recoveryTurnsRemaining).toBe(30 - health);
+      expect(view(state).recoveryTurnsRemaining).toBe(remaining);
     }
+    // 29.40 + 0.60 is exactly base health 30.
     state = advance(state);
-    expect(agent(state, a1).state).toMatchObject({
-      currentHealth: 30,
+    expect(units(agent(state, a1).state)).toMatchObject({
+      currentHealthHundredths: 3000,
       assignment: { kind: 'Standby' },
       status: 'AtAssignment',
     });
@@ -744,13 +756,13 @@ describe('RECOVER: Acceptance examples', () => {
     state = setAssignment(state, [c2], 'Training');
     state = setAssignment(state, [c3], 'Standby', 'InTransit');
     state = tweak(state, (world) => {
-      world.agents[b1]!.state.exhaustion = 3;
+      world.agents[b1]!.state.exactExhaustionHundredths = 300;
       for (const id of [b2, c1, c2, c3, c5]) {
-        world.agents[id]!.state.exhaustion = 14;
+        world.agents[id]!.state.exactExhaustionHundredths = 1400;
       }
     });
     const exhaustion = (s: CampaignState) =>
-      [b1, b2, c1, c2, c3, c5].map((id) => agent(s, id).state.exhaustion);
+      [b1, b2, c1, c2, c3, c5].map((id) => agent(s, id).state.exactExhaustionHundredths / 100);
     // c1 and c2 do not recover, and their work adds 1 in each Advance turn.
     state = advance(state);
     expect(exhaustion(state)).toEqual([0, 9, 15, 15, 14, 9]);
@@ -758,7 +770,30 @@ describe('RECOVER: Acceptance examples', () => {
     expect(exhaustion(state)).toEqual([0, 4, 16, 16, 9, 4]);
     state = advance(state);
     expect(exhaustion(state)).toEqual([0, 0, 17, 17, 4, 0]);
-    expect(agent(state, b2).state.currentHealth).toBe(30);
+    expect(agent(state, b2).state.currentHealthHundredths / 100).toBe(30);
+  });
+
+  it('Standby recovers exhaustion that is not whole', () => {
+    // With the test value exhaustion_recovery_per_turn 1.6, Exact exhaustion keeps its decimal places and exhaustion
+    // is its value rounded up.
+    const catalog = catalogWith(
+      (raw) => (raw.get('recovery')['exhaustion_recovery_per_turn'] = { $decimal: '1.6' }),
+    );
+    let state = newCampaign({ money: 5000, catalog });
+    const [b3] = agentIds(state) as [string];
+    state = tweak(state, (world) => (world.agents[b3]!.state.exactExhaustionHundredths = 500));
+    const seen: [number, number][] = [];
+    for (let i = 0; i < 4; i += 1) {
+      state = advance(state, {}, catalog);
+      const s = agent(state, b3).state;
+      seen.push([s.exactExhaustionHundredths, exhaustionOf(s)]);
+    }
+    expect(seen).toEqual([
+      [340, 4],
+      [180, 2],
+      [20, 1],
+      [0, 0],
+    ]);
   });
 
   it('Current health reaching base health and exhaustion reaching 0 in one step; independence', () => {
@@ -767,61 +802,62 @@ describe('RECOVER: Acceptance examples', () => {
     state = tweak(state, (world) => {
       const set = (id: string, health: number, exhaustion: number) => {
         const s = world.agents[id]!.state;
-        s.currentHealth = health;
-        s.exhaustion = exhaustion;
+        s.currentHealthHundredths = health;
+        s.exactExhaustionHundredths = exhaustion * 100;
         s.assignment = { kind: 'Recovery' };
         s.status = 'Recovering';
       };
-      set(d1, 29, 3);
-      set(d2, 29, 8);
-      set(g2, 10, 20);
+      set(d1, 2940, 3);
+      set(d2, 2940, 8);
+      set(g2, 1000, 20);
     });
     const forward = advance(state);
     const reversed = advance(state, {}, gdrs, (items) => [...items].reverse());
     expect(reversed).toEqual(forward);
-    expect(agent(forward, d1).state).toMatchObject({
-      currentHealth: 30,
-      exhaustion: 0,
+    expect(units(agent(forward, d1).state)).toMatchObject({
+      currentHealthHundredths: 3000,
+      exactExhaustionHundredths: 0,
       assignment: { kind: 'Standby' },
     });
-    expect(agent(forward, d2).state).toMatchObject({
-      currentHealth: 30,
-      exhaustion: 3,
+    expect(units(agent(forward, d2).state)).toMatchObject({
+      currentHealthHundredths: 3000,
+      exactExhaustionHundredths: 300,
       assignment: { kind: 'Standby' },
     });
-    expect(agent(forward, g2).state).toMatchObject({
-      currentHealth: 11,
-      exhaustion: 15,
+    expect(units(agent(forward, g2).state)).toMatchObject({
+      currentHealthHundredths: 1060,
+      exactExhaustionHundredths: 1500,
       assignment: { kind: 'Recovery' },
     });
-    expect(agent(advance(forward), d2).state.exhaustion).toBe(0);
+    expect(agent(advance(forward), d2).state.exactExhaustionHundredths / 100).toBe(0);
   });
 
   it('Recovery clamp with a test Health recovery rate', () => {
-    expect(healthRecoveryRate(30, 7)).toBe(3);
-    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 22 }, 7)).toBe(3);
-    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 25 }, 7)).toBe(2);
-    expect(recoveryTurnsRemaining({ baseHealth: 30, currentHealth: 28 }, 7)).toBe(1);
+    expect(healthRecoveryRateHundredths(30, 700)).toBe(210);
+    const remaining = (health: number) =>
+      recoveryTurnsRemaining({ baseHealth: 30, currentHealthHundredths: health }, 700);
+    expect([2200, 2410, 2620, 2830].map(remaining)).toEqual([4, 3, 2, 1]);
     expect(
       recoveryTurnsRemaining(
-        { baseHealth: 30, currentHealth: 30 },
-        gdrs.recoveryParameters.healthRecoveryPctPerTurn,
+        { baseHealth: 30, currentHealthHundredths: 3000 },
+        gdrs.recoveryParameters.healthRecoveryPctPerTurnHundredths,
       ),
     ).toBe(0);
     const catalog = catalogWith((raw) => (raw.get('recovery')['health_recovery_pct_per_turn'] = 7));
     let state = newCampaign({ money: 5000, catalog });
     const [e1] = agentIds(state) as [string];
     state = tweak(state, (world) => {
-      world.agents[e1]!.state.currentHealth = 22;
+      world.agents[e1]!.state.currentHealthHundredths = 2200;
       world.agents[e1]!.state.assignment = { kind: 'Recovery' };
       world.agents[e1]!.state.status = 'Recovering';
     });
     const healths: number[] = [];
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 4; i += 1) {
       state = advance(state, {}, catalog);
-      healths.push(agent(state, e1).state.currentHealth);
+      healths.push(agent(state, e1).state.currentHealthHundredths);
     }
-    expect(healths).toEqual([25, 28, 30]);
+    // 28.30 + 2.10 = 30.40 is clamped to base health 30.
+    expect(healths).toEqual([2410, 2620, 2830, 3000]);
     expect(agent(state, e1).state.assignment).toEqual({ kind: 'Standby' });
   });
 });

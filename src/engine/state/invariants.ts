@@ -83,10 +83,15 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     if (!gdrs.weapons.has(s.weapon) || s.weaponDamage < 1) {
       fail(`${where}: Weapon does not resolve or weapon damage is below 1`);
     }
-    if (s.skill < 0 || s.baseHealth < 1 || s.currentHealth < 0 || s.currentHealth > s.baseHealth) {
+    if (
+      s.skillHundredths < 0 ||
+      s.baseHealth < 1 ||
+      s.currentHealthHundredths < 0 ||
+      s.currentHealthHundredths > s.baseHealth * 100
+    ) {
       fail(`${where}: skill or health is outside its range`);
     }
-    if (s.exhaustion < 0) {
+    if (s.exactExhaustionHundredths < 0) {
       fail(`${where}: exhaustion is outside its range`);
     }
     if (isServing(s) !== (s.assignment !== null)) {
@@ -95,7 +100,7 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     if ((s.status === 'Recovering') !== (s.assignment?.kind === 'Recovery' && s.status !== 'InTransit')) {
       fail(`${where}: Recovering does not agree with a Recovery assignment that is not In transit`);
     }
-    if ((s.status === 'Killed') !== (s.currentHealth === 0)) {
+    if ((s.status === 'Killed') !== (s.currentHealthHundredths === 0)) {
       fail(`${where}: current health does not agree with the Agent status`);
     }
     // AGENT, Agent properties: Turn terminated is present exactly when Terminated, Killed by exactly when Killed.

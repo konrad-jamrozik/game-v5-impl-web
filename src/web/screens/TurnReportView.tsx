@@ -7,7 +7,7 @@ import type { CombatReport, CurrentStateView, MissionSiteView, TurnReport } from
 import { combatLogRow } from '../combat-log.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
-import { progressPoints } from '../format.ts';
+import { combatantValueText, progressPoints } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
@@ -369,19 +369,23 @@ function CombatReportDetails(props: {
                 return (
                   <tr key={who.id} data-testid={`participant-${who.id}`}>
                     <th scope="row">{props.nameOf(who.id)}</th>
-                    <td className="num">{who.start.skill}</td>
+                    <td className="num">{combatantValueText(who.start.skillHundredths, who.side)}</td>
                     <td className="num">
                       {who.start.effectiveSkill} → {who.final.effectiveSkill}
                     </td>
                     <td className="num">
-                      {who.start.currentHealth} →{' '}
+                      {combatantValueText(who.start.currentHealthHundredths, who.side)} →{' '}
                       {/* VIS, Agent condition: an Agent's values take their condition colours; an Enemy's do not. */}
                       {who.side === 'agent' ? (
-                        <span style={{ color: healthColor(who.final.currentHealth, who.start.baseHealth) }}>
-                          {who.final.currentHealth}
+                        <span
+                          style={{
+                            color: healthColor(who.final.currentHealthHundredths / 100, who.start.baseHealth),
+                          }}
+                        >
+                          {combatantValueText(who.final.currentHealthHundredths, who.side)}
                         </span>
                       ) : (
-                        who.final.currentHealth
+                        combatantValueText(who.final.currentHealthHundredths, who.side)
                       )}
                       /{who.start.baseHealth}
                     </td>
@@ -396,8 +400,14 @@ function CombatReportDetails(props: {
                     {/* COMBAT, Combat report, Starting values: the Incapacitated value when the Combat began. */}
                     <td>{who.start.incapacitated ? 'yes' : 'no'}</td>
                     <td className="num">{who.start.weaponDamage}</td>
-                    <td className="num">{who.damageDealt}</td>
-                    <td className="num">{who.damageTaken}</td>
+                    {/* COMBAT, Combat report: health removed from an Agent is a Decimal quantity; from an Enemy, whole. */}
+                    <td className="num">
+                      {combatantValueText(
+                        who.damageDealtHundredths,
+                        who.side === 'agent' ? 'enemy' : 'agent',
+                      )}
+                    </td>
+                    <td className="num">{combatantValueText(who.damageTakenHundredths, who.side)}</td>
                     <td className={killed ? 'tone-bad' : undefined}>
                       {killed ? 'Killed' : CONDITIONS[who.final.condition]}
                     </td>

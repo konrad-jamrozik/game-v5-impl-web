@@ -58,10 +58,13 @@ export interface AgentConstants {
 
 export interface AgentState {
   status: AgentStatus;
-  skill: number;
-  currentHealth: number;
+  /** AGENT, Agent properties: base skill, a Decimal quantity held in hundredths; see NUMBERS, Decimal quantities. */
+  skillHundredths: number;
+  /** Current health, a Decimal quantity held in hundredths. */
+  currentHealthHundredths: number;
   baseHealth: number;
-  exhaustion: number;
+  /** AGENT, Exhaustion and Exact exhaustion: the stored Exact exhaustion, held in hundredths. */
+  exactExhaustionHundredths: number;
   /** A reference to the Weapon GDR. */
   weapon: string;
   weaponDamage: number;
@@ -184,9 +187,13 @@ export type CombatantCondition = 'ableToFight' | 'incapacitated' | 'dead';
 export interface CombatParticipantReport {
   readonly id: string;
   readonly side: 'agent' | 'enemy';
+  /**
+   * Base skill, current health, and the damage values are in hundredths for every Combatant, an Agent's being Decimal
+   * quantities and an Enemy's whole numbers times 100; exhaustion is the whole exhaustion; see DEC-056.
+   */
   readonly start: {
-    readonly skill: number;
-    readonly currentHealth: number;
+    readonly skillHundredths: number;
+    readonly currentHealthHundredths: number;
     readonly baseHealth: number;
     readonly exhaustion: number;
     readonly weaponDamage: number;
@@ -194,13 +201,13 @@ export interface CombatParticipantReport {
     readonly incapacitated: boolean;
   };
   readonly final: {
-    readonly currentHealth: number;
+    readonly currentHealthHundredths: number;
     readonly exhaustion: number;
     readonly effectiveSkill: number;
     readonly condition: CombatantCondition;
   };
-  readonly damageDealt: number;
-  readonly damageTaken: number;
+  readonly damageDealtHundredths: number;
+  readonly damageTakenHundredths: number;
 }
 
 export interface AttackRecord {
@@ -216,9 +223,10 @@ export interface AttackRecord {
   readonly hit: boolean;
   /** Absent, not zero, for a miss. */
   readonly damage: number | null;
-  readonly healthRemoved: number;
-  readonly attackerAfter: { readonly currentHealth: number; readonly exhaustion: number };
-  readonly defenderAfter: { readonly currentHealth: number; readonly exhaustion: number };
+  /** In hundredths, as is each current health below; exhaustion is whole. */
+  readonly healthRemovedHundredths: number;
+  readonly attackerAfter: { readonly currentHealthHundredths: number; readonly exhaustion: number };
+  readonly defenderAfter: { readonly currentHealthHundredths: number; readonly exhaustion: number };
   readonly defenderDead: boolean;
   readonly defenderIncapacitated: boolean;
   readonly attackerIncapacitated: boolean;
@@ -316,7 +324,8 @@ export interface TurnReport {
     readonly agent: string;
     /** The Training gain outcome: whether the Agent gained base skill. */
     readonly gained: boolean;
-    readonly skillAfter: number;
+    /** Base skill after the step, in hundredths. */
+    readonly skillAfterHundredths: number;
     readonly exhaustionAfter: number;
   }[];
   /** AGENT, Forced return: the Agents that work sent back to Standby in this Advance turn. */
@@ -369,7 +378,10 @@ export interface TurnReport {
   }[];
   readonly recovery: readonly {
     readonly agent: string;
-    readonly healthAfter: number;
+    /** Current health after the step, in hundredths. */
+    readonly healthAfterHundredths: number;
+    /** RECOVER, Turn report: the Exact exhaustion after the step, in hundredths, and the exhaustion it rounds up to. */
+    readonly exactExhaustionAfterHundredths: number;
     readonly exhaustionAfter: number;
     readonly recovered: boolean;
   }[];

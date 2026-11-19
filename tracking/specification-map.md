@@ -14,6 +14,8 @@
 - src/gdr/types.ts
 - tests/mechanics/agents.test.ts
 - tests/mechanics/review-gaps.test.ts
+- tests/mechanics/decimal-quantities.test.ts
+- tests/helpers/game.ts
 
 ## AUTO: Autopilot
 
@@ -225,6 +227,7 @@ No files.
 - src/engine/player-api.ts
 - src/engine/mechanics/agents/agents.ts
 - src/engine/mechanics/recovery/recovery.ts
+- tests/mechanics/decimal-quantities.test.ts
 
 ## ENDING: Panic and Endings
 
@@ -459,6 +462,13 @@ No files.
 - src/engine/state/invariants.ts
 - src/gdr/catalog.ts
 - tests/kernel/numbers.test.ts
+- src/engine/mechanics/agents/agents.ts
+- src/engine/mechanics/combat/combat.ts
+- src/engine/mechanics/economy/economy.ts
+- src/engine/mechanics/recovery/recovery.ts
+- src/engine/saves/encoding.ts
+- src/web/format.ts
+- tests/mechanics/decimal-quantities.test.ts
 
 ## OVW: Overview Conventions
 

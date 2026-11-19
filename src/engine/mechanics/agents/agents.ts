@@ -3,16 +3,40 @@
  * exhaustion, and Agent creation. Every function
  * receives only the values it needs; see DEC-003.
  */
-import { q, roundDown, type Rational } from '../../../kernel/index.ts';
+import { fromHundredths, roundDown, roundUp, type Rational } from '../../../kernel/index.ts';
 import type { AgentArchetypeGdr, AgentParametersGdr, WeaponGdr } from '../../../gdr/index.ts';
 import type { Agent, AgentState, Assignment } from '../../state/types.ts';
 
-/** The values of a Combatant that effective skill reads; Agents and Enemies both have them. */
+/**
+ * The values of a Combatant that effective skill reads, in the stored form of an Agent: base skill, current health,
+ * and Exact exhaustion in hundredths, under NUMBERS, Decimal quantities. An Enemy's whole values are read through
+ * enemyCombatantValues.
+ */
 export interface CombatantValues {
+  readonly skillHundredths: number;
+  readonly currentHealthHundredths: number;
+  readonly baseHealth: number;
+  readonly exactExhaustionHundredths: number;
+}
+
+/** The values of an Enemy, whose base skill, current health, and exhaustion are whole numbers, as CombatantValues. */
+export function enemyCombatantValues(enemy: {
   readonly skill: number;
   readonly currentHealth: number;
   readonly baseHealth: number;
   readonly exhaustion: number;
+}): CombatantValues {
+  return {
+    skillHundredths: enemy.skill * 100,
+    currentHealthHundredths: enemy.currentHealth * 100,
+    baseHealth: enemy.baseHealth,
+    exactExhaustionHundredths: enemy.exhaustion * 100,
+  };
+}
+
+/** AGENT, Exhaustion and Exact exhaustion: exhaustion = round up( Exact exhaustion ), a whole number. */
+export function exhaustionOf(combatant: Pick<CombatantValues, 'exactExhaustionHundredths'>): number {
+  return roundUp(fromHundredths(combatant.exactExhaustionHundredths));
 }
 
 /**
@@ -22,10 +46,10 @@ export interface CombatantValues {
  */
 export function effectiveSkill(combatant: CombatantValues, parameters: AgentParametersGdr): number {
   return roundDown(
-    q(combatant.skill)
-      .mul(combatant.currentHealth)
-      .mul(penaltyFactor(combatant.exhaustion, parameters))
-      .div(q(combatant.baseHealth).mul(100)),
+    fromHundredths(combatant.skillHundredths)
+      .mul(fromHundredths(combatant.currentHealthHundredths))
+      .mul(penaltyFactor(exhaustionOf(combatant), parameters))
+      .div(combatant.baseHealth * 100),
   );
 }
 
@@ -35,14 +59,25 @@ export function penaltyFactor(exhaustion: number, parameters: AgentParametersGdr
   return Math.max(0, 100 - parameters.skillPenaltyPctPerExhaustion * over);
 }
 
-/** AGENT, Attribute ranges: exhaustion is at least 0, with no upper bound. */
+/** AGENT, Attribute ranges: exhaustion, and an Agent's Exact exhaustion, is at least 0, with no upper bound. */
 export function clampExhaustion(value: number): number {
   return Math.max(0, value);
 }
 
+/**
+ * AGENT, Exhaustion and Exact exhaustion, statement 2: a rule that raises an Agent's exhaustion by a whole number of
+ * points raises its Exact exhaustion by that number.
+ */
+export function addExhaustion(agent: Pick<AgentState, 'exactExhaustionHundredths'>, points: number): void {
+  agent.exactExhaustionHundredths = clampExhaustion(agent.exactExhaustionHundredths + points * 100);
+}
+
 /** AGENT, Start-work gate: an Agent is Fit for work exactly when its exhaustion is at most exhaustion_work_start_max. */
-export function isFitForWork(agent: Pick<AgentState, 'exhaustion'>, parameters: AgentParametersGdr): boolean {
-  return agent.exhaustion <= parameters.exhaustionWorkStartMax;
+export function isFitForWork(
+  agent: Pick<AgentState, 'exactExhaustionHundredths'>,
+  parameters: AgentParametersGdr,
+): boolean {
+  return exhaustionOf(agent) <= parameters.exhaustionWorkStartMax;
 }
 
 /** AGENT, Assignments: a Work Assignment is Contracting, Training, or an Investigation. */
@@ -55,12 +90,12 @@ export function isWorkAssignment(kind: Assignment['kind']): boolean {
  * current health × penalty factor / (base health × 100), exact and never rounded.
  */
 export function trainingGainProbability(
-  agent: Pick<CombatantValues, 'currentHealth' | 'baseHealth' | 'exhaustion'>,
+  agent: Pick<CombatantValues, 'currentHealthHundredths' | 'baseHealth' | 'exactExhaustionHundredths'>,
   parameters: AgentParametersGdr,
 ): Rational {
-  return q(agent.currentHealth)
-    .mul(penaltyFactor(agent.exhaustion, parameters))
-    .div(q(agent.baseHealth).mul(100));
+  return fromHundredths(agent.currentHealthHundredths)
+    .mul(penaltyFactor(exhaustionOf(agent), parameters))
+    .div(agent.baseHealth * 100);
 }
 
 /**
@@ -69,12 +104,12 @@ export function trainingGainProbability(
  * Assignment.
  */
 export function applyWorkExhaustion(
-  agent: Pick<AgentState, 'exhaustion'>,
+  agent: Pick<AgentState, 'exactExhaustionHundredths'>,
   gained: number,
   parameters: AgentParametersGdr,
 ): boolean {
-  agent.exhaustion = clampExhaustion(agent.exhaustion + gained);
-  return agent.exhaustion >= parameters.exhaustionWorkLimit;
+  addExhaustion(agent, gained);
+  return exhaustionOf(agent) >= parameters.exhaustionWorkLimit;
 }
 
 /** AGENT, Attribute ranges: current health stays from 0 to base health. */
@@ -141,10 +176,10 @@ export function createAgent(input: {
     archetype: input.archetype.id,
     constants: { agency: input.agencyId, turnHired: input.turn },
     state: {
-      skill: input.archetype.skill,
-      currentHealth: baseHealth,
+      skillHundredths: input.archetype.skill * 100,
+      currentHealthHundredths: baseHealth * 100,
       baseHealth,
-      exhaustion: 0,
+      exactExhaustionHundredths: 0,
       weapon: input.weapon.id,
       weaponDamage: input.weapon.damage + input.weaponDamageBonus,
       assignment: { kind: 'Standby' },

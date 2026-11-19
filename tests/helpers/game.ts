@@ -2,6 +2,7 @@
 import { produce } from 'immer';
 import { expect } from 'vitest';
 import { advanceTurnOf, applyActionTo } from '../../src/engine/game-rules.ts';
+import { exhaustionOf } from '../../src/engine/mechanics/agents/agents.ts';
 import { damageBounds, type Combatant } from '../../src/engine/mechanics/combat/combat.ts';
 import { createMissionSite } from '../../src/engine/mechanics/missions/missions.ts';
 import { injectedRandom, seededRandom, type Random } from '../../src/engine/random.ts';
@@ -331,14 +332,40 @@ export function losing(state: CampaignState, site: string): Injected {
   return { ...allMiss(Object.keys(world.agents)), ...hitHardest(state, enemies) };
 }
 
-/** A Combatant for testing a Combat on its own: a `field_agent` unless values are given. */
+/**
+ * An Agent's or a Combat's Combatant state with its base skill, current health, and exhaustion also in units, e.g.
+ * `skill: 101.1` for 10110 hundredths and the whole `exhaustion` its Exact exhaustion rounds up to, for comparing with
+ * the values the specifications write.
+ */
+export function units<
+  S extends { skillHundredths: number; currentHealthHundredths: number; exactExhaustionHundredths: number },
+>(state: S): S & { skill: number; currentHealth: number; exhaustion: number } {
+  return {
+    ...state,
+    skill: state.skillHundredths / 100,
+    currentHealth: state.currentHealthHundredths / 100,
+    exhaustion: exhaustionOf(state),
+  };
+}
+
+/**
+ * A Combatant for testing a Combat on its own: a `field_agent` unless values are given. The values are in units,
+ * e.g. current health 22, and are held in hundredths, as an Agent holds them.
+ */
 export function combatAgent(
   id: string,
   values: Partial<{ skill: number; currentHealth: number; exhaustion: number; weaponDamage: number }> = {},
 ): Combatant {
+  const v = { skill: 100, currentHealth: 30, exhaustion: 0, weaponDamage: 10, ...values };
   return {
     id,
-    state: { skill: 100, currentHealth: 30, baseHealth: 30, exhaustion: 0, weaponDamage: 10, ...values },
+    state: {
+      skillHundredths: Math.round(v.skill * 100),
+      currentHealthHundredths: Math.round(v.currentHealth * 100),
+      baseHealth: 30,
+      exactExhaustionHundredths: Math.round(v.exhaustion * 100),
+      weaponDamage: v.weaponDamage,
+    },
   };
 }
 
@@ -352,10 +379,10 @@ export function combatEnemy(id: string, archetypeId: string, catalog: GdrCatalog
   return {
     id,
     state: {
-      skill: archetype.skill,
-      currentHealth: archetype.baseHealth,
+      skillHundredths: archetype.skill * 100,
+      currentHealthHundredths: archetype.baseHealth * 100,
       baseHealth: archetype.baseHealth,
-      exhaustion: 0,
+      exactExhaustionHundredths: 0,
       weaponDamage: weapon.damage,
     },
   };

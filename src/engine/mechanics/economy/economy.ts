@@ -14,8 +14,11 @@ import { isServing, type AgentState } from '../../state/types.ts';
 
 type Acquisitions = Readonly<Record<string, number>>;
 
-/** The sum over every Upgrade with the given effect of increment × acquisitions. */
-export function effectTotal(
+/**
+ * ECON, Upgrade bonus: the sum over every Upgrade with the given effect of increment × acquisitions, in hundredths.
+ * No rounding occurs: a Decimal quantity times a whole number is a Decimal quantity.
+ */
+export function effectTotalHundredths(
   effect: UpgradeEffect,
   upgrades: readonly UpgradeGdr[],
   acquisitions: Acquisitions,
@@ -23,7 +26,7 @@ export function effectTotal(
   let total = 0;
   for (const upgrade of upgrades) {
     if (upgrade.effect === effect) {
-      total += upgrade.increment * (acquisitions[upgrade.id] ?? 0);
+      total += upgrade.incrementHundredths * (acquisitions[upgrade.id] ?? 0);
     }
   }
   return total;
@@ -35,6 +38,18 @@ export interface AgencyCaps {
   readonly trainingCap: number;
 }
 
+/**
+ * The Upgrade bonus of an effect whose Increments are whole numbers, i.e. every effect but a Rate Upgrade's, in its
+ * units; ECON, Economy GDR validation, rule 5 makes the hundredths a multiple of 100.
+ */
+export function wholeBonus(
+  effect: UpgradeEffect,
+  upgrades: readonly UpgradeGdr[],
+  acquisitions: Acquisitions,
+): number {
+  return effectTotalHundredths(effect, upgrades, acquisitions) / 100;
+}
+
 /** ECON, Agency caps: cap = base + Σ increment × acquisitions over the Upgrades of the cap's effect. */
 export function agencyCaps(
   economy: EconomyParametersGdr,
@@ -42,34 +57,40 @@ export function agencyCaps(
   acquisitions: Acquisitions,
 ): AgencyCaps {
   return {
-    agentCap: economy.baseAgentCap + effectTotal('agent_cap', upgrades, acquisitions),
-    transportCap: economy.baseTransportCap + effectTotal('transport_cap', upgrades, acquisitions),
-    trainingCap: economy.baseTrainingCap + effectTotal('training_cap', upgrades, acquisitions),
+    agentCap: economy.baseAgentCap + wholeBonus('agent_cap', upgrades, acquisitions),
+    transportCap: economy.baseTransportCap + wholeBonus('transport_cap', upgrades, acquisitions),
+    trainingCap: economy.baseTrainingCap + wholeBonus('training_cap', upgrades, acquisitions),
   };
 }
 
-/** The rates a Rate Upgrade raises; see ECON, Rate Upgrades. */
+/** The rates a Rate Upgrade raises, each a Decimal quantity held in hundredths; see ECON, Rate Upgrades. */
 export interface UpgradedRates {
-  readonly trainingSkillGain: number;
-  readonly exhaustionRecovery: number;
-  readonly healthRecoveryPct: number;
+  readonly trainingSkillGainHundredths: number;
+  readonly exhaustionRecoveryHundredths: number;
+  /** The health recovery percentage, a Decimal quantity of percent. */
+  readonly healthRecoveryPctHundredths: number;
 }
 
 /** ECON, Rate Upgrades: each rate = its GDR starting value + the Upgrade bonus of its effect. */
 export function upgradedRates(
-  agentParameters: Pick<AgentParametersGdr, 'trainingSkillGainPerTurn'>,
-  recoveryParameters: Pick<RecoveryParametersGdr, 'exhaustionRecoveryPerTurn' | 'healthRecoveryPctPerTurn'>,
+  agentParameters: Pick<AgentParametersGdr, 'trainingSkillGainPerTurnHundredths'>,
+  recoveryParameters: Pick<
+    RecoveryParametersGdr,
+    'exhaustionRecoveryPerTurnHundredths' | 'healthRecoveryPctPerTurnHundredths'
+  >,
   upgrades: readonly UpgradeGdr[],
   acquisitions: Acquisitions,
 ): UpgradedRates {
   return {
-    trainingSkillGain:
-      agentParameters.trainingSkillGainPerTurn + effectTotal('training_skill_gain', upgrades, acquisitions),
-    exhaustionRecovery:
-      recoveryParameters.exhaustionRecoveryPerTurn +
-      effectTotal('exhaustion_recovery', upgrades, acquisitions),
-    healthRecoveryPct:
-      recoveryParameters.healthRecoveryPctPerTurn + effectTotal('health_recovery', upgrades, acquisitions),
+    trainingSkillGainHundredths:
+      agentParameters.trainingSkillGainPerTurnHundredths +
+      effectTotalHundredths('training_skill_gain', upgrades, acquisitions),
+    exhaustionRecoveryHundredths:
+      recoveryParameters.exhaustionRecoveryPerTurnHundredths +
+      effectTotalHundredths('exhaustion_recovery', upgrades, acquisitions),
+    healthRecoveryPctHundredths:
+      recoveryParameters.healthRecoveryPctPerTurnHundredths +
+      effectTotalHundredths('health_recovery', upgrades, acquisitions),
   };
 }
 

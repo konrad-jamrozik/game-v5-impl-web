@@ -1,10 +1,29 @@
 /** Formatting of engine values for reading, shared by the screens; no gameplay rule. */
 import type { ConsequenceRecord } from '../engine/index.ts';
 
+/**
+ * GUI, Decimal quantities shown: a Decimal quantity, held in hundredths, shown exactly with two decimals and never
+ * rounded, e.g. 2940 as 29.40 and 10110 as 101.10. The text is built from the whole number of hundredths, never
+ * through a binary float.
+ */
+export function decimalText(hundredths: number): string {
+  const sign = hundredths < 0 ? '-' : '';
+  const magnitude = Math.abs(hundredths);
+  const whole = Math.floor(magnitude / 100);
+  return `${sign}${whole}.${String(magnitude - whole * 100).padStart(2, '0')}`;
+}
+
 /** Investigation progress, counted in hundredths, shown in progress points with two decimals, e.g. 449 as 4.49. */
 export function progressPoints(hundredths: number): string {
-  const whole = Math.floor(hundredths / 100);
-  return `${whole}.${String(hundredths - whole * 100).padStart(2, '0')}`;
+  return decimalText(hundredths);
+}
+
+/**
+ * A Combatant's value from a Combat report, which holds it in hundredths for both sides (DEC-056): an Agent's is a
+ * Decimal quantity, shown with two decimals; an Enemy's is a whole number, shown without decimals.
+ */
+export function combatantValueText(hundredths: number, side: 'agent' | 'enemy'): string {
+  return side === 'agent' ? decimalText(hundredths) : String(hundredths / 100);
 }
 
 function signedNumber(value: number): string {

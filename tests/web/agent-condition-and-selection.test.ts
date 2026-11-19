@@ -30,10 +30,10 @@ describe('AVIEW: Assignment filters and Blocked by', () => {
   state = setAssignment(state, [a1], 'Contracting');
   state = setAssignment(state, [a2], 'Contracting', 'InTransit');
   state = tweak(state, (world) => {
-    world.agents[a3]!.state.exhaustion = 52;
+    world.agents[a3]!.state.exactExhaustionHundredths = 5200;
     world.agents[a5]!.state.assignment = { kind: 'Recovery' };
     world.agents[a5]!.state.status = 'Recovering';
-    world.agents[a5]!.state.currentHealth = 10;
+    world.agents[a5]!.state.currentHealthHundredths = 1000;
   });
   const agents = currentStateView(state, gdrs).agents;
   const view = (id: string) => agents.find((agent) => agent.id === id)!;

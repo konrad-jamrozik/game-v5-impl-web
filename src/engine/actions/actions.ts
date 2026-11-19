@@ -18,7 +18,7 @@ import {
   countDeployed,
   countServing,
   countTraining,
-  effectTotal,
+  wholeBonus,
 } from '../mechanics/economy/economy.ts';
 import {
   progressAfterLoss,
@@ -181,7 +181,7 @@ function settleLeftInvestigations(world: CurrentWorldState, left: Leaving): void
 }
 
 function upgradeBonus(effect: UpgradeEffect, world: CurrentWorldState, gdrs: GdrCatalog): number {
-  return effectTotal(effect, gdrs.upgrades, world.agency.state.acquisitions);
+  return wholeBonus(effect, gdrs.upgrades, world.agency.state.acquisitions);
 }
 
 function addAgent(world: CurrentWorldState, gdrs: GdrCatalog): void {
@@ -321,11 +321,11 @@ function purchaseUpgrade(world: CurrentWorldState, args: Args, gdrs: GdrCatalog)
       continue;
     }
     if (upgrade.effect === 'agent_weapon_damage') {
-      agent.state.weaponDamage += upgrade.increment;
+      agent.state.weaponDamage += upgrade.incrementHundredths / 100;
     } else if (upgrade.effect === 'agent_base_health') {
       // ECON, Base health Upgrade: base health and current health rise together, so the health lost stays the same.
-      agent.state.baseHealth += upgrade.increment;
-      agent.state.currentHealth += upgrade.increment;
+      agent.state.baseHealth += upgrade.incrementHundredths / 100;
+      agent.state.currentHealthHundredths += upgrade.incrementHundredths;
     }
   }
   return null;

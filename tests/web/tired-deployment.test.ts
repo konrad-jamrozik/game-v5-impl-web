@@ -8,9 +8,9 @@ describe('GUI: Warning on deploying tired Agents', () => {
   const base = newCampaign();
   const [a1, a2, a3] = agentIds(base) as [string, string, string];
   const state = tweak(base, (world) => {
-    world.agents[a1]!.state.exhaustion = 19;
-    world.agents[a2]!.state.exhaustion = 20;
-    world.agents[a3]!.state.exhaustion = 47;
+    world.agents[a1]!.state.exactExhaustionHundredths = 1900;
+    world.agents[a2]!.state.exactExhaustionHundredths = 2000;
+    world.agents[a3]!.state.exactExhaustionHundredths = 4700;
   });
   const view = currentStateView(state, gdrs);
 

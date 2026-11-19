@@ -16,6 +16,7 @@ import {
   expectDefective,
   gdrs,
   type Injected,
+  units,
 } from '../helpers/game.ts';
 
 function fight(agents: Combatant[], enemies: Combatant[], injected: Injected): CombatReport {
@@ -41,11 +42,12 @@ describe('COMBAT: Acceptance examples', () => {
     ];
     for (const [archetype, skill, health, damage] of rows) {
       const enemy = combatEnemy('e', archetype).state;
+      // A Combat holds an Enemy's whole values in hundredths, as an Agent holds its own; see DEC-056.
       expect(enemy).toEqual({
-        skill,
-        currentHealth: health,
+        skillHundredths: skill * 100,
+        currentHealthHundredths: health * 100,
         baseHealth: health,
-        exhaustion: 0,
+        exactExhaustionHundredths: 0,
         weaponDamage: damage,
       });
       expect(effectiveSkill(enemy, gdrs.agentParameters)).toBe(skill);
@@ -81,7 +83,13 @@ describe('COMBAT: Acceptance examples', () => {
         [
           {
             id: 'e1',
-            state: { skill: d, currentHealth: 30, baseHealth: 30, exhaustion: 0, weaponDamage: 10 },
+            state: {
+              skillHundredths: d * 100,
+              currentHealthHundredths: 3000,
+              baseHealth: 30,
+              exactExhaustionHundredths: 0,
+              weaponDamage: 10,
+            },
           },
         ],
         { 'combat.hit.a1': misses(200), 'combat.hit.e1': misses(200) },
@@ -109,7 +117,7 @@ describe('COMBAT: Acceptance examples', () => {
     );
     const round1 = report.log.filter((attack) => attack.round === 1);
     expect(round1[0]).toMatchObject({ attacker: 'a1', defender: 'e2', a: 96, d: 120 });
-    expect(round1[0]!.defenderAfter).toEqual({ currentHealth: 15, exhaustion: 1 });
+    expect(round1[0]!.defenderAfter).toEqual({ currentHealthHundredths: 1500, exhaustion: 1 });
     expect(round1[1]).toMatchObject({ attacker: 'a2', defender: 'e3' });
     expect(round1.some((attack) => attack.attacker === 'a4' || attack.defender === 'a4')).toBe(false);
     // In the Enemies' phase a2 and a3 share the highest effective skill, and a2 is earlier.
@@ -155,11 +163,11 @@ describe('COMBAT: Acceptance examples', () => {
       [2, 'e2', 'a2', 10, 100, 100, 10100],
       [3, 'a1', 'e2', 76, 10, 5776, 5876],
     ]);
-    expect(report.log.map((x) => x.healthRemoved)).toEqual([12, 15, 0, 7, 8, 0, 0, 5]);
+    expect(report.log.map((x) => x.healthRemovedHundredths)).toEqual([1200, 1500, 0, 700, 800, 0, 0, 500]);
     expect(report.log.map((x) => x.damage)).toEqual([12, 15, null, 7, 9, null, null, 5]);
     expect(report.log[4]).toMatchObject({
       defenderDead: true,
-      defenderAfter: { currentHealth: 0, exhaustion: 3 },
+      defenderAfter: { currentHealthHundredths: 0, exhaustion: 3 },
     });
     expect(report.ratings).toEqual([
       { round: 0, agents: 200, enemies: 80 },
@@ -168,28 +176,28 @@ describe('COMBAT: Acceptance examples', () => {
       { round: 3, agents: 176, enemies: 0 },
     ]);
     expect(participant(report, 'a1').final).toEqual({
-      currentHealth: 23,
+      currentHealthHundredths: 2300,
       exhaustion: 5,
       effectiveSkill: 76,
       condition: 'ableToFight',
     });
     expect(participant(report, 'a2').final).toMatchObject({
-      currentHealth: 30,
+      currentHealthHundredths: 3000,
       exhaustion: 3,
       effectiveSkill: 100,
     });
     expect(participant(report, 'e1').final).toMatchObject({
-      currentHealth: 0,
+      currentHealthHundredths: 0,
       exhaustion: 3,
       condition: 'dead',
     });
     expect(participant(report, 'e2').final).toMatchObject({
-      currentHealth: 0,
+      currentHealthHundredths: 0,
       exhaustion: 5,
       condition: 'dead',
     });
-    expect(report.participants.map((p) => p.damageDealt)).toEqual([25, 15, 0, 7]);
-    expect(report.participants.map((p) => p.damageTaken)).toEqual([7, 0, 20, 20]);
+    expect(report.participants.map((p) => p.damageDealtHundredths)).toEqual([2500, 1500, 0, 700]);
+    expect(report.participants.map((p) => p.damageTakenHundredths)).toEqual([700, 0, 2000, 2000]);
   });
 
   it('Retreated', () => {
@@ -201,7 +209,7 @@ describe('COMBAT: Acceptance examples', () => {
     });
     expect(report.outcome).toBe('Retreated');
     expect(report.rounds).toBe(1);
-    expect(a1.state).toMatchObject({ currentHealth: 9, exhaustion: 2 });
+    expect(units(a1.state)).toMatchObject({ currentHealth: 9, exhaustion: 2 });
     expect(participant(report, 'a1').final).toMatchObject({ effectiveSkill: 30, condition: 'ableToFight' });
     expect(report.log[1]!.hitProbability).toEqual({ n: 14400, d: 24400 });
   });
@@ -213,7 +221,7 @@ describe('COMBAT: Acceptance examples', () => {
       'combat.damage.e1': [11],
     });
     expect(report.ratings[0]).toMatchObject({ agents: 20 });
-    expect(report.log[1]).toMatchObject({ a: 300, d: 20, healthRemoved: 6, defenderDead: true });
+    expect(report.log[1]).toMatchObject({ a: 300, d: 20, healthRemovedHundredths: 600, defenderDead: true });
     expect(report.outcome).toBe('Wiped');
     expect(participant(report, 'a1').final.condition).toBe('dead');
   });
@@ -239,12 +247,12 @@ describe('COMBAT: Acceptance examples', () => {
     expect(report.outcome).toBe('Prevailed');
     expect(report.rounds).toBe(2);
     expect(participant(report, 'a1').final).toMatchObject({
-      currentHealth: 30,
+      currentHealthHundredths: 3000,
       exhaustion: 100,
       effectiveSkill: 30,
       condition: 'incapacitated',
     });
-    expect(a1.state).toMatchObject({ currentHealth: 30, exhaustion: 100 });
+    expect(units(a1.state)).toMatchObject({ currentHealth: 30, exhaustion: 100 });
     expect(Object.keys(a1.state)).not.toContain('incapacitated');
   });
 
@@ -269,20 +277,26 @@ describe('COMBAT: Acceptance examples', () => {
     expect([empty.outcome, empty.rounds, empty.log.length]).toEqual(['Prevailed', 0, 0]);
     const zeroSkill = {
       id: 'e1',
-      state: { skill: 0, currentHealth: 20, baseHealth: 20, exhaustion: 0, weaponDamage: 10 },
+      state: {
+        skillHundredths: 0,
+        currentHealthHundredths: 2000,
+        baseHealth: 20,
+        exactExhaustionHundredths: 0,
+        weaponDamage: 10,
+      },
     };
     const incapacitatedEnemy = fight([combatAgent('a1')], [zeroSkill], {});
     expect([incapacitatedEnemy.outcome, incapacitatedEnemy.rounds]).toEqual(['Prevailed', 0]);
     const tired = combatAgent('a1', { exhaustion: 100 });
     const wiped = fight([tired], [combatEnemy('e1', 'initiate')], {});
     expect([wiped.outcome, wiped.rounds]).toEqual(['Wiped', 0]);
-    expect(tired.state).toMatchObject({ currentHealth: 30, exhaustion: 100 });
+    expect(tired.state).toMatchObject({ currentHealthHundredths: 3000, exactExhaustionHundredths: 10000 });
     // Effective skill 30 is above the skill clause's 10: the exhaustion clause alone incapacitates it.
     expect(effectiveSkill(tired.state, gdrs.agentParameters)).toBe(30);
     const veryTired = combatAgent('a1', { exhaustion: 130 });
     const wipedAgain = fight([veryTired], [combatEnemy('e1', 'initiate')], {});
     expect([wipedAgain.outcome, wipedAgain.rounds]).toEqual(['Wiped', 0]);
-    expect(veryTired.state).toMatchObject({ currentHealth: 30, exhaustion: 130 });
+    expect(units(veryTired.state)).toMatchObject({ currentHealth: 30, exhaustion: 130 });
     const continues = fight(
       [combatAgent('a1', { exhaustion: 105 }), combatAgent('a2')],
       [combatEnemy('e1', 'initiate')],

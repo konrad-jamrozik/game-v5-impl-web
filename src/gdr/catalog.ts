@@ -31,6 +31,26 @@ const whole = (min: number) => z.int().min(min);
 const decimal = z
   .union([z.int(), z.strictObject({ $decimal: z.string() })])
   .transform((value) => (typeof value === 'number' ? q(value) : Rational.parseDecimal(value.$decimal)));
+/**
+ * NUMBERS, Decimal quantities: a GDR value that is a Decimal quantity, written with at most two digits after the
+ * decimal point, read exactly into its whole number of hundredths; e.g. `0.1` is 10 and `3` is 300. A value with more
+ * digits is a data defect and is never rounded. `min` is in hundredths.
+ */
+const hundredths = (min: number) =>
+  z
+    .union([z.int(), z.strictObject({ $decimal: z.string() })])
+    .transform((value, context) => {
+      if (typeof value === 'number') {
+        return value * 100;
+      }
+      const match = /^(\d+)\.(\d{1,2})$/.exec(value.$decimal);
+      if (match === null) {
+        context.addIssue({ code: 'custom', message: 'At most two digits after the decimal point' });
+        return z.NEVER;
+      }
+      return Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
+    })
+    .refine((value) => Number.isSafeInteger(value) && value >= min);
 /** A nested mapping, with its authored key order. */
 const entries = <T extends z.ZodType>(value: T) =>
   z.strictObject({ $entries: z.array(z.tuple([z.string(), value])) }).transform((map) => map.$entries);
@@ -75,7 +95,7 @@ const schemas = {
       exhaustion_per_investigation_turn: whole(0),
       exhaustion_work_start_max: whole(0),
       exhaustion_work_limit: whole(0),
-      training_skill_gain_per_turn: whole(0),
+      training_skill_gain_per_turn: hundredths(0),
     })
     .transform((g) => ({
       type: g.type,
@@ -93,7 +113,7 @@ const schemas = {
       exhaustionPerInvestigationTurn: g.exhaustion_per_investigation_turn,
       exhaustionWorkStartMax: g.exhaustion_work_start_max,
       exhaustionWorkLimit: g.exhaustion_work_limit,
-      trainingSkillGainPerTurn: g.training_skill_gain_per_turn,
+      trainingSkillGainPerTurnHundredths: g.training_skill_gain_per_turn,
     })),
   Weapon: z
     .strictObject({ id, type: z.literal('Weapon'), name, base_weapon_damage: whole(1) })
@@ -136,14 +156,15 @@ const schemas = {
     .strictObject({
       id,
       type: z.literal('RecoveryParameters'),
-      health_recovery_pct_per_turn: whole(1),
-      exhaustion_recovery_per_turn: whole(0),
+      // RECOVER, Recovery GDR validation, rules 3 and 4: greater than 0, i.e. at least 0.01, and at least 0.
+      health_recovery_pct_per_turn: hundredths(1),
+      exhaustion_recovery_per_turn: hundredths(0),
     })
     .transform((g) => ({
       type: g.type,
       id: g.id,
-      healthRecoveryPctPerTurn: g.health_recovery_pct_per_turn,
-      exhaustionRecoveryPerTurn: g.exhaustion_recovery_per_turn,
+      healthRecoveryPctPerTurnHundredths: g.health_recovery_pct_per_turn,
+      exhaustionRecoveryPerTurnHundredths: g.exhaustion_recovery_per_turn,
     })),
   EconomyParameters: z
     .strictObject({
@@ -166,23 +187,33 @@ const schemas = {
       baseTransportCap: g.base_transport_cap,
       baseTrainingCap: g.base_training_cap,
     })),
-  Upgrade: z.strictObject({
-    id,
-    type: z.literal('Upgrade'),
-    name,
-    price: whole(0),
-    effect: z.enum([
-      'agent_cap',
-      'transport_cap',
-      'training_cap',
-      'agent_weapon_damage',
-      'agent_base_health',
-      'training_skill_gain',
-      'exhaustion_recovery',
-      'health_recovery',
-    ]),
-    increment: whole(0),
-  }),
+  Upgrade: z
+    .strictObject({
+      id,
+      type: z.literal('Upgrade'),
+      name,
+      price: whole(0),
+      effect: z.enum([
+        'agent_cap',
+        'transport_cap',
+        'training_cap',
+        'agent_weapon_damage',
+        'agent_base_health',
+        'training_skill_gain',
+        'exhaustion_recovery',
+        'health_recovery',
+      ]),
+      increment: hundredths(0),
+    })
+    // ECON, Economy GDR validation, rule 5: only a Rate Upgrade's increment may have decimal places.
+    .refine(
+      (g) =>
+        g.effect === 'training_skill_gain' ||
+        g.effect === 'exhaustion_recovery' ||
+        g.effect === 'health_recovery' ||
+        g.increment % 100 === 0,
+    )
+    .transform(({ increment, ...g }) => ({ ...g, incrementHundredths: increment })),
   AgencyArchetype: z.strictObject({ id, type: z.literal('AgencyArchetype'), name }),
   CampaignConfiguration: z
     .strictObject({

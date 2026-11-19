@@ -20,6 +20,9 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 - `factions/faction_archetypes.yaml`, `leads-and-progression/leads.yaml`, and `compendium/encyclopedia_articles.yaml`:
   patched unchanged from specification commit `e8c0df392d633573975c72dd71f2dc4be1447718` on 2026-11-18, adding the
   Factions Exalt and Black Lotus with their Leads and articles.
+- `economy-and-upgrades/upgrades.yaml`: patched unchanged from specification commit
+  `65072469818922438808a40b1d4403c4a5c5a7f9` on 2026-11-18, giving the three Rate Upgrades their decimal increments
+  and prices.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

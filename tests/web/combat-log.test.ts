@@ -16,9 +16,9 @@ function attack(attacker: string, hit: boolean, extra: Partial<Attack> = {}): At
     hitProbability: { n: 10000, d: 11600 },
     hit,
     damage: hit ? 14 : null,
-    healthRemoved: hit ? 14 : 0,
-    attackerAfter: { currentHealth: 30, exhaustion: 1 },
-    defenderAfter: { currentHealth: 6, exhaustion: 0 },
+    healthRemovedHundredths: hit ? 1400 : 0,
+    attackerAfter: { currentHealthHundredths: 3000, exhaustion: 1 },
+    defenderAfter: { currentHealthHundredths: 600, exhaustion: 0 },
     defenderDead: false,
     defenderIncapacitated: false,
     attackerIncapacitated: false,
@@ -52,7 +52,7 @@ describe('TRVIEW: Combat log colours', () => {
   it('names a participant made dead or Incapacitated with its own decisive word', () => {
     const dead = attack('agent-1', true, {
       defenderDead: true,
-      defenderAfter: { currentHealth: 0, exhaustion: 0 },
+      defenderAfter: { currentHealthHundredths: 0, exhaustion: 0 },
     });
     expect(combatLogRow(dead, sideOf)).toMatchObject({ outcome: 'hit for 14, health 0', decisive: 'dead' });
     expect(combatLogRow(attack('agent-1', true, { defenderIncapacitated: true }), sideOf)).toMatchObject({

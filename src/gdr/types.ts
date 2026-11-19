@@ -26,7 +26,8 @@ export interface AgentParametersGdr {
   readonly exhaustionPerInvestigationTurn: number;
   readonly exhaustionWorkStartMax: number;
   readonly exhaustionWorkLimit: number;
-  readonly trainingSkillGainPerTurn: number;
+  /** A Decimal quantity, in hundredths; see NUMBERS, Decimal quantities. */
+  readonly trainingSkillGainPerTurnHundredths: number;
 }
 
 export interface WeaponGdr {
@@ -58,8 +59,10 @@ export interface CombatParametersGdr {
 export interface RecoveryParametersGdr {
   readonly type: 'RecoveryParameters';
   readonly id: string;
-  readonly healthRecoveryPctPerTurn: number;
-  readonly exhaustionRecoveryPerTurn: number;
+  /** A Decimal quantity of percent, in hundredths; see NUMBERS, Decimal quantities. */
+  readonly healthRecoveryPctPerTurnHundredths: number;
+  /** A Decimal quantity, in hundredths. */
+  readonly exhaustionRecoveryPerTurnHundredths: number;
 }
 
 export interface EconomyParametersGdr {
@@ -89,7 +92,11 @@ export interface UpgradeGdr {
   readonly name: string;
   readonly price: number;
   readonly effect: UpgradeEffect;
-  readonly increment: number;
+  /**
+   * The Increment in hundredths: a Decimal quantity for a Rate Upgrade, and a whole number, i.e. a multiple of 100,
+   * for every other Upgrade; see ECON, Economy GDR validation, rule 5.
+   */
+  readonly incrementHundredths: number;
 }
 
 export interface AgencyArchetypeGdr {

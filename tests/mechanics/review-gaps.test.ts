@@ -32,6 +32,7 @@ import {
   tweak,
   winning,
   withAgents,
+  units,
 } from '../helpers/game.ts';
 
 const invalid = (state: CampaignState, change: Parameters<typeof tweak>[1]) =>
@@ -62,7 +63,7 @@ describe('AGENT: gaps', () => {
       completed: true,
     });
     for (const id of [a1, a3]) {
-      expect(agent(state, id).state).toMatchObject({
+      expect(units(agent(state, id).state)).toMatchObject({
         assignment: { kind: 'Standby' },
         status: 'InTransit',
         participationHistory: [{ kind: 'Investigation', id: i2 }],
@@ -79,7 +80,7 @@ describe('AGENT: gaps', () => {
     invalid(state, (world) => (world.agents[a2]!.state.status = 'InTransit'));
     invalid(state, (world) => {
       world.agents[a2]!.state.status = 'Killed';
-      world.agents[a2]!.state.currentHealth = 0;
+      world.agents[a2]!.state.currentHealthHundredths = 0;
     });
   });
 });
@@ -188,14 +189,14 @@ describe('COMBAT: gaps', () => {
     expect(report.log[0]).toMatchObject({
       hit: true,
       damage: 0,
-      healthRemoved: 0,
-      defenderAfter: { currentHealth: 20, exhaustion: 1 },
+      healthRemovedHundredths: 0,
+      defenderAfter: { currentHealthHundredths: 2000, exhaustion: 1 },
     });
   });
 
   it('Edge cases: Enemy already dead at Combat start is not able to fight and not Incapacitated', () => {
     const dead = combatEnemy('e1', 'initiate');
-    dead.state.currentHealth = 0;
+    dead.state.currentHealthHundredths = 0;
     const report = fight([combatAgent('a1')], [dead], {});
     expect(report).toMatchObject({ outcome: 'Prevailed', rounds: 0 });
     expect(report.participants[1]).toMatchObject({
@@ -256,7 +257,7 @@ describe('ECON and MISSION: gaps', () => {
     let state = withAgents(newCampaign({ money: 5000 }), 20);
     const ids = agentIds(state);
     state = tweak(state, (world) => {
-      world.agents[ids[0]!]!.state.currentHealth = 10;
+      world.agents[ids[0]!]!.state.currentHealthHundredths = 1000;
       world.agents[ids[0]!]!.state.assignment = { kind: 'Recovery' };
       world.agents[ids[0]!]!.state.status = 'Recovering';
     });
@@ -305,8 +306,8 @@ describe('RECOVER: gaps', () => {
     const investigation = Object.keys(state.world.current.investigations)[0]!;
     state = tweak(state, (world) => {
       world.agents[c4]!.state.status = 'AtAssignment';
-      world.agents[c4]!.state.exhaustion = 14;
-      world.agents[deployed]!.state.exhaustion = 14;
+      world.agents[c4]!.state.exactExhaustionHundredths = 1400;
+      world.agents[deployed]!.state.exactExhaustionHundredths = 1400;
       world.investigations[investigation]!.state.progress = 250;
       (
         world.investigations[investigation]!.constants as { actualRequiredProgress: number }
@@ -317,21 +318,21 @@ describe('RECOVER: gaps', () => {
     const enemies = state.world.current.missionSites[site.site]!.state.enemies;
     state = advance(state, { ...allMiss([deployed, ...enemies]) });
     // The Investigation completed, after which c4's work added 1: In transit at the Agent recovery step.
-    expect(agent(state, c4).state).toMatchObject({
+    expect(units(agent(state, c4).state)).toMatchObject({
       exhaustion: 15,
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
-    expect(agent(state, deployed).state.exhaustion).toBeGreaterThanOrEqual(14);
+    expect(agent(state, deployed).state.exactExhaustionHundredths / 100).toBeGreaterThanOrEqual(14);
   });
 
   it('Recovery with current health already at base health', () => {
     let state = setAssignment(newCampaign(), [agentIds(newCampaign())[0]!], 'Recovery');
     const [f1] = agentIds(state) as [string];
-    state = tweak(state, (world) => (world.agents[f1]!.state.exhaustion = 12));
+    state = tweak(state, (world) => (world.agents[f1]!.state.exactExhaustionHundredths = 1200));
     expect(currentStateView(state, gdrs).agents[0]!.recoveryTurnsRemaining).toBe(0);
     state = advance(state);
-    expect(agent(state, f1).state).toMatchObject({
+    expect(units(agent(state, f1).state)).toMatchObject({
       currentHealth: 30,
       exhaustion: 7,
       assignment: { kind: 'Standby' },
@@ -357,7 +358,7 @@ describe('INVSTG and LEAD: gaps', () => {
     const i11 = Object.keys(state.world.current.investigations)[0]!;
     state = tweak(state, (world) => {
       world.agents[a7]!.state.status = 'AtAssignment';
-      world.agents[a3]!.state.currentHealth = 5;
+      world.agents[a3]!.state.currentHealthHundredths = 500;
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
       world.agents[a3]!.state.status = 'Recovering';
     });

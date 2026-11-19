@@ -1,5 +1,6 @@
 /** UVIEW: the Upgrades View, one card per Upgrade with what one more purchase changes and whether it is affordable. */
 import type { CurrentStateView, UpgradeView } from '../../engine/index.ts';
+import { decimalText } from '../format.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { Button, Tally } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -10,18 +11,23 @@ const CAPS: Record<string, { name: string; value: (state: CurrentStateView) => n
   training_cap: { name: 'Training cap', value: (state) => state.agency.trainingCap },
 };
 
+/** ECON, Rate Upgrades: each rate is a Decimal quantity, in hundredths. */
 const RATES: Record<string, { name: string; unit: string; value: (state: CurrentStateView) => number }> = {
   training_skill_gain: {
     name: 'Training skill gain',
     unit: '',
-    value: (state) => state.agency.trainingSkillGain,
+    value: (state) => state.agency.trainingSkillGainHundredths,
   },
   exhaustion_recovery: {
     name: 'Exhaustion recovery',
     unit: '',
-    value: (state) => state.agency.exhaustionRecovery,
+    value: (state) => state.agency.exhaustionRecoveryHundredths,
   },
-  health_recovery: { name: 'Health recovery', unit: '%', value: (state) => state.agency.healthRecoveryPct },
+  health_recovery: {
+    name: 'Health recovery',
+    unit: '%',
+    value: (state) => state.agency.healthRecoveryPctHundredths,
+  },
 };
 
 /** UVIEW, Upgrade cards: what one more acquisition changes, by its `effect` and `increment`. */
@@ -29,20 +35,21 @@ function change(upgrade: UpgradeView, state: CurrentStateView): { kind: string; 
   const cap = CAPS[upgrade.effect];
   if (cap !== undefined) {
     const now = cap.value(state);
-    return { kind: 'Cap Upgrade', text: `${cap.name} ${now} → ${now + upgrade.increment}` };
+    return { kind: 'Cap Upgrade', text: `${cap.name} ${now} → ${now + upgrade.incrementHundredths / 100}` };
   }
   const rate = RATES[upgrade.effect];
   if (rate !== undefined) {
+    // UVIEW, Upgrade cards: e.g. "Exhaustion recovery 5.00 → 5.50" under GUI, Decimal quantities shown.
     const now = rate.value(state);
     return {
       kind: 'Rate Upgrade',
-      text: `${rate.name} ${now}${rate.unit} → ${now + upgrade.increment}${rate.unit}`,
+      text: `${rate.name} ${decimalText(now)}${rate.unit} → ${decimalText(now + upgrade.incrementHundredths)}${rate.unit}`,
     };
   }
   if (upgrade.effect === 'agent_base_health') {
-    return { kind: 'Base health Upgrade', text: `+${upgrade.increment} base health` };
+    return { kind: 'Base health Upgrade', text: `+${upgrade.incrementHundredths / 100} base health` };
   }
-  return { kind: 'Weapon damage Upgrade', text: `+${upgrade.increment} base weapon damage` };
+  return { kind: 'Weapon damage Upgrade', text: `+${upgrade.incrementHundredths / 100} base weapon damage` };
 }
 
 export function UpgradesView(props: {

@@ -178,6 +178,24 @@ export function roundUp(value: RationalLike): number {
   return toStored(Rational.of(value).ceil());
 }
 
+/**
+ * NUMBERS, Decimal quantities: a Decimal quantity is held as its whole number of hundredths, e.g. 1.33 as 133. These
+ * helpers move between that stored form and the exact value, never through a binary float.
+ */
+export function fromHundredths(hundredths: number): Rational {
+  return Rational.from(hundredths, 100);
+}
+
+/** round down to hundredths( x ), as a Decimal quantity held in hundredths. */
+export function roundDownToHundredths(value: RationalLike): number {
+  return roundDown(Rational.of(value).mul(100));
+}
+
+/** round up to hundredths( x ), as a Decimal quantity held in hundredths. */
+export function roundUpToHundredths(value: RationalLike): number {
+  return roundUp(Rational.of(value).mul(100));
+}
+
 /** p percent of x, i.e. (p × x) / 100, evaluated exactly and not rounded. */
 export function percentOf(p: RationalLike, x: RationalLike): Rational {
   return Rational.of(p).mul(x).div(100);

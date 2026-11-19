@@ -2,7 +2,15 @@
  * COMBAT: how one Combat is fought. A Combat is a function of its two sides, their current values, the GDR values,
  * and its named random outcomes, and of nothing else; see COMBAT, Combat inputs and outputs.
  */
-import { EngineDefect, q, ratio, roundDown, roundUp, toStored } from '../../../kernel/index.ts';
+import {
+  EngineDefect,
+  fromHundredths,
+  q,
+  ratio,
+  roundDown,
+  roundUp,
+  toStored,
+} from '../../../kernel/index.ts';
 import type { AgentParametersGdr, CombatParametersGdr } from '../../../gdr/index.ts';
 import type { Random } from '../../random.ts';
 import type {
@@ -12,14 +20,19 @@ import type {
   CombatReport,
   CombatantCondition,
 } from '../../state/types.ts';
-import { clampExhaustion, effectiveSkill } from '../agents/agents.ts';
+import { clampExhaustion, effectiveSkill, exhaustionOf } from '../agents/agents.ts';
 
-/** The values of a Combatant that a Combat reads and changes. */
+/**
+ * The values of a Combatant that a Combat reads and changes, in the stored form of an Agent: base skill, current
+ * health, and Exact exhaustion in hundredths, under NUMBERS, Decimal quantities. An Agent's state is one as it is; an
+ * Enemy's whole values are multiplied by 100 before the Combat and divided back after it, which is exact because
+ * every change a Combat makes is a whole number of points; see DEC-056.
+ */
 export interface CombatantState {
-  readonly skill: number;
-  currentHealth: number;
+  readonly skillHundredths: number;
+  currentHealthHundredths: number;
   readonly baseHealth: number;
-  exhaustion: number;
+  exactExhaustionHundredths: number;
   readonly weaponDamage: number;
 }
 
@@ -38,10 +51,10 @@ export function meetsIncapacitationCondition(
   agentParameters: AgentParametersGdr,
 ): boolean {
   return (
-    combatant.currentHealth > 0 &&
-    (combatant.exhaustion >= agentParameters.exhaustionIncapacitation ||
+    combatant.currentHealthHundredths > 0 &&
+    (exhaustionOf(combatant) >= agentParameters.exhaustionIncapacitation ||
       q(effectiveSkill(combatant, agentParameters)).lte(
-        combat.incapacitationSkillFraction.mul(combatant.skill),
+        combat.incapacitationSkillFraction.mul(fromHundredths(combatant.skillHundredths)),
       ))
   );
 }
@@ -52,7 +65,9 @@ export function isAbleToFight(
   combat: CombatParametersGdr,
   agentParameters: AgentParametersGdr,
 ): boolean {
-  return combatant.currentHealth > 0 && !meetsIncapacitationCondition(combatant, combat, agentParameters);
+  return (
+    combatant.currentHealthHundredths > 0 && !meetsIncapacitationCondition(combatant, combat, agentParameters)
+  );
 }
 
 /** COMBAT, Combat rating of a side: the sum of the effective skill of its Combatants able to fight. */
@@ -84,8 +99,8 @@ interface Fighter {
   readonly state: CombatantState;
   /** The Combat-only property; see COMBAT, Combat-only properties. */
   incapacitated: boolean;
-  damageDealt: number;
-  damageTaken: number;
+  damageDealtHundredths: number;
+  damageTakenHundredths: number;
   readonly report: CombatParticipantReport;
 }
 
@@ -108,7 +123,8 @@ export function fightCombat(input: {
   }
 
   const eff = (fighter: Fighter): number => effectiveSkill(fighter.state, agentParameters);
-  const able = (fighter: Fighter): boolean => fighter.state.currentHealth > 0 && !fighter.incapacitated;
+  const able = (fighter: Fighter): boolean =>
+    fighter.state.currentHealthHundredths > 0 && !fighter.incapacitated;
 
   // Combat start, step 1 and 2.
   const enter = (combatant: Combatant, side: 'agent' | 'enemy'): Fighter => {
@@ -119,28 +135,28 @@ export function fightCombat(input: {
       side,
       state: combatant.state,
       incapacitated,
-      damageDealt: 0,
-      damageTaken: 0,
+      damageDealtHundredths: 0,
+      damageTakenHundredths: 0,
       report: {
         id: combatant.id,
         side,
         start: {
-          skill: combatant.state.skill,
-          currentHealth: combatant.state.currentHealth,
+          skillHundredths: combatant.state.skillHundredths,
+          currentHealthHundredths: combatant.state.currentHealthHundredths,
           baseHealth: combatant.state.baseHealth,
-          exhaustion: combatant.state.exhaustion,
+          exhaustion: exhaustionOf(combatant.state),
           weaponDamage: combatant.state.weaponDamage,
           effectiveSkill: effective,
           incapacitated,
         },
         final: {
-          currentHealth: combatant.state.currentHealth,
-          exhaustion: combatant.state.exhaustion,
+          currentHealthHundredths: combatant.state.currentHealthHundredths,
+          exhaustion: exhaustionOf(combatant.state),
           effectiveSkill: effective,
           condition: 'ableToFight',
         },
-        damageDealt: 0,
-        damageTaken: 0,
+        damageDealtHundredths: 0,
+        damageTakenHundredths: 0,
       },
     };
   };
@@ -155,7 +171,7 @@ export function fightCombat(input: {
 
   /** Killed and Incapacitated: returns whether the evaluation made the Combatant Incapacitated. */
   const evaluate = (fighter: Fighter): boolean => {
-    if (fighter.state.currentHealth === 0) {
+    if (fighter.state.currentHealthHundredths === 0) {
       fighter.incapacitated = false;
       return false;
     }
@@ -189,22 +205,24 @@ export function fightCombat(input: {
     const sum = aSquared + BigInt(d) * BigInt(d);
     const hit = random.chance(`combat.hit.${attacker.id}`, ratio(aSquared, sum));
     let damage: number | null = null;
-    let healthRemoved = 0;
+    let healthRemovedHundredths = 0;
     if (hit) {
       const bounds = damageBounds(attacker.state.weaponDamage, combat);
       damage = random.uniform(`combat.damage.${attacker.id}`, bounds.lo, bounds.hi);
-      healthRemoved = Math.min(damage, defender.state.currentHealth);
-      defender.state.currentHealth -= healthRemoved;
+      // E.g., a damage outcome of 10 against an Agent with current health 5.60 removes 5.60.
+      healthRemovedHundredths = Math.min(damage * 100, defender.state.currentHealthHundredths);
+      defender.state.currentHealthHundredths -= healthRemovedHundredths;
     }
-    // COMBAT, Effects of an attack, step 4: no upper clamp applies.
-    attacker.state.exhaustion = clampExhaustion(
-      attacker.state.exhaustion + agentParameters.exhaustionPerAttack,
+    // COMBAT, Effects of an attack, step 4: no upper clamp applies; AGENT, Exhaustion and Exact exhaustion,
+    // statement 2: a whole gain of exhaustion raises Exact exhaustion by the same amount.
+    attacker.state.exactExhaustionHundredths = clampExhaustion(
+      attacker.state.exactExhaustionHundredths + agentParameters.exhaustionPerAttack * 100,
     );
-    defender.state.exhaustion = clampExhaustion(
-      defender.state.exhaustion + agentParameters.exhaustionPerDefense,
+    defender.state.exactExhaustionHundredths = clampExhaustion(
+      defender.state.exactExhaustionHundredths + agentParameters.exhaustionPerDefense * 100,
     );
-    attacker.damageDealt += healthRemoved;
-    defender.damageTaken += healthRemoved;
+    attacker.damageDealtHundredths += healthRemovedHundredths;
+    defender.damageTakenHundredths += healthRemovedHundredths;
     const defenderIncapacitated = evaluate(defender);
     const attackerIncapacitated = evaluate(attacker);
     log.push({
@@ -216,10 +234,16 @@ export function fightCombat(input: {
       hitProbability: { n: toStored(aSquared), d: toStored(sum) },
       hit,
       damage,
-      healthRemoved,
-      attackerAfter: { currentHealth: attacker.state.currentHealth, exhaustion: attacker.state.exhaustion },
-      defenderAfter: { currentHealth: defender.state.currentHealth, exhaustion: defender.state.exhaustion },
-      defenderDead: defender.state.currentHealth === 0,
+      healthRemovedHundredths,
+      attackerAfter: {
+        currentHealthHundredths: attacker.state.currentHealthHundredths,
+        exhaustion: exhaustionOf(attacker.state),
+      },
+      defenderAfter: {
+        currentHealthHundredths: defender.state.currentHealthHundredths,
+        exhaustion: exhaustionOf(defender.state),
+      },
+      defenderDead: defender.state.currentHealthHundredths === 0,
       defenderIncapacitated,
       attackerIncapacitated,
     });
@@ -276,17 +300,21 @@ export function fightCombat(input: {
 
   const finish = (fighter: Fighter): CombatParticipantReport => {
     const condition: CombatantCondition =
-      fighter.state.currentHealth === 0 ? 'dead' : fighter.incapacitated ? 'incapacitated' : 'ableToFight';
+      fighter.state.currentHealthHundredths === 0
+        ? 'dead'
+        : fighter.incapacitated
+          ? 'incapacitated'
+          : 'ableToFight';
     return {
       ...fighter.report,
       final: {
-        currentHealth: fighter.state.currentHealth,
-        exhaustion: fighter.state.exhaustion,
+        currentHealthHundredths: fighter.state.currentHealthHundredths,
+        exhaustion: exhaustionOf(fighter.state),
         effectiveSkill: eff(fighter),
         condition,
       },
-      damageDealt: fighter.damageDealt,
-      damageTaken: fighter.damageTaken,
+      damageDealtHundredths: fighter.damageDealtHundredths,
+      damageTakenHundredths: fighter.damageTakenHundredths,
     };
   };
 

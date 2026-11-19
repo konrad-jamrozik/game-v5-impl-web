@@ -396,7 +396,7 @@ class Turn {
     const buy = (effect: string): Promise<boolean> => {
       // Among several Upgrades with one effect, the one bought least often comes first.
       const upgrade = [...agency.upgrades]
-        .filter((item) => item.effect === effect && item.increment > 0)
+        .filter((item) => item.effect === effect && item.incrementHundredths > 0)
         .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price)[0];
       if (upgrade === undefined || upgrade.price > budget) {
         return Promise.resolve(false);
@@ -418,7 +418,7 @@ class Turn {
     // Otherwise rotate among the Upgrades that make every Agent more effective: the one bought least often comes
     // first, and the cheaper of two bought equally often.
     const effective = [...agency.upgrades]
-      .filter((item) => !item.effect.endsWith('_cap') && item.increment > 0)
+      .filter((item) => !item.effect.endsWith('_cap') && item.incrementHundredths > 0)
       .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price)[0];
     if (effective === undefined || effective.price > budget) {
       return false;

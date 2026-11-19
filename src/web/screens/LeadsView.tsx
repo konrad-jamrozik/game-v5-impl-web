@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import type { AgentView, CurrentStateView, InvestigationView, LeadView } from '../../engine/index.ts';
 import { agentsToAddOrder, isInBase } from '../agents-to-add.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
-import { progressPoints } from '../format.ts';
+import { decimalText, progressPoints } from '../format.ts';
 import { progressBar } from '../progress-bar.ts';
 import { activeInvestigationRows, leadsToInvestigate, rangeText } from '../situation.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
@@ -20,7 +20,7 @@ import { ProgressBar } from './ProgressBar.tsx';
 const TONES = { next: 'tone-accent', plain: 'secondary', muted: 'muted' } as const;
 
 /** LVIEW, Team: the sortable columns of the Agents to add table. */
-type CandidateKey = 'id' | 'assignment' | 'effectiveSkill' | 'skill' | 'exhaustion';
+type CandidateKey = 'id' | 'assignment' | 'effectiveSkill' | 'skillHundredths' | 'exhaustion';
 
 function blockers(lead: LeadView, siteName: (archetype: string) => string): string[] {
   const texts: string[] = [];
@@ -380,7 +380,7 @@ function Team(props: {
               {header('id', 'Agent', false)}
               {header('assignment', 'Assignment', false)}
               {header('effectiveSkill', 'Effective', true)}
-              {header('skill', 'Skill', true)}
+              {header('skillHundredths', 'Skill', true)}
               {header('exhaustion', 'Exhaustion', true)}
             </tr>
           </thead>
@@ -400,7 +400,7 @@ function Team(props: {
                   <td className="figure">{agent.id}</td>
                   <td className="secondary">{assignmentText(agent, state)}</td>
                   <td className="num">{agent.effectiveSkill}</td>
-                  <td className="num">{agent.skill}</td>
+                  <td className="num">{decimalText(agent.skillHundredths)}</td>
                   <td className="num">
                     <Exhaustion value={agent.exhaustion} levels={levels} />
                   </td>

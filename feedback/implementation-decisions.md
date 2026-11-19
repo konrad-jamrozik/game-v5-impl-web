@@ -1045,3 +1045,28 @@
 - **Option chosen:** One shared test Game build.
 - **Why:** It is the Game build the examples state, so their injected outcomes and values hold unchanged.
 - **Links:** None.
+
+## DEC-056: Decimal quantities are held in fields named for hundredths, and a Combat holds every Combatant in hundredths
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** NUMBERS, Decimal quantities, which states only that a Decimal quantity is held as its
+  whole number of hundredths and leaves the field layout to the implementer; AGENT, Agent properties and Exhaustion and Exact
+  exhaustion; COMBAT, Combat report; ECON, Rate Upgrades; RECOVER, Turn report.
+- **Description:** Every Decimal quantity is a JavaScript whole number of hundredths in a field whose name ends in
+  `Hundredths`, e.g. an Agent's `skillHundredths`, `currentHealthHundredths`, and `exactExhaustionHundredths`, the
+  Rate Upgrade rates of the Agency view, and every Upgrade's `incrementHundredths`, a Rate Upgrade's being a Decimal
+  quantity and any other's a whole number times 100. An Agent's whole exhaustion is never stored; it is computed as
+  `exhaustionOf`. A Combat reads and changes its Combatants in the hundredths form of an Agent: an Enemy's whole base
+  skill, current health, and exhaustion are multiplied by 100 before the Combat and divided back into its stored
+  whole values after it, which is exact because a Combat changes them only by whole numbers. The Combat report
+  therefore holds base skill, current health, health removed, damage dealt, and damage taken in hundredths for both
+  sides, and the whole exhaustion; the GUI shows an Agent's with two decimals and an Enemy's without. The Save format
+  number moved from 7 to 8, so a Save of the earlier format, which held these values in units, is rejected rather
+  than misread.
+- **Options considered:** Keeping the field names and changing their unit; fields named for hundredths. One Combat
+  report field whose unit depends on the side; hundredths for both sides.
+- **Option chosen:** Fields named for hundredths, and hundredths for both sides of a Combat report.
+- **Why:** A field whose unit changed silently would be misread by any code not updated with it; the new names made
+  every reader fail to compile until it was updated. One unit per Combat report field keeps the report uniform, and
+  an Enemy's value in hundredths is still exactly its whole value.
+- **Links:** Specification revision 349ab4a4b2d9527ce37d2261cc36cfb26bd3b724.

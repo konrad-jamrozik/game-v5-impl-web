@@ -1,5 +1,6 @@
 /** Acceptance examples of ECON (Economy and Upgrades). */
 import { describe, expect, it } from 'vitest';
+import { exhaustionOf } from '../../src/engine/mechanics/agents/agents.ts';
 import { contractingContribution, fundingAfter, income } from '../../src/engine/mechanics/economy/economy.ts';
 import { createGameRules } from '../../src/engine/game-rules.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
@@ -22,6 +23,7 @@ import {
   tweak,
   winning,
   withAgents,
+  units,
 } from '../helpers/game.ts';
 
 const agency = (state: CampaignState) => currentStateView(state, gdrs).agency;
@@ -96,7 +98,7 @@ describe('ECON: Acceptance examples', () => {
       income: { contractingAgents: 2, income: 80, moneyAfter: 510 },
       upkeep: { servingAgents: 5, upkeep: 50, moneyAfter: 460 },
     });
-    expect(agent(state, a3).state.skill).toBe(102);
+    expect(agent(state, a3).state.skillHundredths / 100).toBe(102);
 
     state = act(state, 'assignAgents', { agents: [a5], assignment: 'Contracting' });
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
@@ -112,10 +114,10 @@ describe('ECON: Acceptance examples', () => {
     const [c1, c2, c3, a4] = agentIds(state) as [string, string, string, string];
     state = setAssignment(state, [c1, c2, c3], 'Contracting');
     state = tweak(state, (world) => {
-      world.agents[c1]!.state.exhaustion = 10;
-      world.agents[c2]!.state.exhaustion = 47;
-      world.agents[c3]!.state.skill = 150;
-      world.agents[c3]!.state.exhaustion = 69;
+      world.agents[c1]!.state.exactExhaustionHundredths = 1000;
+      world.agents[c2]!.state.exactExhaustionHundredths = 4700;
+      world.agents[c3]!.state.skillHundredths = 15000;
+      world.agents[c3]!.state.exactExhaustionHundredths = 6900;
     });
     const view = currentStateView(state, gdrs);
     expect(view.agents.slice(0, 3).map((a) => a.effectiveSkill)).toEqual([100, 83, 91]);
@@ -125,8 +127,13 @@ describe('ECON: Acceptance examples', () => {
     expect(agency(state).projectedIncome).toBe(108);
     state = advance(state);
     expect(state.world.history.turnReport!.income).toMatchObject({ contractingAgents: 3, income: 108 });
-    expect([c1, c2, c3].map((id) => agent(state, id).state.exhaustion)).toEqual([11, 48, 70]);
-    expect(agent(state, c3).state).toMatchObject({ assignment: { kind: 'Standby' }, status: 'InTransit' });
+    expect([c1, c2, c3].map((id) => agent(state, id).state.exactExhaustionHundredths / 100)).toEqual([
+      11, 48, 70,
+    ]);
+    expect(units(agent(state, c3).state)).toMatchObject({
+      assignment: { kind: 'Standby' },
+      status: 'InTransit',
+    });
     expect(agency(state).projectedIncome).toBe(78);
     // e.g. effective skill 100, 83, and 150 give round down(91.98) = 91.
     expect(income(0, [100, 83, 150], gdrs.economy)).toBe(91);
@@ -152,13 +159,13 @@ describe('ECON: Acceptance examples', () => {
     state = setAssignment(state, [a5], 'Contracting');
     state = setAssignment(state, [a6], 'Standby', 'InTransit');
     state = tweak(state, (world) => {
-      world.agents[a4]!.state.currentHealth = 20;
+      world.agents[a4]!.state.currentHealthHundredths = 2000;
       world.agents[a4]!.state.assignment = { kind: 'Recovery' };
       world.agents[a4]!.state.status = 'Recovering';
       world.agents[a7]!.state.status = 'Killed';
       world.agents[a7]!.state.turnTerminated = 1;
       world.agents[a7]!.state.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      world.agents[a7]!.state.currentHealth = 0;
+      world.agents[a7]!.state.currentHealthHundredths = 0;
       world.agents[a7]!.state.assignment = null;
     });
     state = act(state, 'dismissAgents', { agents: [a8] });
@@ -225,7 +232,7 @@ describe('ECON: Acceptance examples', () => {
       dead.status = 'Killed';
       dead.turnTerminated = 1;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      dead.currentHealth = 0;
+      dead.currentHealthHundredths = 0;
       dead.assignment = null;
       world.agents[ids[0]!]!.state.status = 'InTransit';
     });
@@ -257,7 +264,7 @@ describe('ECON: Acceptance examples', () => {
       dead.status = 'Killed';
       dead.turnTerminated = 1;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      dead.currentHealth = 0;
+      dead.currentHealthHundredths = 0;
       dead.assignment = null;
     });
     const site = addMissionSite(state, 'apprehend_member');
@@ -273,7 +280,7 @@ describe('ECON: Acceptance examples', () => {
     reject([a6], 'agents_not_serving');
     reject([a1, a3], 'agents_in_transit');
     const next = act(state, 'dismissAgents', { agents: [a1, a2] });
-    expect(agent(next, a1).state).toMatchObject({
+    expect(units(agent(next, a1).state)).toMatchObject({
       status: 'Dismissed',
       assignment: null,
       turnTerminated: next.world.current.turn,
@@ -314,7 +321,7 @@ describe('ECON: Acceptance examples', () => {
     state = setAssignment(state, [t1, t2, t3], 'Training');
     expectRejected(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' }, 'training_cap');
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Training' });
-    expect(agent(state, a1).state).toMatchObject({
+    expect(units(agent(state, a1).state)).toMatchObject({
       assignment: { kind: 'Training' },
       status: 'AtAssignment',
     });
@@ -337,14 +344,14 @@ describe('ECON: Acceptance examples', () => {
     state = setAssignment(state, [a4], 'Standby', 'InTransit');
     state = act(state, 'dismissAgents', { agents: [a6] });
     state = tweak(state, (world) => {
-      world.agents[a3]!.state.currentHealth = 10;
+      world.agents[a3]!.state.currentHealthHundredths = 1000;
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
       world.agents[a3]!.state.status = 'InTransit';
       const dead = world.agents[a5]!.state;
       dead.status = 'Killed';
       dead.turnTerminated = 1;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      dead.currentHealth = 0;
+      dead.currentHealthHundredths = 0;
       dead.assignment = null;
     });
     const site = addMissionSite(state, 'apprehend_member');
@@ -373,31 +380,31 @@ describe('ECON: Acceptance examples', () => {
   });
 
   it('Base health and Rate Upgrades', () => {
-    let state = withAgents(setMoney(newCampaign(), 9050), 4);
+    let state = withAgents(setMoney(newCampaign(), 2050), 4);
     const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
     state = setAssignment(state, [a3], 'Training');
     state = tweak(state, (world) => {
-      world.agents[a1]!.state.exhaustion = 12;
+      world.agents[a1]!.state.exactExhaustionHundredths = 1200;
       const recovering = world.agents[a2]!.state;
-      recovering.currentHealth = 20;
-      recovering.exhaustion = 8;
+      recovering.currentHealthHundredths = 2000;
+      recovering.exactExhaustionHundredths = 800;
       recovering.assignment = { kind: 'Recovery' };
       recovering.status = 'Recovering';
       const dead = world.agents[a4]!.state;
       dead.status = 'Killed';
       dead.turnTerminated = 1;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      dead.currentHealth = 0;
-      dead.exhaustion = 40;
+      dead.currentHealthHundredths = 0;
+      dead.exactExhaustionHundredths = 4000;
       dead.assignment = null;
     });
     const health = (s: CampaignState, id: string) => {
-      const { currentHealth, baseHealth } = agent(s, id).state;
-      return [currentHealth, baseHealth];
+      const { currentHealthHundredths, baseHealth } = agent(s, id).state;
+      return [currentHealthHundredths / 100, baseHealth];
     };
 
     state = act(state, 'purchaseUpgrade', { upgrade: 'base_health' });
-    expect(money(state)).toBe(8550);
+    expect(money(state)).toBe(1550);
     expect([a1, a2, a3, a4].map((id) => health(state, id))).toEqual([
       [31, 31],
       [21, 31],
@@ -405,22 +412,40 @@ describe('ECON: Acceptance examples', () => {
       [0, 30],
     ]);
     state = act(state, 'hireAgent');
-    expect(money(state)).toBe(8500);
+    expect(money(state)).toBe(1500);
     const a5 = agentIds(state).at(-1)!;
-    expect(agent(state, a5).state).toMatchObject({ status: 'InTransit', currentHealth: 31, baseHealth: 31 });
+    expect(units(agent(state, a5).state)).toMatchObject({
+      status: 'InTransit',
+      currentHealthHundredths: 3100,
+      baseHealth: 31,
+    });
     const before = state;
     state = act(state, 'purchaseUpgrade', { upgrade: 'exhaustion_recovery' });
-    expect(agency(state)).toMatchObject({ money: 7500, exhaustionRecovery: 6 });
+    // ECON, Rate Upgrades: 5 + 0.5 × 1 = 5.50, 2 + 0.2 × 1 = 2.20, and 1 + 0.1 × 1 = 1.10, held in hundredths.
+    expect(agency(state)).toMatchObject({ money: 1000, exhaustionRecoveryHundredths: 550 });
     state = act(state, 'purchaseUpgrade', { upgrade: 'health_recovery' });
-    expect(agency(state)).toMatchObject({ money: 5000, healthRecoveryPct: 3 });
+    expect(agency(state)).toMatchObject({ money: 500, healthRecoveryPctHundredths: 220 });
     state = act(state, 'purchaseUpgrade', { upgrade: 'training_skill_gain' });
-    expect(agency(state)).toMatchObject({ money: 0, trainingSkillGain: 2 });
+    expect(agency(state)).toMatchObject({ money: 0, trainingSkillGainHundredths: 110 });
     expect(agents(state)).toEqual(agents(before));
 
+    // Money for Upkeep, so that the Campaign goes on to the next Advance turn; it changes no Agent value.
+    state = act(state, 'addMoney', { amount: 1000 }, 'developer');
     state = advance(state);
-    expect(agent(state, a3).state.skill).toBe(102);
-    expect(agent(state, a1).state.exhaustion).toBe(6);
-    expect(agent(state, a2).state).toMatchObject({ exhaustion: 2, currentHealth: 22, baseHealth: 31 });
+    // a3 gains 1.10 to 101.10; a1 loses 5.50 Exact exhaustion to 6.50, exhaustion 7; a2 loses 5.50 to 2.50,
+    // exhaustion 3, and regains round up to hundredths(2.2 × 31 / 100) = 0.69, to 21.69 of 31.
+    expect(agent(state, a3).state.skillHundredths).toBe(10110);
+    expect(agent(state, a1).state.exactExhaustionHundredths).toBe(650);
+    expect(exhaustionOf(agent(state, a1).state)).toBe(7);
+    expect(units(agent(state, a2).state)).toMatchObject({
+      exactExhaustionHundredths: 250,
+      currentHealthHundredths: 2169,
+      baseHealth: 31,
+    });
+    expect(exhaustionOf(agent(state, a2).state)).toBe(3);
+    state = advance(state);
+    // In the next Advance turn a1 falls to Exact exhaustion 1, where without the Upgrade it would be 2.
+    expect(agent(state, a1).state.exactExhaustionHundredths).toBe(100);
   });
 
   it('Purchase rejections and exact affordability', () => {

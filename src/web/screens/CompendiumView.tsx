@@ -3,13 +3,25 @@
  * article, and a search field filters them by title. The engine returns only the Player-visible articles (COMP).
  */
 import { useState } from 'react';
-import type { CurrentStateView, EncyclopediaArticleView, GameDataView } from '../../engine/index.ts';
+import type {
+  CurrentStateView,
+  EncyclopediaArticleView,
+  GameDataView,
+  UpgradeView,
+} from '../../engine/index.ts';
+import { decimalText } from '../format.ts';
 import { rangeText } from '../situation.ts';
 import type { Snapshot } from '../store.ts';
 import { Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 const GUIDE = 'Guide';
+
+/** An Upgrade's Increment: a Rate Upgrade's is a Decimal quantity, shown with two decimals; any other is whole. */
+function incrementText(upgrade: UpgradeView): string {
+  const rate = ['training_skill_gain', 'exhaustion_recovery', 'health_recovery'].includes(upgrade.effect);
+  return rate ? decimalText(upgrade.incrementHundredths) : String(upgrade.incrementHundredths / 100);
+}
 
 /** COMPV, Panes: each category is named after the Type of its articles' subjects, in plain words. */
 const CATEGORY_NAMES: Record<string, string> = {
@@ -74,7 +86,7 @@ function subjectProperties(
         ? []
         : [
             ['Price', String(upgrade.price)],
-            ['Each purchase', `+${upgrade.increment} ${upgrade.effect.replaceAll('_', ' ')}`],
+            ['Each purchase', `+${incrementText(upgrade)} ${upgrade.effect.replaceAll('_', ' ')}`],
             ['Bought', `${upgrade.acquisitions}×`],
           ];
     }

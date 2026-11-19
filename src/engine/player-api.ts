@@ -42,11 +42,16 @@ export interface AgentView {
   readonly agency: string;
   readonly turnHired: number;
   readonly agentStatus: AgentStatus;
-  readonly skill: number;
+  /** Base skill, a Decimal quantity held in hundredths; see NUMBERS, Decimal quantities. */
+  readonly skillHundredths: number;
   readonly effectiveSkill: number;
-  readonly currentHealth: number;
+  /** Current health, a Decimal quantity held in hundredths. */
+  readonly currentHealthHundredths: number;
   readonly baseHealth: number;
+  /** AGENT, Exhaustion and Exact exhaustion: the whole exhaustion every rule reads. */
   readonly exhaustion: number;
+  /** The Exact exhaustion behind it, in hundredths. */
+  readonly exactExhaustionHundredths: number;
   readonly weapon: string;
   readonly weaponName: string;
   readonly weaponDamage: number;
@@ -68,8 +73,8 @@ export interface AgentView {
   readonly turnTerminated: number | null;
   /** AGENT, Service record: the Enemy and Mission site, by Instance ID; absent unless the Agent is Killed. */
   readonly killedBy: { readonly enemy: string; readonly missionSite: string } | null;
-  /** Reported for every Serving Agent. */
-  readonly healthRecoveryRate: number | null;
+  /** Reported for every Serving Agent, a Decimal quantity in hundredths. */
+  readonly healthRecoveryRateHundredths: number | null;
   /** Absent unless the Current assignment is Recovery. */
   readonly recoveryTurnsRemaining: number | null;
 }
@@ -214,7 +219,8 @@ export interface UpgradeView {
   readonly name: string;
   readonly price: number;
   readonly effect: string;
-  readonly increment: number;
+  /** The Increment in hundredths; a whole number times 100 for every Upgrade but a Rate Upgrade. */
+  readonly incrementHundredths: number;
   readonly acquisitions: number;
 }
 
@@ -228,10 +234,13 @@ export interface AgencyView {
   readonly agentCap: number;
   readonly transportCap: number;
   readonly trainingCap: number;
-  /** ECON, Rate Upgrades: the training skill gain, exhaustion recovery, and health recovery percentage. */
-  readonly trainingSkillGain: number;
-  readonly exhaustionRecovery: number;
-  readonly healthRecoveryPct: number;
+  /**
+   * ECON, Rate Upgrades: the training skill gain, exhaustion recovery, and health recovery percentage, each a Decimal
+   * quantity held in hundredths.
+   */
+  readonly trainingSkillGainHundredths: number;
+  readonly exhaustionRecoveryHundredths: number;
+  readonly healthRecoveryPctHundredths: number;
   readonly servingAgents: number;
   readonly deployedAgents: number;
   readonly trainingAgents: number;
