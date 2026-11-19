@@ -12,13 +12,15 @@ function fixed(...values: number[]): () => number {
 
 describe('MUSIC: Soundtrack', () => {
   it('titles a Track by its file name without the extension, unchanged', () => {
-    expect(trackTitle('Silent Threat Protocol.opus')).toBe('Silent Threat Protocol');
-    expect(trackTitle('../../assets/music/tracks/Black Orbit Watch.opus')).toBe('Black Orbit Watch');
-    expect(trackTitle('../../assets/music/tracks/Signal Intercept var1.mp3')).toBe('Signal Intercept var1');
-    expect(trackTitle('../../assets/music/tracks/v03AI UFO 4 - Scanning Protocol - Dark.mp3')).toBe(
-      'v03AI UFO 4 - Scanning Protocol - Dark',
+    expect(trackTitle('EL-M2.5 XCOM+Var+Bare+Slow B.opus')).toBe('EL-M2.5 XCOM+Var+Bare+Slow B');
+    expect(trackTitle('../../assets/music/tracks/EL-M2.5 XCOM+NoPulse+Geo+Ominous.opus')).toBe(
+      'EL-M2.5 XCOM+NoPulse+Geo+Ominous',
     );
-    expect(trackTitle('Depth Signal.mp3')).toBe(trackTitle('Depth Signal.opus'));
+    expect(trackTitle('../../assets/music/tracks/S6 SCNP A.mp3')).toBe('S6 SCNP A');
+    expect(trackTitle('../../assets/music/tracks/V3A-S5 SCNP+Dark.mp3')).toBe('V3A-S5 SCNP+Dark');
+    expect(trackTitle('EL-M2.5 XCOM+TFTD+NoPulse A.mp3')).toBe(
+      trackTitle('EL-M2.5 XCOM+TFTD+NoPulse A.opus'),
+    );
   });
 
   it('holds a copy of the Soundtrack, every Track an Ogg Opus or MP3 file with a distinct title', () => {
@@ -29,24 +31,24 @@ describe('MUSIC: Soundtrack', () => {
     expect(new Set(files.map(trackTitle)).size).toBe(files.length);
   });
 
-  it('takes the excluded files from the GDR `music`, e.g. Beneath the Grid.opus', () => {
+  it('takes the excluded files from the GDR `music`, e.g. EL-M2.5 XCOM+Var X1.opus', () => {
     expect(excludedTracks()).toEqual([
-      'Beneath the Grid.opus',
-      'Subsurface Directive.opus',
-      'Unseen Sector.opus',
-      'Unseen Threat Protocol.opus',
-      'v03AI UFO 1.mp3',
-      'v03AI UFO 2.mp3',
+      'EL-M2.5 XCOM+Var X1.opus',
+      'EL-M2 XCOM+TFTD X1.opus',
+      'EL-M2.5 XCOM X1.opus',
+      'EL-M2.5 XCOM X2.opus',
+      'V3A-S5 XCOM+Var X1.mp3',
+      'V3A-S5 XCOM+Sections+Loop X1.mp3',
     ]);
   });
 
   it('plays no file that the GDR `music` excludes, nor any file that is not Ogg Opus or MP3', () => {
-    const excluded = ['Beneath the Grid.opus', 'v03AI UFO 1.mp3'];
-    expect(isTrack('../../assets/music/tracks/Beneath the Grid.opus', excluded)).toBe(false);
-    expect(isTrack('v03AI UFO 1.mp3', excluded)).toBe(false);
-    expect(isTrack('../../assets/music/tracks/Depth Signal.opus', excluded)).toBe(true);
-    expect(isTrack('Beneath the Grid.mp3', excluded)).toBe(true);
-    expect(isTrack('Abyss Protocol.yaml', excluded)).toBe(false);
+    const excluded = ['EL-M2.5 XCOM+Var X1.opus', 'V3A-S5 XCOM+Var X1.mp3'];
+    expect(isTrack('../../assets/music/tracks/EL-M2.5 XCOM+Var X1.opus', excluded)).toBe(false);
+    expect(isTrack('V3A-S5 XCOM+Var X1.mp3', excluded)).toBe(false);
+    expect(isTrack('../../assets/music/tracks/EL-M2.5 XCOM+TFTD+NoPulse A.opus', excluded)).toBe(true);
+    expect(isTrack('EL-M2.5 XCOM+Var X1.mp3', excluded)).toBe(true);
+    expect(isTrack('EL-M2 XCOM+TFTD.yaml', excluded)).toBe(false);
     expect(isTrack('README.md', excluded)).toBe(false);
   });
 });
