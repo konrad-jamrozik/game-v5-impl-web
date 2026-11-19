@@ -1,5 +1,5 @@
 /** MVIEW, Deployment: the deployment table's default order and its sorting by column headers. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { DEPLOY_NUMERIC, deployRows } from '../../src/web/deploy-table.ts';
 import { pressHeader } from '../../src/web/table-sort.ts';
 

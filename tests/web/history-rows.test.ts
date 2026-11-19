@@ -1,5 +1,5 @@
 /** HVIEW, Turn by Turn table: the current Turn's row from the Open History entry, on top of the ended Turns. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { Engine } from '../../src/engine/index.ts';
 import { historyRows } from '../../src/web/history-rows.ts';
 import { ok, startEngine } from '../helpers/engine.ts';

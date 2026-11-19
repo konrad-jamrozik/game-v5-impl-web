@@ -1,5 +1,5 @@
 /** HVIEW, Turn by Turn table and Player actions list. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { ActionRecordItem } from '../../src/engine/index.ts';
 import { actionLines, expenditures, type ActionNames } from '../../src/web/history-actions.ts';
 

@@ -1,5 +1,5 @@
 /** GUI, Progress bar, and VIS, Progress bars: geometry, fill colour share, and captions. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   UNSCALED_STUB_SHARE,
   completedProgressBar,

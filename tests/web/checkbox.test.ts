@@ -1,6 +1,6 @@
 /** VIS, Checkboxes: a checkbox is a 16 px square, whatever the rules of other inputs add. */
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 
 describe('VIS: Checkboxes', () => {
   it('is a 16 px square with none of the padding of other inputs', () => {

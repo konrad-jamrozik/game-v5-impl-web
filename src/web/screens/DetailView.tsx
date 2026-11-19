@@ -11,7 +11,14 @@ import { usePlace } from '../place.tsx';
 import { Button, CloseControl } from '../ui.tsx';
 
 export type DetailViewId =
-  'missions' | 'leads' | 'agents' | 'upgrades' | 'report' | 'history' | 'charts' | 'compendium';
+  | 'missions'
+  | 'leads'
+  | 'agents'
+  | 'upgrades'
+  | 'report'
+  | 'history'
+  | 'charts'
+  | 'compendium';
 
 /** CSCR, Detail views: the two groups, in this order; the list is exhaustive. */
 export const DETAIL_VIEW_GROUPS: readonly {

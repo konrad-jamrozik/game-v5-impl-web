@@ -200,7 +200,7 @@ No files.
 
 ## DEPDIR: Gameplay Dependency Direction
 
-- eslint.config.js
+- vite.config.ts
 - tests/architecture.test.ts
 
 ## DETERM: Determinism and Randomness
@@ -325,6 +325,7 @@ No files.
 - .github/workflows/daily-check.yml
 - package.json
 - README.md
+- tests/engine/campaign.test.ts
 
 ## GLOBE: Globe Integration
 
@@ -332,8 +333,7 @@ No files.
 - src/web/globe/
 - src/web/screens/Globe.tsx
 - package.json
-- eslint.config.js
-- .prettierignore
+- vite.config.ts
 - e2e/web.spec.ts
 
 ## GLOSS: Glossary Conventions

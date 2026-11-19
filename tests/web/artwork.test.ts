@@ -1,5 +1,5 @@
 /** VIS, Background artwork and Artwork tuning; PLACE, Artwork in an Implementation. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { gameDataView } from '../../src/engine/views/views.ts';
 import { buildGdrCatalog } from '../../src/gdr/catalog.ts';
 import { RAW_GDR_FILES } from '../../src/gdr/generated/raw-gdrs.ts';

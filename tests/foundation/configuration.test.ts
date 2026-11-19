@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of CONFIG. The test rules supply the presets Standard and Hard the examples name. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { CONTROLLER, expectOk, startHarness, type Harness } from '../helpers/test-rules.ts';
 
 const presets = (h: Harness) => expectOk(h.core.listPresets(CONTROLLER));

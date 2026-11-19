@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of NUMBERS. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   Rational,
   clampProbability,

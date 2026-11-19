@@ -1,6 +1,6 @@
 /** MUSIC: Track titles, the playing order in rounds, the fades, and the gain. */
 import { readdirSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { excludedTracks } from '../../src/engine/index.ts';
 import { drawRound, gain, isTrack, stepToggleFade, trackFade, trackTitle } from '../../src/web/music.ts';
 

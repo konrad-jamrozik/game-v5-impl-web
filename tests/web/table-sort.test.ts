@@ -1,5 +1,5 @@
 /** VIS, Tables: sorting a table by its column headers in up to four sort tiers. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   pressHeader,
   pressHeaderUnderLock,

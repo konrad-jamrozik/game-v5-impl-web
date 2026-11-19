@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of LIFE (Campaign Lifecycle), SAVES, and DETERM that need the engine. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { MemoryStorage } from '../../src/engine/saves/storage.ts';
 import { CONTROLLER, expectOk, scriptedAi, startHarness, type Harness } from '../helpers/test-rules.ts';
 

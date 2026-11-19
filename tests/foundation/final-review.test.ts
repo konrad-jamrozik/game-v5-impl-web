@@ -1,5 +1,5 @@
 /** Tests for the behaviors the final conformance reviews found untested or wrong. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { createCli } from '../../src/cli/cli.ts';
 import { RAW_GDR_FILES } from '../../src/gdr/generated/raw-gdrs.ts';
 import { bootstrapGdrCatalog } from '../../src/gdr/index.ts';

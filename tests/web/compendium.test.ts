@@ -1,6 +1,6 @@
 /** COMPV: the Compendium View's categories, search, Article history, and Data sheets; VIS and TRVIEW colour rules. */
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { CompendiumArticleView } from '../../src/engine/index.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
 import {

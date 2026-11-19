@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of AGENT (Agents). */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   applyMissionGrowth,
   canBeAssigned,

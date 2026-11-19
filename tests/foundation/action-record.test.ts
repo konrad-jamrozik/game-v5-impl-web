@@ -1,5 +1,5 @@
 /** WHIST, Action record; ECON, Money in the Action record. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { historyView } from '../../src/engine/views/views.ts';
 import { act, addMissionSite, advance, agentIds, gdrs, newCampaign, tryAct } from '../helpers/game.ts';
 

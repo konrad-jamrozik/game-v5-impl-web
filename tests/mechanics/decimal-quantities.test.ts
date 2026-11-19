@@ -2,7 +2,7 @@
  * Tests, from the former Acceptance examples, of NUMBERS, Decimal quantities, and of the rules that hold an Agent's base skill, current
  * health, and Exact exhaustion as Decimal quantities: AGENT, ECON, and GUI, Decimal quantities shown.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { effectiveSkill, exhaustionOf, isFitForWork } from '../../src/engine/mechanics/agents/agents.ts';
 import {
   fromHundredths,

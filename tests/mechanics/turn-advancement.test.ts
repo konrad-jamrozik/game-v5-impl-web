@@ -1,6 +1,6 @@
 /** Tests, from the former Acceptance examples, of TURN (Turn Advancement), and its order-independence guarantee as a property. */
 import fc from 'fast-check';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { advanceTurnOf } from '../../src/engine/game-rules.ts';
 import type { Random } from '../../src/engine/random.ts';
 import { isRejection } from '../../src/engine/result.ts';

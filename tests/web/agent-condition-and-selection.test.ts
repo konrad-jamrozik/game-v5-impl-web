@@ -1,5 +1,5 @@
 /** VIS, Agent condition; AVIEW, Assignment filters and Agent table. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { currentStateView } from '../../src/engine/views/views.ts';
 import { blockedBy, isSelectable, type Selectability } from '../../src/web/agent-selection.ts';
 import { exhaustionTone, healthColor } from '../../src/web/condition-scale.ts';

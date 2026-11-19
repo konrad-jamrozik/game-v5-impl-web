@@ -257,7 +257,8 @@ export interface CompendiumArticleGdr {
  * `{{` and `}}` replaced by the brace each stands for, or the text that replaces one Placeholder.
  */
 export type TemplatePart =
-  { readonly kind: 'text'; readonly text: string } | { readonly kind: 'value'; readonly text: string };
+  | { readonly kind: 'text'; readonly text: string }
+  | { readonly kind: 'value'; readonly text: string };
 
 export type ArticleTemplate = readonly TemplatePart[];
 

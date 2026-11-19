@@ -1,5 +1,5 @@
 /** VIS, Tables: multi-row selection by click, Shift-click, and drag. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { setRange, setRow } from '../../src/web/row-selection.ts';
 
 const order = Array.from({ length: 12 }, (_, i) => `agent-${i + 1}`);

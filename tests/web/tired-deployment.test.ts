@@ -1,5 +1,5 @@
 /** GUI, Warning on deploying tired Agents. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { currentStateView } from '../../src/engine/views/views.ts';
 import { tiredDeploymentMessage } from '../../src/web/tired-deployment.ts';
 import { agentIds, gdrs, newCampaign, tweak } from '../helpers/game.ts';

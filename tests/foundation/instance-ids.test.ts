@@ -1,5 +1,5 @@
 /** CINST, Campaign instance identity, and DOMAIN, Campaign instance identity scope: Instance IDs counted per Type. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { liveWorld, ok, startEngine } from '../helpers/engine.ts';
 
 describe('CINST: Instance IDs', () => {

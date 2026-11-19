@@ -1,5 +1,5 @@
 /** MENU, Layout: a Main menu reached by leaving a Campaign from the Campaign screen offers to close back to it. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { MemoryStorage } from '../../src/engine/index.ts';
 import { boot, leaveCampaign, snapshot, theEngine } from '../../src/web/store.ts';
 

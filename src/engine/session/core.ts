@@ -45,7 +45,8 @@ import {
 
 /** A kind of engine API caller; see ENG, Principals and access. */
 export type Principal =
-  { readonly kind: 'controller' } | { readonly kind: 'autopilot'; readonly engagementId: string };
+  | { readonly kind: 'controller' }
+  | { readonly kind: 'autopilot'; readonly engagementId: string };
 
 export const CONTROLLER: Principal = { kind: 'controller' };
 
@@ -59,7 +60,11 @@ export type AutopilotLimit =
   | { readonly kind: 'turnAdvancements'; readonly count: number };
 
 export type DisengagementReason =
-  'limitReached' | 'advanceTurnWithheld' | 'disengagedByController' | 'campaignEnded' | 'aiFailed';
+  | 'limitReached'
+  | 'advanceTurnWithheld'
+  | 'disengagedByController'
+  | 'campaignEnded'
+  | 'aiFailed';
 
 /** AUTO, Autopilot progress. */
 export interface AutopilotProgress {

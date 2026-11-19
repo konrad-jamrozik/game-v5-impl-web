@@ -2,7 +2,7 @@
 import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test';
 import { AUTOPILOT_AIS } from '../../src/ai/index.ts';
 import { createCli } from '../../src/cli/cli.ts';
 import { FileStorage } from '../../src/cli/file-storage.ts';

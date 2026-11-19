@@ -1,5 +1,5 @@
 /** VIS, Consequences: each Consequence that applied is good or bad for the Player. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { consequenceParts, consequenceText } from '../../src/web/format.ts';
 
 const none = { money: 0, fundingChange: 0, panicIncrease: 0, panicReduction: 0, eliminatedFaction: null };

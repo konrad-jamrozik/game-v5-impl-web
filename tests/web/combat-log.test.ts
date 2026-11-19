@@ -1,6 +1,6 @@
 /** TRVIEW, Combat log colours, and VIS, Colours: the tints and outcome colours of the Combat log. */
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { CombatReport } from '../../src/engine/index.ts';
 import { combatLogRow } from '../../src/web/combat-log.ts';
 

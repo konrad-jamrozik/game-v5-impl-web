@@ -1,5 +1,5 @@
 /** Tests of MVIEW, Final state and Concluded Mission site: what a finished Mission site shows from its History entry. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { ConsequenceRecord, HistoryEntry, HistoryParticipant } from '../../src/engine/index.ts';
 import {
   appliedConsequence,

@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of LEAD (Leads and Progression) and INVSTG (Investigations). */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { effectiveSkill } from '../../src/engine/mechanics/agents/agents.ts';
 import {
   assessmentThreshold,

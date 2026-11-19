@@ -1,6 +1,6 @@
 /** SOUNDS: the Sound set, the gain, the Sound of a button, and the Sound settings. */
 import { readdirSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { SETTINGS } from '../../src/engine/session/global-configuration.ts';
 import { buttonSound, SOUND, soundGain, soundName, soundSettings } from '../../src/web/sounds.ts';
 

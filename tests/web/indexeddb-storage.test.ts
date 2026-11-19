@@ -1,6 +1,6 @@
 /** Game storage in IndexedDB, run against an in-memory IndexedDB. */
 import { IDBFactory } from 'fake-indexeddb';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { AUTOPILOT_AIS } from '../../src/ai/index.ts';
 import { createEngine, type Engine, type SaveHeader } from '../../src/engine/index.ts';
 import { IndexedDbStorage } from '../../src/web/indexeddb-storage.ts';

@@ -1,9 +1,0 @@
-node_modules/
-dist/
-.data/
-content/
-src/gdr/generated/
-src/web/globe/
-test-results/
-playwright-report/
-package-lock.json

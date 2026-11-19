@@ -1,5 +1,5 @@
 /** CSCR, View trail: Follow, Go back, and the label of the Back control. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   backLabel,
   closeReturnsTo,

@@ -1,5 +1,5 @@
 /** LVIEW, Team: which Agents the Agents to add table lists, and its default order. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { Assignment } from '../../src/engine/index.ts';
 import { agentsToAddOrder, isInBase } from '../../src/web/agents-to-add.ts';
 

@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of AUTO (Autopilot) and DEV (Developer Access), with scripted Autopilot AIs. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { AutopilotAiRunner, Principal } from '../../src/engine/session/core.ts';
 import { CONTROLLER, expectOk, scriptedAi, startHarness, type Harness } from '../helpers/test-rules.ts';
 

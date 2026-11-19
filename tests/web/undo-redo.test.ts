@@ -1,5 +1,5 @@
 /** CSCR, Undo and redo. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { STEP_LABELS, stepButtonKind, undoRedoStep } from '../../src/web/undo-redo.ts';
 
 const target = { saveId: 's', autosaveKind: 'turnEnd', turn: 12, crossesAutopilotEngagement: false } as const;

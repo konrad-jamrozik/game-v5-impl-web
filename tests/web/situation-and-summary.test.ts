@@ -1,5 +1,5 @@
 /** SITP, GUI Completion estimate and Progress circle, and Turn summary: which groups show, in which order, and when the Turn summary shows. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import type { CampaignState } from '../../src/engine/state/types.ts';
 import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
 import { completionEstimate, progressCircle } from '../../src/web/completion.ts';

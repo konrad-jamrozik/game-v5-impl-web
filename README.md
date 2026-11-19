@@ -22,7 +22,8 @@ Node 26.13.1 with its bundled npm is required; `.node-version` and the `engines`
 ```sh
 npm install
 npm run check          # the quick check: GDR build, format, lint, type check, records check, unit and property tests
-npm run check:full     # the full check: the quick check and the Playwright tests of the web UI
+npm run check:full     # the full check: the quick check, the tests at their large size, and the Playwright tests
+npm run fix            # format and apply the lint fixes
 npm run web:dev        # the web UI at http://localhost:5175
 npm run cli            # the terminal CLI; type help
 npm run cli -- --json  # the terminal CLI with one line of JSON per result, for scripts and LLM players
@@ -40,7 +41,9 @@ nothing. The Vite `base` is `./`, so the build runs under any path.
 
 ## Layout
 
-Each layer imports only from the layers before it; ESLint and `tests/architecture.test.ts` enforce it.
+Each layer imports only from the layers before it; the lint rules in `vite.config.ts` and
+`tests/architecture.test.ts` enforce it. The toolchain is Vite+ (`vp`): Oxfmt formats, Oxlint lints with the
+type-aware rules, Vitest tests, and Vite builds, all configured in `vite.config.ts`.
 
 | Folder       | Holds                                                                                               |
 | ------------ | --------------------------------------------------------------------------------------------------- |

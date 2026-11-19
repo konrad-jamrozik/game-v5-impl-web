@@ -1,6 +1,6 @@
 /** Helpers for testing the Mechanics rules directly on Campaign state, with injected random outcomes. */
 import { produce } from 'immer';
-import { expect } from 'vitest';
+import { expect } from 'vite-plus/test';
 import { advanceTurnOf, applyActionTo } from '../../src/engine/game-rules.ts';
 import {
   agentCombatantValues,

@@ -3,7 +3,7 @@
  * restoration, atomic rejection, and the Information boundary, with the real game rules.
  */
 import fc from 'fast-check';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { createBasicAutopilotAi } from '../../src/ai/index.ts';
 import type { Engine } from '../../src/engine/index.ts';
 import {
@@ -82,9 +82,12 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
 });
 
 describe('Campaign runs', () => {
-  it('the Basic Autopilot AI plays 10 Campaign seeds to an ending with no engine defect', async () => {
+  // 1 Campaign seed in the quick check and 200 in the full check, which sets CAMPAIGN_SEEDS through the test mode.
+  const seeds = Number(process.env['CAMPAIGN_SEEDS'] ?? '1');
+
+  it(`the Basic Autopilot AI plays ${seeds} Campaign seed(s) to an ending with no engine defect`, async () => {
     const endings: Record<string, number> = {};
-    for (let seed = 0; seed < 10; seed += 1) {
+    for (let seed = 0; seed < seeds; seed += 1) {
       const { engine } = await startEngine();
       ok(await engine.session.globalConfiguration.set('autosaveLimit', 0));
       ok(await engine.session.campaign.create({ seed: `run-${seed}` }));
@@ -94,7 +97,8 @@ describe('Campaign runs', () => {
       endings[ending] = (endings[ending] ?? 0) + 1;
     }
     expect(Object.keys(endings).every((ending) => ending === 'Victory' || ending === 'Defeat')).toBe(true);
-    expect(endings['Victory'] ?? 0).toBeGreaterThanOrEqual(8);
+    // The share of Victories is a property of many Campaigns, so one seed alone does not check it.
+    if (seeds >= 10) expect(endings['Victory'] ?? 0).toBeGreaterThanOrEqual(seeds * 0.8);
   });
 
   it('the Basic Autopilot AI ends in Defeat when the Campaign starts with no money', async () => {

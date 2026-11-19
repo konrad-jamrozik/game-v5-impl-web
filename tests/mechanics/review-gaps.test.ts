@@ -2,7 +2,7 @@
  * Former Acceptance examples and edge cases that the per-specification conformance reviews found untested or only partly
  * tested. Each test names the Spec ID and the section it checks.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { damageBounds, fightCombat } from '../../src/engine/mechanics/combat/combat.ts';
 import { eliminateFaction } from '../../src/engine/mechanics/factions/factions.ts';
 import { injectedRandom } from '../../src/engine/random.ts';

@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of ENDING (Panic and Endings). */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { advanceTurnOf } from '../../src/engine/game-rules.ts';
 import { applyPendingPanicChange, checkEnding } from '../../src/engine/mechanics/endings/endings.ts';
 import { isRejection } from '../../src/engine/result.ts';

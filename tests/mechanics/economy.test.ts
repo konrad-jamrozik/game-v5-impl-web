@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of ECON (Economy and Upgrades). */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { exhaustionOf } from '../../src/engine/mechanics/agents/agents.ts';
 import { contractingContribution, fundingAfter, income } from '../../src/engine/mechanics/economy/economy.ts';
 import { createGameRules } from '../../src/engine/game-rules.ts';

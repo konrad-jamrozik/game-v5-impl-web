@@ -1,5 +1,5 @@
 /** Tests of COMP (Compendium) and of the directory of one file per GDR of GDR, GDR file layout. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   articleForTerm,
   resolveArticles,

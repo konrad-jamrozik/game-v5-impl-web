@@ -1,5 +1,5 @@
 /** GUI, Enemy labels: each EnemyArchetype numbers its own Enemies at each Mission site, from 1. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { enemyLabels } from '../../src/web/enemy-labels.ts';
 
 const initiate = (id: string) => ({ id, archetype: 'initiate', archetypeName: 'Initiate' });

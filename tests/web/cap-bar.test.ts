@@ -1,5 +1,5 @@
 /** AVIEW, Header, and VIS, Cap bars: free places and the taken share. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { capBar } from '../../src/web/cap-bar.ts';
 
 describe('VIS: Cap bars', () => {

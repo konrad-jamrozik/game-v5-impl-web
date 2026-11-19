@@ -24,12 +24,17 @@
   hand-written seeded generator; the `yaml` parser at build time and Zod for GDR validation; React 19 with Vite 8 and
   TanStack Table 8 for the web UI, with hand-written CSS and SVG charts; IndexedDB in the browser and JSON files for
   the CLI behind one storage interface; Vitest, fast-check, and Playwright for tests; typescript-eslint and Prettier.
-  TypeScript 6.0.3 is used instead of the latest release 7.0.2 because typescript-eslint 8.72.2 supports TypeScript
-  below 6.1 only, and TanStack Table 8.21.3 instead of 9 because its API is the one the implementer knows.
-- **Options considered:** Read and follow Tech Stack Suggestion; choose an independent stack.
-- **Option chosen:** An independent stack.
+  TanStack Table 8.21.3 is used instead of 9 because its API is the one the implementer knows. On 2026-11-19 the
+  project owner replaced the toolchain of that stack: Vite+ 1.7.0 now formats with Oxfmt, lints with Oxlint and its
+  type-aware rules, tests with Vitest, and builds with Vite, all configured in `vite.config.ts`, and TypeScript is
+  7.0.2, which the removal of typescript-eslint allows. The lint rules are the ones ESLint ran, including the layer
+  boundaries. Every other part of the stack is unchanged.
+- **Options considered:** Read and follow Tech Stack Suggestion; choose an independent stack; keep the independent
+  stack and replace only its toolchain with Vite+.
+- **Option chosen:** An independent stack, with Vite+ as its toolchain since 2026-11-19.
 - **Why:** The project owner instructed the implementer never to read Tech Stack Suggestion, so that the stack is an
-  independent choice.
+  independent choice. The project owner later chose Vite+ by name to make the quick check fast: formatting, linting,
+  and type checking fell from about 15 seconds to under 3.
 - **Links:** None.
 
 ## DEC-003: Gameplay Dependency Direction followed
@@ -653,9 +658,10 @@
   3fd37d181b3675d4ca0bef981cb8c3ab43b35ff4, `.github/workflows/deploy-pages.yml` restores `node_modules/` from a
   cache keyed by `.node-version` and `package-lock.json`, runs `npm run web:build` on each push to `main`, runs no
   check, and deploys `dist/` to GitHub Pages; `.github/workflows/daily-check.yml` runs the full check once a day and
-  on manual dispatch. The quick check is `npm run check`, which takes about 20 seconds, and the full check is
-  `npm run check:full`, the quick check followed by the Playwright tests of `npm run test:browser`. No test has a
-  size that the quick check must reduce: every unit and property test together runs in a few seconds.
+  on manual dispatch. The quick check is `npm run check`, which takes under 10 seconds, and the full check is
+  `npm run check:full`: the quick check, then every test in the Vitest mode `full` with `npm run test:large`, then
+  the Playwright tests of `npm run test:browser`. One test has a size: the Basic Autopilot AI plays 1 Campaign seed
+  in the quick check and 200 in the mode `full`, which sets `CAMPAIGN_SEEDS` in `vite.config.ts`.
 - **Options considered:** Follow the guidance; deploy by hand from the implementer's machine.
 - **Option chosen:** Follow the guidance.
 - **Why:** A push reaches players without waiting for checks the implementer already ran, and the daily full check

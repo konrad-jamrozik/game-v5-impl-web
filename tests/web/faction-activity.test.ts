@@ -1,5 +1,5 @@
 /** CSCR, Status bar values: Turns since last enemy activity; CVIEW, Faction charts. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { responseSitesSeries, turnsSinceLastFactionActivity } from '../../src/web/faction-activity.ts';
 
 const response = (targetFaction: string, turnCreated: number) =>

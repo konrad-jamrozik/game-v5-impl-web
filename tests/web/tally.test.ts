@@ -1,5 +1,5 @@
 /** VIS, Tallies; UVIEW, Upgrade cards. */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { tallySquares } from '../../src/web/tally.ts';
 
 describe('VIS: Tallies', () => {

@@ -1,6 +1,6 @@
 /** Tests, from the former Acceptance examples, of TIMELINE and the Turn report example of ENG. */
 import fc from 'fast-check';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { CONTROLLER, expectOk, scriptedAi, startHarness, type Harness } from '../helpers/test-rules.ts';
 
 const timeline = (h: Harness) => expectOk(h.core.getTimelineStatus(CONTROLLER));

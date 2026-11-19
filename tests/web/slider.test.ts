@@ -1,6 +1,6 @@
 /** VIS, Sliders: the filled share of the track, and the drawing that keeps the track within the thumb's travel. */
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { sliderFill } from '../../src/web/slider.ts';
 
 describe('VIS: Sliders', () => {

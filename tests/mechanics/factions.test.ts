@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of FACTION (Factions). */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { createFaction } from '../../src/engine/mechanics/factions/factions.ts';
 import { injectedRandom } from '../../src/engine/random.ts';
 import { createCampaignState } from '../../src/engine/state/create.ts';

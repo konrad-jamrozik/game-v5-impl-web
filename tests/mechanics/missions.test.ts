@@ -1,5 +1,5 @@
 /** Tests, from the former Acceptance examples, of MISSION (Missions) and RECOVER (Agent Recovery). */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   consequencesOf,
   missionExhaustion,
