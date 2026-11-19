@@ -5,7 +5,7 @@
  * Within a step, every rule uses Step-start values apart from the exceptions TURN lists, so the order in which
  * Campaign instances are processed does not change the result. `order` lets a test choose that order.
  */
-import { formatInstanceId, must } from '../../kernel/index.ts';
+import { byInstanceId, formatInstanceId, must } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import {
   addExhaustion,
@@ -290,11 +290,12 @@ export function applyAdvanceTurn(
     });
   }
   forcedReturns.push(...sortByAgent(world, investigationReturns));
-  // The completion effects create their Mission sites in the order of the Investigations in Campaign state, so
-  // that the generated Instance IDs do not depend on the processing order.
+  // INVSTG, Independence within the step: the completion effects create their Mission sites in the order of the
+  // completed Investigations' Instance IDs, so that the Instance IDs they take do not depend on the processing order.
+  // INVSTG, Turn report: the Turn report lists the Investigations in the same order.
   const investigationReports: TurnReport['investigations'][number][] = [];
   const createdMissionSites: string[] = [];
-  for (const investigation of Object.values(world.investigations)) {
+  for (const investigation of Object.values(world.investigations).sort(byInstanceId)) {
     const result = investigationResults.get(investigation.id);
     if (result === undefined) {
       continue;
@@ -580,8 +581,10 @@ export function applyAdvanceTurn(
       ),
     );
   }
+  // FACTION, Several Factions: the Response Mission sites are created in the order of the initiating Factions'
+  // Instance IDs. FACTION, Turn report: the Turn report lists the Factions in the same order.
   const factionActivity: TurnReport['factionActivity'][number][] = [];
-  for (const faction of Object.values(world.factions)) {
+  for (const faction of Object.values(world.factions).sort(byInstanceId)) {
     if (!occurrences.has(faction.id)) {
       continue;
     }

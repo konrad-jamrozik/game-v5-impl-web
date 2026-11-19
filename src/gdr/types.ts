@@ -189,7 +189,7 @@ export interface MissionSiteArchetypeGdr {
   readonly expiresInTurns: number;
   /** The identifier of an EnemyArchetype and its count, in the authored order. */
   readonly enemies: readonly (readonly [string, number])[];
-  /** What a Won Initiative Mission gives; a missing property means 0, or false. */
+  /** What a Won Initiative Mission gives, from its `on_win` Effect list; an absent Effect kind means 0, or false. */
   readonly onWin: {
     readonly money: number;
     readonly funding: number;

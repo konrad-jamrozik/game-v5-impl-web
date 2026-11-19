@@ -1,4 +1,4 @@
-/** Acceptance examples of COMP (Compendium). */
+/** Tests, from the former Acceptance examples, of COMP (Compendium). */
 import { describe, expect, it } from 'vitest';
 import { visibleArticles } from '../../src/engine/mechanics/compendium/compendium.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
@@ -61,7 +61,7 @@ describe('COMP: the Bootstrap EncyclopediaArticle GDRs', () => {
   });
 });
 
-describe('COMP: Acceptance examples', () => {
+describe('COMP: examples', () => {
   it('Campaign creation', () => {
     const state = newCampaign();
     const ids = visible(state);

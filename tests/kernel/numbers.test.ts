@@ -1,4 +1,4 @@
-/** Acceptance examples of NUMBERS. */
+/** Tests, from the former Acceptance examples, of NUMBERS. */
 import { describe, expect, it } from 'vitest';
 import {
   Rational,
@@ -15,7 +15,7 @@ import {
 
 const d = (text: string) => Rational.parseDecimal(text);
 
-describe('NUMBERS: Acceptance examples', () => {
+describe('NUMBERS: examples', () => {
   it('Round up a fraction', () => {
     expect(roundUp(percentOf(2, 30))).toBe(1);
     expect(roundDown(percentOf(2, 30))).toBe(0);

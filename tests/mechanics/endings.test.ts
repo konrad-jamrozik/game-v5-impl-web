@@ -1,4 +1,4 @@
-/** Acceptance examples of ENDING (Panic and Endings). */
+/** Tests, from the former Acceptance examples, of ENDING (Panic and Endings). */
 import { describe, expect, it } from 'vitest';
 import { advanceTurnOf } from '../../src/engine/game-rules.ts';
 import { applyPendingPanicChange, checkEnding } from '../../src/engine/mechanics/endings/endings.ts';
@@ -36,7 +36,7 @@ const set = (
 
 const ending = (state: CampaignState) => currentStateView(state, gdrs).ending;
 
-describe('ENDING: Acceptance examples', () => {
+describe('ENDING: examples', () => {
   it('Panic is summed, clamped, and reaches Defeat', () => {
     let state = set(newCampaign(), { panic: 97, money: 40, funding: 0, turn: 12 });
     const raid = addMissionSite(state, 'raid_safehouse');

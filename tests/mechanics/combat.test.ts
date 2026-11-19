@@ -1,4 +1,4 @@
-/** Acceptance examples of COMBAT. */
+/** Tests, from the former Acceptance examples, of COMBAT. */
 import { describe, expect, it } from 'vitest';
 import { effectiveSkill } from '../../src/engine/mechanics/agents/agents.ts';
 import {
@@ -33,7 +33,7 @@ function fight(agents: Combatant[], enemies: Combatant[], injected: Injected): C
 const participant = (report: CombatReport, id: string) => report.participants.find((p) => p.id === id)!;
 const misses = (count: number) => new Array<boolean>(count).fill(false);
 
-describe('COMBAT: Acceptance examples', () => {
+describe('COMBAT: examples', () => {
   it('Enemy creation', () => {
     const rows: [string, number, number, number][] = [
       ['initiate', 40, 20, 10],

@@ -1,11 +1,12 @@
-/** Acceptance examples of FACTION (Factions). */
+/** Tests, from the former Acceptance examples, of FACTION (Factions). */
 import { describe, expect, it } from 'vitest';
 import { createFaction } from '../../src/engine/mechanics/factions/factions.ts';
 import { injectedRandom } from '../../src/engine/random.ts';
 import { createCampaignState } from '../../src/engine/state/create.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView } from '../../src/engine/views/views.ts';
+import { currentStateView, turnReportView } from '../../src/engine/views/views.ts';
+import { RAW_GDR_FILES, buildGdrCatalog } from '../../src/gdr/index.ts';
 import {
   act,
   addMissionSite,
@@ -41,7 +42,7 @@ function setFaction(
 
 const sites = (state: CampaignState) => Object.values(state.world.current.missionSites);
 
-describe('FACTION: Acceptance examples', () => {
+describe('FACTION: examples', () => {
   it('Campaign creation through the first escalation', () => {
     const levels = (id: string) => gdrs.factionActivityLevels.get(id)!;
     const created = createFaction(
@@ -222,6 +223,48 @@ describe('FACTION: Acceptance examples', () => {
       [20, 11],
     );
     expect(checkInvariants(forward, catalog)).toEqual([]);
+    // FACTION, Several Factions and Turn report: the Response Mission sites are created, and the Turn report lists
+    // the Factions, in the order of the Factions' Instance IDs, whatever their order in Campaign state.
+    const shuffled = tweak(state, (world) => {
+      world.factions = Object.fromEntries(Object.entries(world.factions).reverse());
+    });
+    const fromShuffled = advance(shuffled, injected, catalog);
+    const created = fromShuffled.world.current.missionSites;
+    expect(created['mission-site-1']?.constants.targetFaction).toBe(red!.id);
+    expect(created['mission-site-2']?.constants.targetFaction).toBe(test!.id);
+    expect(turnReportView(fromShuffled)?.factionActivity.map((item) => item.faction)).toEqual([
+      red!.id,
+      test!.id,
+    ]);
+  });
+
+  it('Initial Factions are created in the authored order of their FactionArchetypes', () => {
+    // FACTION, Initial Factions; GDR, GDR authoring format: the first FactionArchetype's Faction is faction-1.
+    const bootstrap = buildGdrCatalog(RAW_GDR_FILES);
+    expect(bootstrap.factionArchetypes.map((archetype) => archetype.id)).toEqual([
+      'red_dawn',
+      'exalt',
+      'black_lotus',
+    ]);
+    const state = createCampaignState({ startingMoney: 500, startingFunding: 20 }, 'order', bootstrap);
+    expect(
+      Object.values(state.world.current.factions).map((faction) => [faction.id, faction.archetype]),
+    ).toEqual([
+      ['faction-1', 'red_dawn'],
+      ['faction-2', 'exalt'],
+      ['faction-3', 'black_lotus'],
+    ]);
+    const reordered = catalogWith((raw) => {
+      raw.add('factions/faction_archetypes.yaml', {
+        id: 'test_faction',
+        type: 'FactionArchetype',
+        name: 'Test Faction',
+        initial_activity_level: 'active',
+      });
+      raw.files.find((file) => file.path === 'factions/faction_archetypes.yaml')!.gdrs.reverse();
+    });
+    const first = createCampaignState({ startingMoney: 500, startingFunding: 20 }, 'order', reordered);
+    expect(first.world.current.factions['faction-1']?.archetype).toBe('test_faction');
   });
 
   it('Player-visible information', () => {

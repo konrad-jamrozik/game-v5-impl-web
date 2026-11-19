@@ -4,7 +4,7 @@ import { historyView } from '../../src/engine/views/views.ts';
 import { act, addMissionSite, advance, agentIds, gdrs, newCampaign, tryAct } from '../helpers/game.ts';
 
 describe('WHIST: Action record', () => {
-  it('Acceptance example: an undone action is not listed, and the Advance turn moves the record into the History entry', () => {
+  it('example: an undone action is not listed, and the Advance turn moves the record into the History entry', () => {
     const start = newCampaign({ money: 500 });
     expect(start.world.history.currentActions).toEqual([]);
     const { state: withSite, site } = addMissionSite(start, 'apprehend_member');
@@ -41,7 +41,7 @@ describe('WHIST: Action record', () => {
 });
 
 describe('WHIST: Open History entry', () => {
-  it('Acceptance example: follows the World state through undo and redo, and becomes the History entry', () => {
+  it('example: follows the World state through undo and redo, and becomes the History entry', () => {
     const start = newCampaign({ money: 500 });
     // Before the first committed Advance turn, the Open History entry of Turn 1 is all getHistory() returns.
     expect(historyView(start, gdrs).entries).toEqual([]);

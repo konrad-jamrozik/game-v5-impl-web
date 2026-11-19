@@ -36,3 +36,16 @@ export function seedFromNumbers(numbers: readonly number[]): string {
 export function formatInstanceId(type: string, sequence: number): string {
   return `${type}-${sequence}`;
 }
+
+/** The creation count that ends an Instance ID, e.g. 12 for `investigation-12`. */
+function instanceNumber(id: string): number {
+  return Number(id.slice(id.lastIndexOf('-') + 1));
+}
+
+/**
+ * Orders Campaign instances of one Type by their Instance IDs, from the lowest number, e.g. `faction-2` before
+ * `faction-10`; see CINST, Campaign instance identity.
+ */
+export function byInstanceId(a: { readonly id: string }, b: { readonly id: string }): number {
+  return instanceNumber(a.id) - instanceNumber(b.id);
+}

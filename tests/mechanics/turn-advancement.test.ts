@@ -1,4 +1,4 @@
-/** Acceptance examples of TURN (Turn Advancement), and its order-independence guarantee as a property. */
+/** Tests, from the former Acceptance examples, of TURN (Turn Advancement), and its order-independence guarantee as a property. */
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { advanceTurnOf } from '../../src/engine/game-rules.ts';
@@ -51,7 +51,7 @@ const series = (state: CampaignState) => {
   return { start: moneyAtStartOfTurn.map((v) => v.value), end: moneyAtEndOfTurn.map((v) => v.value) };
 };
 
-describe('TURN: Acceptance examples', () => {
+describe('TURN: examples', () => {
   it('The first two Advance turns of a Campaign', () => {
     let state = setFaction(newCampaign(), 'faint', 60, 15);
     const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];

@@ -1,4 +1,4 @@
-/** Acceptance examples of AGENT (Agents). */
+/** Tests, from the former Acceptance examples, of AGENT (Agents). */
 import { describe, expect, it } from 'vitest';
 import {
   applyMissionGrowth,
@@ -90,7 +90,7 @@ describe('AGENT: Agent status', () => {
   });
 });
 
-describe('AGENT: Acceptance examples', () => {
+describe('AGENT: examples', () => {
   it('Effective skill computations', () => {
     const rows: [number, number, number, number, number?][] = [
       [100, 30, 0, 100],

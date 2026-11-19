@@ -1,4 +1,4 @@
-/** Acceptance examples of CONFIG. The test rules supply the presets Standard and Hard the examples name. */
+/** Tests, from the former Acceptance examples, of CONFIG. The test rules supply the presets Standard and Hard the examples name. */
 import { describe, expect, it } from 'vitest';
 import { CONTROLLER, expectOk, startHarness, type Harness } from '../helpers/test-rules.ts';
 
@@ -15,7 +15,7 @@ const edit = (h: Harness, value: unknown) =>
 const setting = (h: Harness, name: string) =>
   expectOk(h.core.getGlobalConfiguration(CONTROLLER)).settings.find((item) => item.setting === name)!;
 
-describe('CONFIG: Acceptance examples', () => {
+describe('CONFIG: examples', () => {
   it('Values copied at creation', async () => {
     const h = await startHarness();
     expectOk(h.core.selectPreset(CONTROLLER, 'hard'));

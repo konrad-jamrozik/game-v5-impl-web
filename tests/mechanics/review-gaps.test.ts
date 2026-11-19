@@ -1,5 +1,5 @@
 /**
- * Acceptance examples and edge cases that the per-specification conformance reviews found untested or only partly
+ * Former Acceptance examples and edge cases that the per-specification conformance reviews found untested or only partly
  * tested. Each test names the Spec ID and the section it checks.
  */
 import { describe, expect, it } from 'vitest';
@@ -85,7 +85,7 @@ describe('AGENT: gaps', () => {
   });
 });
 
-describe('DOM: Acceptance examples B and D', () => {
+describe('DOM: former Acceptance examples B and D', () => {
   function fixture(): {
     state: CampaignState;
     a1: string;

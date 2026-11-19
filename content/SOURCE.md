@@ -26,6 +26,10 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 - `agents/agent_parameters.yaml` and `compendium/encyclopedia_articles.yaml`: patched unchanged from specification
   commit `7985a451a43f4fcaba960b80ca50d8d888cc9cd0` on 2026-11-19, adding the Mission growth parameters and the
   articles' words on Mission growth.
+- `factions/faction_operation_levels.yaml`, `leads-and-progression/leads.yaml`, and
+  `missions/mission_site_archetypes.yaml`: patched unchanged from specification commit
+  `1d687e0d80958e13831a8689e2db9c14ceb66143` on 2026-11-19, writing `on_win`, `on_ignored_or_lost`, and
+  `on_completion` as Effect lists.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

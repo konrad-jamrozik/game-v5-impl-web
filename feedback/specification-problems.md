@@ -261,7 +261,10 @@
 - **Description:** An Instance ID is a Campaign-scoped identifier, so DETERM leaves its format to the Implementer
   while CINST states it exactly.
 - **Links:** DEC-006
-- **Resolution:** Open
+- **Resolution:** Resolved in 1d687e0d80958e13831a8689e2db9c14ceb66143, which the Implementation follows since this
+  update: DETERM, Unique identifiers now leaves only the format of an Independent identifier to the Implementer and
+  has the specification that introduces a Campaign-scoped identifier state its format and sequence, as CINST does
+  for an Instance ID. The Implementation already followed CINST under DEC-006, so nothing changed.
 
 ## PROB-020: The order of the Leads discovered in an Advance turn is unstated
 
@@ -475,7 +478,9 @@
   failed precondition 8 as the reason. Which failed precondition the error names is not stated, so the example reads as
   if a5 were acceptable on its own; an Agent on Standby in its place would show precondition 8 alone.
 - **Links:** DEC-052
-- **Resolution:** Open
+- **Resolution:** Resolved in ebf476870dd65ea148ccf55ebef33d6cf57fc7ac, which the Implementation follows since this
+  update: every Acceptance examples section was deleted, so only the preconditions of Assigning Agents remain. The
+  Implementation still reports the first failed precondition, under DEC-052.
 
 ## PROB-034: Abandonment still gives an example of assigning Investigation members to Contracting
 
@@ -502,7 +507,9 @@
   undo therefore never equals the original result at that World state, which had no Undone action; the example
   holds for the Current world state, the History, the Turn report, and the Campaign configuration.
 - **Links:** DEC-057
-- **Resolution:** Open
+- **Resolution:** Resolved in ebf476870dd65ea148ccf55ebef33d6cf57fc7ac, which the Implementation follows since this
+  update: every Acceptance examples section was deleted, so only TIMELINE, Returning to a World state, states what an
+  undo and a redo restore, which the tests check under DEC-057.
 
 ## PROB-036: What changing Campaign configuration during play reports is a TODO
 

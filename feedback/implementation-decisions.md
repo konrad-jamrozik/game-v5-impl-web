@@ -99,7 +99,9 @@
 - **Options considered:** Following DETERM and keeping one shared counter; following CINST for Instance IDs.
 - **Option chosen:** Following CINST for Instance IDs, and DETERM for every other identifier.
 - **Why:** CINST owns Campaign instance identity and states the format exactly, so DETERM's general freedom can only
-  still apply to the identifiers CINST does not cover.
+  still apply to the identifiers CINST does not cover. Specification revision
+  1d687e0d80958e13831a8689e2db9c14ceb66143 settles the conflict the same way: DETERM now leaves only the format of an
+  Independent identifier to the Implementer.
 - **Links:** PROB-019
 
 ## DEC-007: The screens of the web UI
@@ -1098,6 +1100,8 @@
 - **Options considered:** Rewriting every example test for three Factions; one test Game build shared by all of them.
 - **Option chosen:** One shared test Game build.
 - **Why:** It is the Game build the examples state, so their injected outcomes and values hold unchanged.
+  Specification revision ebf476870dd65ea148ccf55ebef33d6cf57fc7ac deleted every Acceptance examples section; the
+  tests written from them stay, as tests of the rules, on the same test Game build.
 - **Links:** None.
 
 ## DEC-056: Decimal quantities are held in fields named for hundredths, and a Combat holds every Combatant in hundredths

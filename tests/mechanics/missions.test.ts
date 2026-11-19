@@ -1,4 +1,4 @@
-/** Acceptance examples of MISSION (Missions) and RECOVER (Agent Recovery). */
+/** Tests, from the former Acceptance examples, of MISSION (Missions) and RECOVER (Agent Recovery). */
 import { describe, expect, it } from 'vitest';
 import {
   consequencesOf,
@@ -13,6 +13,7 @@ import {
 import { injectedRandom } from '../../src/engine/random.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
+import type { GdrCatalog } from '../../src/gdr/index.ts';
 import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
 import {
   act,
@@ -23,6 +24,7 @@ import {
   allHit,
   allMiss,
   catalogWith,
+  effect,
   expectDefective,
   expectRejected,
   funding,
@@ -51,7 +53,7 @@ const set = (
 const site = (state: CampaignState, id: string) => state.world.current.missionSites[id]!;
 const mission = (state: CampaignState, id: string) => state.world.current.missions[id]!;
 
-describe('MISSION: Acceptance examples', () => {
+describe('MISSION: examples', () => {
   it('The full life of an apprehend_member Mission site', () => {
     // Creation by the completion effect of locate_red_dawn_member, in the Advance turn ending turn 4.
     let state = set(newCampaign(), { turn: 4 });
@@ -647,12 +649,68 @@ describe('MISSION: Acceptance examples', () => {
     expectDefective((raw) => (raw.get('foil_sabotage')['enemies'].$entries.length = 0));
     expectDefective((raw) => raw.get('raid_safehouse')['enemies'].$entries.push(['commander', 1]));
     expectDefective((raw) => (raw.get('foil_recruitment_push')['enemies'].$entries[0][1] = 0));
-    expectDefective((raw) => (raw.get('foil_sabotage')['on_win'] = { $entries: [['money', 30]] }));
-    expectDefective((raw) => raw.get('raid_hq')['on_win'].$entries.push(['money', -5]));
+    expectDefective((raw) => (raw.get('foil_sabotage')['on_win'] = [effect('money', 30)]));
+    expectDefective((raw) => raw.get('raid_hq')['on_win'].push(effect('money', -5)));
+    // Rule 5: an Initiative `on_win` is a valid Effect list of `money`, `funding`, `panic` of at most 0, and
+    // `eliminate_faction` of `true` (EFFECT, Effect list format; FACTION, Elimination).
+    expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = [effect('panic', 1)]));
+    expectDefective((raw) => raw.get('apprehend_member')['on_win'].push(effect('money', 1)));
+    expectDefective((raw) => (raw.get('raid_hq')['on_win'] = [effect('eliminate_faction', false)]));
+    expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = [effect('panic_reduction_pct', 1)]));
+    expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = [{ $entries: [] }]));
+    expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = { $entries: [['money', 5]] }));
     expectDefective((raw) => (raw.get('foil_sabotage')['operation_level'] = 3));
     expectDefective((raw) => (raw.get('apprehend_member')['operation_level'] = 1));
     expectDefective((raw) => (raw.get('apprehend_member')['kind'] = 'offensive'));
-    expectDefective((raw) => raw.get('operation_level_2')['on_ignored_or_lost'].$entries.pop());
+    // Rule 7: an operation level's Effect lists hold only `money` and `funding` of at least 0 on a win, and `panic`
+    // of at least 0 and `funding` of any sign when ignored or lost; both properties are required.
+    expectDefective((raw) => raw.get('operation_level_2')['on_ignored_or_lost'].push(effect('money', 5)));
+    expectDefective((raw) => (raw.get('operation_level_2')['on_ignored_or_lost'] = [effect('panic', -1)]));
+    expectDefective((raw) => (raw.get('operation_level_2')['on_win'] = [effect('funding', -1)]));
+    expectDefective((raw) => delete raw.get('operation_level_2')['on_win']);
+  });
+
+  it('Effect lists of Consequences', () => {
+    // EFFECT, Effect list format; ECON, Money and funding Effect kinds; ENDING, Panic Effect kind: a `panic` Effect of
+    // -2 is a Panic reduction of 2, and an Effect kind the list does not hold changes nothing.
+    const site = (catalog: GdrCatalog, id: string) =>
+      catalog.missionSiteArchetypes.find((item) => item.id === id)!;
+    const level = (catalog: GdrCatalog, value: number) =>
+      catalog.factionOperationLevels.find((item) => item.level === value)!;
+    expect(site(gdrs, 'raid_safehouse').onWin).toEqual({
+      money: 100,
+      funding: 5,
+      panicReductionPct: 2,
+      eliminateTargetFaction: false,
+    });
+    expect(site(gdrs, 'raid_hq').onWin).toEqual({
+      money: 0,
+      funding: 0,
+      panicReductionPct: 0,
+      eliminateTargetFaction: true,
+    });
+    expect(level(gdrs, 1)).toMatchObject({
+      onWin: { money: 10, funding: 0 },
+      onIgnoredOrLost: { panicIncreasePct: 3, funding: 0 },
+    });
+    expect(level(gdrs, 2)).toMatchObject({
+      onWin: { money: 30, funding: 5 },
+      onIgnoredOrLost: { panicIncreasePct: 8, funding: -1 },
+    });
+    // Order has no meaning, and an empty or omitted Effect list is valid and changes nothing.
+    const changed = catalogWith((raw) => {
+      raw.get('raid_safehouse')['on_win'].reverse();
+      raw.get('operation_level_2')['on_ignored_or_lost'] = [];
+      delete raw.get('apprehend_member')['on_win'];
+    });
+    expect(site(changed, 'raid_safehouse').onWin).toEqual(site(gdrs, 'raid_safehouse').onWin);
+    expect(level(changed, 2).onIgnoredOrLost).toEqual({ panicIncreasePct: 0, funding: 0 });
+    expect(site(changed, 'apprehend_member').onWin).toEqual({
+      money: 0,
+      funding: 0,
+      panicReductionPct: 0,
+      eliminateTargetFaction: false,
+    });
     expectDefective((raw) => {
       const file = raw.files.find((item) => item.path.endsWith('mission_site_archetypes.yaml'))!;
       file.gdrs.splice(file.gdrs.indexOf(raw.get('foil_sabotage')), 1);
@@ -720,7 +778,7 @@ describe('MISSION: Mission exhaustion', () => {
   });
 });
 
-describe('RECOVER: Acceptance examples', () => {
+describe('RECOVER: examples', () => {
   it('Health recovery rate', () => {
     // The percentage and the rate are Decimal quantities in hundredths: p 2.2 is 220, and a rate of 0.60 is 60.
     const rate = (pct: number) => healthRecoveryRateHundredths(30, pct);

@@ -390,6 +390,11 @@ export function combatEnemy(id: string, archetypeId: string, catalog: GdrCatalog
 
 type RawGdr = Record<string, any>;
 
+/** One Effect of an Effect list in raw GDR form, as `scripts/build-gdr.ts` writes it; see EFFECT, Effect list format. */
+export function effect(kind: string, value: unknown): { $entries: [string, unknown][] } {
+  return { $entries: [[kind, value]] };
+}
+
 /**
  * A changeable copy of the GDR files of the test Game build with Red Dawn only, for tests that use test GDRs or check
  * GDR validation.

@@ -1,5 +1,5 @@
 /**
- * Acceptance examples of NUMBERS, Decimal quantities, and of the rules that hold an Agent's base skill, current
+ * Tests, from the former Acceptance examples, of NUMBERS, Decimal quantities, and of the rules that hold an Agent's base skill, current
  * health, and Exact exhaustion as Decimal quantities: AGENT, ECON, and GUI, Decimal quantities shown.
  */
 import { describe, expect, it } from 'vitest';

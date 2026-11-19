@@ -64,7 +64,8 @@ export function createCampaignState(
     world.agents[agent.id] = agent;
   }
 
-  // FACTION, Initial Factions: exactly one Faction for each FactionArchetype.
+  // FACTION, Initial Factions: exactly one Faction for each FactionArchetype, created in the authored order of the
+  // FactionArchetypes, which GDR, GDR authoring format preserves, so the first takes the Instance ID `faction-1`.
   const random = seededRandom(world.rng, world.randomOverrides);
   for (const archetype of gdrs.factionArchetypes) {
     const faction = createFaction(

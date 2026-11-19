@@ -1,4 +1,4 @@
-/** Acceptance examples of AUTO (Autopilot) and DEV (Developer Access), with scripted Autopilot AIs. */
+/** Tests, from the former Acceptance examples, of AUTO (Autopilot) and DEV (Developer Access), with scripted Autopilot AIs. */
 import { describe, expect, it } from 'vitest';
 import type { AutopilotAiRunner, Principal } from '../../src/engine/session/core.ts';
 import { CONTROLLER, expectOk, scriptedAi, startHarness, type Harness } from '../helpers/test-rules.ts';
@@ -21,7 +21,7 @@ async function run(h: Harness, id: string, limit: unknown) {
   return result;
 }
 
-describe('AUTO: Acceptance examples', () => {
+describe('AUTO: examples', () => {
   it('Listing Autopilot AIs', async () => {
     const h = await withAis((core) => [
       scriptedAi('x', core, [async (api) => void (await api.act('gain', { amount: 1 }))]),
@@ -268,7 +268,7 @@ describe('ENG: Principal access matrix', () => {
   });
 });
 
-describe('DEV: Acceptance examples', () => {
+describe('DEV: examples', () => {
   it('Developer isolation', async () => {
     const seen: string[] = [];
     const h = await withAis((core) => [

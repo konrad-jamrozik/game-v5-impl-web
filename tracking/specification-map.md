@@ -239,12 +239,27 @@ No files.
 - src/engine/mechanics/recovery/recovery.ts
 - tests/mechanics/decimal-quantities.test.ts
 
+## EFFECT: Effect Lists
+
+- src/gdr/catalog.ts
+- src/gdr/types.ts
+- src/engine/mechanics/missions/missions.ts
+- src/engine/turn/advance.ts
+- content/factions/faction_operation_levels.yaml
+- content/leads-and-progression/leads.yaml
+- content/missions/mission_site_archetypes.yaml
+- tests/helpers/game.ts
+- tests/mechanics/missions.test.ts
+- tests/mechanics/leads-investigations.test.ts
+
 ## ENDING: Panic and Endings
 
 - src/engine/mechanics/endings/
 - src/engine/turn/advance.ts
 - src/engine/actions/actions.ts
 - tests/mechanics/endings.test.ts
+- src/gdr/catalog.ts
+- src/gdr/types.ts
 
 ## ENG: Engine Contract
 
@@ -270,6 +285,7 @@ No files.
 - src/gdr/catalog.ts
 - src/gdr/types.ts
 - tests/mechanics/factions.test.ts
+- src/engine/state/create.ts
 
 ## FEEDBACK: Implementation Feedback
 
@@ -283,6 +299,7 @@ No files.
 - scripts/build-gdr.ts
 - content/
 - tests/helpers/game.ts
+- tests/mechanics/factions.test.ts
 
 ## GHPAGES: GitHub Pages Deployment
 

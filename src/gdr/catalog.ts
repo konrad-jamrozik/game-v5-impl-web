@@ -54,6 +54,39 @@ const hundredths = (min: number) =>
 /** A nested mapping, with its authored key order. */
 const entries = <T extends z.ZodType>(value: T) =>
   z.strictObject({ $entries: z.array(z.tuple([z.string(), value])) }).transform((map) => map.$entries);
+/**
+ * EFFECT, Effect list format: a list, possibly empty, of Effects, each a map with exactly one key, its Effect kind,
+ * and no two of one Effect kind. The value of each Effect by its Effect kind; the order of the Effects has no
+ * meaning. Which Effect kinds a property permits, and their ranges, each property checks with `effectsOf`.
+ */
+const effectList = z.array(entries(z.unknown())).transform((list, context) => {
+  const effects = new Map<string, unknown>();
+  for (const effect of list) {
+    const [only] = effect;
+    if (effect.length !== 1 || only === undefined) {
+      context.addIssue({ code: 'custom', message: 'Each Effect has exactly one Effect kind' });
+      return z.NEVER;
+    }
+    if (effects.has(only[0])) {
+      context.addIssue({ code: 'custom', message: 'At most one Effect of each Effect kind' });
+      return z.NEVER;
+    }
+    effects.set(only[0], only[1]);
+  }
+  return effects;
+});
+/**
+ * EFFECT, Applying an Effect list, Permitted Effect kinds: the Effects of an Effect list, each of a permitted Effect
+ * kind and with a value in its permitted range; an Effect kind the list does not hold is absent.
+ */
+function effectsOf<S extends Record<string, z.ZodType>>(effects: ReadonlyMap<string, unknown>, permitted: S) {
+  const shape = Object.fromEntries(
+    Object.entries(permitted).map(([kind, value]) => [kind, value.optional()]),
+  );
+  return z.strictObject(shape).safeParse(Object.fromEntries(effects)) as z.ZodSafeParseResult<
+    Partial<{ [K in keyof S]: z.output<S[K]> }>
+  >;
+}
 const range = z.tuple([z.int(), z.int()]);
 /** COMP, Encyclopedia article GDR validation, rules 1 and 2: a required, non-empty text. */
 const text = z
@@ -277,17 +310,14 @@ const schemas = {
       type: z.literal('FactionOperationLevel'),
       level: whole(1),
       name,
-      on_win: entries(z.unknown()),
-      on_ignored_or_lost: entries(z.unknown()),
+      on_win: effectList,
+      on_ignored_or_lost: effectList,
     })
     .transform((g, context) => {
-      const onWin = z
-        .strictObject({ money: whole(0), funding: whole(0) })
-        .safeParse(Object.fromEntries(g.on_win));
-      const onLost = z
-        .strictObject({ panic_increase_pct: whole(0), funding: z.int() })
-        .safeParse(Object.fromEntries(g.on_ignored_or_lost));
-      if (!onWin.success || !onLost.success || g.on_win.length !== 2 || g.on_ignored_or_lost.length !== 2) {
+      // MISSION, MissionSiteArchetype validation, rule 7: Operation level Consequences are valid.
+      const onWin = effectsOf(g.on_win, { money: whole(0), funding: whole(0) });
+      const onLost = effectsOf(g.on_ignored_or_lost, { panic: whole(0), funding: z.int() });
+      if (!onWin.success || !onLost.success) {
         context.addIssue({ code: 'custom', message: 'Operation level consequences are not valid' });
         return z.NEVER;
       }
@@ -296,8 +326,8 @@ const schemas = {
         id: g.id,
         level: g.level,
         name: g.name,
-        onWin: onWin.data,
-        onIgnoredOrLost: { panicIncreasePct: onLost.data.panic_increase_pct, funding: onLost.data.funding },
+        onWin: { money: onWin.data.money ?? 0, funding: onWin.data.funding ?? 0 },
+        onIgnoredOrLost: { panicIncreasePct: onLost.data.panic ?? 0, funding: onLost.data.funding ?? 0 },
       };
     }),
   Lead: z
@@ -309,7 +339,7 @@ const schemas = {
       faction: id,
       required_progress: whole(1),
       requires: z.array(entries(z.unknown())),
-      on_completion: entries(z.unknown()),
+      on_completion: effectList,
     })
     .transform((g, context) => {
       const requires: { missionWon: string }[] = [];
@@ -321,12 +351,10 @@ const schemas = {
         }
         requires.push({ missionWon: only[1] });
       }
-      const [effect] = g.on_completion;
-      if (
-        g.on_completion.length !== 1 ||
-        effect?.[0] !== 'create_mission_site' ||
-        typeof effect[1] !== 'string'
-      ) {
+      // LEAD, Lead GDR validation, rule 7: exactly one Effect, of the Effect kind `create_mission_site`.
+      const effects = effectsOf(g.on_completion, { create_mission_site: id });
+      const created = effects.data?.create_mission_site;
+      if (!effects.success || g.on_completion.size !== 1 || created === undefined) {
         context.addIssue({ code: 'custom', message: 'Completion effect is valid' });
         return z.NEVER;
       }
@@ -338,7 +366,7 @@ const schemas = {
         faction: g.faction,
         requiredProgress: g.required_progress,
         requires,
-        onCompletion: { createMissionSite: effect[1] },
+        onCompletion: { createMissionSite: created },
       };
     }),
   InvestigationArchetype: z.strictObject({ id, type: z.literal('InvestigationArchetype'), name }),
@@ -365,18 +393,18 @@ const schemas = {
       kind: z.enum(['initiative', 'response']),
       expires_in_turns: whole(1),
       enemies: entries(whole(1)),
-      on_win: entries(z.unknown()).optional(),
+      on_win: effectList.optional(),
       operation_level: z.int().optional(),
     })
     .transform((g, context) => {
-      const onWin = z
-        .strictObject({
-          money: whole(0).optional(),
-          funding: whole(0).optional(),
-          panic_reduction_pct: whole(0).optional(),
-          eliminate_target_faction: z.boolean().optional(),
-        })
-        .safeParse(Object.fromEntries(g.on_win ?? []));
+      // MISSION, MissionSiteArchetype validation, rule 5: a Panic reduction is a `panic` Effect of at most 0, and an
+      // `eliminate_faction` Effect is always `true` (FACTION, Elimination).
+      const onWin = effectsOf(g.on_win ?? new Map(), {
+        money: whole(0),
+        funding: whole(0),
+        panic: z.int().max(0),
+        eliminate_faction: z.literal(true),
+      });
       if (!onWin.success || (g.kind === 'response' && g.on_win !== undefined)) {
         context.addIssue({ code: 'custom', message: 'Rewards only for Initiative' });
         return z.NEVER;
@@ -399,8 +427,8 @@ const schemas = {
         onWin: {
           money: onWin.data.money ?? 0,
           funding: onWin.data.funding ?? 0,
-          panicReductionPct: onWin.data.panic_reduction_pct ?? 0,
-          eliminateTargetFaction: onWin.data.eliminate_target_faction ?? false,
+          panicReductionPct: 0 - (onWin.data.panic ?? 0),
+          eliminateTargetFaction: onWin.data.eliminate_faction === true,
         },
         operationLevel: g.operation_level ?? null,
       };

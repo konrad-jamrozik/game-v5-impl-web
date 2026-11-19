@@ -1,4 +1,4 @@
-/** Acceptance examples of TIMELINE and the Turn report example of ENG. */
+/** Tests, from the former Acceptance examples, of TIMELINE and the Turn report example of ENG. */
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { CONTROLLER, expectOk, scriptedAi, startHarness, type Harness } from '../helpers/test-rules.ts';
@@ -40,7 +40,7 @@ describe('SAVES: Listing Campaign saves reports the Player actions of the saved 
   });
 });
 
-describe('TIMELINE: Acceptance examples', () => {
+describe('TIMELINE: examples', () => {
   it('Action undo and redo', async () => {
     const h = await fresh();
     const states = [h.state()];
@@ -438,7 +438,7 @@ describe('TIMELINE: Restored World states, as a property', () => {
   });
 });
 
-describe('ENG: Acceptance examples', () => {
+describe('ENG: examples', () => {
   it('Turn report and history', async () => {
     const h = await fresh();
     expect(expectOk(h.core.playerQuery(CONTROLLER, 'turnReport'))).toBeNull();

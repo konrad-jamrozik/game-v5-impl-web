@@ -1,4 +1,4 @@
-/** Acceptance examples of LIFE (Campaign Lifecycle), SAVES, and DETERM that need the engine. */
+/** Tests, from the former Acceptance examples, of LIFE (Campaign Lifecycle), SAVES, and DETERM that need the engine. */
 import { describe, expect, it } from 'vitest';
 import { MemoryStorage } from '../../src/engine/saves/storage.ts';
 import { CONTROLLER, expectOk, scriptedAi, startHarness, type Harness } from '../helpers/test-rules.ts';
@@ -6,7 +6,7 @@ import { CONTROLLER, expectOk, scriptedAi, startHarness, type Harness } from '..
 const status = (h: Harness) => expectOk(h.core.getStatus(CONTROLLER));
 const list = async (h: Harness) => expectOk(await h.core.listSaves(CONTROLLER));
 
-describe('LIFE: Acceptance examples', () => {
+describe('LIFE: examples', () => {
   it('Session without a Campaign', async () => {
     const h = await startHarness();
     expect(status(h).hasCurrentCampaign).toBe(false);
@@ -99,7 +99,7 @@ describe('LIFE: Acceptance examples', () => {
   });
 });
 
-describe('DETERM: Acceptance examples', () => {
+describe('DETERM: examples', () => {
   async function play(h: Harness, withNoise: boolean): Promise<unknown[]> {
     const states: unknown[] = [];
     const record = () => states.push(h.state());
@@ -207,7 +207,7 @@ describe('DETERM: Acceptance examples', () => {
   });
 });
 
-describe('SAVES: Acceptance examples', () => {
+describe('SAVES: examples', () => {
   it('Save and load', async () => {
     const h = await startHarness();
     expectOk(await h.core.createCampaign(CONTROLLER, { seed: 'A' }));

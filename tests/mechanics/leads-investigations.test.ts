@@ -1,4 +1,4 @@
-/** Acceptance examples of LEAD (Leads and Progression) and INVSTG (Investigations). */
+/** Tests, from the former Acceptance examples, of LEAD (Leads and Progression) and INVSTG (Investigations). */
 import { describe, expect, it } from 'vitest';
 import { effectiveSkill } from '../../src/engine/mechanics/agents/agents.ts';
 import {
@@ -25,6 +25,7 @@ import {
   agentIds,
   arriveAgent,
   catalogWith,
+  effect,
   expectDefective,
   expectRejected,
   gdrs,
@@ -116,7 +117,7 @@ function winLead(state: CampaignState, lead: string): CampaignState {
   });
 }
 
-describe('LEAD: Acceptance examples', () => {
+describe('LEAD: examples', () => {
   it('Campaign creation', () => {
     const state = newCampaign();
     // Leads add nothing to Campaign state.
@@ -336,7 +337,7 @@ describe('LEAD: Acceptance examples', () => {
         ...raw.get(SAFEHOUSE),
         id: 'test_lead',
         requires: [{ $entries: [['mission_won', 'raid_hq']] }],
-        on_completion: { $entries: [['create_mission_site', 'test_site']] },
+        on_completion: [effect('create_mission_site', 'test_site')],
       });
     });
     let state = withAgents(newCampaign({ money: 100_000, catalog }), 12);
@@ -430,9 +431,21 @@ describe('LEAD: Acceptance examples', () => {
     expectDefective((raw) => (raw.get(MEMBER)['required_progress'] = 0));
     expectDefective((raw) => (raw.get(MEMBER)['required_progress'] = { $decimal: '2.5' }));
     expectDefective((raw) => (raw.get(MEMBER)['difficulty'] = 3));
-    expectDefective((raw) => (raw.get(MEMBER)['on_completion'].$entries[0][1] = 'foil_sabotage'));
-    expectDefective((raw) => raw.get(MEMBER)['on_completion'].$entries.push(['second_effect', 1]));
-    expectDefective((raw) => (raw.get(MEMBER)['on_completion'].$entries[0][0] = 'create_mission'));
+    // Rule 7, Completion effect is valid: exactly one Effect, of the Effect kind `create_mission_site`, naming a
+    // MissionSiteArchetype of kind initiative, in a valid Effect list (EFFECT, Effect list format).
+    expectDefective((raw) => (raw.get(MEMBER)['on_completion'][0].$entries[0][1] = 'foil_sabotage'));
+    expectDefective((raw) => raw.get(MEMBER)['on_completion'].push(effect('money', 1)));
+    expectDefective((raw) => raw.get(MEMBER)['on_completion'].push(effect('create_mission_site', 'raid_hq')));
+    expectDefective((raw) => (raw.get(MEMBER)['on_completion'][0].$entries[0][0] = 'create_mission'));
+    expectDefective((raw) => raw.get(MEMBER)['on_completion'][0].$entries.push(['money', 1]));
+    expectDefective((raw) => (raw.get(MEMBER)['on_completion'] = []));
+    expectDefective((raw) => delete raw.get(MEMBER)['on_completion']);
+    expectDefective(
+      (raw) => (raw.get(MEMBER)['on_completion'] = { $entries: [['create_mission_site', 'raid_hq']] }),
+    );
+    expect(
+      catalogWith(() => undefined).leads.find((lead) => lead.id === MEMBER)?.onCompletion.createMissionSite,
+    ).toBe('apprehend_member');
     expectDefective(
       (raw) => (raw.get(SAFEHOUSE)['requires'] = [{ $entries: [['mission_lost', 'apprehend_member']] }]),
     );
@@ -440,7 +453,7 @@ describe('LEAD: Acceptance examples', () => {
   });
 });
 
-describe('INVSTG: Acceptance examples', () => {
+describe('INVSTG: examples', () => {
   const view = (state: CampaignState, id: string, catalog: GdrCatalog = gdrs) =>
     currentStateView(state, catalog).investigations.find((item) => item.id === id)!;
   const progressOf = (state: CampaignState, id: string) =>
@@ -966,6 +979,34 @@ describe('INVSTG: Acceptance examples', () => {
       assessed: true,
     });
     expect(sites(forward)).toHaveLength(1);
+  });
+
+  it('Mission sites of several completions follow the Investigations’ Instance IDs', () => {
+    // INVSTG, Independence within the step and Turn report; MISSION, Mission site Effect kind: the Mission sites are
+    // created, and the Turn report lists the Investigations, in the order of their Instance IDs, whatever their order
+    // in Campaign state.
+    const catalog = catalogWith((raw) => {
+      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l1', required_progress: 2 });
+      raw.add('leads-and-progression/leads.yaml', { ...raw.get(MEMBER), id: 'l2', required_progress: 2 });
+    });
+    let state = newCampaign({ catalog });
+    const [a1, a2] = agentIds(state) as [string, string];
+    state = start(state, 'l1', [a1], 2, catalog);
+    state = start(state, 'l2', [a2], 2, catalog);
+    const [first, second] = investigations(state).map((item) => item.id) as [string, string];
+    state = tweak(arrive(state), (world) => {
+      world.investigations[first]!.state.progress = 100;
+      world.investigations[second]!.state.progress = 100;
+      world.investigations = Object.fromEntries(Object.entries(world.investigations).reverse());
+    });
+    const next = advance(state, {}, catalog);
+    const origin = (id: string) => next.world.current.missionSites[id]?.constants.origin;
+    expect(origin('mission-site-1')).toEqual({ kind: 'Investigation', investigation: first });
+    expect(origin('mission-site-2')).toEqual({ kind: 'Investigation', investigation: second });
+    expect(turnReportView(next)?.investigations.map((item) => [item.investigation, item.completed])).toEqual([
+      [first, true],
+      [second, true],
+    ]);
   });
 
   it('An Investigation whose Faction is Eliminated', () => {

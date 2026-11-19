@@ -1,4 +1,4 @@
-/** Acceptance examples of ECON (Economy and Upgrades). */
+/** Tests, from the former Acceptance examples, of ECON (Economy and Upgrades). */
 import { describe, expect, it } from 'vitest';
 import { exhaustionOf } from '../../src/engine/mechanics/agents/agents.ts';
 import { contractingContribution, fundingAfter, income } from '../../src/engine/mechanics/economy/economy.ts';
@@ -39,7 +39,7 @@ const setMoney = (state: CampaignState, value: number, fund?: number) =>
     }
   });
 
-describe('ECON: Acceptance examples', () => {
+describe('ECON: examples', () => {
   it('Campaign creation', () => {
     const state = newCampaign();
     const view = agency(state);
@@ -105,6 +105,8 @@ describe('ECON: Acceptance examples', () => {
     expect(agency(state)).toMatchObject({ projectedIncome: 50, projectedUpkeep: 50 });
     state = advance(state);
     expect(money(state)).toBe(460);
+    // WHIST, Turn series, The current Turn from the Timeline: during Turn 4 the end-of-Turn Turn series has no value
+    // for the current Turn, so it holds 3 values.
     expect(series(state)).toEqual({ start: [500, 480, 460, 460], end: [500, 430, 460] });
     expect(agency(state).projectedIncome).toBe(80);
   });
