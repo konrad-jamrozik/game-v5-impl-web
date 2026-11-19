@@ -1,6 +1,6 @@
 /**
  * The Player API and Developer API actions other than Advance turn. Each validates every precondition against the
- * Committed state before it changes anything, so a rejected action changes nothing; each accepted action is one
+ * World state before it changes anything, so a rejected action changes nothing; each accepted action is one
  * Player action.
  */
 import { must } from '../../kernel/index.ts';
@@ -127,7 +127,7 @@ function requireInBase(agents: readonly Agent[]): Rejection | null {
 
 /**
  * The Investigations that members leave in one Player action, each with what INVSTG, Progress loss reads of the
- * Committed state in which the action is requested: the members At assignment and their effective skill.
+ * World state in which the action is requested: the members At assignment and their effective skill.
  */
 type Leaving = Map<string, ReadonlyMap<string, number>>;
 

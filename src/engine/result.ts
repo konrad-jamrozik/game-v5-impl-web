@@ -1,5 +1,5 @@
 /**
- * The result of every engine API operation. A failed operation changes nothing; see ENG, Committed state integrity.
+ * The result of every engine API operation. A failed operation changes nothing; see ENG, World state integrity.
  * The error representation is the Implementer's choice; see DEC-009.
  */
 export type ErrorCode =

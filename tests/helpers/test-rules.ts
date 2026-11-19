@@ -171,11 +171,11 @@ export const testRules: GameRules<TestState> = {
   },
   historyView: (state) => state.world.history.reports.map((report) => ({ turn: report.turn })),
   availableActionsView: () => ['gain', 'spend', 'roll', 'hire', 'advanceTurn'],
-  // The current Committed state under the Campaign configuration in force, so that tests can read it whole.
+  // The Current world state under the Campaign configuration in force, so that tests can read it whole.
   inspect: ({ states, position, configuration }) => {
     const state = states[position];
     if (state === undefined) {
-      throw new Error('The Timeline has no Committed state at its pointer');
+      throw new Error('The Timeline has no World state at its pointer');
     }
     return structuredClone({
       ...state,

@@ -15,16 +15,16 @@ export interface SaveHeader {
   readonly saveId: string;
   readonly campaignId: string;
   readonly kind: SaveKind;
-  /** The Turn the saved Committed state belongs to. */
+  /** The Turn the saved World state belongs to. */
   readonly turn: number;
   /**
-   * The number of Player actions from the start of that Turn to the saved Committed state; absent from a header that
+   * The number of Player actions from the start of that Turn to the saved World state; absent from a header that
    * an earlier Game build wrote.
    */
   readonly actions?: number;
   /** The Game build that wrote the Campaign save. */
   readonly gameBuild: string;
-  /** Identifies the saved Committed state on its line of play; see DEC-010. */
+  /** Identifies the saved World state on its line of play; see DEC-010. */
   readonly stamp: string;
   /** When the Campaign save was last written, as an ISO 8601 UTC time; not Campaign state, see SAVES. */
   readonly writtenAt: string;

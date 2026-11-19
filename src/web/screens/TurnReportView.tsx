@@ -3,7 +3,13 @@
  * holds, in four sections, with each Combat report one step away.
  */
 import type { ReactNode } from 'react';
-import type { CombatReport, CurrentStateView, MissionSiteView, TurnReport } from '../../engine/index.ts';
+import type {
+  CombatReport,
+  CurrentStateView,
+  MissionGrowthRecord,
+  MissionSiteView,
+  TurnReport,
+} from '../../engine/index.ts';
 import { combatLogRow } from '../combat-log.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
@@ -104,6 +110,7 @@ export function TurnReportView(props: {
       >
         <CombatReportDetails
           combat={shownCombat}
+          growth={mission?.growth ?? []}
           nameOf={(id) => labels.get(id) ?? id}
           levels={exhaustionLevels(snapshot.gameData)}
           logOpen={logOpen}
@@ -194,12 +201,14 @@ function Sections(props: {
   return (
     <>
       <Section title="Missions" count={report.missions.length} testId="report-missions">
-        <Grid widths={['200px', '200px', '96px', '170px', '208px', '150px']}>
+        <Grid widths={['200px', '200px', '96px', '170px', '208px', '120px', '150px']}>
           <tbody>
             {report.missions.map((mission) => {
               const combat = report.combatReports.find((item) => item.mission === mission.mission);
               const enemies = combat?.participants.filter((who) => who.side === 'enemy') ?? [];
               const dead = enemies.filter((who) => who.final.condition === 'dead').length;
+              // TRVIEW, Missions: the sum of the Mission skill gains of the survivors, e.g. "+176 skill".
+              const skillGained = mission.growth.reduce((sum, item) => sum + item.missionSkillGain, 0);
               return (
                 <tr key={mission.mission}>
                   <td>
@@ -223,6 +232,9 @@ function Sections(props: {
                   </td>
                   <td className="num">
                     Enemies dead {dead} / {enemies.length}
+                  </td>
+                  <td className="num" data-testid={`skill-gained-${mission.mission}`}>
+                    +{skillGained} skill
                   </td>
                   <td>
                     {combat === undefined ? null : (
@@ -320,11 +332,38 @@ const PARTICIPANT_WIDTHS = [
   '64px',
   '64px',
   '128px',
+  '128px',
 ];
 const LOG_WIDTHS = ['72px', '120px', '120px', '164px', '300px'];
 
+/**
+ * TRVIEW, Combat report: the Skill gained of one participant. A survivor shows its Mission skill gain and its parts,
+ * e.g. "+43 (13+30)" in Positive; a Killed Agent its combat skill gain struck through in Text muted, because it was
+ * never added; an Enemy nothing.
+ */
+function SkillGained(props: {
+  who: CombatReport['participants'][number];
+  growth: readonly MissionGrowthRecord[];
+}) {
+  const { who } = props;
+  if (who.side !== 'agent' || who.combatSkillGain === null) {
+    return null;
+  }
+  const gained = props.growth.find((item) => item.agent === who.id);
+  if (gained === undefined) {
+    return <s className="muted">+{who.combatSkillGain}</s>;
+  }
+  return (
+    <span className="tone-good">
+      +{gained.missionSkillGain} ({who.combatSkillGain}+{gained.survivalSkillGain})
+    </span>
+  );
+}
+
 function CombatReportDetails(props: {
   combat: CombatReport;
+  /** The Mission growth of this Combat's Mission, from the Turn report. */
+  growth: readonly MissionGrowthRecord[];
   /** How the participants table and the Combat log name a participant: an Agent by Instance ID, an Enemy by Enemy label. */
   nameOf: (id: string) => string;
   levels: ExhaustionLevels;
@@ -354,6 +393,7 @@ function CombatReportDetails(props: {
               <th className="num">Damage</th>
               <th className="num">Dealt</th>
               <th className="num">Taken</th>
+              <th className="num">Skill gained</th>
               <th>Condition</th>
             </tr>
           </thead>
@@ -408,6 +448,9 @@ function CombatReportDetails(props: {
                       )}
                     </td>
                     <td className="num">{combatantValueText(who.damageTakenHundredths, who.side)}</td>
+                    <td className="num" data-testid={`skill-gained-${who.id}`}>
+                      <SkillGained who={who} growth={props.growth} />
+                    </td>
                     <td className={killed ? 'tone-bad' : undefined}>
                       {killed ? 'Killed' : CONDITIONS[who.final.condition]}
                     </td>

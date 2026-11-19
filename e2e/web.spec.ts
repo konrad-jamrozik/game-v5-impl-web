@@ -171,7 +171,7 @@ test('the Autopilot controls leave the Turn to the Player and say why each engag
   await id(page, 'autopilot-single').click();
   await expect(id(page, 'autopilot-ended')).toHaveText('Autopilot has nothing more to do this Turn.');
   await expect(id(page, 'turn')).toHaveText('1');
-  // The line stays until the Committed state changes.
+  // The line stays until the World state changes.
   await id(page, 'undo').click();
   await expect(id(page, 'autopilot-ended')).toHaveCount(0);
   await id(page, 'redo').click();

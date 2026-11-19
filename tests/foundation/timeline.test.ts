@@ -310,7 +310,7 @@ describe('TIMELINE: Acceptance examples', () => {
     const { engagementId } = expectOk(await h.core.engage(CONTROLLER, 'x', { kind: 'singleAction' }));
     expectOk(await h.core.whenDisengaged(CONTROLLER, engagementId));
     const disengaged = h.state();
-    // At the Committed state it holds, the Disengagement Autosave is not a target.
+    // At the World state it holds, the Disengagement Autosave is not a target.
     expect(expectOk(await h.core.getAutosaveStatus(CONTROLLER)).redoToAutosave).toBeNull();
     expectOk(await h.core.undoAction(CONTROLLER));
     expect(expectOk(await h.core.getAutosaveStatus(CONTROLLER)).redoToAutosave).toMatchObject({
@@ -397,7 +397,7 @@ describe('TIMELINE: Acceptance examples', () => {
   });
 });
 
-describe('TIMELINE: Restored Committed states, as a property', () => {
+describe('TIMELINE: Restored World states, as a property', () => {
   it('any sequence of actions, undos, and redos restores equal Campaign state', async () => {
     await fc.assert(
       fc.asyncProperty(
@@ -406,7 +406,7 @@ describe('TIMELINE: Restored Committed states, as a property', () => {
         }),
         async (steps) => {
           const h = await fresh('property');
-          // model: the Committed states of the current Turn and the position among them
+          // model: the World states of the current Turn and the position among them
           let states = [h.state()];
           let position = 0;
           for (const step of steps) {

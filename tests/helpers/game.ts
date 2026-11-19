@@ -90,7 +90,7 @@ export function tryAct(
   return applyActionTo(state, { surface, name, args }, catalog);
 }
 
-/** Applies an action that must be accepted, and checks every invariant of the resulting Committed state. */
+/** Applies an action that must be accepted, and checks every invariant of the resulting World state. */
 export function act(
   state: CampaignState,
   name: string,

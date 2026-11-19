@@ -1,5 +1,5 @@
 /**
- * COMP (Compendium): Article visibility, a Derived value of the Committed state it is read in, never stored. No game
+ * COMP (Compendium): Article visibility, a Derived value of the World state it is read in, never stored. No game
  * behavior reads an Encyclopedia article, so nothing here changes Campaign state.
  */
 import type { CatalogEncyclopediaArticle, GdrCatalog } from '../../../gdr/index.ts';
@@ -23,7 +23,7 @@ export function articleVisible(
     return lead !== undefined && leadDiscovered(lead, world);
   };
   switch (article.subjectType) {
-    // AGENT, COMBAT, ECON, Player-visible information: in every Committed state.
+    // AGENT, COMBAT, ECON, Player-visible information: in every World state.
     case 'AgentArchetype':
     case 'EnemyArchetype':
     case 'Weapon':
@@ -42,7 +42,7 @@ export function articleVisible(
         Object.values(world.missionSites).some((site) => site.archetype === subject) ||
         gdrs.leads.some((lead) => lead.onCompletion.createMissionSite === subject && discovered(lead.id))
       );
-    // Player API reports these GDRs in every Committed state: `getGameData()`, with every BackgroundArtwork, and the
+    // Player API reports these GDRs in every World state: `getGameData()`, with every BackgroundArtwork, and the
     // Agency, Investigation, and Mission names, and the Panic limit of the current state.
     case 'AgentParameters':
     case 'CombatParameters':

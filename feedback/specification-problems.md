@@ -167,7 +167,7 @@
 - **Links:** DEC-025
 - **Resolution:** Resolved in 6fa83779f89dbd769da1a3193a3c8248d9483156, which the Implementation follows since this update.
 
-## PROB-013: No way for an interface to learn that the Committed state changed
+## PROB-013: No way for an interface to learn that the World state changed
 
 - **Category:** Implicit gap
 - **Severity:** Medium
@@ -268,7 +268,7 @@
 - **Category:** Implicit gap
 - **Severity:** Medium
 - **Affected specifications:** LEAD, Turn report: "holds the Leads discovered in it: every Lead that is discovered in
-  the Committed state that Advance turn commits and is not discovered in the Committed state before it, each by its
+  the World state that Advance turn commits and is not discovered in the World state before it, each by its
   GDR identifier."
 - **Description:** The list is Player-visible information and one Advance turn can discover several Leads, but no
   order is stated, so two Implementations can report the same Turn differently.
@@ -365,20 +365,20 @@
   chose, and VIS, Progress bars leaves out the value of the range, the Required progress or the greatest value, that
   the final Investigation progress would overlap. The Implementation now also leaves out the greatest value.
 
-## PROB-026: Which Autosave navigation loads when two targets hold the same Committed state
+## PROB-026: Which Autosave navigation loads when two targets hold the same World state
 
 - **Category:** Implicit gap
 - **Severity:** Medium
-- **Affected specifications:** TIMELINE, Autosave navigation: "Loads the target holding the earliest Committed state
-  that is later than the current Committed state." SAVES, Autosaves: Disengagement Autosave, "The Committed state in
+- **Affected specifications:** TIMELINE, Autosave navigation: "Loads the target holding the earliest World state
+  that is later than the Current world state." SAVES, Autosaves: Disengagement Autosave, "The World state in
   which the Autopilot engagement ended".
-- **Description:** The new Disengagement Autosave can hold the same Committed state as the Return Autosave, or as the
+- **Description:** The new Disengagement Autosave can hold the same World state as the Return Autosave, or as the
   Engagement Autosave when the Autopilot AI committed nothing, and nothing says which of two such targets
   `redoToAutosave()` and `undoToAutosave()` load. They differ in their Timeline and Autopilot memory.
 - **Links:** DEC-044
 - **Resolution:** Resolved in ef784eef02d431975327f0a09fd25cebb3e52659, which the Implementation follows since this update: TIMELINE,
   Autosave navigation, Equal targets, now loads the Return Autosave when it is one of two targets holding equal
-  Committed states, as DEC-044 chose, and leaves the choice between two other such targets to the Implementer.
+  World states, as DEC-044 chose, and leaves the choice between two other such targets to the Implementer.
 
 ## PROB-027: The Main menu cannot tell which Campaign save is the most recent
 
@@ -499,8 +499,8 @@
   Action navigation: each navigation operation "changes nothing but the Timeline pointer".
 - **Description:** Since Campaign state holds the Timeline and its Timeline pointer, an undo changes complete Campaign
   state: the Timeline pointer moves and the undone action becomes an Undone action. Complete Campaign state after an
-  undo therefore never equals the original result at that Committed state, which had no Undone action; the example
-  holds for the current Committed state, the History, the Turn report, and the Campaign configuration.
+  undo therefore never equals the original result at that World state, which had no Undone action; the example
+  holds for the Current world state, the History, the Turn report, and the Campaign configuration.
 - **Links:** DEC-057
 - **Resolution:** Open
 

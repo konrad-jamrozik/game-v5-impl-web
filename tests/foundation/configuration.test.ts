@@ -181,7 +181,7 @@ describe('CONFIG: Changing Campaign configuration during play', () => {
       undoneActions: 0,
     });
     expect(h.state().configuration.multiplier).toBe(3);
-    // Undo and redo move only the Timeline pointer: the change stays, and redo reaches the Committed state as it was.
+    // Undo and redo move only the Timeline pointer: the change stays, and redo reaches the World state as it was.
     expectOk(await h.core.undoAction(CONTROLLER));
     expect(h.state().configuration.multiplier).toBe(3);
     expectOk(await h.core.redoAction(CONTROLLER));

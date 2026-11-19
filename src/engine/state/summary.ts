@@ -1,6 +1,6 @@
 import { isServing, type CurrentWorldState, type StateSummary } from './types.ts';
 
-/** The reduced form of one Committed state that a History entry keeps; see DEC-016. */
+/** The reduced form of one World state that a History entry keeps; see DEC-016. */
 export function summarize(world: CurrentWorldState): StateSummary {
   return {
     money: world.agency.state.money,

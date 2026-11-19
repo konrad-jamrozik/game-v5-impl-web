@@ -32,8 +32,8 @@ export function disengagementLine(result: DisengagementResult): string {
   );
 }
 
-/** Identifies the current Committed state well enough to tell that it changed. */
-function committedStateKey(snapshot: Snapshot): string {
+/** Identifies the Current world state well enough to tell that it changed. */
+function worldStateKey(snapshot: Snapshot): string {
   const { status, timeline } = snapshot;
   return [status.campaignId, status.turn, timeline?.timelineEntries, timeline?.undoneActions].join('/');
 }
@@ -57,10 +57,10 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
           ? 'No Autopilot AI.'
           : null;
 
-  // The end-of-engagement line stays until Autopilot is engaged again or the Committed state changes.
+  // The end-of-engagement line stays until Autopilot is engaged again or the World state changes.
   const finished =
     active === null && snapshot.autopilot?.status === 'ended' ? snapshot.autopilot.disengagement : null;
-  const here = committedStateKey(snapshot);
+  const here = worldStateKey(snapshot);
   const [line, setLine] = useState<{ id: string; at: string; open: boolean } | null>(null);
   useEffect(() => {
     if (finished === null) {

@@ -101,9 +101,13 @@ function winLead(state: CampaignState, lead: string): CampaignState {
   next = act(arrive(next), 'deployAgents', { missionSite: site, agents: ids });
   next = advance(next, winning(next, site));
   expect(next.world.current.missions[missionAt(next, site)]!.state.lifecycle).toBe('Won');
+  // The examples read fresh Agents, so the base skill and Experience the Mission gave under AGENT, Mission growth, are
+  // set back with health and exhaustion.
   return tweak(arrive(next), (world) => {
     for (const item of Object.values(world.agents)) {
       if (isServing(item.state)) {
+        item.state.skillHundredths = 10000;
+        item.state.experience = 0;
         item.state.currentHealthHundredths = item.state.baseHealth * 100;
         item.state.exactExhaustionHundredths = 0;
         item.state.assignment = { kind: 'Standby' };

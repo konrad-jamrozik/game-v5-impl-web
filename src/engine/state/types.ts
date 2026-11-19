@@ -60,6 +60,8 @@ export interface AgentState {
   status: AgentStatus;
   /** AGENT, Agent properties: base skill, a Decimal quantity held in hundredths; see NUMBERS, Decimal quantities. */
   skillHundredths: number;
+  /** AGENT, Agent properties: Experience, the base skill gained from Missions; only Mission growth changes it. */
+  experience: number;
   /** Current health, a Decimal quantity held in hundredths. */
   currentHealthHundredths: number;
   baseHealth: number;
@@ -208,6 +210,8 @@ export interface CombatParticipantReport {
   };
   readonly damageDealtHundredths: number;
   readonly damageTakenHundredths: number;
+  /** COMBAT, Combat skill gain: an Agent's, a whole number of at least 0; absent for an Enemy, which has none. */
+  readonly combatSkillGain: number | null;
 }
 
 export interface AttackRecord {
@@ -299,7 +303,19 @@ export interface MissionResultRecord {
   readonly toRecovery: readonly string[];
   /** Survivors sent to Standby. */
   readonly toStandby: readonly string[];
+  /** MISSION, Turn report, and AGENT, Mission growth: what each survivor gained, in the order of the Current team. */
+  readonly growth: readonly MissionGrowthRecord[];
   readonly consequence: ConsequenceRecord;
+}
+
+/** AGENT, Mission growth: one survivor's gains from one Mission and its values after them. */
+export interface MissionGrowthRecord {
+  readonly agent: string;
+  readonly survivalSkillGain: number;
+  readonly missionSkillGain: number;
+  /** Base skill after the gain, in hundredths. */
+  readonly skillAfterHundredths: number;
+  readonly experienceAfter: number;
 }
 
 /** INVSTG, Turn report: one Investigation completed in an Advance turn. */
@@ -394,7 +410,7 @@ export interface TurnReport {
   } | null;
 }
 
-/** A reduced form of one Committed state, kept in a History entry. */
+/** A reduced form of one World state, kept in a History entry. */
 export interface StateSummary {
   readonly money: number;
   readonly funding: number;
@@ -458,7 +474,7 @@ export interface HistoryEntry {
 
 /**
  * WHIST, Open History entry: the History entry the current Turn would get if Advance turn ended it at the current
- * Committed state, without the Turn report part. It is a Derived value, never stored: `turnStart` and `actions` are
+ * World state, without the Turn report part. It is a Derived value, never stored: `turnStart` and `actions` are
  * `currentTurnStart` and `currentActions` of World history, and `turnEnd` is the reduced form of the current state.
  */
 export interface OpenHistoryEntry {

@@ -1,6 +1,6 @@
 /**
  * The bridge between React and the engine. The engine is the only owner of game state; this module caches the
- * results of its queries for one revision so that every component renders the same Committed state, and it reports
+ * results of its queries for one revision so that every component renders the same World state, and it reports
  * the outcome of each operation as a notice. It implements no gameplay rule.
  */
 import { useSyncExternalStore } from 'react';

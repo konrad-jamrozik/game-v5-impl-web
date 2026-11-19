@@ -4,18 +4,18 @@ import type { ActionRecord, GameRules, ShellState } from '../rules.ts';
 
 /**
  * One Campaign as a Session holds it: its Campaign ID, the Timeline of the current Turn with its Timeline pointer,
- * and the stamps that order its Committed states on the line of play; see TIMELINE and DEC-010.
+ * and the stamps that order its World states on the line of play; see TIMELINE and DEC-010.
  *
- * `states[i]` is the Committed state after `i` Timeline entries, and `states[0]` is the Turn-start state. The
- * Timeline pointer is `position`: the current Committed state is `states[position]`, and the Timeline entries from
+ * `states[i]` is the World state after `i` Timeline entries, and `states[0]` is the Turn-start state. The
+ * Timeline pointer is `position`: the Current world state is `states[position]`, and the Timeline entries from
  * `position` on are the Undone actions.
  *
- * `configuration` is the Campaign configuration in force. Each Committed state holds the Campaign configuration it
+ * `configuration` is the Campaign configuration in force. Each World state holds the Campaign configuration it
  * was produced under, which a later change never rewrites; see CONFIG, Changing Campaign configuration during play.
  */
 export interface CampaignRuntime<S extends ShellState> {
   readonly campaignId: string;
-  /** The stamps of every Committed state of earlier Turns on this line of play, in order. */
+  /** The stamps of every World state of earlier Turns on this line of play, in order. */
   pastStamps: string[];
   states: S[];
   entries: ActionRecord[];
@@ -44,7 +44,7 @@ export function newCampaignRuntime<S extends ShellState>(
 export function currentState<S extends ShellState>(campaign: CampaignRuntime<S>): S {
   const state = campaign.states[campaign.position];
   if (state === undefined) {
-    throw new EngineDefect('The Timeline has no Committed state at its position');
+    throw new EngineDefect('The Timeline has no World state at its position');
   }
   return state;
 }
@@ -57,7 +57,7 @@ export function currentStamp<S extends ShellState>(campaign: CampaignRuntime<S>)
   return stamp;
 }
 
-/** The stamps of every Committed state from creation up to and including the current one. */
+/** The stamps of every World state from creation up to and including the current one. */
 export function ancestorStamps<S extends ShellState>(campaign: CampaignRuntime<S>): string[] {
   return [...campaign.pastStamps, ...campaign.stamps.slice(0, campaign.position + 1)];
 }
@@ -111,7 +111,7 @@ export interface SavedCampaign<S extends ShellState> {
   readonly position: number;
   /**
    * The Campaign configuration in force; absent in a Campaign save written before it was kept, whose Campaign
-   * configuration is then that of its saved Committed state.
+   * configuration is then that of its saved World state.
    */
   readonly configuration?: Readonly<Record<string, number>>;
 }

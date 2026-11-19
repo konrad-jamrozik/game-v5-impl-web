@@ -1,5 +1,5 @@
 /**
- * The Player-visible views that Player API returns. Each view is built anew from the Committed state it is asked
+ * The Player-visible views that Player API returns. Each view is built anew from the World state it is asked
  * for, so it is detached and always equals what the current Campaign state gives; see ENG, Derived value
  * consistency. No view reads a hidden value.
  */
@@ -101,6 +101,7 @@ function agentView(agent: Agent, gdrs: GdrCatalog, healthRecoveryPctHundredths: 
     turnHired: agent.constants.turnHired,
     agentStatus: s.status,
     skillHundredths: s.skillHundredths,
+    experience: s.experience,
     effectiveSkill: effectiveSkill(s, gdrs.agentParameters),
     currentHealthHundredths: s.currentHealthHundredths,
     baseHealth: s.baseHealth,
@@ -808,8 +809,7 @@ function historyOf(state: CampaignState): unknown {
 /**
  * `developer.queries.getCampaignState()`: Campaign state in full, detached, in its conceptual hierarchy, with each
  * Campaign instance as its four properties; see CSTATE, Campaign state composition, DEV, Inspection contract, and
- * DEC-019. The Timeline holds a World state for each of its Committed states, each with the Player action that
- * produced it.
+ * DEC-019. The Timeline holds its World states, each after the first with the Player action that produced it.
  */
 export function inspectCampaignState(timeline: {
   readonly states: readonly CampaignState[];
@@ -818,10 +818,7 @@ export function inspectCampaignState(timeline: {
   readonly configuration: Readonly<Record<string, number>>;
 }): unknown {
   const turnStart = must(timeline.states[0], 'The Timeline has no Turn-start state');
-  const current = must(
-    timeline.states[timeline.position],
-    'The Timeline has no Committed state at its pointer',
-  );
+  const current = must(timeline.states[timeline.position], 'The Timeline has no World state at its pointer');
   return deepFreeze(
     detach({
       timeline: {
@@ -829,7 +826,7 @@ export function inspectCampaignState(timeline: {
         timelineEntries: timeline.entries.map((entry, index) => ({
           playerAction: entry,
           worldState: inspectWorldState(
-            must(timeline.states[index + 1], 'The Timeline has no Committed state for an entry'),
+            must(timeline.states[index + 1], 'The Timeline has no World state for an entry'),
           ),
         })),
       },
@@ -841,7 +838,7 @@ export function inspectCampaignState(timeline: {
   );
 }
 
-/** SAVES, Saving: the World state of a Committed state, the History, and the Turn report. */
+/** SAVES, Saving: the World state, the History, and the Turn report. */
 export function placeInPlay(state: CampaignState): unknown {
   return {
     worldState: state.world.current,

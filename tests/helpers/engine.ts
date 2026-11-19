@@ -83,7 +83,7 @@ export function inspect(engine: Engine): any {
   return state;
 }
 
-/** The World state of the current Committed state, i.e. the one the Timeline pointer is on, from full inspection. */
+/** The Current world state, i.e. the World state the Timeline pointer is on, from full inspection. */
 export function currentWorld(state: any): any {
   const pointer = state.timelinePointer as number;
   return pointer === 0
@@ -91,7 +91,7 @@ export function currentWorld(state: any): any {
     : state.timeline.timelineEntries[pointer - 1].worldState;
 }
 
-/** The Live world state of the current Committed state, through Developer API. */
+/** The Live world state of the Current world state, through Developer API. */
 export function liveWorld(engine: Engine): any {
   return currentWorld(inspect(engine)).liveWorldState;
 }

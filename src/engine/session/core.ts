@@ -157,7 +157,7 @@ export interface SaveListEntry {
   readonly turn: number;
   /**
    * SAVES, Listing Campaign saves: the number of Player actions that lead from the start of that Turn to the saved
-   * Committed state, not counting Advance turn or any Undone action.
+   * World state, not counting Advance turn or any Undone action.
    */
   readonly actions: number;
   /** When the Campaign save was last written, as an ISO 8601 UTC time; see SAVES, Listing Campaign saves. */
@@ -699,7 +699,7 @@ export class EngineCore<S extends ShellState> {
     return ok(requested);
   }
 
-  /** The current Committed state under the Campaign configuration in force, which the Game rules read. */
+  /** The Current world state under the Campaign configuration in force, which the Game rules read. */
   private present(campaign: CampaignRuntime<S>): S {
     return this.rules.withConfiguration(currentState(campaign), campaign.configuration);
   }
@@ -1019,7 +1019,7 @@ export class EngineCore<S extends ShellState> {
 
   /**
    * The Campaign save that `save()` wrote of this Campaign and that holds an equal place in play, if any: an equal
-   * saved Committed state, History, and Turn report; see SAVES, Saving. Equal Committed states belong to the same
+   * saved World state, History, and Turn report; see SAVES, Saving. Equal World states belong to the same
    * Turn, so only Campaign saves of the current Turn are compared. A Campaign save holding the very same Committed
    * state, i.e. the same stamp, is equal without reading it; any other is read and compared value by value. A
    * Campaign save that cannot be read or loaded is not equal.
@@ -1232,7 +1232,7 @@ export class EngineCore<S extends ShellState> {
       }
       const index = ancestors.lastIndexOf(header.stamp);
       if (index >= 0) {
-        // Of two targets holding the same Committed state, the Furthest progress Autosave is loaded; see TIMELINE, Autosave
+        // Of two targets holding the same World state, the Furthest progress Autosave is loaded; see TIMELINE, Autosave
         // navigation, Equal targets.
         if (index > earlierIndex || (index === earlierIndex && header.kind === 'furthestProgressAutosave')) {
           earlier = header;
@@ -1245,7 +1245,7 @@ export class EngineCore<S extends ShellState> {
         if (header.kind === 'furthestProgressAutosave') {
           laterReturn = true;
         }
-        // Of two targets holding the same Committed state, the Furthest progress Autosave is loaded; see TIMELINE, Autosave
+        // Of two targets holding the same World state, the Furthest progress Autosave is loaded; see TIMELINE, Autosave
         // navigation, Equal targets.
         if (
           line.length < laterLength ||
@@ -1646,8 +1646,8 @@ export class EngineCore<S extends ShellState> {
   }
 
   /**
-   * Ends the Autopilot engagement and writes the Disengagement Autosave of the Committed state it ended in; see
-   * SAVES, Autosaves. The Committed state is captured at once; the returned promise settles when the Autosave is
+   * Ends the Autopilot engagement and writes the Disengagement Autosave of the World state it ended in; see
+   * SAVES, Autosaves. The World state is captured at once; the returned promise settles when the Autosave is
    * written, and the next operation waits for it, so that a caller that cannot wait still sees it written.
    */
   private endEngagement(

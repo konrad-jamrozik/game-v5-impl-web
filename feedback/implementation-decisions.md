@@ -137,20 +137,20 @@
 - **Affected specifications:** SCHEMA, Suggested approach: "In memory, share what did not change"; "In a Campaign
   save, store the Turn-start state and the Player actions". SCHEMA, Replay: "the Campaign configuration changes made
   during the Turn are stored with the Timeline entries they preceded".
-- **Description:** Used as is, for everything the document suggests. In memory each Committed state of the current
+- **Description:** Used as is, for everything the document suggests. In memory each World state of the current
   Turn is an immutable value produced by Immer that shares its unchanged parts with the one before it. A Campaign
   save holds the Turn-start state, the ordered Timeline entries, the Timeline pointer as the number of entries that
   are not Undone actions, and the Campaign configuration in force; a Timeline entry committed under a Campaign
-  configuration that a change made differ from that of the Committed state before it holds that configuration, and
-  loading rebuilds the other Committed states by replay, each entry under its own. Each Committed state keeps the
+  configuration that a change made differ from that of the World state before it holds that configuration, and
+  loading rebuilds the other World states by replay, each entry under its own. Each World state keeps the
   Campaign configuration it was produced under; the Session keeps the one in force beside the Timeline. The History
-  and the Turn report are kept inside each Committed state, so a Campaign save holds them in its Turn-start state and
+  and the Turn report are kept inside each World state, so a Campaign save holds them in its Turn-start state and
   replay reproduces them. Game storage holds no copy of a GDR. The Current Autosave is rewritten whole after every
   change, with the encoded Turn-start state reused between writes, and Autosaves share no stored data with each other.
   DEC-023 states the physical layout, which the document leaves as a TODO. Until specification revision
   44c112e3731ec5d173c4eddb7956c4a46dbf46c5 removed Autopilot memory, a Campaign save also held the Autopilot memory
-  written at each Committed state; a Campaign save written then still loads, its Autopilot memory ignored and its
-  Campaign configuration taken from its saved Committed state, because the Campaign state it holds and the rules its
+  written at each World state; a Campaign save written then still loads, its Autopilot memory ignored and its
+  Campaign configuration taken from its saved World state, because the Campaign state it holds and the rules its
   Timeline entries replay under are unchanged.
 - **Options considered:** Full copies; patches; replay with shared in-memory states.
 - **Option chosen:** Replay with shared in-memory states, as suggested.
@@ -161,7 +161,7 @@
 
 - **Category:** Asked by the specifications
 - **Affected specifications:** ENG, API hierarchy: "exact signatures, argument Types, and results are the
-  implementer's choice". ENG, Committed state integrity: "Exact error representations and asynchronous operation
+  implementer's choice". ENG, World state integrity: "Exact error representations and asynchronous operation
   results are the implementer's choice."
 - **Description:** Every operation returns a result object that is either a success with a value or a failure with one
   error code, a message holding only Player-visible information, and, for a rejected gameplay action, a stable reason
@@ -181,18 +181,18 @@
   mistaken for a defect.
 - **Links:** None.
 
-## DEC-010: Campaign save encoding, Autosave identifiers, and the order of Committed states
+## DEC-010: Campaign save encoding, Autosave identifiers, and the order of World states
 
 - **Category:** Asked by the specifications
 - **Affected specifications:** SAVES, Campaign save contents: "How a Campaign save is encoded and stored is the
-  Implementer's choice." TIMELINE, Autosave navigation: "A Committed state is later than another Committed state of
+  Implementer's choice." TIMELINE, Autosave navigation: "A World state is later than another World state of
   the same Campaign when one or more Player actions lead from the other to it".
 - **Description:** A Campaign save is one JSON text with a format number, the Game build identifier, and the time it
   was last written, an ISO 8601 UTC time taken from the host's clock and kept beside the Campaign state. The Game
   build identifier is the package version joined with a hash of the GDRs; a Campaign save whose identifier differs is
-  rejected as Incompatible Game build. Each Committed state reached by a Player action receives a stamp, an
-  Independent identifier, and a Campaign save holds the stamps of every Committed state from campaign creation to the
-  saved one. Committed state A is earlier than B exactly when the stamp of A is among the stamps leading to B. Stamps
+  rejected as Incompatible Game build. Each World state reached by a Player action receives a stamp, an
+  Independent identifier, and a Campaign save holds the stamps of every World state from campaign creation to the
+  saved one. World state A is earlier than B exactly when the stamp of A is among the stamps leading to B. Stamps
   are kept beside the Timeline and are not Campaign state. The Current, Engagement, and Return Autosaves of a
   Campaign each have one fixed Campaign save ID derived from the Campaign ID, and a Turn-end Autosave has one derived
   from the Campaign ID and its Turn, so writing one replaces the earlier one. The package version changes whenever
@@ -200,8 +200,8 @@
   for specification commits 0558ca9bc3c3126195925e66217f6d6174f6b368 and 59ccadfc6728d372f5eadb01026ff2d22256c11e,
   which ended re-routing and added the Action record.
 - **Options considered:** Comparing Turn numbers and action counts; a hash chain of actions; a stamp for each
-  Committed state.
-- **Option chosen:** A stamp for each Committed state.
+  World state.
+- **Option chosen:** A stamp for each World state.
 - **Why:** It distinguishes lines of play exactly, including after a Campaign save of another line of play is loaded,
   and costs a few bytes for each Player action.
 - **Links:** None.
@@ -566,7 +566,7 @@
   Campaign state, return no game value, and are not given to an Autopilot AI.
 - **Options considered:** An adapter that polls the queries on a timer; a change notification.
 - **Option chosen:** A change notification.
-- **Why:** During an Autopilot engagement the Committed state changes without a call from the interface, and an
+- **Why:** During an Autopilot engagement the World state changes without a call from the interface, and an
   interface has to show each change.
 - **Links:** PROB-013
 
@@ -600,7 +600,7 @@
 ## DEC-028: Error codes and results of operations the specifications leave open
 
 - **Category:** Asked by the specifications
-- **Affected specifications:** ENG, Committed state integrity: "Exact error representations and asynchronous operation
+- **Affected specifications:** ENG, World state integrity: "Exact error representations and asynchronous operation
   results are the implementer's choice."
 - **Description:** The error codes are `no_current_campaign`, `unauthorized`, `autopilot_active`,
   `dev_mode_disabled`, `engagement_ended`, `invalid_input`, `rejected`, `campaign_ended`, `no_target`,
@@ -720,7 +720,7 @@
 
 - **Category:** Gap resolution
 - **Affected specifications:** LEAD, Turn report: "holds the Leads discovered in it: every Lead that is discovered in
-  the Committed state that Advance turn commits and is not discovered in the Committed state before it, each by its
+  the World state that Advance turn commits and is not discovered in the World state before it, each by its
   GDR identifier."
 - **Description:** The Turn report and the History entry list the Leads discovered in an Advance turn in the order of
   the Lead GDRs in the Game build's catalog.
@@ -774,7 +774,10 @@
   `exhaustion_per_contracting_turn` 1, `exhaustion_per_training_turn` 1, `exhaustion_per_investigation_turn` 1,
   `exhaustion_work_start_max` 30, `exhaustion_work_limit` 70, and `training_skill_gain_per_turn` 1. It stopped
   copying the specifications' file until Specification revision 91fc82bff04323b75d171653db7f0f63f7449f73 gave that
-  file exactly these properties and values; since then the Implementation copies it again.
+  file exactly these properties and values; since then the Implementation copies it again, and with it the
+  properties of Mission growth that Specification revision 7985a451a43f4fcaba960b80ca50d8d888cc9cd0 added:
+  `skill_gain_per_attack_hit` 4, `skill_gain_per_attack_miss` 2, `skill_gain_per_defense_hit` 1,
+  `skill_gain_per_defense_miss` 2, and `skill_gain_per_mission_survived` [30, 25, 20, 15].
 - **Options considered:** Copy the specifications' YAML file unchanged; take the values the Acceptance examples and
   BOOT state.
 - **Option chosen:** The values the Acceptance examples and BOOT state.
@@ -888,21 +891,21 @@
   and a later change to `lib/globe/` is applied by copying the files again.
 - **Links:** None.
 
-## DEC-044: Autosave navigation prefers the Return Autosave among targets with the same Committed state
+## DEC-044: Autosave navigation prefers the Return Autosave among targets with the same World state
 
 - **Category:** Gap resolution
-- **Affected specifications:** TIMELINE, Autosave navigation: "Loads the target holding the earliest Committed state
-  that is later than the current Committed state."
-- **Description:** When two targets of Autosave navigation hold the same Committed state, `redoToAutosave()` and
+- **Affected specifications:** TIMELINE, Autosave navigation: "Loads the target holding the earliest World state
+  that is later than the Current world state."
+- **Description:** When two targets of Autosave navigation hold the same World state, `redoToAutosave()` and
   `undoToAutosave()` load the Return Autosave if it is one of them, so that the last `redoToAutosave()` loads the
   Return Autosave as TIMELINE's acceptance example expects. Between the Engagement Autosave and the Disengagement
-  Autosave of an engagement that committed nothing, which one is loaded does not change the Committed state reached.
+  Autosave of an engagement that committed nothing, which one is loaded does not change the World state reached.
 - **Options considered:** Preferring the Return Autosave; preferring the most recently written target.
 - **Option chosen:** Preferring the Return Autosave.
 - **Why:** The Return Autosave holds the line of play the Player left by going back, including its Undone actions,
   which is what redo across Turns exists to restore.
 - **Superseded in part:** Specification revision ef784eef02d431975327f0a09fd25cebb3e52659 states, under TIMELINE, Autosave navigation,
-  Equal targets, that the Return Autosave is loaded when it is one of two targets holding equal Committed states, for
+  Equal targets, that the Return Autosave is loaded when it is one of two targets holding equal World states, for
   `undoToAutosave()` as for `redoToAutosave()`, so that part is now conformance. Between two other such targets, e.g.
   the Engagement and Disengagement Autosaves of an engagement that committed nothing, which one is loaded remains this
   decision: the one found first.
@@ -913,12 +916,12 @@
 - **Category:** Gap resolution
 - **Affected specifications:** COMP, Encyclopedia article GDR validation: "Subject exists: A `subject` identifies a
   GDR of the Game build whose Type is not EncyclopediaArticle." COMP, Article visibility: "Its subject is
-  Player-visible in that Committed state".
+  Player-visible in that World state".
 - **Description:** A `subject` that identifies GDRs of more than one Type other than EncyclopediaArticle fails rule 4,
   Subject exists, so every article has one subject and one subject Type. For a subject Type that COMP's informative
   table does not list, the article follows what Player API reports: it is always Player-visible for a parameter GDR,
   FactionActivityLevel, FactionOperationLevel, AgencyArchetype, InvestigationArchetype, or MissionArchetype, which
-  Player API reports in every Committed state, and never for CampaignConfiguration or ConfigurationParameters, which
+  Player API reports in every World state, and never for CampaignConfiguration or ConfigurationParameters, which
   no Player-visible value includes. No Bootstrap article has such a subject.
 - **Options considered:** Rejecting an ambiguous subject; taking the first GDR in Game build order.
 - **Option chosen:** Rejecting an ambiguous subject.
@@ -934,7 +937,7 @@
   filters: the filter toggle "shows only the Serving Agents that the button would succeed with if that Agent alone
   were selected".
 - **Description:** Two queries are added to `player.queries`. `previewAssignAgents(agents, assignment)` returns
-  whether `assignAgents` would accept those Agents and that Assignment in the current Committed state, with the
+  whether `assignAgents` would accept those Agents and that Assignment in the Current world state, with the
   rejection reason and message when it would not, and changes nothing. `previewAssignAgentsAlone()` reports, for each
   of Standby, Contracting, and Training, the Agents that `assignAgents` would accept on their own. It is a query of its
   own rather than part of `getAvailableActions()`, because it tries the action once per Agent and Assignment and an
@@ -1016,7 +1019,7 @@
 - **Category:** Conflict resolution
 - **Affected specifications:** WHIST, Action record, Kept during the Turn; DEV, full Campaign state inspection.
 - **Description:** The Action record of the current Turn is kept in World history as `currentActions`, which undo,
-  redo, and load restore with the rest of the Committed state, but no query returns it, not even Developer
+  redo, and load restore with the rest of the World state, but no query returns it, not even Developer
   inspection. Every History entry's Action record is returned in full by `getHistory()` and by inspection.
 - **Options considered:** Inspection returning it as part of full Campaign state; no query returning it.
 - **Option chosen:** No query returning it.
@@ -1122,19 +1125,38 @@
   an Enemy's value in hundredths is still exactly its whole value.
 - **Links:** Specification revision 349ab4a4b2d9527ce37d2261cc36cfb26bd3b724.
 
-## DEC-057: Undo and redo are checked against the current Committed state, not complete Campaign state
+## DEC-057: Undo and redo are checked against the Current world state, not complete Campaign state
 
 - **Category:** Conflict resolution
 - **Affected specifications:** TIMELINE, Acceptance examples, Action undo and redo; CSTATE, Campaign state
   composition; TIMELINE, Action navigation.
 - **Description:** The tests of undo and redo, e.g. the property test in `tests/engine/campaign.test.ts`, require
-  that after each undo and redo the current Committed state, the History, the Turn report, and the Campaign
+  that after each undo and redo the Current world state, the History, the Turn report, and the Campaign
   configuration equal those first reached there, and leave the rest of the Timeline, i.e. its Undone actions and
   its Timeline pointer, out of the comparison. Tests that compare two Campaigns played by the same Player actions
   still compare complete Campaign state, Timeline included.
 - **Options considered:** Comparing complete Campaign state, which the rules make impossible after an undo; comparing
-  what Returning to a Committed state guarantees.
-- **Option chosen:** Comparing what Returning to a Committed state guarantees.
-- **Why:** TIMELINE, Returning to a Committed state, states the guarantee, and an undo is defined to change the
+  what Returning to a World state guarantees.
+- **Option chosen:** Comparing what Returning to a World state guarantees.
+- **Why:** TIMELINE, Returning to a World state, states the guarantee, and an undo is defined to change the
   Timeline pointer, which complete Campaign state now holds.
 - **Links:** PROB-035
+
+## DEC-058: Where the Combat report and the Turn report hold Mission growth
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** COMBAT, Combat report: "How the Turn report organizes its Combat reports is left to
+  the implementation."; MISSION, Turn report; AGENT, Mission growth; TRVIEW, Combat report.
+- **Description:** Each participant of a Combat report has a `combatSkillGain`: a whole number for an Agent, Killed
+  or not, and `null` for an Enemy, which has none. Each Mission resolved in the Turn report has a `growth` list with
+  one entry per survivor, in the order of its Current team, holding its survival skill gain, its Mission skill gain,
+  and its base skill, in hundredths, and Experience after them; a Killed Agent has no entry. The Turn Report View's
+  Skill gained column reads a survivor's Mission skill gain and survival skill gain from that list and its combat
+  skill gain from the Combat report, and shows a Killed Agent's combat skill gain struck through. The Save format
+  number moved from 8 to 9, because a Save of the earlier format holds Agents without Experience.
+- **Options considered:** A separate growth record beside the Combat reports; the growth inside each Mission
+  resolved, beside its Killed Agents and survivors.
+- **Option chosen:** The growth inside each Mission resolved.
+- **Why:** MISSION, Turn report, lists the gains with the rest of what resolving the Mission did, and the Combat
+  report already holds the combat skill gain, so nothing is held twice.
+- **Links:** Specification revision 7985a451a43f4fcaba960b80ca50d8d888cc9cd0.

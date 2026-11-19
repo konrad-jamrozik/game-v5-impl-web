@@ -28,6 +28,13 @@ export interface AgentParametersGdr {
   readonly exhaustionWorkLimit: number;
   /** A Decimal quantity, in hundredths; see NUMBERS, Decimal quantities. */
   readonly trainingSkillGainPerTurnHundredths: number;
+  /** COMBAT, Combat skill gain: the amounts per attack, by the Agent's part in it and its hit outcome. */
+  readonly skillGainPerAttackHit: number;
+  readonly skillGainPerAttackMiss: number;
+  readonly skillGainPerDefenseHit: number;
+  readonly skillGainPerDefenseMiss: number;
+  /** AGENT, Mission growth: the survival skill gain of the first, second, and each later Mission survived. */
+  readonly skillGainPerMissionSurvived: readonly number[];
 }
 
 export interface WeaponGdr {

@@ -73,7 +73,7 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
     const state = ok(engine.player.queries.getCurrentState());
     expect(state.ending).toMatchObject({ ending: 'Defeat', reasons: ['PanicAtTheLimit'] });
     expect(state.panic).toBe(100);
-    // Returning to a Committed state before the ending: the Turn-end Autosave of the last Turn.
+    // Returning to a World state before the ending: the Turn-end Autosave of the last Turn.
     const target = ok(await engine.session.timeline.undoToAutosave());
     expect(target.turn).toBe(state.ending!.turn);
     expect(ok(engine.player.queries.getCurrentState()).ending).toBeNull();
@@ -134,7 +134,7 @@ describe('Campaign runs', () => {
 });
 
 /**
- * TIMELINE, Returning to a Committed state: the current Committed state with the History, the Turn report, and the
+ * TIMELINE, Returning to a World state: the Current world state with the History, the Turn report, and the
  * Campaign configuration, i.e. Campaign state without the rest of the Timeline, which undo and redo leave in place.
  */
 function placeOf(engine: Engine): unknown {

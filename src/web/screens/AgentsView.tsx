@@ -39,15 +39,16 @@ import { DetailView } from './DetailView.tsx';
 const NUMERIC = new Set([
   'effectiveSkill',
   'skillHundredths',
+  'experience',
   'currentHealthHundredths',
   'exhaustion',
   'weaponDamage',
 ]);
 
 /** VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. */
-const SERVING_WIDTHS = ['36px', '104px', '116px', '84px', '96px', '132px', '104px', '280px', '220px'];
+const SERVING_WIDTHS = ['36px', '104px', '116px', '84px', '64px', '96px', '132px', '104px', '280px', '220px'];
 /** VIS, Tables: the fixed widths of the Memorial table. */
-const MEMORIAL_WIDTHS = ['104px', '84px', '96px', '132px', '96px', '112px', '88px', '80px', '360px'];
+const MEMORIAL_WIDTHS = ['104px', '84px', '64px', '96px', '132px', '96px', '112px', '88px', '80px', '360px'];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
 type RowFilter = 'all' | 'inBase' | 'away' | 'memorial';
@@ -219,11 +220,11 @@ export function AgentsView(props: {
     [snapshot.history],
   );
 
-  // DEC-046: the Agents each button of Assign to would accept alone, asked again whenever the Committed state changes.
+  // DEC-046: the Agents each button of Assign to would accept alone, asked again whenever the World state changes.
   const acceptedAlone = useMemo(() => {
     const result = player.queries.previewAssignAgentsAlone();
     return result.ok ? result.value : null;
-    // The preview depends on the Committed state, which the snapshot key names.
+    // The preview depends on the World state, which the snapshot key names.
   }, [player, snapshot.key]);
   const selectability: Selectability = useMemo(
     () => ({
@@ -305,6 +306,8 @@ export function AgentsView(props: {
       helper.accessor('effectiveSkill', { header: 'Effective' }),
       // GUI, Decimal quantities shown: base skill and current health with two decimals, e.g. "101.10", "29.40/30".
       helper.accessor('skillHundredths', { header: 'Skill', cell: (cell) => decimalText(cell.getValue()) }),
+      // AVIEW, Agent table: Experience, a whole number, headed Exp.
+      helper.accessor('experience', { header: 'Exp.' }),
       helper.accessor('currentHealthHundredths', {
         header: 'Health',
         cell: (cell) => <Health currentHundredths={cell.getValue()} base={cell.row.original.baseHealth} />,
@@ -372,7 +375,7 @@ export function AgentsView(props: {
       );
     }
     return result;
-    // The preview depends on the Committed state, which the snapshot key names.
+    // The preview depends on the World state, which the snapshot key names.
   }, [player, selected, snapshot.key]);
 
   const shownDetails =
@@ -613,7 +616,16 @@ export function AgentsView(props: {
 }
 
 type MemorialKey =
-  'id' | 'skill' | 'baseHealth' | 'turnTerminated' | 'cause' | 'missions' | 'turns' | 'kills' | 'details';
+  | 'id'
+  | 'skill'
+  | 'experience'
+  | 'baseHealth'
+  | 'turnTerminated'
+  | 'cause'
+  | 'missions'
+  | 'turns'
+  | 'kills'
+  | 'details';
 
 /** AVIEW, Memorial: one row per Terminated Agent, newest Turn terminated first, sorted by any column header. */
 function Memorial(props: {
@@ -636,6 +648,8 @@ function Memorial(props: {
         return row.agent.id;
       case 'skill':
         return row.agent.skillHundredths;
+      case 'experience':
+        return row.agent.experience;
       case 'baseHealth':
         return row.agent.baseHealth;
       case 'turnTerminated':
@@ -674,6 +688,7 @@ function Memorial(props: {
           <tr>
             {header('id', 'Agent', false)}
             {header('skill', 'Skill', true)}
+            {header('experience', 'Exp.', true, 'Experience')}
             {header('baseHealth', 'Health', true)}
             {header('turnTerminated', 'Terminated', true)}
             {header('cause', 'Cause', false)}
@@ -699,6 +714,7 @@ function Memorial(props: {
                 </button>
               </td>
               <td className="num">{decimalText(row.agent.skillHundredths)}</td>
+              <td className="num">{row.agent.experience}</td>
               <td className="num">{row.agent.baseHealth}</td>
               <td className="num">T{row.agent.turnTerminated ?? '-'}</td>
               <td className={row.agent.agentStatus === 'Killed' ? 'tone-bad' : 'muted'}>

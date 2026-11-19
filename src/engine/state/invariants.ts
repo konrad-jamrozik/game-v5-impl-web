@@ -1,5 +1,5 @@
 /**
- * The invariants every Committed state satisfies, as the specifications state them; see ENG, Committed state
+ * The invariants every World state satisfies, as the specifications state them; see ENG, World state
  * integrity. A violation is an engine defect and is never repaired into different gameplay.
  */
 import { findNonWholeNumber } from '../../kernel/index.ts';
@@ -125,6 +125,10 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     }
     if (s.enemiesKilled < 0) {
       fail(`${where}: Enemies killed is negative`);
+    }
+    // AGENT, Agent properties: Experience is a whole number of at least 0.
+    if (!Number.isSafeInteger(s.experience) || s.experience < 0) {
+      fail(`${where}: Experience is not a whole number of at least 0`);
     }
     if (s.assignment?.kind === 'Deployed') {
       const mission = world.missions[s.assignment.mission];

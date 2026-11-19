@@ -9,6 +9,7 @@ import { formatInstanceId, must } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import {
   addExhaustion,
+  applyMissionGrowth,
   applyWorkExhaustion,
   effectiveSkill,
   enemyCombatantValues,
@@ -48,6 +49,7 @@ import {
   type ConsequenceRecord,
   type CurrentWorldState,
   type HistoryEntry,
+  type MissionGrowthRecord,
   type MissionResultRecord,
   type TurnReport,
   type WorldHistory,
@@ -422,6 +424,33 @@ export function applyAdvanceTurn(
         addExhaustion(agent.state, survivorExhaustion);
       }
     }
+    // MISSION, Resolving one Mission, step 7, and AGENT, Mission growth: every survivor, Won or Lost, gains its combat
+    // skill gain from the Combat report and its survival skill gain; a Killed Agent's combat skill gain is lost.
+    const growth: MissionGrowthRecord[] = [];
+    for (const agent of team) {
+      if (agent.state.status === 'Killed') {
+        continue;
+      }
+      const participant = must(
+        report.participants.find((item) => item.id === agent.id),
+        'Combat report participant',
+      );
+      const missionsSurvived = agent.state.participationHistory.filter(
+        (item) => item.kind === 'Mission',
+      ).length;
+      const gained = applyMissionGrowth(
+        agent.state,
+        must(participant.combatSkillGain, 'combat skill gain of an Agent'),
+        missionsSurvived,
+        agentParameters,
+      );
+      growth.push({
+        agent: agent.id,
+        ...gained,
+        skillAfterHundredths: agent.state.skillHundredths,
+        experienceAfter: agent.state.experience,
+      });
+    }
     mission.state.currentTeam = [];
 
     const operationLevel =
@@ -453,6 +482,7 @@ export function applyAdvanceTurn(
       killed,
       toRecovery,
       toStandby,
+      growth,
       consequence: toRecord(amounts, eliminatedFaction),
     });
   }
@@ -655,7 +685,7 @@ export function applyAdvanceTurn(
       .map((item) => ({ investigation: item.investigation, gain: item.progressGain })),
     missions: missionReports,
     combatReports: missionReports.map((item) => must(combatReports.get(item.mission), 'Combat report')),
-    // LEAD, Turn report: the Leads discovered in the committed state and not in the one before this Advance turn.
+    // LEAD, Turn report: the Leads discovered in the World state it commits and not in the one before this Advance turn.
     discoveredLeads: gdrs.leads
       .filter((lead) => leadDiscovered(lead, world) && !leadDiscovered(lead, before))
       .map((lead) => lead.id),

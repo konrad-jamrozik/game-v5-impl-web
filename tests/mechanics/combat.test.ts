@@ -198,6 +198,24 @@ describe('COMBAT: Acceptance examples', () => {
     });
     expect(report.participants.map((p) => p.damageDealtHundredths)).toEqual([2500, 1500, 0, 700]);
     expect(report.participants.map((p) => p.damageTakenHundredths)).toEqual([700, 0, 2000, 2000]);
+    // Combat skill gain: a1 4 + 2 + 1 + 4 + 4 = 15 from its three hits, the miss and the hit it took; a2 4 + 2 + 2 = 8
+    // from its hit, its miss, and the miss it took. An Enemy has none, and a Combat changes no base skill.
+    expect(report.participants.map((p) => p.combatSkillGain)).toEqual([15, 8, null, null]);
+    expect(report.participants.map((p) => p.start.skillHundredths)).toEqual([10000, 10000, 4000, 4000]);
+  });
+
+  it('Combat skill gain counts every attack, and a Killed Agent keeps its own in the report', () => {
+    // a1 misses twice and is missed once, then is hit and made dead: 2 + 2 + 2 + 1 = 7.
+    const a1 = combatAgent('a1', { currentHealth: 5 });
+    const report = fight([a1], [combatEnemy('e1', 'soldier')], {
+      'combat.hit.a1': [false, false],
+      'combat.hit.e1': [false, true],
+      'combat.damage.e1': [14],
+    });
+    expect(report.outcome).toBe('Wiped');
+    expect(report.log).toHaveLength(4);
+    expect(participant(report, 'a1')).toMatchObject({ combatSkillGain: 7, final: { condition: 'dead' } });
+    expect(a1.state.skillHundredths).toBe(10000);
   });
 
   it('Retreated', () => {

@@ -1,7 +1,7 @@
 /**
  * Builds the GDR catalog of a Game build from the raw GDR files and applies every GDR validation rule of the
  * specifications. A Game build whose GDRs violate a rule is defective: the violation is reported as a data defect
- * and no Campaign is created from it; see ENG, Committed state integrity.
+ * and no Campaign is created from it; see ENG, World state integrity.
  */
 import { z } from 'zod';
 import { EngineDefect, Rational, q } from '../kernel/index.ts';
@@ -96,6 +96,12 @@ const schemas = {
       exhaustion_work_start_max: whole(0),
       exhaustion_work_limit: whole(0),
       training_skill_gain_per_turn: hundredths(0),
+      skill_gain_per_attack_hit: whole(0),
+      skill_gain_per_attack_miss: whole(0),
+      skill_gain_per_defense_hit: whole(0),
+      skill_gain_per_defense_miss: whole(0),
+      // AGENT, Agent GDR validation, rule 5: a list of one or more whole numbers of at least 0.
+      skill_gain_per_mission_survived: z.array(whole(0)).min(1),
     })
     .transform((g) => ({
       type: g.type,
@@ -114,6 +120,11 @@ const schemas = {
       exhaustionWorkStartMax: g.exhaustion_work_start_max,
       exhaustionWorkLimit: g.exhaustion_work_limit,
       trainingSkillGainPerTurnHundredths: g.training_skill_gain_per_turn,
+      skillGainPerAttackHit: g.skill_gain_per_attack_hit,
+      skillGainPerAttackMiss: g.skill_gain_per_attack_miss,
+      skillGainPerDefenseHit: g.skill_gain_per_defense_hit,
+      skillGainPerDefenseMiss: g.skill_gain_per_defense_miss,
+      skillGainPerMissionSurvived: g.skill_gain_per_mission_survived,
     })),
   Weapon: z
     .strictObject({ id, type: z.literal('Weapon'), name, base_weapon_damage: whole(1) })

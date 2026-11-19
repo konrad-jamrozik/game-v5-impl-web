@@ -154,7 +154,7 @@ describe('COMP: Acceptance examples', () => {
       after.indexOf('locate_red_dawn_safehouse_article'),
     );
 
-    // Undo restores the Committed state before that Advance turn, in which both articles are absent again.
+    // Undo restores the World state before that Advance turn, in which both articles are absent again.
     expect(visible(before)).toEqual(beforeIds);
   });
 
@@ -250,7 +250,7 @@ describe('COMP: Acceptance examples', () => {
 });
 
 describe('COMP: Player API', () => {
-  it('getEncyclopediaArticles returns the Player-visible articles, and follows the Committed state on undo', async () => {
+  it('getEncyclopediaArticles returns the Player-visible articles, and follows the World state on undo', async () => {
     const { engine } = await startEngine({ gdrFiles: RED_DAWN_ONLY_FILES });
     expect(engine.player.queries.getEncyclopediaArticles().ok).toBe(false);
     ok(await engine.session.campaign.create({ seed: 'compendium' }));

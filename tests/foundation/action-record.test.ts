@@ -17,7 +17,7 @@ describe('WHIST: Action record', () => {
       args: { missionSite: site, agents: [a1, a2, a3] },
       moneyChange: 0,
     });
-    // Undo restores the Committed state before deployAgents, with its Action record.
+    // Undo restores the World state before deployAgents, with its Action record.
     const ended = advance(state);
     const entry = ended.world.history.historyEntries.at(-1)!;
     expect(entry.actions).toEqual([
@@ -41,7 +41,7 @@ describe('WHIST: Action record', () => {
 });
 
 describe('WHIST: Open History entry', () => {
-  it('Acceptance example: follows the Committed state through undo and redo, and becomes the History entry', () => {
+  it('Acceptance example: follows the World state through undo and redo, and becomes the History entry', () => {
     const start = newCampaign({ money: 500 });
     // Before the first committed Advance turn, the Open History entry of Turn 1 is all getHistory() returns.
     expect(historyView(start, gdrs).entries).toEqual([]);
@@ -53,7 +53,7 @@ describe('WHIST: Open History entry', () => {
     expect(open.turnStart).toEqual(start.world.history.currentTurnStart);
     expect(open.turnEnd.servingAgents).toBe(open.turnStart.servingAgents + 2);
     expect(open.turnEnd.money).toBe(500 - 2 * gdrs.economy.hireCost);
-    // Undo restores the earlier Committed state, whose Open History entry lacks the undone item and its Agent.
+    // Undo restores the earlier World state, whose Open History entry lacks the undone item and its Agent.
     const undone = historyView(once, gdrs).openEntry;
     expect(undone.actions).toHaveLength(1);
     expect(undone.turnEnd.servingAgents).toBe(open.turnStart.servingAgents + 1);

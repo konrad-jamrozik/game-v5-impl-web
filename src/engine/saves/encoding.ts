@@ -5,7 +5,7 @@ import type { SaveHeader, SaveKind } from './storage.ts';
 /** The Save size limit: 100 MiB; see SAVES, Save size limit. */
 export const SAVE_SIZE_LIMIT_BYTES = 100 * 1024 * 1024;
 
-const FORMAT = 8;
+const FORMAT = 9;
 
 /** Encoded Turn-start states, reused while the same Turn-start state is written again; see DEC-008. */
 const turnStartCache = new WeakMap<object, string>();
@@ -102,7 +102,7 @@ const KINDS: readonly string[] = [
 /**
  * Reads the body of a Campaign save, or says why the Game build does not load it. A Campaign save written before
  * Autopilot memory was removed also holds `memoryBase` and `memoryWrites`, which are ignored, and holds no
- * `configuration`, so its Campaign configuration is that of its saved Committed state; it loads; see DEC-008.
+ * `configuration`, so its Campaign configuration is that of its saved World state; it loads; see DEC-008.
  */
 export function decodeSave<S extends ShellState>(
   body: string,
@@ -165,7 +165,7 @@ export function decodeSave<S extends ShellState>(
   };
 }
 
-/** The stamps of every Committed state from creation up to the saved one, read from a Campaign save body. */
+/** The stamps of every World state from creation up to the saved one, read from a Campaign save body. */
 export function lineOfSave(body: string): string[] | null {
   try {
     const parsed: unknown = JSON.parse(body);

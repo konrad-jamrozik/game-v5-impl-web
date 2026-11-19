@@ -26,7 +26,7 @@ export interface ActionRecord {
   readonly args: unknown;
   /**
    * The Campaign configuration the action was committed under, kept only when a change of Campaign configuration
-   * made it differ from that of the Committed state before it, so that replay commits it under the same one; see
+   * made it differ from that of the World state before it, so that replay commits it under the same one; see
    * SCHEMA, Replay.
    */
   readonly configuration?: Readonly<Record<string, number>>;
@@ -59,13 +59,13 @@ export interface GameRules<S extends ShellState> {
   /** Creation: equal inputs give equal initial Campaign state. */
   createCampaign(input: { configuration: Readonly<Record<string, number>>; seed: string }): S;
   /**
-   * Applies one action other than Advance turn. Returns the next Committed state, the same state when the action
+   * Applies one action other than Advance turn. Returns the next World state, the same state when the action
    * has no effect, or a rejection. It never changes its input.
    */
   applyAction(state: S, record: ActionRecord): S | Rejection;
   /** Applies Advance turn atomically. */
   advanceTurn(state: S): S | Rejection;
-  /** Every violated invariant of a Committed state; empty when the state is valid. */
+  /** Every violated invariant of a World state; empty when the state is valid. */
   checkInvariants(state: S): string[];
   /** Whether the Campaign has ended, i.e. has a Campaign ending. */
   isEnded(state: S): boolean;
@@ -78,7 +78,7 @@ export interface GameRules<S extends ShellState> {
   availableActionsView(state: S): unknown;
   /**
    * Full Campaign state for Developer API inspection, detached: the Timeline of the current Turn with its Timeline
-   * pointer, and the History, Campaign configuration, and Turn report of the current Committed state; see DEC-019.
+   * pointer, and the History, Campaign configuration, and Turn report of the Current world state; see DEC-019.
    */
   inspect(timeline: {
     readonly states: readonly S[];
@@ -86,11 +86,11 @@ export interface GameRules<S extends ShellState> {
     readonly position: number;
     readonly configuration: Readonly<Record<string, number>>;
   }): unknown;
-  /** The same Committed state under another Campaign configuration; the state itself when that one is equal. */
+  /** The same World state under another Campaign configuration; the state itself when that one is equal. */
   withConfiguration(state: S, configuration: Readonly<Record<string, number>>): S;
   /**
-   * SAVES, Saving: what two Campaign saves must have equal to hold an equal place in play, i.e. the World state of the
-   * Committed state, the History, and the Turn report, and nothing the Timeline or the Campaign configuration holds.
+   * SAVES, Saving: what two Campaign saves must have equal to hold an equal place in play, i.e. the World state, the
+   * History, and the Turn report, and nothing the Timeline or the Campaign configuration holds.
    */
   placeInPlay(state: S): unknown;
   /** A further Player API query, by name; it returns only Player-visible information. */

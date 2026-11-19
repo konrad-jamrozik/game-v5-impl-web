@@ -3,7 +3,7 @@
  * exhaustion, and Agent creation. Every function
  * receives only the values it needs; see DEC-003.
  */
-import { fromHundredths, roundDown, roundUp, type Rational } from '../../../kernel/index.ts';
+import { EngineDefect, fromHundredths, roundDown, roundUp, type Rational } from '../../../kernel/index.ts';
 import type { AgentArchetypeGdr, AgentParametersGdr, WeaponGdr } from '../../../gdr/index.ts';
 import type { Agent, AgentState, Assignment } from '../../state/types.ts';
 
@@ -112,6 +112,43 @@ export function applyWorkExhaustion(
   return exhaustionOf(agent) >= parameters.exhaustionWorkLimit;
 }
 
+/**
+ * AGENT, Mission growth: the survival skill gain of the n-th Mission survived, n counted from 1; the last entry of
+ * skill_gain_per_mission_survived applies to every Mission beyond the list.
+ */
+export function survivalSkillGain(missionsSurvived: number, parameters: AgentParametersGdr): number {
+  const list = parameters.skillGainPerMissionSurvived;
+  const value = list[Math.min(missionsSurvived, list.length) - 1];
+  if (missionsSurvived < 1 || value === undefined) {
+    throw new EngineDefect('A survivor has survived at least one Mission');
+  }
+  return value;
+}
+
+/** What Mission growth gave one survivor of one Mission; see AGENT, Mission growth. */
+export interface MissionGrowth {
+  readonly survivalSkillGain: number;
+  readonly missionSkillGain: number;
+}
+
+/**
+ * AGENT, Mission growth: adds a survivor's combat skill gain and survival skill gain to its base skill and its
+ * Experience. Every gain is a whole number, so the sums are exact. `missionsSurvived` is the number of Missions in its
+ * Participation history, the resolved one included.
+ */
+export function applyMissionGrowth(
+  agent: Pick<AgentState, 'skillHundredths' | 'experience'>,
+  combatSkillGain: number,
+  missionsSurvived: number,
+  parameters: AgentParametersGdr,
+): MissionGrowth {
+  const survival = survivalSkillGain(missionsSurvived, parameters);
+  const missionSkillGain = combatSkillGain + survival;
+  agent.skillHundredths += missionSkillGain * 100;
+  agent.experience += missionSkillGain;
+  return { survivalSkillGain: survival, missionSkillGain };
+}
+
 /** AGENT, Attribute ranges: current health stays from 0 to base health. */
 export function clampHealth(value: number, baseHealth: number): number {
   return Math.min(baseHealth, Math.max(0, value));
@@ -177,6 +214,7 @@ export function createAgent(input: {
     constants: { agency: input.agencyId, turnHired: input.turn },
     state: {
       skillHundredths: input.archetype.skill * 100,
+      experience: 0,
       currentHealthHundredths: baseHealth * 100,
       baseHealth,
       exactExhaustionHundredths: 0,

@@ -44,6 +44,8 @@ export interface AgentView {
   readonly agentStatus: AgentStatus;
   /** Base skill, a Decimal quantity held in hundredths; see NUMBERS, Decimal quantities. */
   readonly skillHundredths: number;
+  /** AGENT, Mission growth: the base skill gained from Missions, a whole number. */
+  readonly experience: number;
   readonly effectiveSkill: number;
   /** Current health, a Decimal quantity held in hundredths. */
   readonly currentHealthHundredths: number;

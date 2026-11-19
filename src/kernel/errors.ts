@@ -1,6 +1,6 @@
 /**
  * An internal invariant violation or a defect in the data the Game build supplies. It is never an expected rejection
- * of a request; see ENG, Committed state integrity.
+ * of a request; see ENG, World state integrity.
  */
 export class EngineDefect extends Error {
   override readonly name = 'EngineDefect';

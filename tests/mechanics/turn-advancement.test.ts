@@ -501,7 +501,7 @@ describe('TURN: Values a step uses, as a property', () => {
     }
   });
 
-  /** A busy Committed state: Agents on every Current assignment, several Investigations, Missions, and sites. */
+  /** A busy World state: Agents on every Current assignment, several Investigations, Missions, and sites. */
   function busyState(): CampaignState {
     let state = withAgents(newCampaign({ money: 3000, catalog, quietFactions: false }), 20, catalog);
     state = tweak(state, (world) => {

@@ -276,13 +276,13 @@ describe('SAVES: Acceptance examples', () => {
     expect((await list(h)).filter((save) => !save.isAutosave)).toHaveLength(1);
   });
 
-  it('An equal Committed state reached again by another action replaces the Campaign save', async () => {
+  it('An equal World state reached again by another action replaces the Campaign save', async () => {
     const h = await startHarness();
     expectOk(await h.core.createCampaign(CONTROLLER));
     expectOk(await h.act('gain', { amount: 1 }));
     const first = expectOk(await h.core.save(CONTROLLER)).saveId;
     expectOk(await h.core.undoAction(CONTROLLER));
-    // Committing the same action again reaches a Committed state with every Authoritative value equal.
+    // Committing the same action again reaches a World state with every Authoritative value equal.
     expectOk(await h.act('gain', { amount: 1 }));
     expect(expectOk(await h.core.save(CONTROLLER)).saveId).toBe(first);
     expectOk(await h.act('gain', { amount: 1 }));

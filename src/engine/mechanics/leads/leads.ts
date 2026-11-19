@@ -44,7 +44,7 @@ function sitesWithWonMission(world: Pick<LeadWorld, 'missions' | 'missionSites'>
   });
 }
 
-/** LEAD, Lead availability: the four conditions, each read from the given Committed state. */
+/** LEAD, Lead availability: the four conditions, each read from the given World state. */
 export function leadAvailability(lead: LeadGdr, world: LeadWorld): LeadAvailability {
   const faction = Object.values(world.factions).find((item) => item.archetype === lead.faction);
   const won = sitesWithWonMission(world);

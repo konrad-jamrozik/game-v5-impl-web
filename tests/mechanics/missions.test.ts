@@ -153,6 +153,45 @@ describe('MISSION: Acceptance examples', () => {
     expect([a1, a2, a3, a4].map((id) => agent(state, id).state.exactExhaustionHundredths / 100)).toEqual([
       9, 7, 6, 6,
     ]);
+    // Mission growth: m1 is the first Mission of each, so the survival skill gain 30 adds to each combat skill gain:
+    // a1 8 + 4 + 30 = 42, a2 8 + 30 = 38, a3 and a4 4 + 30 = 34. Each Experience equals its gain.
+    expect(report.combatReports[0]!.participants.slice(0, 4).map((p) => p.combatSkillGain)).toEqual([
+      12, 8, 4, 4,
+    ]);
+    expect([a1, a2, a3, a4].map((id) => agent(state, id).state.skillHundredths / 100)).toEqual([
+      142, 138, 134, 134,
+    ]);
+    expect([a1, a2, a3, a4].map((id) => agent(state, id).state.experience)).toEqual([42, 38, 34, 34]);
+    expect(report.missions[0]!.growth).toEqual([
+      {
+        agent: a1,
+        survivalSkillGain: 30,
+        missionSkillGain: 42,
+        skillAfterHundredths: 14200,
+        experienceAfter: 42,
+      },
+      {
+        agent: a2,
+        survivalSkillGain: 30,
+        missionSkillGain: 38,
+        skillAfterHundredths: 13800,
+        experienceAfter: 38,
+      },
+      {
+        agent: a3,
+        survivalSkillGain: 30,
+        missionSkillGain: 34,
+        skillAfterHundredths: 13400,
+        experienceAfter: 34,
+      },
+      {
+        agent: a4,
+        survivalSkillGain: 30,
+        missionSkillGain: 34,
+        skillAfterHundredths: 13400,
+        experienceAfter: 34,
+      },
+    ]);
     expect(site(state, s1).state).toMatchObject({ lifecycle: 'Concluded', turnsUntilExpiration: 4 });
     expect(mission(state, m1).state).toEqual({ lifecycle: 'Won', currentTeam: [] });
     expect(mission(state, m1).constants.teamSent).toEqual(ids);
@@ -267,6 +306,9 @@ describe('MISSION: Acceptance examples', () => {
       status: 'InTransit',
       exhaustion: 12,
     });
+    // Mission growth applies as after a win: 2 + 2 + 2 + 2 + 2 + 1 + 2 = 13 and the survival skill gain 30.
+    expect(lostReport.combatReports[0]!.participants[0]!.combatSkillGain).toBe(13);
+    expect(agent(lost, a1).state).toMatchObject({ skillHundredths: 14300, experience: 43 });
     expect([lost.world.current.panic, funding(lost), money(lost)]).toEqual([18, 19, 300]);
     expect(site(lost, s2).state).toMatchObject({ lifecycle: 'Concluded', turnsUntilExpiration: 4 });
 

@@ -101,6 +101,8 @@ interface Fighter {
   incapacitated: boolean;
   damageDealtHundredths: number;
   damageTakenHundredths: number;
+  /** COMBAT, Combat skill gain: counted for an Agent only. */
+  combatSkillGain: number;
   readonly report: CombatParticipantReport;
 }
 
@@ -137,6 +139,7 @@ export function fightCombat(input: {
       incapacitated,
       damageDealtHundredths: 0,
       damageTakenHundredths: 0,
+      combatSkillGain: 0,
       report: {
         id: combatant.id,
         side,
@@ -157,6 +160,7 @@ export function fightCombat(input: {
         },
         damageDealtHundredths: 0,
         damageTakenHundredths: 0,
+        combatSkillGain: side === 'agent' ? 0 : null,
       },
     };
   };
@@ -223,6 +227,17 @@ export function fightCombat(input: {
     );
     attacker.damageDealtHundredths += healthRemovedHundredths;
     defender.damageTakenHundredths += healthRemovedHundredths;
+    // COMBAT, Combat skill gain: every attack counts for an Agent attacker or defender, whatever it removed.
+    if (attacker.side === 'agent') {
+      attacker.combatSkillGain += hit
+        ? agentParameters.skillGainPerAttackHit
+        : agentParameters.skillGainPerAttackMiss;
+    }
+    if (defender.side === 'agent') {
+      defender.combatSkillGain += hit
+        ? agentParameters.skillGainPerDefenseHit
+        : agentParameters.skillGainPerDefenseMiss;
+    }
     const defenderIncapacitated = evaluate(defender);
     const attackerIncapacitated = evaluate(attacker);
     log.push({
@@ -315,6 +330,7 @@ export function fightCombat(input: {
       },
       damageDealtHundredths: fighter.damageDealtHundredths,
       damageTakenHundredths: fighter.damageTakenHundredths,
+      combatSkillGain: fighter.side === 'agent' ? fighter.combatSkillGain : null,
     };
   };
 

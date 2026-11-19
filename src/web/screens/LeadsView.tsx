@@ -306,7 +306,7 @@ function Team(props: {
     }
     const result = player.queries.estimateTeamProgressGain(estimateTeam);
     return result.ok ? result.value : null;
-    // The estimate depends on the Committed state, which the snapshot key names, and on the team.
+    // The estimate depends on the World state, which the snapshot key names, and on the team.
   }, [player, snapshot.key, estimateTeam.join(',')]);
   const header = (key: CandidateKey, label: string, numeric: boolean) => (
     <th

@@ -52,8 +52,8 @@ Each layer imports only from the layers before it; ESLint and `tests/architectur
 `src/engine/index.ts` is the engine API: `session`, `player`, and `developer`. Every operation returns a result that
 is a value or an error with a code and a message; a failed operation changes nothing.
 
-Each Committed state is an immutable value. An action produces the next Committed state with Immer, the Timeline keeps
-the Committed states of the current Turn with its Timeline pointer, and a Campaign save stores the Turn-start state,
+Each World state is an immutable value. An action produces the next World state with Immer, the Timeline keeps
+the World states of the current Turn with its Timeline pointer, and a Campaign save stores the Turn-start state,
 the Timeline entries, the Timeline pointer, and the Campaign configuration in force, and loading replays the entries.
 
 ## Tests
@@ -97,14 +97,14 @@ from Google Fonts; DEC-034 gives the light theme.
     Encyclopedia articles, by category, with a search field).
 - **Autopilot controls.** Choose an Autopilot AI and engage it for One action or This Turn's actions, neither of which
   advances the Turn, or for a number of Turns; show its progress and a Stop button, and, when the engagement ends, a
-  line that says why, until Autopilot is engaged again or the Committed state changes.
+  line that says why, until Autopilot is engaged again or the World state changes.
 - **Developer drawer.** Enables Dev mode, adds money or Agents, sets a random outcome override, and shows the full
   Campaign state.
 
 A button is enabled only when `getAvailableActions()` or `previewDeployment()` says the action is available, and a
 disabled button shows the engine's reason as its tooltip. Every error message shown is the engine's own. The UI
 reads the engine through one store that caches the query results of one revision, so every part of the screen shows
-the same Committed state.
+the same World state.
 
 After a reload the web UI continues the Campaign from its Current Autosave, including its Undone actions; see
 DEC-023.
