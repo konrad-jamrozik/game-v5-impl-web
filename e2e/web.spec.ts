@@ -395,3 +395,27 @@ test('the Agents View shows free places and splits Agents In base and Away; Esca
   await id(page, 'nav-missions').click();
   await expect(id(page, 'view-back')).toHaveCount(0);
 });
+
+/** The cells of `table` whose content is wider than the cell, i.e. cut short with "…". */
+async function cutShortCells(page: Page, testId: string): Promise<string[]> {
+  return page
+    .getByTestId(testId)
+    .locator('td')
+    .evaluateAll((cells) =>
+      cells.filter((cell) => cell.scrollWidth > cell.clientWidth).map((cell) => cell.textContent ?? ''),
+    );
+}
+
+test('a table column holds every value listed for it without cutting it short', async ({ page }) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('widths');
+  await id(page, 'new-campaign').click();
+  // VIS, Tables: each column is wide enough to hold on one line every value listed for it, e.g. base skill "100.00".
+  await id(page, 'nav-leads').click();
+  await expect(id(page, 'agents-to-add')).toBeVisible();
+  expect(await cutShortCells(page, 'agents-to-add')).toEqual([]);
+  // HVIEW, Turn by Turn table: the current Turn's Turn cell holds its number followed by "now".
+  await id(page, 'nav-history').click();
+  await expect(id(page, 'history-turn-now')).toBeVisible();
+  expect(await cutShortCells(page, 'history-turn-now')).toEqual([]);
+});

@@ -357,7 +357,7 @@ function Team(props: {
         <p className="muted small">No Agent that is Fit for work can be assigned now.</p>
       ) : (
         <Grid
-          widths={['36px', '104px', '200px', '84px', '64px', '96px']}
+          widths={['36px', '104px', '200px', '84px', '104px', '96px']}
           className="compact pick-grid"
           testId="agents-to-add"
         >

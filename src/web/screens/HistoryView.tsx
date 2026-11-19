@@ -109,7 +109,7 @@ export function HistoryView({ snapshot, onClose }: { snapshot: Snapshot; onClose
     <DetailView id="history" title="History" aside="Turn by Turn · newest first" onClose={onClose}>
       <div className="table-scroll" data-testid="history">
         <Grid
-          widths={['64px', '120px', '120px', '112px', '92px', '92px', '76px', '84px', '128px', '440px']}
+          widths={['104px', '120px', '120px', '112px', '92px', '92px', '76px', '84px', '128px', '440px']}
           testId="history-table"
           scroll={false}
         >
