@@ -396,15 +396,21 @@
   save contents and Listing Campaign saves, now say that a Campaign save holds, and the list reports, the time it was
   last written, so the Main menu gives the Accent top edge to the Campaign of the most recent Campaign save.
 
-## PROB-028: An Encyclopedia article's `subject` does not say which Type its GDR is of
+## PROB-028: A Compendium article's `subject` and its Placeholders do not say which Type their GDR is of
 
 - **Category:** Implicit gap
 - **Severity:** Medium
-- **Affected specifications:** COMP, EncyclopediaArticle: "`subject` | Optional. The identifier of the GDR the
-  article is about". COMP, Encyclopedia article GDR validation: "Subject exists: A `subject` identifies a GDR of the
-  Game build whose Type is not EncyclopediaArticle." GDR identifiers are unique only within a Type (DEC-014).
-- **Description:** Two GDRs of different Types may share an identifier, so a `subject` may identify more than one
-  GDR, and then neither the article's subject nor its visibility under COMP, Article visibility is defined.
+- **Affected specifications:** COMP, CompendiumArticle: "`subject` | Only for a Subject article, and required: the
+  identifier of the GDR the article is about". COMP, Compendium article GDR validation: "Subject exists: A `subject`
+  identifies a GDR of the Game build whose Type is not CompendiumArticle and that has a `name` that is non-empty
+  text." COMP, Placeholders: "`{gdr_id.property}` | The value of the property `property` of the GDR whose identifier
+  is `gdr_id`." GDR identifiers are unique only within a Type (DEC-014).
+- **Description:** Two GDRs of different Types may share an identifier, so a `subject` or the `gdr_id` of a
+  Placeholder may identify more than one GDR, and then neither the article's subject, its visibility under COMP,
+  Article visibility, nor the value the Placeholder shows is defined. Specification revision
+  3fd37d181b3675d4ca0bef981cb8c3ab43b35ff4 renamed the Type to CompendiumArticle and added Placeholders, which meet
+  the same gap; BOOT, Compendium GDRs, now says of the Bootstrap article identifiers only that "no article's identifier
+  equals that of another GDR".
 - **Links:** DEC-045
 - **Resolution:** Open
 
@@ -560,4 +566,59 @@
   but no order is stated, so two Implementations can report the same Turn differently. The set of discovered Leads
   that LEAD, Lead discovery, stores likewise has no stated order for an Implementation that stores it as a list.
 - **Links:** DEC-062
+- **Resolution:** Open
+
+## PROB-040: Whether a Placeholder may name the `id` or the `type` of a GDR is unstated
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** COMP, Placeholder sources: "AgentArchetype | Every property | Any". COMP, Compendium
+  article GDR validation: "names a property that GDR has and that Placeholder sources allows in that form". COMP,
+  CompendiumArticle: "This table is exhaustive apart from the `id` and `type` that every GDR has."
+- **Description:** "Every property" of a Type may or may not include the `id` and `type` that every GDR states beside
+  the properties of its Type's table, so whether `{soldier.id}` is valid, and shows `soldier`, is not defined. BOOT,
+  Compendium coverage, speaks of "Every property, other than `id` and `type`", which suggests they are properties.
+- **Links:** DEC-063
+- **Resolution:** Open
+
+## PROB-041: A Data sheet shows the Effects of an Effect list "in order", but an Effect list has no order
+
+- **Category:** Conflict
+- **Severity:** Low
+- **Affected specifications:** COMPV, Subject data sheets: "an Effect list is shown as its Effects in order, separated
+  by "·", each as the table under Effects shown words it, or as "None" when it holds no Effect." EFFECT, Effect list
+  format: "Order has no meaning: Two Effect lists that hold the same Effects in a different order are the same
+  Effect list."
+- **Description:** The Compendium View must show the Effects in an order that Effect Lists says an Effect list does
+  not have, so two Game builds with the same Effect list could show it differently. No specification states that
+  Player API reports the authored order of the Effects, or an Effect whose value is 0 apart from an absent Effect,
+  which decides between "+0 money" and leaving the Effect out.
+- **Links:** DEC-064
+- **Resolution:** Open
+
+## PROB-042: The Combat report no longer shows the starting Incapacitated value it must show
+
+- **Category:** Conflict
+- **Severity:** Low
+- **Affected specifications:** TRVIEW, Combat report: "It shows every fact the Combat report holds" and "No other
+  column says whether a participant is Incapacitated." COMBAT, Combat report: "Starting values: for each participant,
+  its base skill, current health, effective max health, exhaustion, effective weapon damage, effective skill, and
+  Incapacitated value when the Combat began".
+- **Description:** The Incapacitated value of a participant when the Combat began is a fact the Combat report holds,
+  so the Turn Report View must show it, but the only column that may say whether a participant is Incapacitated is
+  the last one, which holds the final condition. The Combat report Artboard has no column for the starting value.
+- **Links:** DEC-065
+- **Resolution:** Open
+
+## PROB-043: Removing an article from the Article history can leave one article twice in a row
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** COMPV, Following links: "No longer Player-visible: an article that is no longer
+  Player-visible, e.g. after an undo, is removed from the Article history." and "Previous article: the article
+  before the current one becomes current and is shown."
+- **Description:** When the Article history holds A, X, A and X is no longer Player-visible, it holds A, A, so the
+  Previous article button is enabled and shows the article already shown. No rule says whether equal neighbours are
+  merged; the list of changes to the Article history is stated to be exhaustive.
+- **Links:** DEC-066
 - **Resolution:** Open

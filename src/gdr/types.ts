@@ -230,15 +230,36 @@ export interface EndingParametersGdr {
   readonly defeatAtPanicPct: number;
 }
 
-/** COMP, EncyclopediaArticle: Display content only; no game behavior reads it. */
-export interface EncyclopediaArticleGdr {
-  readonly type: 'EncyclopediaArticle';
+/** COMP, Article categories: a Guide article, a Mechanics article, or a Subject article. */
+export type ArticleCategory = 'guide' | 'mechanics' | 'subject';
+
+/** COMP, CompendiumArticle, as authored: Display content only; no game behavior reads it. */
+export interface CompendiumArticleGdr {
+  readonly type: 'CompendiumArticle';
   readonly id: string;
-  readonly title: string;
+  readonly category: ArticleCategory;
+  /** Only for a Guide article or a Mechanics article. */
+  readonly title: string | null;
+  /** Templated text. */
   readonly body: string;
-  /** The identifier of the GDR the article is about; absent for a Guide article. */
+  /** Only for a Subject article: the identifier of the GDR the article is about. */
   readonly subject: string | null;
+  /** Only for a Mechanics article: its rows, each a `label` and a `text`, both templated text. */
+  readonly formulas: readonly { readonly label: string; readonly text: string }[];
+  /** The Article terms of the article. */
+  readonly terms: readonly string[];
+  /** The identifiers of the Compendium articles the article points the Player to. */
+  readonly seeAlso: readonly string[];
 }
+
+/**
+ * COMP, Placeholders: one part of a templated text after every Placeholder is replaced: a run of authored text, with
+ * `{{` and `}}` replaced by the brace each stands for, or the text that replaces one Placeholder.
+ */
+export type TemplatePart =
+  { readonly kind: 'text'; readonly text: string } | { readonly kind: 'value'; readonly text: string };
+
+export type ArticleTemplate = readonly TemplatePart[];
 
 /** MUSIC, Soundtrack: Display content only; no game behavior reads it. */
 export interface MusicParametersGdr {
@@ -281,14 +302,29 @@ export type AnyGdr =
   | MissionSiteArchetypeGdr
   | MissionArchetypeGdr
   | EndingParametersGdr
-  | EncyclopediaArticleGdr
+  | CompendiumArticleGdr
   | BackgroundArtworkGdr
   | MusicParametersGdr;
 
-/** An Encyclopedia article with its subject resolved to the Type of the subject GDR. */
-export interface CatalogEncyclopediaArticle extends EncyclopediaArticleGdr {
-  /** The Type of the subject GDR, e.g. `EnemyArchetype`; absent for a Guide article. */
-  readonly subjectType: Exclude<AnyGdr['type'], 'EncyclopediaArticle'> | null;
+/**
+ * A Compendium article as the catalog holds it: with its displayed title, the Type of its subject, and every
+ * Placeholder of its templated texts replaced. Its Article links depend on the World state and are found when the
+ * article is read; see COMP, Article resolution.
+ */
+export interface CatalogCompendiumArticle {
+  readonly type: 'CompendiumArticle';
+  readonly id: string;
+  readonly category: ArticleCategory;
+  /** COMP, Displayed title: the `title`, or the `name` of the subject of a Subject article. */
+  readonly title: string;
+  /** Only for a Subject article: the identifier of the GDR the article is about. */
+  readonly subject: string | null;
+  /** The Type of the subject GDR, e.g. `EnemyArchetype`; absent for a Guide article or a Mechanics article. */
+  readonly subjectType: Exclude<AnyGdr['type'], 'CompendiumArticle'> | null;
+  readonly body: ArticleTemplate;
+  readonly formulas: readonly { readonly label: ArticleTemplate; readonly text: ArticleTemplate }[];
+  readonly terms: readonly string[];
+  readonly seeAlso: readonly string[];
 }
 
 /** The GDRs of one Game build, validated and resolved. */
@@ -313,8 +349,8 @@ export interface GdrCatalog {
   readonly factionOperationLevels: readonly FactionOperationLevelGdr[];
   readonly leads: readonly LeadGdr[];
   readonly missionSiteArchetypes: readonly MissionSiteArchetypeGdr[];
-  /** COMP: every Encyclopedia article, in Game build order. */
-  readonly encyclopediaArticles: readonly CatalogEncyclopediaArticle[];
+  /** COMP: every Compendium article, in Game build order, i.e. in the ascending order of their identifiers. */
+  readonly compendiumArticles: readonly CatalogCompendiumArticle[];
   /** VIS, Background artwork: every BackgroundArtwork, in Game build order. */
   readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
   /** MUSIC, Soundtrack: the GDR `music`. */

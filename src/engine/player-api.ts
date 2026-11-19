@@ -368,7 +368,13 @@ export interface GameDataView {
     readonly assessmentThresholdPct: number;
   };
   readonly economy: Readonly<Record<string, number>>;
-  readonly weapons: readonly { readonly id: string; readonly name: string; readonly damage: number }[];
+  readonly weapons: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly damage: number;
+    /** COMBAT, Damage outcome: the inclusive bounds of the damage of a hit for a weapon damage equal to `damage`. */
+    readonly damageOfAHit: { readonly min: number; readonly max: number };
+  }[];
   readonly enemyArchetypes: readonly {
     readonly id: string;
     readonly name: string;
@@ -411,17 +417,46 @@ export interface GameDataView {
 }
 
 /**
- * COMP, Player-visible information: one Player-visible Encyclopedia article. An article that is not Player-visible is
- * absent from every result.
+ * COMP, Article resolution: one segment of a resolved templated text. Joined in order, the texts of the segments are
+ * the templated text with every Placeholder replaced.
+ *
+ * - `text`: plain text.
+ * - `value`: an Inserted value, the text that replaced one Placeholder, already formatted.
+ * - `link`: an Article link, with the identifier of the Player-visible article it links to.
  */
-export interface EncyclopediaArticleView {
+export type ArticleSegmentView =
+  | { readonly kind: 'text'; readonly text: string }
+  | { readonly kind: 'value'; readonly text: string }
+  | ArticleLinkView;
+
+/** COMP, Article links: an Article link, with its text and the identifier of the Player-visible article it links to. */
+export interface ArticleLinkView {
+  readonly kind: 'link';
+  readonly text: string;
+  readonly article: string;
+}
+
+/**
+ * COMP, Player-visible information: one Player-visible Compendium article in its resolved form, never as authored. An
+ * article that is not Player-visible is absent from every result.
+ */
+export interface CompendiumArticleView {
   readonly id: string;
+  readonly category: 'guide' | 'mechanics' | 'subject';
+  /** COMP, Displayed title. */
   readonly title: string;
-  readonly body: string;
-  /** The identifier of the GDR the article is about; absent for a Guide article. */
+  /** The identifier of the GDR a Subject article is about; absent for a Guide article or a Mechanics article. */
   readonly subject: string | null;
-  /** The Type of the subject GDR, e.g. `EnemyArchetype`; absent for a Guide article. */
+  /** The Type of the subject GDR, e.g. `EnemyArchetype`; absent for a Guide article or a Mechanics article. */
   readonly subjectType: string | null;
+  readonly body: readonly ArticleSegmentView[];
+  /** The resolved formula rows in authored order; empty unless the article is a Mechanics article. */
+  readonly formulas: readonly {
+    readonly label: readonly ArticleSegmentView[];
+    readonly text: readonly ArticleSegmentView[];
+  }[];
+  /** COMP, See also: the See also entries in authored order, each under the displayed title of its article. */
+  readonly seeAlso: readonly ArticleLinkView[];
 }
 
 /** The Combat ratings of a team of Agents and of a Mission site's Enemies, and whether deploying is accepted. */
@@ -442,8 +477,13 @@ export interface PlayerApi {
     getHistory(): Result<HistoryView>;
     getAvailableActions(): Result<AvailableActionsView>;
     getGameData(): Result<GameDataView>;
-    /** COMP: the Player-visible Encyclopedia articles, in Game build order. */
-    getEncyclopediaArticles(): Result<readonly EncyclopediaArticleView[]>;
+    /** COMP: the Player-visible Compendium articles in their resolved form, in Game build order. */
+    getCompendiumArticles(): Result<readonly CompendiumArticleView[]>;
+    /**
+     * COMP, Article term lookup: the identifier of the Player-visible article that has an Article term equal to the
+     * text ignoring case, or null when there is none.
+     */
+    getArticleForTerm(text: string): Result<string | null>;
     previewDeployment(missionSite: string | null, agents: readonly string[]): Result<DeploymentPreview>;
     /**
      * INVSTG, Team progress estimate: the gain per Advance turn, in hundredths of a progress point, of a team of

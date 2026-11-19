@@ -10,7 +10,7 @@ import type {
   MissionSiteView,
   TurnReport,
 } from '../../engine/index.ts';
-import { combatLogRow } from '../combat-log.ts';
+import { combatLogRow, finalCondition } from '../combat-log.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
 import { progressGain, progressPoints, wholeText } from '../format.ts';
@@ -18,10 +18,9 @@ import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
 import { turnSummaryHasContent } from '../turn-summary.ts';
+import { backLabel, turnSummaryPlace } from '../view-trail.ts';
 import { Button, percent, Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
-
-const CONDITIONS = { ableToFight: 'able to fight', incapacitated: 'incapacitated', dead: 'dead' } as const;
 
 /** Where selecting an item of the Turn report leads. */
 export type ReportTarget =
@@ -56,8 +55,10 @@ export function TurnReportView(props: {
   const [logOpen, setLogOpen] = usePlaceState('logOpen', false);
   const shownCombat = report?.combatReports.find((item) => item.mission === combat);
   usePlaceName(shownCombat === undefined ? null : 'Combat report');
-  // TRVIEW: the Turn summary button is disabled, not hidden, when there is no Turn report or no group to show.
-  const summaryButton = (
+  // TRVIEW, Turn summary button: disabled, not hidden, when there is no Turn report or no group to show. While the
+  // Back control returns to the Turn summary, the Back control stands in its place and the button is not shown.
+  const backToSummary = place.back?.label === backLabel([turnSummaryPlace(null)]);
+  const summaryButton = backToSummary ? undefined : (
     <Button
       testId="reopen-summary"
       disabledReason={
@@ -214,8 +215,9 @@ function Sections(props: {
               const combat = report.combatReports.find((item) => item.mission === mission.mission);
               const enemies = combat?.participants.filter((who) => who.side === 'enemy') ?? [];
               const dead = enemies.filter((who) => who.final.condition === 'dead').length;
-              // TRVIEW, Missions: the sum of the Mission skill gains of the survivors, e.g. "+176 skill".
-              const skillGained = mission.growth.reduce((sum, item) => sum + item.missionSkillGain, 0);
+              // TRVIEW, Missions: the sum of the Mission skill gains of the survivors, i.e. the Experience they
+              // gained, e.g. "+176 exp".
+              const experience = mission.growth.reduce((sum, item) => sum + item.missionSkillGain, 0);
               return (
                 <tr key={mission.mission}>
                   <td>
@@ -240,8 +242,8 @@ function Sections(props: {
                   <td className="num">
                     Enemies dead {dead} / {enemies.length}
                   </td>
-                  <td className="num" data-testid={`skill-gained-${mission.mission}`}>
-                    +{skillGained} skill
+                  <td className="num" data-testid={`exp-${mission.mission}`}>
+                    +{experience} exp
                   </td>
                   <td>
                     {combat === undefined ? null : (
@@ -357,21 +359,20 @@ const PARTICIPANT_WIDTHS = [
   '104px',
   '120px',
   '104px',
-  '64px',
   '72px',
   '64px',
   '64px',
-  '128px',
+  '72px',
   '128px',
 ];
 const LOG_WIDTHS = ['72px', '120px', '120px', '164px', '300px'];
 
 /**
- * TRVIEW, Combat report: the Skill gained of one participant. A survivor shows its Mission skill gain and its parts,
- * e.g. "+43 (13+30)" in Positive; a Killed Agent its combat skill gain struck through in Text muted, because it was
- * never added; an Enemy nothing.
+ * TRVIEW, Combat report: the Exp of one participant. A survivor shows its Mission skill gain, the Experience it gained,
+ * as one total in Positive, e.g. "+43", never split into its parts; a Killed Agent its combat skill gain struck through
+ * in Text muted, because it was never added; an Enemy nothing.
  */
-function SkillGained(props: {
+function Experience(props: {
   who: CombatReport['participants'][number];
   growth: readonly MissionGrowthRecord[];
 }) {
@@ -383,11 +384,7 @@ function SkillGained(props: {
   if (gained === undefined) {
     return <s className="muted">+{who.combatSkillGain}</s>;
   }
-  return (
-    <span className="tone-good">
-      +{gained.missionSkillGain} ({who.combatSkillGain}+{gained.survivalSkillGain})
-    </span>
-  );
+  return <span className="tone-good">+{gained.missionSkillGain}</span>;
 }
 
 function CombatReportDetails(props: {
@@ -419,11 +416,11 @@ function CombatReportDetails(props: {
               <th className="num">Eff. skill</th>
               <th className="num">Health</th>
               <th className="num">Exhaustion</th>
-              <th>Incap.</th>
               <th className="num">Damage</th>
               <th className="num">Dealt</th>
               <th className="num">Taken</th>
-              <th className="num">Skill gained</th>
+              {/* The header says "Exp" alone, because the "+" of each value already says that it was gained. */}
+              <th className="num">Exp</th>
               <th>Condition</th>
             </tr>
           </thead>
@@ -435,10 +432,14 @@ function CombatReportDetails(props: {
                 </th>
               </tr>
               {group(side).map((who) => {
-                const killed = who.side === 'agent' && who.final.condition === 'dead';
+                // TRVIEW, Combat report: the participant's name and its final condition are in Danger when it is dead
+                // and in Warning when it is Incapacitated, on both sides alike; its other values keep their colours.
+                const condition = finalCondition(who.side, who.final.condition);
                 return (
                   <tr key={who.id} data-testid={`participant-${who.id}`}>
-                    <th scope="row">{props.nameOf(who.id)}</th>
+                    <th scope="row" className={condition.tone ?? undefined}>
+                      {props.nameOf(who.id)}
+                    </th>
                     <td className="num">{wholeText(who.start.skillHundredths)}</td>
                     <td className="num">
                       {who.start.effectiveSkill} → {who.final.effectiveSkill}
@@ -467,17 +468,15 @@ function CombatReportDetails(props: {
                         who.final.exhaustion
                       )}
                     </td>
-                    {/* COMBAT, Combat report, Starting values: the Incapacitated value when the Combat began. */}
-                    <td>{who.start.incapacitated ? 'yes' : 'no'}</td>
                     <td className="num">{who.start.weaponDamage}</td>
                     {/* GUI, Decimal quantities shown: health removed from an Agent, a Decimal quantity, rounds down. */}
                     <td className="num">{wholeText(who.damageDealtHundredths)}</td>
                     <td className="num">{wholeText(who.damageTakenHundredths)}</td>
-                    <td className="num" data-testid={`skill-gained-${who.id}`}>
-                      <SkillGained who={who} growth={props.growth} />
+                    <td className="num" data-testid={`exp-${who.id}`}>
+                      <Experience who={who} growth={props.growth} />
                     </td>
-                    <td className={killed ? 'tone-bad' : undefined}>
-                      {killed ? 'Killed' : CONDITIONS[who.final.condition]}
+                    <td className={condition.tone ?? undefined} data-testid={`condition-${who.id}`}>
+                      {condition.text}
                     </td>
                   </tr>
                 );
@@ -520,7 +519,13 @@ function CombatReportDetails(props: {
             props.onToggleLog(event.currentTarget.open);
           }}
         >
-          <summary>Combat log ({combat.log.length} attacks)</summary>
+          {/* The toggle names the Combat log and, after a space, the number of its attacks in Text muted. */}
+          <summary data-testid="combat-log-toggle">
+            Combat log{' '}
+            <span className="muted">
+              ({combat.log.length} {combat.log.length === 1 ? 'attack' : 'attacks'})
+            </span>
+          </summary>
           <Grid widths={LOG_WIDTHS} className="log" testId="combat-log">
             <thead>
               <tr>

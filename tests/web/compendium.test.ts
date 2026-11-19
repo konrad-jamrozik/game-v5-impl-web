@@ -1,0 +1,407 @@
+/** COMPV: the Compendium View's categories, search, Article history, and Data sheets; VIS and TRVIEW colour rules. */
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import type { CompendiumArticleView } from '../../src/engine/index.ts';
+import type { CampaignState } from '../../src/engine/state/types.ts';
+import {
+  articleForTermView,
+  compendiumArticlesView,
+  currentStateView,
+  gameDataView,
+} from '../../src/engine/views/views.ts';
+import { finalCondition } from '../../src/web/combat-log.ts';
+import {
+  articlesOf,
+  categoryOf,
+  compendiumCategories,
+  currentArticle,
+  dataSheet,
+  effectParts,
+  firstArticle,
+  hasNextArticle,
+  hasPreviousArticle,
+  nextArticle,
+  openHistory,
+  previousArticle,
+  searchArticles,
+  showArticle,
+  visibleHistory,
+  type DataSheet,
+  type SheetPart,
+} from '../../src/web/compendium.ts';
+import { gdrs, newCampaign, tweak } from '../helpers/game.ts';
+
+const article = (
+  id: string,
+  title: string,
+  values: Partial<CompendiumArticleView> = {},
+): CompendiumArticleView => ({
+  id,
+  category: 'guide',
+  title,
+  subject: null,
+  subjectType: null,
+  body: [],
+  formulas: [],
+  seeAlso: [],
+  ...values,
+});
+const subject = (id: string, title: string, subjectType: string) =>
+  article(`${id}_article`, title, { category: 'subject', subject: id, subjectType });
+
+/** A Data sheet value as text, with each Article link in square brackets. */
+const text = (parts: readonly SheetPart[]) =>
+  parts.map((part) => (part.article === undefined ? part.text : `[${part.text}]`)).join('');
+const rowsOf = (sheet: DataSheet | null) =>
+  Object.fromEntries((sheet?.rows ?? []).map((row) => [row.label, text(row.value)]));
+
+/** The Data sheet of the Subject article about `id` in a World state, from what Player API reports of it. */
+function sheetOf(state: CampaignState, id: string): DataSheet | null {
+  const articles = compendiumArticlesView(state, gdrs);
+  const shown = articles.find((item) => item.subject === id);
+  if (shown === undefined) {
+    throw new Error(`No Player-visible article about ${id}`);
+  }
+  return dataSheet(shown, {
+    gameData: gameDataView(gdrs),
+    state: currentStateView(state, gdrs),
+    articles,
+    articleForTerm: (term) => articleForTermView(state, gdrs, term),
+  });
+}
+
+/** A World state in which every Lead of the test Game build is discovered and both Response Mission sites exist. */
+function everythingVisible(): CampaignState {
+  const state = tweak(newCampaign(), (world) => {
+    for (const lead of gdrs.leads) {
+      if (!world.discoveredLeads.includes(lead.id)) {
+        world.discoveredLeads.push(lead.id);
+      }
+    }
+  });
+  return state;
+}
+
+describe('COMPV: Panes', () => {
+  const articles = [
+    subject('rifle', 'Rifle', 'Weapon'),
+    article('mechanics_skill', 'skill gain', { category: 'mechanics' }),
+    article('mechanics_combat', 'Combat', { category: 'mechanics' }),
+    subject('soldier', 'Soldier', 'EnemyArchetype'),
+    article('guide_b', 'b guide'),
+    article('guide_a', 'A guide'),
+    subject('red_dawn', 'Red Dawn', 'FactionArchetype'),
+    subject('agency', 'The Agency', 'AgencyArchetype'),
+    subject('apprehend_member', 'Apprehend member', 'MissionSiteArchetype'),
+  ];
+
+  it('lists Guide first, then Mechanics, then the subject categories by name, each with its count', () => {
+    expect(compendiumCategories(articles)).toEqual([
+      { name: 'Guide', count: 2 },
+      { name: 'Mechanics', count: 2 },
+      { name: 'Enemies', count: 1 },
+      { name: 'Factions', count: 1 },
+      { name: 'Mission sites', count: 1 },
+      { name: 'Other', count: 1 },
+      { name: 'Weapons', count: 1 },
+    ]);
+    // A Subject article whose subject has a Type without a Data sheet is listed under Other.
+    expect(categoryOf(subject('agency', 'The Agency', 'AgencyArchetype'))).toBe('Other');
+    expect(categoryOf(subject('field_agent', 'Field agent', 'AgentArchetype'))).toBe('Agents');
+    expect(categoryOf(subject('agent_cap', 'Agent cap', 'Upgrade'))).toBe('Upgrades');
+    expect(categoryOf(subject('lead', 'A lead', 'Lead'))).toBe('Leads');
+  });
+
+  it('sorts the articles of a category by displayed title ignoring case', () => {
+    expect(articlesOf(articles, 'Guide').map((item) => item.title)).toEqual(['A guide', 'b guide']);
+    expect(articlesOf(articles, 'Mechanics').map((item) => item.title)).toEqual(['Combat', 'skill gain']);
+    // When the Compendium View opens, the Guide category and its first article are selected.
+    expect(firstArticle(articles)).toBe('guide_a');
+    expect(firstArticle([])).toBeNull();
+  });
+
+  it('searches the displayed titles of every category, ignoring case, and leaves out an empty category', () => {
+    const found = searchArticles(articles, 'GUI');
+    expect(found.map((item) => item.id)).toEqual(['guide_b', 'guide_a']);
+    expect(compendiumCategories(found)).toEqual([{ name: 'Guide', count: 2 }]);
+    // While the search field holds text, the categories show the numbers of matching articles.
+    expect(compendiumCategories(searchArticles(articles, 'r'))).toEqual([
+      { name: 'Enemies', count: 1 },
+      { name: 'Factions', count: 1 },
+      { name: 'Mission sites', count: 1 },
+      { name: 'Weapons', count: 1 },
+    ]);
+    expect(searchArticles(articles, '')).toHaveLength(articles.length);
+    expect(searchArticles(articles, 'no such title')).toEqual([]);
+  });
+});
+
+describe('COMPV: Following links, the Article history', () => {
+  it('Open: holds only the article selected, which is current', () => {
+    const history = openHistory('a');
+    expect(history).toEqual({ articles: ['a'], current: 0 });
+    expect(currentArticle(history)).toBe('a');
+    expect(hasPreviousArticle(history)).toBe(false);
+    expect(hasNextArticle(history)).toBe(false);
+  });
+
+  it('Show another article: removes every article after the current one and adds the article shown', () => {
+    let history = showArticle(showArticle(openHistory('a'), 'b'), 'c');
+    expect(history).toEqual({ articles: ['a', 'b', 'c'], current: 2 });
+    // Showing the current article again changes nothing.
+    expect(showArticle(history, 'c')).toBe(history);
+    history = previousArticle(previousArticle(history));
+    expect(currentArticle(history)).toBe('a');
+    expect(hasNextArticle(history)).toBe(true);
+    history = showArticle(history, 'd');
+    expect(history).toEqual({ articles: ['a', 'd'], current: 1 });
+    // An article may be shown again later; it is added once more.
+    expect(showArticle(history, 'a')).toEqual({ articles: ['a', 'd', 'a'], current: 2 });
+  });
+
+  it('Previous article and Next article move the current one, and stop at either end', () => {
+    const history = showArticle(showArticle(openHistory('a'), 'b'), 'c');
+    const back = previousArticle(history);
+    expect(currentArticle(back)).toBe('b');
+    expect(back.articles).toEqual(['a', 'b', 'c']);
+    expect(currentArticle(nextArticle(back))).toBe('c');
+    expect(nextArticle(history)).toBe(history);
+    const first = previousArticle(back);
+    expect(previousArticle(first)).toBe(first);
+    expect(hasPreviousArticle(first)).toBe(false);
+  });
+
+  it('No longer Player-visible: the article leaves, and the one before it, or else after it, becomes current', () => {
+    const history = { articles: ['a', 'b', 'c', 'd'], current: 2 };
+    const visible = (...ids: string[]) => new Set(ids);
+    // Nothing changes while every article is Player-visible.
+    expect(visibleHistory(history, visible('a', 'b', 'c', 'd'), 'g')).toBe(history);
+    // Another article leaves: the current one stays current.
+    expect(visibleHistory(history, visible('a', 'c', 'd'), 'g')).toEqual({
+      articles: ['a', 'c', 'd'],
+      current: 1,
+    });
+    expect(visibleHistory(history, visible('a', 'b', 'c'), 'g')).toEqual({
+      articles: ['a', 'b', 'c'],
+      current: 2,
+    });
+    // The current one leaves: the article before it becomes current.
+    expect(visibleHistory(history, visible('a', 'b', 'd'), 'g')).toEqual({
+      articles: ['a', 'b', 'd'],
+      current: 1,
+    });
+    // No article before it: the article after it.
+    expect(visibleHistory(history, visible('d'), 'g')).toEqual({ articles: ['d'], current: 0 });
+    // Neither: the first article of the Guide category is shown as in Open.
+    expect(visibleHistory(history, visible('g'), 'g')).toEqual({ articles: ['g'], current: 0 });
+    expect(visibleHistory({ articles: [], current: 0 }, visible('g'), 'g')).toEqual(openHistory('g'));
+  });
+});
+
+describe('COMPV: Subject data sheets', () => {
+  it('Agent data sheet: what a newly hired Agent starts with', () => {
+    const state = newCampaign();
+    const agent = gdrs.agentArchetype;
+    const weapon = gdrs.weapons.get(agent.weapon)!;
+    const sheet = sheetOf(state, agent.id);
+    expect(sheet?.heading).toBe('New Agent');
+    expect(rowsOf(sheet)).toEqual({
+      Skill: String(agent.skill),
+      Health: String(agent.baseHealth),
+      Weapon: `[${weapon.name}] · damage ${weapon.damage}`,
+    });
+    // Labels: a label is an Article link to the article that the Article term lookup reports for its text.
+    expect(sheet?.rows.map((row) => row.labelArticle)).toEqual(['mechanics_skill', 'mechanics_health', null]);
+    // Numbers are in the Figure style.
+    expect(sheet?.rows[0]?.value).toEqual([{ text: String(agent.skill), style: 'figure' }]);
+  });
+
+  it('Enemy data sheet: lists only the Player-visible Mission sites it appears at', () => {
+    const soldier = gdrs.enemyArchetypes.get('soldier')!;
+    const weapon = gdrs.weapons.get(soldier.weapon)!;
+    // At campaign creation no Player-visible Mission site holds a Soldier, so the row is left out.
+    expect(rowsOf(sheetOf(newCampaign(), 'soldier'))).toEqual({
+      Skill: String(soldier.skill),
+      Health: String(soldier.baseHealth),
+      Weapon: `[${weapon.name}] · damage ${weapon.damage}`,
+    });
+    const sheet = sheetOf(everythingVisible(), 'soldier');
+    expect(sheet?.heading).toBe('Enemy');
+    const appears = sheet?.rows.find((row) => row.label === 'Appears at');
+    const names = gdrs.missionSiteArchetypes
+      .filter((site) => site.kind === 'initiative' && site.enemies.some(([enemy]) => enemy === 'soldier'))
+      .map((site) => site.name)
+      .sort((a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : 1));
+    expect(names.length).toBeGreaterThan(0);
+    expect(text(appears?.value ?? [])).toBe(names.map((name) => `[${name}]`).join(' · '));
+  });
+
+  it('Weapon data sheet: its damage, the range of a hit, and who carries it', () => {
+    const sidearm = gdrs.weapons.get(gdrs.agentArchetype.weapon)!;
+    const sheet = sheetOf(newCampaign(), sidearm.id);
+    expect(sheet?.heading).toBe('Weapon');
+    const rows = rowsOf(sheet);
+    expect(rows['Damage']).toBe(String(sidearm.damage));
+    // COMBAT, Damage outcome: the two bounds joined by an en dash, e.g. "5–15" for 10 and a range of 0.5.
+    expect(rows['Damage of a hit']).toMatch(/^\d+–\d+$/);
+    expect(gameDataView(gdrs).weapons.find((item) => item.id === sidearm.id)?.damageOfAHit).toEqual({
+      min: Math.ceil(sidearm.damage * 0.5),
+      max: Math.floor(sidearm.damage * 1.5),
+    });
+    expect(rows['Carried by']).toContain(`[${gdrs.agentArchetype.name}]`);
+  });
+
+  it('Upgrade data sheet: the price and what one acquisition adds, worded by its effect', () => {
+    const state = newCampaign();
+    const each = (id: string) => rowsOf(sheetOf(state, id))['Each purchase'];
+    const upgrade = (id: string) => gdrs.upgrades.find((item) => item.id === id)!;
+    expect(sheetOf(state, 'agent_cap')?.heading).toBe('Upgrade');
+    expect(rowsOf(sheetOf(state, 'agent_cap'))['Price']).toBe(`${upgrade('agent_cap').price} money`);
+    expect(each('agent_cap')).toBe(`+${upgrade('agent_cap').incrementHundredths / 100} to the Agent cap`);
+    expect(each('transport_cap')).toMatch(/^\+\d+ to the Transport cap$/);
+    expect(each('training_cap')).toMatch(/^\+\d+ to the Training cap$/);
+    expect(each('weapon_damage')).toMatch(/^\+\d+ weapon damage for every Agent$/);
+    expect(each('max_health')).toMatch(/^\+\d+ max health for every Agent$/);
+    // GUI, Decimal quantities shown: the Increment of a Rate Upgrade is shown with two decimals.
+    expect(each('training_skill_gain')).toMatch(/^\+\d+\.\d\d skill for each turn of Training$/);
+    expect(each('exhaustion_recovery')).toMatch(/^\+\d+\.\d\d exhaustion recovered each turn$/);
+    expect(each('health_recovery')).toMatch(/^\+\d+\.\d\d% of max health recovered each turn$/);
+  });
+
+  it('Faction data sheet: leads on to the Leads the Player has learned of', () => {
+    expect(rowsOf(sheetOf(newCampaign(), 'red_dawn'))).toEqual({ Leads: '[Locate Red Dawn member]' });
+    const all = rowsOf(sheetOf(everythingVisible(), 'red_dawn'))['Leads'] ?? '';
+    expect(all.split(' · ')).toHaveLength(gdrs.leads.length);
+  });
+
+  it('Lead data sheet: its Faction, its Required progress once Assessed, and what it reveals', () => {
+    const state = newCampaign();
+    const lead = gdrs.leads.find((item) => item.id === 'locate_red_dawn_member')!;
+    const site = gdrs.missionSiteArchetypes.find((item) => item.id === lead.onCompletion.createMissionSite)!;
+    const sheet = sheetOf(state, lead.id);
+    expect(sheet?.heading).toBe('Lead');
+    expect(rowsOf(sheet)).toEqual({
+      Faction: '[Red Dawn]',
+      'Required progress': 'Unknown',
+      Reveals: `[${site.name}]`,
+      'Can be investigated again': 'Until its Mission is won',
+    });
+    // "Unknown" is in Text muted until the Lead is an Assessed Lead.
+    expect(sheet?.rows[1]?.value).toEqual([{ text: 'Unknown', style: 'muted' }]);
+  });
+
+  it('Mission site data sheet: what awaits a team there and what is at stake', () => {
+    const state = everythingVisible();
+    const site = gdrs.missionSiteArchetypes.find((item) => item.id === 'apprehend_member')!;
+    const sheet = sheetOf(state, site.id);
+    expect(sheet?.heading).toBe('Mission site');
+    const rows = rowsOf(sheet);
+    expect(rows['Appears']).toBe('When an Investigation completes');
+    expect(rows['Expires in']).toBe(`${site.expiresInTurns} turns`);
+    expect(rows['Enemies']).toBe(
+      site.enemies
+        .map(([enemy, count]) => `${count} × [${gdrs.enemyArchetypes.get(enemy)!.name}]`)
+        .join(' · '),
+    );
+    expect(rows['Reward for a win']).toBe(
+      `+${site.onWin.money} money · −${site.onWin.panicReductionPct}% Panic`,
+    );
+    expect(rows['Revealed by']).toBe('[Locate Red Dawn member]');
+    expect(rows['If lost or expired']).toBeUndefined();
+    expect(rowsOf(sheetOf(state, 'raid_hq'))['Reward for a win']).toBe('Eliminates the Faction');
+
+    // A Response Mission site is Player-visible only while a Mission site of it exists.
+    const response = gdrs.missionSiteArchetypes.find((item) => item.kind === 'response')!;
+    const level = gdrs.factionOperationLevels.find((item) => item.level === response.operationLevel)!;
+    const withSite = tweak(newCampaign(), (world) => {
+      const existing = Object.values(world.missionSites)[0];
+      expect(existing).toBeUndefined();
+      world.missionSites['mission-site-1'] = {
+        id: 'mission-site-1',
+        archetype: response.id,
+      } as (typeof world.missionSites)[string];
+    });
+    const articles = compendiumArticlesView(withSite, gdrs);
+    const shown = articles.find((item) => item.subject === response.id)!;
+    const responseRows = rowsOf(
+      dataSheet(shown, {
+        gameData: gameDataView(gdrs),
+        state: currentStateView(newCampaign(), gdrs),
+        articles,
+        articleForTerm: () => null,
+      }),
+    );
+    expect(responseRows['Appears']).toBe(
+      `When a Faction carries out an operation of level ${level.level} (${level.name})`,
+    );
+    expect(responseRows['Reward for a win']).toBe(
+      effectText({ money: level.onWin.money, funding: level.onWin.funding }),
+    );
+    expect(responseRows['If lost or expired']).toBe(
+      effectText({ funding: level.onIgnoredOrLost.funding, panic: level.onIgnoredOrLost.panicIncreasePct }),
+    );
+    expect(responseRows['Revealed by']).toBeUndefined();
+  });
+
+  it('a Guide article, a Mechanics article, and a subject of another Type have no Data sheet', () => {
+    const state = newCampaign();
+    const sources = {
+      gameData: gameDataView(gdrs),
+      state: currentStateView(state, gdrs),
+      articles: compendiumArticlesView(state, gdrs),
+      articleForTerm: () => null,
+    };
+    expect(dataSheet(article('guide_a', 'A guide'), sources)).toBeNull();
+    expect(dataSheet(article('mechanics_a', 'A mechanic', { category: 'mechanics' }), sources)).toBeNull();
+    expect(dataSheet(subject('agency', 'The Agency', 'AgencyArchetype'), sources)).toBeNull();
+  });
+});
+
+const effectText = (effects: Parameters<typeof effectParts>[0]) => text(effectParts(effects));
+
+describe('COMPV: Effects shown', () => {
+  it('words each Effect so that the Player reads at once whether it helps or harms', () => {
+    expect(effectParts({ money: 100, funding: -1, panic: -2, eliminateFaction: true })).toEqual([
+      { text: '+100 money', style: 'good' },
+      { text: ' · ' },
+      { text: '−1 funding', style: 'bad' },
+      { text: ' · ' },
+      { text: '−2% Panic', style: 'good' },
+      { text: ' · ' },
+      { text: 'Eliminates the Faction', style: 'good' },
+    ]);
+    expect(effectParts({ panic: 3, funding: 5 })).toEqual([
+      { text: '+5 funding', style: 'good' },
+      { text: ' · ' },
+      { text: '+3% Panic', style: 'bad' },
+    ]);
+    // An Effect list that holds no Effect.
+    expect(effectParts({})).toEqual([{ text: 'None' }]);
+  });
+});
+
+describe('TRVIEW: the final condition of a participant of a Combat report', () => {
+  it('words it and colours it on both sides alike', () => {
+    expect(finalCondition('agent', 'dead')).toEqual({ text: 'Killed', tone: 'tone-bad' });
+    expect(finalCondition('enemy', 'dead')).toEqual({ text: 'Dead', tone: 'tone-bad' });
+    expect(finalCondition('agent', 'incapacitated')).toEqual({ text: 'Incapacitated', tone: 'tone-warning' });
+    expect(finalCondition('enemy', 'incapacitated')).toEqual({ text: 'Incapacitated', tone: 'tone-warning' });
+    expect(finalCondition('agent', 'ableToFight')).toEqual({ text: '', tone: null });
+    expect(finalCondition('enemy', 'ableToFight')).toEqual({ text: '', tone: null });
+  });
+});
+
+describe('VIS: the Notice and Autopilot colours', () => {
+  it('are Design tokens, and the Autopilot button has no fill, an Autopilot outline, and Autopilot text', () => {
+    const css = readFileSync(new URL('../../src/web/styles.css', import.meta.url), 'utf8').replaceAll(
+      '\r\n',
+      '\n',
+    );
+    expect(css).toContain('--notice: #8fb8d6;');
+    expect(css).toContain('--autopilot: #b4a0e5;');
+    expect(css).toContain(
+      '.btn-autopilot {\n  background: none;\n  border-color: var(--autopilot);\n  color: var(--autopilot);\n}',
+    );
+    expect(css).toContain('.tone-notice {\n  color: var(--notice);\n}');
+  });
+});

@@ -13,9 +13,10 @@ import { checkInvariants } from './state/invariants.ts';
 import type { CampaignState } from './state/types.ts';
 import { applyAdvanceTurn, type ProcessingOrder } from './turn/advance.ts';
 import {
+  articleForTermView,
   availableActionsView,
+  compendiumArticlesView,
   currentStateView,
-  encyclopediaArticlesView,
   estimateTeamProgressGain,
   gameDataView,
   historyView,
@@ -185,8 +186,11 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       if (query === 'gameData') {
         return gameDataView(gdrs);
       }
-      if (query === 'encyclopediaArticles') {
-        return encyclopediaArticlesView(state, gdrs);
+      if (query === 'compendiumArticles') {
+        return compendiumArticlesView(state, gdrs);
+      }
+      if (query === 'articleForTerm' && isRecord(args)) {
+        return articleForTermView(state, gdrs, args['text']);
       }
       if (query === 'previewDeployment' && isRecord(args)) {
         return previewDeployment(state, gdrs, args['missionSite'], args['agents']);

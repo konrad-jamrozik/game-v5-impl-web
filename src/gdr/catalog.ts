@@ -5,12 +5,12 @@
  */
 import { z } from 'zod';
 import { EngineDefect, Rational, q } from '../kernel/index.ts';
+import { parseCompendiumArticle, validateCompendiumArticles, type RawGdr } from './compendium-articles.ts';
 import type {
   AnyGdr,
   BackgroundArtworkGdr,
-  CatalogEncyclopediaArticle,
+  CompendiumArticleGdr,
   Condition,
-  EncyclopediaArticleGdr,
   FactionActivityLevelGdr,
   GdrCatalog,
   LeadGdr,
@@ -156,10 +156,6 @@ function conditionReferences(item: Condition): { missionSiteArchetypes: string[]
   }
 }
 const range = z.tuple([z.int(), z.int()]);
-/** COMP, Encyclopedia article GDR validation, rules 1 and 2: a required, non-empty text. */
-const text = z
-  .string({ error: (issue) => (issue.input === undefined ? 'Exact properties' : 'Text is present') })
-  .min(1, 'Text is present');
 
 const schemas = {
   AgentArchetype: z
@@ -506,22 +502,19 @@ const schemas = {
   EndingParameters: z
     .strictObject({ id, type: z.literal('EndingParameters'), defeat_at_panic_pct: z.int().min(1).max(100) })
     .transform((g) => ({ type: g.type, id: g.id, defeatAtPanicPct: g.defeat_at_panic_pct })),
-  // COMP, Encyclopedia article GDR validation, rule 1: `title` and `body`, optionally `subject`, and nothing else.
-  EncyclopediaArticle: z
-    .strictObject(
-      { id, type: z.literal('EncyclopediaArticle'), title: text, body: text, subject: id.optional() },
-      {
-        error: (issue) =>
-          issue.code === 'unrecognized_keys' ? `Exact properties (${issue.keys.join(', ')})` : undefined,
-      },
-    )
-    .transform((g) => ({
-      type: g.type,
-      id: g.id,
-      title: g.title,
-      body: g.body,
-      subject: g.subject ?? null,
-    })),
+  // COMP, Compendium article GDR validation, rules 1 to 3; rules 4 to 9 are checked across the Game build.
+  CompendiumArticle: z
+    .looseObject({ id, type: z.literal('CompendiumArticle') })
+    .transform((raw, context): CompendiumArticleGdr => {
+      const parsed = parseCompendiumArticle(raw);
+      if ('problems' in parsed) {
+        for (const message of parsed.problems) {
+          context.addIssue({ code: 'custom', message });
+        }
+        return z.NEVER;
+      }
+      return parsed.article;
+    }),
   // VIS, Background artwork: the exhaustive properties of a BackgroundArtwork.
   BackgroundArtwork: z
     .strictObject({
@@ -570,9 +563,20 @@ function isTypeName(value: unknown): value is TypeName {
 export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const problems: string[] = [];
   const byType = new Map<string, AnyGdr[]>();
+  /** Every GDR of a known Type as authored, for the Placeholders of the Compendium articles (COMP). */
+  const authored: RawGdr[] = [];
+  /** GDR, GDR file layout: where the GDRs of each Type lie, a file or a directory of one file per GDR. */
+  const layouts = new Map<string, Set<'file' | 'directory'>>();
 
   for (const file of files) {
     const typesInFile = new Set<string>();
+    // GDR, GDR file layout, Directory of one file per GDR: the directory lies where the file of its Type would lie,
+    // so its files lie one level deeper than a file that holds every GDR of a Type.
+    const segments = file.path.split('/');
+    const onePerFile = segments.length === 3;
+    if (onePerFile && file.gdrs.length !== 1) {
+      problems.push(`${file.path}: a file in a directory of one file per GDR holds exactly one GDR`);
+    }
     file.gdrs.forEach((raw, index) => {
       const where = `${file.path}#${index + 1}`;
       const type = (raw as { type?: unknown } | null)?.type;
@@ -581,6 +585,11 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
         return;
       }
       typesInFile.add(type);
+      layouts.set(type, (layouts.get(type) ?? new Set()).add(onePerFile ? 'directory' : 'file'));
+      authored.push(raw as RawGdr);
+      if (onePerFile && segments[2] !== `${String((raw as RawGdr)['id'])}.yaml`) {
+        problems.push(`${file.path}: a file in a directory of one file per GDR is named after its GDR`);
+      }
       const parsed = schemas[type].safeParse(raw);
       if (!parsed.success) {
         for (const issue of parsed.error.issues) {
@@ -598,6 +607,16 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     });
     if (typesInFile.size > 1) {
       problems.push(`${file.path}: holds GDRs of more than one Type`);
+    }
+  }
+  for (const [type, layout] of layouts) {
+    if (layout.size > 1) {
+      problems.push(`${type}: a Type has either a file or a directory of one file per GDR, never both`);
+    }
+    // GDR, GDR file layout: the order of the GDRs of a Type with a directory is the ascending order of their
+    // identifiers, compared character by character by Unicode code point.
+    if (layout.has('directory')) {
+      byType.get(type)?.sort((a, b) => compareByCodePoint(a.id, b.id));
     }
   }
 
@@ -634,7 +653,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const factionOperationLevels = all<GdrCatalog['factionOperationLevels'][number]>('FactionOperationLevel');
   const leads = all<LeadGdr>('Lead');
   const missionSiteArchetypes = all<MissionSiteArchetypeGdr>('MissionSiteArchetype');
-  const articles = all<EncyclopediaArticleGdr>('EncyclopediaArticle');
+  const articles = all<CompendiumArticleGdr>('CompendiumArticle');
   const backgroundArtworks = all<BackgroundArtworkGdr>('BackgroundArtwork');
 
   // VIS, Background artwork: each names a Detail view, and no two name one Detail view.
@@ -804,8 +823,8 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     }
   }
 
-  // COMP, Encyclopedia article GDR validation, rules 3 to 5. Rules 1 and 2 are checked by the schema.
-  const encyclopediaArticles = validateEncyclopediaArticles(articles, byType, problems);
+  // COMP, Compendium article GDR validation, rules 4 to 9. Rules 1 to 3 are checked by the schema.
+  const compendiumArticles = validateCompendiumArticles(articles, authored, problems);
 
   if (
     problems.length > 0 ||
@@ -846,53 +865,21 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     factionOperationLevels,
     leads,
     missionSiteArchetypes,
-    encyclopediaArticles,
+    compendiumArticles,
     backgroundArtworks,
     music,
   };
 }
 
-/**
- * COMP, Encyclopedia article GDR validation, rules 3 to 5, and the Type of each article's subject. A `subject` names
- * no Type, and a GDR identifier is unique only among the GDRs of its Type (DEC-014), so a `subject` that identifies
- * GDRs of more than one Type identifies no single GDR and fails rule 4.
- */
-function validateEncyclopediaArticles(
-  articles: readonly EncyclopediaArticleGdr[],
-  byType: ReadonlyMap<string, readonly AnyGdr[]>,
-  problems: string[],
-): CatalogEncyclopediaArticle[] {
-  const typesById = new Map<string, NonNullable<CatalogEncyclopediaArticle['subjectType']>[]>();
-  for (const gdr of [...byType.values()].flat()) {
-    if (gdr.type !== 'EncyclopediaArticle') {
-      typesById.set(gdr.id, [...(typesById.get(gdr.id) ?? []), gdr.type]);
+/** Compares two texts character by character by Unicode code point. */
+function compareByCodePoint(a: string, b: string): number {
+  const left = Array.from(a, (character) => character.codePointAt(0) ?? 0);
+  const right = Array.from(b, (character) => character.codePointAt(0) ?? 0);
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    const difference = (left[index] ?? 0) - (right[index] ?? 0);
+    if (difference !== 0) {
+      return difference;
     }
   }
-  const titles = new Set<string>();
-  const subjects = new Set<string>();
-  return articles.map((article) => {
-    // Rule 3: Unique titles.
-    if (titles.has(article.title)) {
-      problems.push(`EncyclopediaArticle ${article.id}: Unique titles (${article.title})`);
-    }
-    titles.add(article.title);
-    if (article.subject === null) {
-      return { ...article, subjectType: null };
-    }
-    // Rule 4: Subject exists, and is not an EncyclopediaArticle.
-    const types = typesById.get(article.subject) ?? [];
-    if (types.length !== 1) {
-      problems.push(
-        types.length === 0
-          ? `EncyclopediaArticle ${article.id}: Subject exists (${article.subject})`
-          : `EncyclopediaArticle ${article.id}: Subject exists (${article.subject} identifies GDRs of more than one Type)`,
-      );
-    }
-    // Rule 5: One article per subject.
-    if (subjects.has(article.subject)) {
-      problems.push(`EncyclopediaArticle ${article.id}: One article per subject (${article.subject})`);
-    }
-    subjects.add(article.subject);
-    return { ...article, subjectType: types[0] ?? null };
-  });
+  return left.length - right.length;
 }

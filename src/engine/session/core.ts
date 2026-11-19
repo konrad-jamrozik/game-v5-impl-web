@@ -175,6 +175,11 @@ export interface AutosaveTarget {
   readonly saveId: string;
   readonly autosaveKind: 'turnEnd' | 'engagement' | 'disengagement' | 'furthestProgress';
   readonly turn: number;
+  /**
+   * TIMELINE, Autosave navigation, Crossing an Autopilot engagement: whether the call undoes or redoes every Player
+   * action of an Autopilot engagement at once.
+   */
+  readonly crossesAutopilotEngagement: boolean;
 }
 
 export interface AutosaveStatus {
@@ -1211,9 +1216,13 @@ export class EngineCore<S extends ShellState> {
     return line;
   }
 
-  private async autosaveTargets(
-    campaign: CampaignRuntime<S>,
-  ): Promise<{ earlier: SaveHeader | null; later: SaveHeader | null; laterReturn: boolean }> {
+  private async autosaveTargets(campaign: CampaignRuntime<S>): Promise<{
+    earlier: SaveHeader | null;
+    later: SaveHeader | null;
+    laterReturn: boolean;
+    undoCrossesEngagement: boolean;
+    redoCrossesEngagement: boolean;
+  }> {
     const ancestors = ancestorStamps(campaign);
     const here = currentStamp(campaign);
     let earlier: SaveHeader | null = null;
@@ -1221,7 +1230,12 @@ export class EngineCore<S extends ShellState> {
     let later: SaveHeader | null = null;
     let laterLength = Number.POSITIVE_INFINITY;
     let laterReturn = false;
+    /** The World states that the Engagement Autosaves of the Campaign hold. */
+    const engaged = new Set<string>();
     for (const header of this.headers.values()) {
+      if (header.campaignId === campaign.campaignId && header.kind === 'engagementAutosave') {
+        engaged.add(header.stamp);
+      }
       if (
         header.campaignId !== campaign.campaignId ||
         header.kind === 'manual' ||
@@ -1256,10 +1270,18 @@ export class EngineCore<S extends ShellState> {
         }
       }
     }
-    return { earlier, later, laterReturn };
+    // TIMELINE, Autosave navigation, Crossing an Autopilot engagement: `undoToAutosave()` crosses one when it loads
+    // the World state the Engagement Autosave holds, and `redoToAutosave()` when that is the Current world state.
+    return {
+      earlier,
+      later,
+      laterReturn,
+      undoCrossesEngagement: earlier !== null && engaged.has(earlier.stamp),
+      redoCrossesEngagement: later !== null && engaged.has(here),
+    };
   }
 
-  private toTarget(header: SaveHeader | null): AutosaveTarget | null {
+  private toTarget(header: SaveHeader | null, crossesAutopilotEngagement: boolean): AutosaveTarget | null {
     if (header === null) {
       return null;
     }
@@ -1267,7 +1289,7 @@ export class EngineCore<S extends ShellState> {
     if (kind === null || kind === 'current') {
       return null;
     }
-    return { saveId: header.saveId, autosaveKind: kind, turn: header.turn };
+    return { saveId: header.saveId, autosaveKind: kind, turn: header.turn, crossesAutopilotEngagement };
   }
 
   getAutosaveStatus(principal: Principal): Promise<Result<AutosaveStatus>> {
@@ -1281,8 +1303,8 @@ export class EngineCore<S extends ShellState> {
       }
       const targets = await this.autosaveTargets(this.requireCampaign());
       return ok({
-        undoToAutosave: this.toTarget(targets.earlier),
-        redoToAutosave: this.toTarget(targets.later),
+        undoToAutosave: this.toTarget(targets.earlier, targets.undoCrossesEngagement),
+        redoToAutosave: this.toTarget(targets.later, targets.redoCrossesEngagement),
       });
     });
   }
@@ -1295,7 +1317,7 @@ export class EngineCore<S extends ShellState> {
       }
       const campaign = this.requireCampaign();
       const targets = await this.autosaveTargets(campaign);
-      const target = this.toTarget(targets.earlier);
+      const target = this.toTarget(targets.earlier, targets.undoCrossesEngagement);
       if (targets.earlier === null || target === null) {
         return fail('no_target', 'There is no earlier Autosave to go back to.');
       }
@@ -1333,7 +1355,7 @@ export class EngineCore<S extends ShellState> {
       }
       const campaign = this.requireCampaign();
       const targets = await this.autosaveTargets(campaign);
-      const target = this.toTarget(targets.later);
+      const target = this.toTarget(targets.later, targets.redoCrossesEngagement);
       if (targets.later === null || target === null) {
         return fail('no_target', 'There is no later Autosave to go forward to.');
       }

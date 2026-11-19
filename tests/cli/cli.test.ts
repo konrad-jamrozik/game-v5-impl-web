@@ -201,6 +201,32 @@ describe('Terminal CLI', () => {
     }
   });
 
+  it('reports a Compendium article in its resolved form, in both Output forms, and looks up an Article term', async () => {
+    const engine = await start(new MemoryStorage());
+    await run(engine, ['new compendium']);
+    const [json, term, none] = await run(engine, ['articles', 'term Combat rating', 'term no such term']);
+    // CLI, Output forms: exactly what the engine API returns: the text, the inserted values, and the Article links.
+    expect(parse(json).value).toEqual(ok(engine.player.queries.getCompendiumArticles()));
+    const exhaustion = (parse(json).value as Record<string, any>[]).find(
+      (article) => article['id'] === 'mechanics_exhaustion',
+    )!;
+    const segments = [
+      ...exhaustion['body'],
+      ...exhaustion['formulas'].flatMap((row: Record<string, any>) => [...row['label'], ...row['text']]),
+    ] as { kind: string; text: string; article?: string }[];
+    expect(segments.some((segment) => segment.kind === 'value')).toBe(true);
+    expect(segments.find((segment) => segment.kind === 'link')?.article).toMatch(/^[a-z_]+$/);
+    expect(segments.map((segment) => segment.text).join('')).not.toMatch(/[{}]/);
+    expect(parse(term)).toMatchObject({ command: 'term', ok: true, value: 'mechanics_combat' });
+    expect(parse(none)).toMatchObject({ command: 'term', ok: true, value: null });
+    // The readable form gives the same segments, as a table of each segment's kind, text, and linked article.
+    const [text] = await run(engine, ['articles'], false);
+    expect(text).toContain('id: mechanics_exhaustion');
+    expect(text).toMatch(/^\s+kind\s+text\s+article$/m);
+    expect(text).toMatch(/^\s+link\s+Agent\s+mechanics_agents$/m);
+    expect(text).toMatch(/^\s+value\s+\d+$/m);
+  });
+
   it('reaches the New-Campaign setup and an Autopilot engagement while it runs', async () => {
     const engine = await start(new MemoryStorage());
     const lines = await run(engine, ['setup', 'new reach', 'engage basic turns 50']);

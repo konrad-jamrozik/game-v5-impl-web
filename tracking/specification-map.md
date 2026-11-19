@@ -65,6 +65,7 @@
 - scripts/build-gdr.ts
 - src/gdr/generated/
 - tests/foundation/final-review.test.ts
+- tests/mechanics/compendium.test.ts
 
 ## CINST: Campaign Instances
 
@@ -98,7 +99,6 @@
 
 ## COMP: Compendium
 
-- content/compendium/encyclopedia_articles.yaml
 - src/engine/mechanics/compendium/
 - src/gdr/catalog.ts
 - src/gdr/types.ts
@@ -108,12 +108,21 @@
 - src/engine/index.ts
 - tests/mechanics/compendium.test.ts
 - tests/helpers/game.ts
+- content/compendium/compendium_articles/
+- src/gdr/compendium-articles.ts
+- src/cli/cli.ts
+- tests/cli/cli.test.ts
 
 ## COMPV: Compendium View
 
 - src/web/screens/CompendiumView.tsx
 - src/web/store.ts
 - e2e/web.spec.ts
+- src/web/compendium.ts
+- tests/web/compendium.test.ts
+- src/web/styles.css
+- src/engine/views/views.ts
+- src/engine/player-api.ts
 
 ## COND: Conditions
 
@@ -307,11 +316,15 @@ No files.
 - content/
 - tests/helpers/game.ts
 - tests/mechanics/factions.test.ts
+- tests/mechanics/compendium.test.ts
 
 ## GHPAGES: GitHub Pages Deployment
 
 - .github/workflows/deploy-pages.yml
 - vite.config.ts
+- .github/workflows/daily-check.yml
+- package.json
+- README.md
 
 ## GLOBE: Globe Integration
 
@@ -352,6 +365,8 @@ No files.
 - src/web/styles.css
 - src/web/history-rows.ts
 - tests/web/history-rows.test.ts
+- src/web/screens/Campaign.tsx
+- e2e/web.spec.ts
 
 ## ICONV: Implementation Specification Conventions
 
@@ -622,6 +637,7 @@ No files.
 - src/engine/session/global-configuration.ts
 - tests/web/sounds.test.ts
 - e2e/web.spec.ts
+- src/web/screens/HistoryView.tsx
 
 ## STACK: Tech Stack Suggestion
 
@@ -662,6 +678,7 @@ No files.
 - src/web/styles.css
 - src/web/enemy-labels.ts
 - src/web/consequences.tsx
+- tests/web/compendium.test.ts
 
 ## TSUM: Turn Summary
 
@@ -748,6 +765,9 @@ No files.
 - src/web/consequences.tsx
 - src/web/format.ts
 - tests/web/consequences.test.ts
+- tests/web/compendium.test.ts
+- src/web/undo-redo.ts
+- tests/web/undo-redo.test.ts
 
 ## WHIST: History and Turn Report
 

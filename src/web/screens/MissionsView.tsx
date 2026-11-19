@@ -72,7 +72,13 @@ export function MissionsView(props: {
 }) {
   const { player } = theEngine();
   const { snapshot, state, locked } = props;
-  const [showFinished, setShowFinished] = useState(false);
+  // MVIEW, Mission site list: a Mission site selected from another view that is in a final state opens the View with
+  // the toggle on Finished, so that the selected Mission site is in the list.
+  const [showFinished, setShowFinished] = useState(
+    () =>
+      props.initial !== null &&
+      (snapshot.history?.retained.missionSites.some((site) => site.id === props.initial) ?? false),
+  );
   const [picked, setPicked] = useState<string | null>(props.initial);
   const [checked, setChecked] = useState<readonly string[]>([]);
 

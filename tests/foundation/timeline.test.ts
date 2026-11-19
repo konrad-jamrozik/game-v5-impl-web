@@ -283,16 +283,31 @@ describe('TIMELINE: examples', () => {
     expectOk(await h.core.whenDisengaged(CONTROLLER, engagementId));
     const turn35 = h.state();
     expect(h.view().turn).toBe(35);
+    // Crossing an Autopilot engagement: `getAutosaveStatus()` reports it before the call is made.
+    expect(expectOk(await h.core.getAutosaveStatus(CONTROLLER))).toMatchObject({
+      undoToAutosave: { autosaveKind: 'engagement', turn: 5, crossesAutopilotEngagement: true },
+      redoToAutosave: null,
+    });
     expect(expectOk(await h.core.undoToAutosave(CONTROLLER))).toMatchObject({
       autosaveKind: 'engagement',
       turn: 5,
+      crossesAutopilotEngagement: true,
+    });
+    // At the World state the Engagement Autosave holds, going forward crosses the engagement and going back does not.
+    expect(expectOk(await h.core.getAutosaveStatus(CONTROLLER))).toMatchObject({
+      undoToAutosave: { autosaveKind: 'turnEnd', turn: 4, crossesAutopilotEngagement: false },
+      redoToAutosave: { crossesAutopilotEngagement: true },
     });
     for (const turn of [4, 3, 2, 1]) {
       expect(expectOk(await h.core.undoToAutosave(CONTROLLER))).toMatchObject({
         autosaveKind: 'turnEnd',
         turn,
+        crossesAutopilotEngagement: false,
       });
     }
+    expect(expectOk(await h.core.getAutosaveStatus(CONTROLLER)).redoToAutosave).toMatchObject({
+      crossesAutopilotEngagement: false,
+    });
     for (let i = 0; i < 5; i += 1) {
       expectOk(await h.core.redoToAutosave(CONTROLLER));
     }

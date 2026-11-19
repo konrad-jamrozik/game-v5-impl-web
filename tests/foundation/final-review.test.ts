@@ -134,9 +134,15 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('BOOT: the Bootstrap GDRs', () => {
-  it('supplies 90 GDRs in 23 files, and for each Faction a Victory path from its first Lead to its elimination', () => {
-    expect(RAW_GDR_FILES).toHaveLength(23);
-    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(90);
+  it('supplies 115 GDRs, and for each Faction a Victory path from its first Lead to its elimination', () => {
+    // BOOT, GDR files: 22 files that each hold every GDR of one Type, and one file for each of the 63 Compendium
+    // articles in the one directory that holds one file per GDR.
+    const articleFiles = RAW_GDR_FILES.filter((file) =>
+      file.path.startsWith('compendium/compendium_articles/'),
+    );
+    expect(articleFiles).toHaveLength(63);
+    expect(RAW_GDR_FILES).toHaveLength(22 + 63);
+    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(115);
     const catalog = bootstrapGdrCatalog();
     const sites = catalog.missionSiteArchetypes;
     expect(catalog.factionArchetypes.map((faction) => faction.id)).toEqual([

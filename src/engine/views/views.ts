@@ -18,7 +18,12 @@ import {
   isFitForWork,
   isInBase,
 } from '../mechanics/agents/agents.ts';
-import { combatRating, isAbleToFight, type CombatantState } from '../mechanics/combat/combat.ts';
+import {
+  combatRating,
+  damageBounds,
+  isAbleToFight,
+  type CombatantState,
+} from '../mechanics/combat/combat.ts';
 import {
   agencyCaps,
   agentUpgradeBonus,
@@ -45,7 +50,7 @@ import {
 } from '../mechanics/leads/leads.ts';
 import { consequencesOf, type ConsequenceAmounts } from '../mechanics/missions/missions.ts';
 import { healthRecoveryRateHundredths, recoveryTurnsRemaining } from '../mechanics/recovery/recovery.ts';
-import { visibleArticles } from '../mechanics/compendium/compendium.ts';
+import { articleForTerm, resolveArticles, visibleArticles } from '../mechanics/compendium/compendium.ts';
 import type {
   ActionAvailability,
   SimpleAssignment,
@@ -55,8 +60,8 @@ import type {
   AvailableActionsView,
   ConsequenceView,
   CurrentStateView,
+  CompendiumArticleView,
   DeploymentPreview,
-  EncyclopediaArticleView,
   EnemyView,
   FactionView,
   GameDataView,
@@ -687,15 +692,59 @@ function decimalText(value: { n: bigint; d: bigint }): string {
   return scale === 0 ? digits : `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
 }
 
-/** `player.queries.getEncyclopediaArticles()`: the Player-visible Encyclopedia articles, in Game build order (COMP). */
-export function encyclopediaArticlesView(state: CampaignState, gdrs: GdrCatalog): EncyclopediaArticleView[] {
-  return visibleArticles(state.world.current, gdrs).map((article) => ({
-    id: article.id,
-    title: article.title,
-    body: article.body,
-    subject: article.subject,
-    subjectType: article.subjectType,
-  }));
+/**
+ * The resolved articles of the last set of Player-visible articles read from each catalog. A resolved article depends,
+ * of the World state, only on which articles are Player-visible (COMP, Article resolution), so the result is reused
+ * while that set stays the same. It is a cache of a Derived value, never part of Campaign state.
+ */
+const articlesCache = new WeakMap<
+  GdrCatalog,
+  { readonly key: string; readonly view: readonly CompendiumArticleView[] }
+>();
+
+/**
+ * `player.queries.getCompendiumArticles()`: the Player-visible Compendium articles in their resolved form, in Game
+ * build order (COMP, Player-visible information). The authored `body`, `formulas`, `terms`, and `see_also` are not
+ * reported.
+ */
+export function compendiumArticlesView(
+  state: CampaignState,
+  gdrs: GdrCatalog,
+): readonly CompendiumArticleView[] {
+  const visible = visibleArticles(state.world.current, gdrs);
+  const key = visible.map((article) => article.id).join(' ');
+  const cached = articlesCache.get(gdrs);
+  if (cached?.key === key) {
+    return cached.view;
+  }
+  const view = deepFreeze<CompendiumArticleView[]>(
+    resolveArticles(visible).map(({ article, body, formulas, seeAlso }) => ({
+      id: article.id,
+      category: article.category,
+      title: article.title,
+      subject: article.subject,
+      subjectType: article.subjectType,
+      body: body.map((segment) => ({ ...segment })),
+      formulas: formulas.map((row) => ({
+        label: row.label.map((segment) => ({ ...segment })),
+        text: row.text.map((segment) => ({ ...segment })),
+      })),
+      seeAlso: seeAlso.map((segment) => ({ ...segment })),
+    })),
+  );
+  articlesCache.set(gdrs, { key, view });
+  return view;
+}
+
+/**
+ * `player.queries.getArticleForTerm(text)`: the identifier of the Player-visible article that has an Article term
+ * equal to the text ignoring case, or null when there is none (COMP, Player-visible information, Article term lookup).
+ */
+export function articleForTermView(state: CampaignState, gdrs: GdrCatalog, text: unknown): string | null {
+  if (typeof text !== 'string') {
+    return null;
+  }
+  return articleForTerm(text, visibleArticles(state.world.current, gdrs))?.id ?? null;
 }
 
 /** `player.queries.getGameData()`: the Player-visible properties of the GDRs. It is the same for every Campaign. */
@@ -729,11 +778,15 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         assessmentThresholdPct: gdrs.investigationParameters.assessmentThresholdPct,
       },
       economy: numbers(gdrs.economy),
-      weapons: [...gdrs.weapons.values()].map((weapon) => ({
-        id: weapon.id,
-        name: weapon.name,
-        damage: weapon.damage,
-      })),
+      weapons: [...gdrs.weapons.values()].map((weapon) => {
+        const bounds = damageBounds(weapon.damage, gdrs.combatParameters);
+        return {
+          id: weapon.id,
+          name: weapon.name,
+          damage: weapon.damage,
+          damageOfAHit: { min: bounds.lo, max: bounds.hi },
+        };
+      }),
       enemyArchetypes: [...gdrs.enemyArchetypes.values()].map((enemy) => ({
         id: enemy.id,
         name: enemy.name,

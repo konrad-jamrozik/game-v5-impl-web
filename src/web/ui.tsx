@@ -68,8 +68,11 @@ export function Button(props: {
   onClick: () => void;
   /** When present, the button is disabled and shows this as the reason. */
   disabledReason?: string | null;
-  /** VIS, Buttons: plain is the neutral kind; weighty marks a reversible step with a larger reach. */
-  kind?: 'primary' | 'danger' | 'plain' | 'weighty';
+  /**
+   * VIS, Buttons: plain is the neutral kind; weighty marks a reversible step with a larger reach; autopilot marks one
+   * that undoes or redoes a whole Autopilot engagement at once.
+   */
+  kind?: 'primary' | 'danger' | 'plain' | 'weighty' | 'autopilot';
   /** VIS, Buttons: the main action of a screen is taller and set larger. */
   main?: boolean;
   shortcut?: string;

@@ -18,6 +18,25 @@ export interface CombatLogRow {
   readonly decisive: 'dead' | 'incapacitated' | null;
 }
 
+/**
+ * TRVIEW, Combat report: the final condition of a participant as its last column words it: "Killed" for a dead Agent,
+ * "Dead" for a dead Enemy, "Incapacitated", or nothing for one able to fight. Its tone colours the participant's name
+ * and its condition: Danger when it is dead and Warning when it is Incapacitated, on both sides alike.
+ */
+export function finalCondition(
+  side: 'agent' | 'enemy',
+  condition: 'ableToFight' | 'incapacitated' | 'dead',
+): { readonly text: string; readonly tone: 'tone-bad' | 'tone-warning' | null } {
+  switch (condition) {
+    case 'dead':
+      return { text: side === 'agent' ? 'Killed' : 'Dead', tone: 'tone-bad' };
+    case 'incapacitated':
+      return { text: 'Incapacitated', tone: 'tone-warning' };
+    case 'ableToFight':
+      return { text: '', tone: null };
+  }
+}
+
 export function combatLogRow(attack: Attack, sideOf: (id: string) => 'agent' | 'enemy'): CombatLogRow {
   const tint = sideOf(attack.attacker);
   if (!attack.hit) {

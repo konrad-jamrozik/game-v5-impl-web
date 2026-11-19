@@ -35,10 +35,19 @@ import { must, seedRng } from '../../src/kernel/index.ts';
 /** The FactionArchetypes that the test Game build of the acceptance examples leaves out. */
 const LEFT_OUT_FACTIONS = new Set(['exalt', 'black_lotus']);
 
+/** GDR, GDR file layout: the directory that holds one file for each CompendiumArticle GDR. */
+export const ARTICLE_DIRECTORY = 'compendium/compendium_articles/';
+
+/** The path of the GDR file of the Compendium article with this identifier. */
+export function articleFile(id: string): string {
+  return `${ARTICLE_DIRECTORY}${id}.yaml`;
+}
+
 /**
  * The test Game build that the acceptance examples of the Mechanics specifications use: the Bootstrap GDRs without the
- * FactionArchetypes `exalt` and `black_lotus`, their Leads, and the Encyclopedia articles about them, so that the
- * Campaign has the one Faction Red Dawn.
+ * FactionArchetypes `exalt` and `black_lotus`, their Leads, and the Subject articles about them, so that the
+ * Campaign has the one Faction Red Dawn. The file of a left-out Subject article is left out with it, because a file
+ * in a directory of one file per GDR holds exactly one GDR (GDR, GDR file layout).
  */
 export const RED_DAWN_ONLY_FILES: readonly RawGdrFile[] = (() => {
   const files = structuredClone(RAW_GDR_FILES) as { path: string; gdrs: Record<string, unknown>[] }[];
@@ -50,10 +59,12 @@ export const RED_DAWN_ONLY_FILES: readonly RawGdrFile[] = (() => {
       }
     }
   }
-  return files.map((file) => ({
-    path: file.path,
-    gdrs: file.gdrs.filter((gdr) => !leftOut.has(gdr['id']) && !leftOut.has(gdr['subject'])),
-  }));
+  return files
+    .map((file) => ({
+      path: file.path,
+      gdrs: file.gdrs.filter((gdr) => !leftOut.has(gdr['id']) && !leftOut.has(gdr['subject'])),
+    }))
+    .filter((file) => file.gdrs.length > 0 || !file.path.startsWith(ARTICLE_DIRECTORY));
 })();
 
 export const gdrs = buildGdrCatalog(RED_DAWN_ONLY_FILES);
@@ -458,8 +469,12 @@ export function rawGdrs(): {
   files: { path: string; gdrs: RawGdr[] }[];
   get(id: string): RawGdr;
   add(path: string, gdr: RawGdr): void;
-  /** Removes every Encyclopedia article whose subject the test GDRs no longer supply (COMP, rule 4). */
-  pruneArticles(): void;
+  /**
+   * Removes every Compendium article that the test GDRs no longer support: a Subject article whose subject they no
+   * longer supply (COMP, rule 4), and, with `all`, every article, for a test that changes a GDR that the Placeholders
+   * of the Bootstrap articles name (COMP, rule 9).
+   */
+  pruneArticles(all?: boolean): void;
 } {
   const files = structuredClone(RED_DAWN_ONLY_FILES) as { path: string; gdrs: RawGdr[] }[];
   return {
@@ -481,17 +496,24 @@ export function rawGdrs(): {
         files.push({ path, gdrs: [gdr] });
       }
     },
-    pruneArticles() {
+    pruneArticles(all = false) {
       const ids = new Set(
         files.flatMap((file) =>
-          file.gdrs.filter((gdr) => gdr['type'] !== 'EncyclopediaArticle').map((gdr) => gdr['id']),
+          file.gdrs.filter((gdr) => gdr['type'] !== 'CompendiumArticle').map((gdr) => gdr['id']),
         ),
       );
-      for (const file of files) {
-        file.gdrs = file.gdrs.filter(
+      for (let index = files.length - 1; index >= 0; index -= 1) {
+        const file = files[index]!;
+        const kept = file.gdrs.filter(
           (gdr) =>
-            gdr['type'] !== 'EncyclopediaArticle' || gdr['subject'] === undefined || ids.has(gdr['subject']),
+            gdr['type'] !== 'CompendiumArticle' ||
+            (!all && (gdr['subject'] === undefined || ids.has(gdr['subject']))),
         );
+        if (kept.length === file.gdrs.length) {
+          continue;
+        }
+        // A file in a directory of one file per GDR leaves with its GDR; see GDR, GDR file layout.
+        files.splice(index, 1);
       }
     },
   };

@@ -21,7 +21,8 @@ Node 26.13.1 with its bundled npm is required; `.node-version` and the `engines`
 
 ```sh
 npm install
-npm run check          # GDR build, format, lint, type check, records check, unit and property tests
+npm run check          # the quick check: GDR build, format, lint, type check, records check, unit and property tests
+npm run check:full     # the full check: the quick check and the Playwright tests of the web UI
 npm run web:dev        # the web UI at http://localhost:5175
 npm run cli            # the terminal CLI; type help
 npm run cli -- --json  # the terminal CLI with one line of JSON per result, for scripts and LLM players
@@ -32,9 +33,10 @@ node scripts/measure.ts        # Campaign save size and Advance turn time
 
 ## Deployment
 
-Each push to `main` runs `.github/workflows/deploy-pages.yml`: `npm ci`, `npm run check`, and `npm run web:build`;
-when they pass it deploys `dist/` to GitHub Pages at https://konrad-jamrozik.github.io/game-v5-impl-web/. The Vite
-`base` is `./`, so the build runs under any path.
+Each push to `main` runs `.github/workflows/deploy-pages.yml`, which runs `npm run web:build` and deploys `dist/` to
+GitHub Pages at https://konrad-jamrozik.github.io/game-v5-impl-web/. It runs no check, so run `npm run check` before
+every push. `.github/workflows/daily-check.yml` runs `npm run check:full` once a day on a clean machine and deploys
+nothing. The Vite `base` is `./`, so the build runs under any path.
 
 ## Layout
 
@@ -93,8 +95,9 @@ from Google Fonts; DEC-034 gives the light theme.
     of the Serving Agents built with TanStack Table, with Hire, the Assignment buttons, Dismiss, and each Agent's
     details), and Upgrades (one card per Upgrade with what one more purchase changes).
   - Records: Turn report (what the last Advance turn did, with each Combat report and its Combat log), History (the
-    Turn by Turn table), Charts (Panic, money, Serving Agents, and funding), and Compendium (the Player-visible
-    Encyclopedia articles, by category, with a search field).
+    Turn by Turn table, whose Missions link to their Mission sites), Charts (Panic, money, Serving Agents, and
+    funding), and Compendium (the Player-visible Guide, Mechanics, and Subject articles by category, with a search
+    field, links between articles, and a Data sheet for each subject).
 - **Autopilot controls.** Choose an Autopilot AI and engage it for One action or This Turn's actions, neither of which
   advances the Turn, or for a number of Turns; show its progress and a Stop button, and, when the engagement ends, a
   line that says why, until Autopilot is engaged again or the World state changes.

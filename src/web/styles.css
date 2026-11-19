@@ -23,6 +23,9 @@
   /* VIS, Colours: Warning and Danger deep, for VIS, Agent condition. */
   --warning: #e3c14b;
   --danger-deep: #a3271f;
+  /* VIS, Colours: Notice, welcome news that asks for no action, and Autopilot, for an Autopilot button. */
+  --notice: #8fb8d6;
+  --autopilot: #b4a0e5;
   /* VIS, Colours: the fills of a Combat log row by its attacker's side. */
   --agent-attack-tint: rgb(183 199 122 / 7%);
   --enemy-attack-tint: rgb(255 127 120 / 7%);
@@ -152,6 +155,11 @@ code {
 /* VIS, Agent condition */
 .tone-warning {
   color: var(--warning);
+}
+
+/* VIS, Colours: Notice */
+.tone-notice {
+  color: var(--notice);
 }
 
 .condition {
@@ -1507,7 +1515,6 @@ summary {
   font-weight: 600;
 }
 
-.help,
 .drawer {
   position: fixed;
   z-index: 5;
@@ -1515,12 +1522,67 @@ summary {
   background: var(--surface);
 }
 
-.help {
-  right: 416px;
-  bottom: 16px;
-  padding: 18px;
-  width: 440px;
-  max-width: calc(100vw - 48px);
+/* CSCR, Keyboard shortcuts: a dialog of the full width a dialog may have, with its title on the 36 px line that the
+   close control shares, and no buttons at its bottom. It never scrolls sideways. */
+.shortcuts-dialog .dialog-head {
+  padding-right: 62px;
+}
+
+.shortcuts-dialog .dialog-head h2 {
+  margin: 0;
+  line-height: 36px;
+}
+
+.shortcuts-body {
+  padding-bottom: 18px;
+  overflow-x: hidden;
+}
+
+/* One row per shortcut, separated by Raised dividers: the Keys column as wide as its widest keys and no wider, and the
+   Description in the rest of the width, wrapping onto further lines while the keys stay on the first line. */
+.shortcuts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+}
+
+.shortcut-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  column-gap: 24px;
+  align-items: start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--raised);
+}
+
+.shortcut-row dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.shortcut-row dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/* A keycap: a Raised fill with a Border outline and the control corner radius, in the Figure style. */
+.keycap {
+  margin: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--text);
+  font: 13px var(--font-figure);
+}
+
+.keycap-between {
+  color: var(--text-muted);
+  font: 13px var(--font-figure);
 }
 
 /* VIS, Close controls: the title of the keyboard shortcuts and the developer tools, on the 36 px line that the close
@@ -1956,7 +2018,19 @@ label:has(> input[type='checkbox']:disabled) {
   border-color: var(--warning);
 }
 
-/* CSCR, Undo and redo: both labels share one cell, so the button keeps the width of the wider one. */
+/* VIS, Buttons: an Autopilot button has no fill, an Autopilot outline, and Autopilot text. */
+.btn-autopilot {
+  background: none;
+  border-color: var(--autopilot);
+  color: var(--autopilot);
+}
+
+.btn-autopilot kbd {
+  color: var(--autopilot);
+  border-color: var(--autopilot);
+}
+
+/* CSCR, Undo and redo: every label shares one cell, so the button keeps the width of the widest one. */
 .label-swap {
   display: inline-grid;
 }
@@ -2279,9 +2353,99 @@ label:has(> input[type='checkbox']:disabled) {
   font: inherit;
 }
 
+/* COMPV, Panes: the search field, after its label. */
+.search-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* COMPV, Article pane: the title row, with the two buttons of the Article history at its right end. */
+.article-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.article-head .pane-title {
+  margin: 0;
+  min-width: 0;
+}
+
+.article-history {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.icon-button {
+  width: 36px;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
 .article-body {
+  margin: 0;
   color: var(--text-secondary);
-  white-space: pre-line;
+}
+
+/* COMPV, Following links: an Article link is drawn as the text around it with an underline, and shows a pointer
+   cursor. */
+.article-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.article-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* COMPV, Article pane: the Formulas table and a Data sheet: two columns without a header row, the first in Text muted
+   and as wide as its longest label, the second taking the rest of the pane and wrapping. */
+.sheet {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.sheet th,
+.sheet td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--raised);
+  text-align: left;
+  vertical-align: top;
+}
+
+.sheet th {
+  padding-right: 24px;
+  width: 1%;
+  color: var(--text-muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.sheet td {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.see-also {
+  margin: 0;
+  font-size: 14px;
 }
 
 @media (max-width: 1100px) {
@@ -2303,10 +2467,6 @@ label:has(> input[type='checkbox']:disabled) {
   .side-panel {
     border-left: 0;
     border-top: 1px solid var(--divider);
-  }
-
-  .help {
-    right: 16px;
   }
 }
 
@@ -2353,6 +2513,22 @@ label:has(> input[type='checkbox']:disabled) {
 /* HVIEW, Events: labels side by side on one line. */
 .history-event {
   margin-right: 12px;
+}
+
+/* HVIEW, Mission links: a Mission label keeps its colour; the pointer resting on it underlines it and shows that it
+   can be pressed. */
+.history-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.history-link:hover,
+.history-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* AVIEW, Agent details: an Agent's Instance ID opens its details. */

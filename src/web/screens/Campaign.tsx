@@ -3,7 +3,7 @@
  * Detail view, the compact Situation panel, and the Autopilot footer; the Globe stage fills the rest, and the open
  * Detail view covers it. The globe, a decoration, is drawn in the Globe stage behind every Detail view.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
 import { PLACE_NAME_KEY, PlaceContext, type PlaceContextValue } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
@@ -18,11 +18,11 @@ import {
   type ViewTrail,
 } from '../view-trail.ts';
 import { SOUND } from '../sounds.ts';
-import { undoRedoStep } from '../undo-redo.ts';
+import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
-import { Button, CloseControl, Fact, Meter, typingIn, Grid } from '../ui.tsx';
+import { Button, CloseControl, Fact, Meter, typingIn } from '../ui.tsx';
 import { turnsSinceLastFactionActivity } from '../faction-activity.ts';
 import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
@@ -47,23 +47,31 @@ const REASONS: Record<string, string> = {
   MoneyBelowZero: 'money fell below zero',
 };
 
-const SHORTCUTS = [
-  ['N', 'Advance turn'],
-  ['U / R', 'Undo / redo: one action, or one Turn when no action of this Turn is left'],
-  ['1 to 8', 'Open or close a Detail view'],
-  ['Esc', 'Close the topmost open view, or go back to the place a Detail view was reached from'],
-  ['H', 'Hire an Agent'],
-  ['S / C / T', 'Assign the selected Agents to Standby, Contracting, Training'],
-  ['A', 'Select every Agent that can be assigned'],
-  ['`', 'Developer tools'],
-  ['?', 'Keyboard shortcuts'],
-] as const;
-
-/** CSCR, Undo and redo: the label of each button for an Action step and for a Turn step. */
-const STEP_LABELS = {
-  undo: { action: 'Undo Action', turn: 'Undo Turn' },
-  redo: { action: 'Redo Action', turn: 'Redo Turn' },
-} as const;
+/**
+ * CSCR, Keyboard shortcuts: every keyboard shortcut of the Campaign screen, one row each: its keys, each drawn in a
+ * keycap, the text between two keys, "/" for keys that share one description, and what the keys do.
+ */
+const SHORTCUTS: readonly {
+  readonly keys: readonly string[];
+  readonly between?: string;
+  readonly what: string;
+}[] = [
+  { keys: ['N'], what: 'Advance turn' },
+  {
+    keys: ['U', 'R'],
+    what: 'Undo or redo one action, or, when no action of this Turn is left to undo or redo, a whole Turn or Autopilot engagement',
+  },
+  {
+    keys: ['Esc'],
+    what: 'Close the topmost open view, or go back to the place a Detail view was reached from',
+  },
+  { keys: ['1', '8'], between: 'to', what: 'Open or close a Detail view' },
+  { keys: ['H'], what: 'Hire an Agent' },
+  { keys: ['S', 'C', 'T'], what: 'Assign the selected Agents to Standby, Contracting, or Training' },
+  { keys: ['A'], what: 'Select every Agent that can be assigned' },
+  { keys: ['`'], what: 'Developer tools' },
+  { keys: ['?'], what: 'Keyboard shortcuts' },
+];
 
 /** The open Detail view, and the item a Situation panel or Turn report item selected in it. */
 interface OpenView {
@@ -257,7 +265,10 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     openPlace(to.id, to.item);
   };
 
-  /** TRVIEW: selecting an item opens the Detail view that details it, with it selected, as a Follow. */
+  /**
+   * TRVIEW, and HVIEW, Mission links: selecting an item opens the Detail view that details it, with it selected, as a
+   * Follow.
+   */
   const followTo = (target: ReportTarget) => {
     const to = placeOf(target);
     followFrom();
@@ -307,6 +318,15 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         if (key === 'escape') {
           playSound(SOUND.back);
           setSettings(false);
+          event.preventDefault();
+        }
+        return;
+      }
+      // CSCR, Keyboard shortcuts: a dialog over its Scrim too; Escape, or its own key, closes it.
+      if (help) {
+        if (key === 'escape' || key === '?') {
+          playSound(SOUND.back);
+          setHelp(false);
           event.preventDefault();
         }
         return;
@@ -465,10 +485,11 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         <div className="status-actions">
           {(['undo', 'redo'] as const).map((which) => {
             const step = steps[which];
+            const form: UndoRedoForm = step?.form ?? 'action';
             return (
               <Button
                 key={which}
-                kind={step?.form === 'turn' ? 'weighty' : 'plain'}
+                kind={stepButtonKind(step)}
                 className="undo-redo"
                 shortcut={which === 'undo' ? 'U' : 'R'}
                 testId={which}
@@ -481,12 +502,17 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                   takeStep(which);
                 }}
               >
-                {/* CSCR, Undo and redo: the button keeps the width of its wider label. */}
+                {/* CSCR, Undo and redo: the button keeps one width, that of its widest label. */}
                 <span className="label-swap">
-                  <span className={step?.form === 'turn' ? 'label-off' : ''}>
-                    {STEP_LABELS[which].action}
-                  </span>
-                  <span className={step?.form === 'turn' ? '' : 'label-off'}>{STEP_LABELS[which].turn}</span>
+                  {(['action', 'turn', 'autopilot'] as const).map((item) => (
+                    <span
+                      key={item}
+                      className={item === form ? '' : 'label-off'}
+                      aria-hidden={item === form ? undefined : true}
+                    >
+                      {STEP_LABELS[which][item]}
+                    </span>
+                  ))}
                 </span>
               </Button>
             );
@@ -639,28 +665,45 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       ) : null}
 
       {help ? (
-        <div className="help" role="dialog" aria-labelledby="shortcuts-title">
-          <header className="view-head">
-            <h3 id="shortcuts-title">Keyboard shortcuts</h3>
-          </header>
-          <CloseControl
-            testId="close-shortcuts"
-            onClose={() => {
-              setHelp(false);
-            }}
-          />
-          <Grid widths={['140px', '440px']}>
-            <tbody>
-              {SHORTCUTS.map(([keys, what]) => (
-                <tr key={keys}>
-                  <th scope="row">
-                    <kbd>{keys}</kbd>
-                  </th>
-                  <td>{what}</td>
-                </tr>
-              ))}
-            </tbody>
-          </Grid>
+        // CSCR, Keyboard shortcuts: a dialog titled Keyboard shortcuts, with its close control and no buttons at its
+        // bottom, like the Settings panel. It takes the full width a dialog may have and never scrolls sideways.
+        <div className="scrim">
+          <div
+            className="dialog shortcuts-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="shortcuts-title"
+            data-testid="shortcuts"
+          >
+            <header className="dialog-head">
+              <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+            </header>
+            <CloseControl
+              testId="close-shortcuts"
+              onClose={() => {
+                setHelp(false);
+              }}
+            />
+            <div className="dialog-body shortcuts-body">
+              <dl className="shortcuts">
+                {SHORTCUTS.map((shortcut) => (
+                  <div key={shortcut.keys.join(' ')} className="shortcut-row">
+                    <dt>
+                      {shortcut.keys.map((key, index) => (
+                        <Fragment key={key}>
+                          {index === 0 ? null : (
+                            <span className="keycap-between">{shortcut.between ?? '/'}</span>
+                          )}
+                          <kbd className="keycap">{key}</kbd>
+                        </Fragment>
+                      ))}
+                    </dt>
+                    <dd>{shortcut.what}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -744,7 +787,15 @@ function OpenDetailView(props: {
         />
       );
     case 'history':
-      return <HistoryView snapshot={snapshot} onClose={onClose} />;
+      return (
+        <HistoryView
+          snapshot={snapshot}
+          onOpenMissionSite={(missionSite) => {
+            props.onShow({ kind: 'missionSite', missionSite });
+          }}
+          onClose={onClose}
+        />
+      );
     case 'charts':
       return <ChartsView snapshot={snapshot} onClose={onClose} />;
     case 'compendium':

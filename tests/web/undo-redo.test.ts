@@ -1,12 +1,14 @@
 /** CSCR, Undo and redo. */
 import { describe, expect, it } from 'vitest';
-import { undoRedoStep } from '../../src/web/undo-redo.ts';
+import { STEP_LABELS, stepButtonKind, undoRedoStep } from '../../src/web/undo-redo.ts';
 
-const target = { saveId: 's', autosaveKind: 'turnEnd', turn: 12 } as const;
+const target = { saveId: 's', autosaveKind: 'turnEnd', turn: 12, crossesAutopilotEngagement: false } as const;
 
 describe('CSCR: Undo and redo', () => {
   it('takes an Action step while Action navigation is available', () => {
     expect(undoRedoStep('undo', true, target)).toEqual({ form: 'action', tooltip: undefined });
+    // Even when Autosave navigation would cross an Autopilot engagement.
+    expect(undoRedoStep('undo', true, { ...target, crossesAutopilotEngagement: true })?.form).toBe('action');
   });
 
   it('takes a Turn step otherwise, naming the Turn and Autosave it loads', () => {
@@ -19,7 +21,46 @@ describe('CSCR: Undo and redo', () => {
     ).toBe('Forward to the furthest progress, in Turn 14');
   });
 
+  it('takes an Autopilot step when Autosave navigation crosses an Autopilot engagement', () => {
+    expect(
+      undoRedoStep('undo', false, {
+        saveId: 's',
+        autosaveKind: 'engagement',
+        turn: 5,
+        crossesAutopilotEngagement: true,
+      }),
+    ).toEqual({ form: 'autopilot', tooltip: 'Back to Turn 5, before Autopilot was engaged' });
+    expect(
+      undoRedoStep('redo', false, {
+        saveId: 's',
+        autosaveKind: 'disengagement',
+        turn: 35,
+        crossesAutopilotEngagement: true,
+      }),
+    ).toEqual({ form: 'autopilot', tooltip: 'Forward to where Autopilot disengaged, in Turn 35' });
+  });
+
   it('has no step when neither form is available', () => {
     expect(undoRedoStep('redo', false, null)).toBeNull();
+  });
+
+  it('names each step, and draws each as its own kind of button', () => {
+    expect(STEP_LABELS.undo).toEqual({
+      action: 'Undo Action',
+      turn: 'Undo Turn',
+      autopilot: 'Undo Autopilot',
+    });
+    expect(STEP_LABELS.redo).toEqual({
+      action: 'Redo Action',
+      turn: 'Redo Turn',
+      autopilot: 'Redo Autopilot',
+    });
+    expect(stepButtonKind(undoRedoStep('undo', true, target))).toBe('plain');
+    expect(stepButtonKind(undoRedoStep('undo', false, target))).toBe('weighty');
+    expect(stepButtonKind(undoRedoStep('undo', false, { ...target, crossesAutopilotEngagement: true }))).toBe(
+      'autopilot',
+    );
+    // A button with no available operation keeps its Action label and stays neutral.
+    expect(stepButtonKind(null)).toBe('plain');
   });
 });

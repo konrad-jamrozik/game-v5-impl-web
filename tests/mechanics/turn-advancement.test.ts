@@ -446,8 +446,8 @@ describe('TURN: examples', () => {
   it('Nothing to apply to: all twelve steps still apply', () => {
     const catalog = catalogWith((raw) => {
       raw.get('agent_parameters')['initial_roster_size'] = 0;
-      raw.files.find((file) => file.path.endsWith('faction_archetypes.yaml'))!.gdrs.length = 0;
-      raw.files.find((file) => file.path.endsWith('leads.yaml'))!.gdrs.length = 0;
+      raw.files.find((file) => file.path.endsWith('/faction_archetypes.yaml'))!.gdrs.length = 0;
+      raw.files.find((file) => file.path.endsWith('/leads.yaml'))!.gdrs.length = 0;
       raw.pruneArticles();
     });
     const state = advance(newCampaign({ catalog }), {}, catalog);

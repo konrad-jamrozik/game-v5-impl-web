@@ -1,11 +1,13 @@
 /**
  * HVIEW: the History View, the Turn by Turn table that finds the Turn in which something changed, with what the player
- * did in each Turn one press away, and the current Turn on top as if it ended now.
+ * did in each Turn one press away, and the current Turn on top as if it ended now. Each Mission among the events of a
+ * Turn is a link to its Mission site.
  */
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, type ReactNode } from 'react';
 import type { HistoryEntry } from '../../engine/index.ts';
 import { actionLines, expenditures, type ActionNames } from '../history-actions.ts';
 import { historyRows } from '../history-rows.ts';
+import { usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
 import { Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -22,15 +24,30 @@ function Label(props: { tone: string; children: ReactNode }) {
 }
 
 /** HVIEW, Events: the labels of what the Advance turn ending the Turn did, in this order, each only when it applies. */
-function Events(props: { entry: HistoryEntry; missionSiteName: (archetype: string) => string }) {
+function Events(props: {
+  entry: HistoryEntry;
+  missionSiteName: (archetype: string) => string;
+  onOpenMissionSite: (missionSite: string) => void;
+}) {
   const report = props.entry.report;
   return (
     <>
       {report.missions.map((mission) => (
-        <Label key={mission.mission} tone={mission.result === 'Won' ? 'tone-good' : 'tone-bad'}>
+        // HVIEW, Mission links: the label is a link to its Mission site; it keeps its colour, and the pointer resting
+        // on it underlines it. SOUNDS, Main click: pressing it opens a view.
+        <button
+          key={mission.mission}
+          type="button"
+          className={`history-event history-link ${mission.result === 'Won' ? 'tone-good' : 'tone-bad'}`}
+          data-testid={`history-mission-${mission.missionSite}`}
+          data-sound="main"
+          onClick={() => {
+            props.onOpenMissionSite(mission.missionSite);
+          }}
+        >
           {props.missionSiteName(mission.missionSiteArchetype)} {mission.result === 'Won' ? 'won' : 'lost'}
           {mission.killed.length > 0 ? `, ${mission.killed.length} killed` : ''}
-        </Label>
+        </button>
       ))}
       {report.investigationsCompleted.length > 0 ? (
         <Label tone="tone-good">
@@ -38,7 +55,8 @@ function Events(props: { entry: HistoryEntry; missionSiteName: (archetype: strin
         </Label>
       ) : null}
       {report.discoveredLeads.length > 0 ? (
-        <Label tone="tone-accent">{count(report.discoveredLeads.length, 'Lead')} discovered</Label>
+        // In Notice, because a discovered Lead is welcome news that asks for no action.
+        <Label tone="tone-notice">{count(report.discoveredLeads.length, 'Lead')} discovered</Label>
       ) : null}
       {report.expiredMissionSites.length > 0 ? (
         <Label tone="tone-accent">{count(report.expiredMissionSites.length, 'Mission site')} expired</Label>
@@ -64,12 +82,22 @@ function MoneyChange(props: { value: number }) {
   );
 }
 
-export function HistoryView({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
+export function HistoryView({
+  snapshot,
+  onOpenMissionSite,
+  onClose,
+}: {
+  snapshot: Snapshot;
+  /** HVIEW, Mission links: opens the Missions View with that Mission site selected, as a Follow. */
+  onOpenMissionSite: (missionSite: string) => void;
+  onClose: () => void;
+}) {
   const rows = historyRows(snapshot);
   // HVIEW, Player actions list: every list is closed when the View opens; several can be open at once. A list is kept
   // by its Turn number, so the current Turn's list stays open while its Action record changes and when Advance turn
-  // ends that Turn.
-  const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
+  // ends that Turn. HVIEW, Mission links: the open lists are part of the place, so that going back from a Mission site
+  // shows the History View as the Player left it.
+  const [open, setOpen] = usePlaceState<ReadonlySet<number>>('openActions', new Set());
   const current = rows.find((row) => row.now);
   const emptied = current !== undefined && current.actions.length === 0 && open.has(current.turn);
   // HVIEW, Player actions list: the current Turn's list closes when an undo empties its Action record.
@@ -166,7 +194,11 @@ export function HistoryView({ snapshot, onClose }: { snapshot: Snapshot; onClose
                     </td>
                     <td>
                       {row.entry === null ? null : (
-                        <Events entry={row.entry} missionSiteName={missionSiteName} />
+                        <Events
+                          entry={row.entry}
+                          missionSiteName={missionSiteName}
+                          onOpenMissionSite={onOpenMissionSite}
+                        />
                       )}
                     </td>
                   </tr>

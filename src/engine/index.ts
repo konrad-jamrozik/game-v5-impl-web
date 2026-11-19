@@ -8,9 +8,9 @@ import type {
   ActionAvailability,
   AutopilotAi,
   AvailableActionsView,
+  CompendiumArticleView,
   CurrentStateView,
   DeploymentPreview,
-  EncyclopediaArticleView,
   GameDataView,
   HistoryView,
   PlayerApi,
@@ -166,8 +166,10 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
       getAvailableActions: () =>
         core.playerQuery(principal, 'availableActions') as Result<AvailableActionsView>,
       getGameData: () => core.playerQuery(principal, 'gameData') as Result<GameDataView>,
-      getEncyclopediaArticles: () =>
-        core.playerQuery(principal, 'encyclopediaArticles') as Result<readonly EncyclopediaArticleView[]>,
+      getCompendiumArticles: () =>
+        core.playerQuery(principal, 'compendiumArticles') as Result<readonly CompendiumArticleView[]>,
+      getArticleForTerm: (text) =>
+        core.playerQuery(principal, 'articleForTerm', { text }) as Result<string | null>,
       previewDeployment: (missionSite, agents) =>
         core.playerQuery(principal, 'previewDeployment', {
           missionSite,

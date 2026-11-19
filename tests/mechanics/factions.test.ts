@@ -316,10 +316,10 @@ describe('FACTION: examples', () => {
     expectDefective((raw) => (raw.get('red_dawn')['description'] = 'x'));
     expectDefective((raw) => delete raw.get('war')['next']);
     expectDefective((raw) => (raw.get('operation_level_2')['level'] = 1));
-    // A Game build with no FactionArchetype is valid, apart from the Leads and the Encyclopedia articles that name one.
+    // A Game build with no FactionArchetype is valid, apart from the Leads and the Subject articles about one.
     const none = catalogWith((raw) => {
-      raw.files.find((file) => file.path.endsWith('faction_archetypes.yaml'))!.gdrs.length = 0;
-      raw.files.find((file) => file.path.endsWith('leads.yaml'))!.gdrs.length = 0;
+      raw.files.find((file) => file.path.endsWith('/faction_archetypes.yaml'))!.gdrs.length = 0;
+      raw.files.find((file) => file.path.endsWith('/leads.yaml'))!.gdrs.length = 0;
       raw.pruneArticles();
     });
     expect(none.factionArchetypes).toHaveLength(0);

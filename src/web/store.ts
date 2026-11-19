@@ -9,8 +9,8 @@ import {
   createEngine,
   type AutopilotStatus,
   type AvailableActionsView,
+  type CompendiumArticleView,
   type CurrentStateView,
-  type EncyclopediaArticleView,
   type Engine,
   type GameDataView,
   type GameStorage,
@@ -38,8 +38,8 @@ export interface Snapshot {
   readonly report: TurnReport | null;
   readonly history: HistoryView | null;
   readonly gameData: GameDataView | null;
-  /** COMP: the Player-visible Encyclopedia articles. */
-  readonly articles: readonly EncyclopediaArticleView[] | null;
+  /** COMP: the Player-visible Compendium articles, in their resolved form. */
+  readonly articles: readonly CompendiumArticleView[] | null;
   readonly timeline: TimelineStatus | null;
   readonly autopilot: AutopilotStatus | null;
   readonly notices: readonly Notice[];
@@ -180,7 +180,7 @@ export function snapshot(): Snapshot {
     report: has ? valueOf(game.player.queries.getTurnReport()) : null,
     history: has ? valueOf(game.player.queries.getHistory()) : null,
     gameData: has ? valueOf(game.player.queries.getGameData()) : null,
-    articles: has ? valueOf(game.player.queries.getEncyclopediaArticles()) : null,
+    articles: has ? valueOf(game.player.queries.getCompendiumArticles()) : null,
     timeline: has ? valueOf(game.session.timeline.getStatus()) : null,
     autopilot:
       has && lastEngagementId !== null ? valueOf(game.session.autopilot.getStatus(lastEngagementId)) : null,

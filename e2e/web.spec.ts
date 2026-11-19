@@ -427,3 +427,151 @@ test('a table column holds every value listed for it without cutting it short', 
   await expect(id(page, 'history-turn-now')).toBeVisible();
   expect(await cutShortCells(page, 'history-turn-now')).toEqual([]);
 });
+
+test('the Compendium View shows resolved articles, follows Article links, and keeps an Article history', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('compendium');
+  await id(page, 'new-campaign').click();
+  await id(page, 'nav-compendium').click();
+  const shown = id(page, 'compendium-article');
+  const previous = id(page, 'article-previous');
+  const next = id(page, 'article-next');
+
+  // COMPV, Panes: Guide first, then Mechanics, then the subject categories by name; Guide and its first article are
+  // selected when the View opens.
+  await expect(id(page, 'compendium-categories').locator('.list-name')).toHaveText([
+    'Guide',
+    'Mechanics',
+    'Agents',
+    'Enemies',
+    'Factions',
+    'Leads',
+    'Mission sites',
+    'Upgrades',
+    'Weapons',
+  ]);
+  await expect(id(page, 'compendium-category-Guide')).toHaveClass(/list-row-on/);
+  await expect(id(page, 'compendium-category-Guide')).toContainText('6');
+  await expect(id(page, 'compendium-category-Mechanics')).toContainText('25');
+  await expect(shown).toHaveAttribute('data-article', 'guide_agency');
+  // COMPV, Following links, Open: the Article history holds only the article selected.
+  await expect(previous).toBeDisabled();
+  await expect(next).toBeDisabled();
+  await expect(previous).toHaveAccessibleName('Previous article');
+  await expect(next).toHaveAccessibleName('Next article');
+
+  // COMPV, Article pane: a Mechanics article shows its body, its Formulas table, and its See also line, with every
+  // Placeholder replaced by the engine.
+  await id(page, 'compendium-category-Mechanics').click();
+  await id(page, 'article-mechanics_exhaustion').click();
+  await expect(id(page, 'article-title')).toHaveText('Exhaustion');
+  await expect(id(page, 'article-formulas').locator('tr').first()).toBeVisible();
+  await expect(id(page, 'article-see-also')).toBeVisible();
+  await expect(shown).not.toContainText('{');
+  await expect(shown).not.toContainText('}');
+  await expect(id(page, 'article-data-sheet')).toHaveCount(0);
+  await expect(previous).toBeEnabled();
+
+  // COMPV, Following links: an Article link shows the article it links to and selects its category and article.
+  // SOUNDS, Main click: an Article link and a button of the Article history open an article to be read.
+  const link = id(page, 'article-body').locator('.article-link').first();
+  await expect(link).toHaveAttribute('data-sound', 'main');
+  await expect(link).toHaveCSS('text-decoration-line', 'underline');
+  await expect(link).toHaveCSS('cursor', 'pointer');
+  await expect(previous).toHaveAttribute('data-sound', 'main');
+  const target = (await link.getAttribute('data-article')) ?? '';
+  expect(target).not.toBe('mechanics_exhaustion');
+  await link.click();
+  await expect(shown).toHaveAttribute('data-article', target);
+  await expect(id(page, `article-${target}`)).toHaveClass(/list-row-on/);
+  // An article never links to itself.
+  await expect(shown.locator(`.article-link[data-article="${target}"]`)).toHaveCount(0);
+  // Previous article and Next article move through the Article history.
+  await expect(next).toBeDisabled();
+  await previous.click();
+  await expect(shown).toHaveAttribute('data-article', 'mechanics_exhaustion');
+  await expect(next).toBeEnabled();
+  await next.click();
+  await expect(shown).toHaveAttribute('data-article', target);
+
+  // COMPV, Subject data sheets: a Subject article is shown under the name of its subject, with its Data sheet.
+  await id(page, 'compendium-category-Enemies').click();
+  await id(page, 'article-soldier_article').click();
+  await expect(id(page, 'article-title')).toHaveText('Soldier');
+  const sheet = id(page, 'article-data-sheet');
+  await expect(sheet.locator('th')).toHaveText(['Skill', 'Health', 'Weapon']);
+  // Labels: "Skill" links to the article that has the Article term "skill".
+  await expect(sheet.locator('th .article-link').first()).toHaveAttribute('data-article', 'mechanics_skill');
+  await expect(sheet).toContainText('Rifle · damage');
+  // The See also line of a Guide article, and no Formulas table for a Subject article.
+  await expect(id(page, 'article-formulas')).toHaveCount(0);
+
+  // COMPV, Panes: the search field filters every category by displayed title; typing shows no other article.
+  await id(page, 'compendium-search').fill('rifle');
+  await expect(id(page, 'compendium-categories').locator('.list-name')).toHaveText(['Weapons']);
+  await expect(id(page, 'compendium-articles').locator('.list-name')).toHaveText(['Heavy rifle', 'Rifle']);
+  await expect(shown).toHaveAttribute('data-article', 'soldier_article');
+  // Following a link to an article listed under the search text keeps the text.
+  await sheet.locator('td .article-link', { hasText: 'Rifle' }).click();
+  await expect(shown).toHaveAttribute('data-article', 'rifle_article');
+  await expect(id(page, 'compendium-search')).toHaveValue('rifle');
+  // Following a link to an article that is not listed under it clears the search field.
+  await id(page, 'article-data-sheet').locator('td .article-link', { hasText: 'Soldier' }).click();
+  await expect(shown).toHaveAttribute('data-article', 'soldier_article');
+  await expect(id(page, 'compendium-search')).toHaveValue('');
+  await expect(id(page, 'compendium-category-Enemies')).toHaveClass(/list-row-on/);
+
+  // An article about something the Player may not know yet is absent, and so is every link to it.
+  await expect(id(page, 'article-raid_safehouse_article')).toHaveCount(0);
+  await expect(page.locator('[data-article="raid_safehouse_article"]')).toHaveCount(0);
+  // Following an Article link adds nothing to the View trail: there is no Back control, and Escape closes the View.
+  await expect(id(page, 'view-back')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'view-compendium')).toHaveCount(0);
+});
+
+test('the keyboard shortcuts view shows every key whole, and Undo names an Autopilot step', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('shortcuts');
+  await id(page, 'new-campaign').click();
+
+  // CSCR, Keyboard shortcuts: a dialog titled Keyboard shortcuts, opened from the Settings panel, with each key in a
+  // keycap, that never scrolls sideways and cuts no description short.
+  await id(page, 'open-settings').click();
+  await id(page, 'open-shortcuts').click();
+  const dialog = id(page, 'shortcuts');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('h2')).toHaveText('Keyboard shortcuts');
+  await expect(dialog.locator('.shortcut-row').first().locator('.keycap')).toHaveText(['N']);
+  await expect(dialog.locator('.shortcut-row').nth(1).locator('dt')).toHaveText('U/R');
+  expect(
+    await dialog
+      .locator('.dialog-body, dd, dt')
+      .evaluateAll((elements) => elements.filter((item) => item.scrollWidth > item.clientWidth).length),
+  ).toBe(0);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+
+  // CSCR, Undo and redo: after an Autopilot engagement that advanced Turns, one press undoes all of it, and the
+  // button says so before it is pressed: Undo Autopilot, as an Autopilot button, at the width of every other label.
+  const width = (await id(page, 'undo').boundingBox())?.width;
+  await id(page, 'autopilot-toggle').click();
+  await id(page, 'autopilot-turns').fill('2');
+  await id(page, 'autopilot-many').click();
+  await expect(id(page, 'turn')).toHaveText('3');
+  await expect(id(page, 'autopilot-active')).toHaveCount(0);
+  const undo = id(page, 'undo');
+  await expect(undo.locator('.label-swap > span:not(.label-off)')).toHaveText('Undo Autopilot');
+  await expect(undo).toHaveClass(/btn-autopilot/);
+  await expect(undo).toHaveAttribute('title', /Back to Turn 1, before Autopilot was engaged/);
+  expect((await undo.boundingBox())?.width).toBe(width);
+  await undo.click();
+  await expect(id(page, 'turn')).toHaveText('1');
+  const redo = id(page, 'redo');
+  await expect(redo.locator('.label-swap > span:not(.label-off)')).toHaveText('Redo Autopilot');
+  await expect(redo).toHaveClass(/btn-autopilot/);
+});

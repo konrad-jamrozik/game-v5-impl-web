@@ -644,16 +644,22 @@
 ## DEC-030: GitHub Pages Deployment followed
 
 - **Category:** Treatment of guidance
-- **Affected specifications:** GHPAGES, Continuous integration workflow: "The CI workflow is what turns a push into a
-  deployment: it repeats the Implementation's checks on a clean machine and deploys only their result."
+- **Affected specifications:** GHPAGES, Continuous integration workflows: "Two CI workflows divide the work: one
+  deploys each push and checks nothing, and the other checks everything once a day and deploys nothing." GHPAGES,
+  Quick check and full check: "The Implementation should therefore keep two checks, each behind one command".
 - **Description:** Used as is. The Engine designer asked for a public repository under their personal GitHub account,
   and the web Game build is static files, so both Deployment prerequisites hold. The repository is
-  `konrad-jamrozik/game-v5-impl-web`; `.github/workflows/deploy-pages.yml` runs `npm ci`, `npm run check`, and
-  `npm run web:build` on each push to `main` and deploys `dist/` to GitHub Pages; the Vite `base` is `./`.
+  `konrad-jamrozik/game-v5-impl-web`; the Vite `base` is `./`. Since Specification revision
+  3fd37d181b3675d4ca0bef981cb8c3ab43b35ff4, `.github/workflows/deploy-pages.yml` restores `node_modules/` from a
+  cache keyed by `.node-version` and `package-lock.json`, runs `npm run web:build` on each push to `main`, runs no
+  check, and deploys `dist/` to GitHub Pages; `.github/workflows/daily-check.yml` runs the full check once a day and
+  on manual dispatch. The quick check is `npm run check`, which takes about 20 seconds, and the full check is
+  `npm run check:full`, the quick check followed by the Playwright tests of `npm run test:browser`. No test has a
+  size that the quick check must reduce: every unit and property test together runs in a few seconds.
 - **Options considered:** Follow the guidance; deploy by hand from the implementer's machine.
 - **Option chosen:** Follow the guidance.
-- **Why:** Every pushed change is checked on a clean machine before players reach it, with no step left to the
-  implementer.
+- **Why:** A push reaches players without waiting for checks the implementer already ran, and the daily full check
+  on a clean machine still catches what a push let through.
 - **Links:** None.
 
 ## DEC-031: Specification Updates followed
@@ -919,18 +925,21 @@
   decision: the one found first.
 - **Links:** PROB-026
 
-## DEC-045: An Encyclopedia article's subject must identify exactly one GDR
+## DEC-045: A Compendium article's subject and each Placeholder must identify exactly one GDR
 
 - **Category:** Gap resolution
-- **Affected specifications:** COMP, Encyclopedia article GDR validation: "Subject exists: A `subject` identifies a
-  GDR of the Game build whose Type is not EncyclopediaArticle." COMP, Article visibility: "Its subject is
-  Player-visible in that World state".
-- **Description:** A `subject` that identifies GDRs of more than one Type other than EncyclopediaArticle fails rule 4,
-  Subject exists, so every article has one subject and one subject Type. For a subject Type that COMP's informative
-  table does not list, the article follows what Player API reports: it is always Player-visible for a parameter GDR,
-  FactionActivityLevel, FactionOperationLevel, AgencyArchetype, InvestigationArchetype, or MissionArchetype, which
-  Player API reports in every World state, and never for CampaignConfiguration or ConfigurationParameters, which
-  no Player-visible value includes. No Bootstrap article has such a subject.
+- **Affected specifications:** COMP, Compendium article GDR validation: "Subject exists: A `subject` identifies a
+  GDR of the Game build whose Type is not CompendiumArticle and that has a `name` that is non-empty text." and
+  "Every Placeholder names a GDR the Game build supplies, or `subject` in a Subject article". COMP, Article
+  visibility: "It is a Subject article and its subject is Player-visible in that World state".
+- **Description:** A `subject` that identifies GDRs of more than one Type other than CompendiumArticle fails rule 4,
+  Subject exists, so every Subject article has one subject and one subject Type. Since Specification revision
+  3fd37d181b3675d4ca0bef981cb8c3ab43b35ff4 the same holds for a Placeholder: a `gdr_id` that identifies GDRs of more
+  than one Type fails rule 9, Placeholders are valid. For a subject Type that COMP's informative table does not list,
+  the article follows what Player API reports: it is always Player-visible for a FactionActivityLevel,
+  FactionOperationLevel, AgencyArchetype, InvestigationArchetype, or MissionArchetype, which Player API reports in
+  every World state, and never for a CampaignConfiguration, which no Player-visible value includes; a GDR without a
+  `name`, e.g. a parameter GDR, can no longer be a subject. No Bootstrap article has such a subject.
 - **Options considered:** Rejecting an ambiguous subject; taking the first GDR in Game build order.
 - **Option chosen:** Rejecting an ambiguous subject.
 - **Why:** COMP reports a data defect rather than repairing content, and a silent choice could show an article about
@@ -1100,7 +1109,7 @@
 - **Affected specifications:** FACTION, LEAD, MISSION, PANIC, and TURN, Acceptance examples: each uses "a test Game
   build that supplies the Bootstrap GDRs without the FactionArchetypes `exalt` and `black_lotus` and their Leads".
 - **Description:** `RED_DAWN_ONLY_FILES` in `tests/helpers/game.ts` is that test Game build, and also leaves out the
-  Encyclopedia articles about the left-out GDRs, which COMP, Encyclopedia article GDR validation, would otherwise
+  Subject articles about the left-out GDRs, which COMP, Compendium article GDR validation, would otherwise
   reject. The shared test catalog `gdrs` and `rawGdrs()` start from it. Tests of the Bootstrap GDRs themselves, e.g.
   BOOT and the COMP article count, and whole Campaigns played by the Basic Autopilot AI, use the full Bootstrap GDRs.
 - **Options considered:** Rewriting every example test for three Factions; one test Game build shared by all of them.
@@ -1251,3 +1260,91 @@
 - **Why:** The set needs an order to be stored deterministically, and the discovery order adds nothing that History
   does not already show; Instance ID order is the order every other Investigation list of the Turn report uses.
 - **Links:** PROB-039, DEC-035, Specification revision ef44fdc642094f1b969d5e7ea048ccf6019bee60.
+
+## DEC-063: A Placeholder may not name the `id` or the `type` of a GDR
+
+- **Category:** Gap resolution
+- **Affected specifications:** COMP, Compendium article GDR validation: "names a property that GDR has and that
+  Placeholder sources allows in that form". COMP, Placeholder sources: "AgentArchetype | Every property | Any".
+- **Description:** A Placeholder whose property is `id` or `type` fails rule 9, Placeholders are valid, as a
+  Placeholder that names a property the GDR does not have. No Bootstrap article has such a Placeholder.
+- **Options considered:** Rejecting `id` and `type`; showing them as text.
+- **Option chosen:** Rejecting them.
+- **Why:** An identifier carries no meaning for the Player, and the repository check of the specifications,
+  `scripts/compendium/compendium.ts`, reads the properties of a GDR as everything but `id` and `type`, so the
+  articles it accepts and the articles this Implementation accepts are the same.
+- **Links:** PROB-040
+
+## DEC-064: A Data sheet shows the Effects of an Effect list in one fixed order, and leaves out an Effect of 0
+
+- **Category:** Conflict resolution
+- **Affected specifications:** COMPV, Subject data sheets: "an Effect list is shown as its Effects in order, separated
+  by "·", each as the table under Effects shown words it, or as "None" when it holds no Effect." EFFECT, Effect list
+  format: "Order has no meaning: Two Effect lists that hold the same Effects in a different order are the same
+  Effect list."
+- **Description:** The Mission site Data sheet shows the Effects of `on_win` and `on_ignored_or_lost` in the order
+  `money`, `funding`, `panic`, `eliminate_faction`, the order of the table under Effects shown, whatever order the
+  GDR file states. It reads them from `getGameData()`, which reports each Effect list as its amounts, so an Effect
+  whose value is 0 is left out like an absent one, and an Effect list whose every amount is 0 reads "None". Every
+  Bootstrap Effect list is authored in that order and has no value of 0.
+- **Options considered:** The order of the table under Effects shown; the authored order, reported by a new Player
+  API value.
+- **Option chosen:** The order of the table under Effects shown.
+- **Why:** Effect Lists gives an Effect list no order, so the authored order is no fact of the Game build to report,
+  and one fixed order shows equal Effect lists alike.
+- **Links:** PROB-041
+
+## DEC-065: The Combat report shows no starting Incapacitated value
+
+- **Category:** Conflict resolution
+- **Affected specifications:** TRVIEW, Combat report: "It shows every fact the Combat report holds" and "No other
+  column says whether a participant is Incapacitated." COMBAT, Combat report: "Starting values: for each participant,
+  its base skill, current health, effective max health, exhaustion, effective weapon damage, effective skill, and
+  Incapacitated value when the Combat began".
+- **Description:** The participants table of the Combat report has the columns of the Combat report Artboard and no
+  column for the Incapacitated value when the Combat began; the Incap. column that showed it before Specification
+  revision 3fd37d181b3675d4ca0bef981cb8c3ab43b35ff4 was removed. `getTurnReport()` still returns the value, and the
+  starting effective skill and exhaustion beside it show why a participant began Incapacitated.
+- **Options considered:** Removing the column; keeping it; a mark on the starting effective skill.
+- **Option chosen:** Removing the column.
+- **Why:** The newer and more specific sentence forbids any other column from saying it, and the Artboard, redrawn
+  with that sentence, has none.
+- **Links:** PROB-042
+
+## DEC-066: The Article history keeps equal neighbours
+
+- **Category:** Gap resolution
+- **Affected specifications:** COMPV, Following links: "It changes only as follows; the list is exhaustive" and "No
+  longer Player-visible: an article that is no longer Player-visible, e.g. after an undo, is removed from the Article
+  history."
+- **Description:** When an article leaves the Article history because it is no longer Player-visible, the articles
+  before and after it stay as they are, even when they are the same article, so the Previous article or Next article
+  button can then show the article already shown. The Article history and the search text are kept as part of the
+  place of the Compendium View; the selected category is not kept, because it is always the category of the article
+  shown.
+- **Options considered:** Keeping equal neighbours; merging them into one.
+- **Option chosen:** Keeping equal neighbours.
+- **Why:** The list of changes to the Article history is stated to be exhaustive, and merging is not in it.
+- **Links:** PROB-043
+
+## DEC-067: How Player API represents a resolved Compendium article
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** COMP, Player-visible information: "How a result represents the segments is the
+  Implementer's choice."
+- **Description:** `player.queries.getCompendiumArticles()` returns the Player-visible articles in Game build order,
+  each with its `id`, `category`, displayed `title`, `subject`, the Type of its subject as `subjectType`, its `body`
+  as a list of segments, its `formulas` as rows of a `label` and a `text`, each a list of segments, and its `seeAlso`
+  as a list of Article links. A segment is `{ kind: 'text', text }`, `{ kind: 'value', text }` for an Inserted value,
+  or `{ kind: 'link', text, article }` for an Article link to the article with that identifier.
+  `player.queries.getArticleForTerm(text)` is the Article term lookup and returns the identifier of the article, or
+  null for none; the CLI offers both as `articles` and `term <text>`. The Placeholders are replaced once, when the
+  GDR catalog is built, because they show values of the Game build only; the Article links are found when the query
+  is read, and the result is reused while the set of Player-visible articles stays the same. `getGameData()` also
+  reports, for each Weapon, the bounds of the damage of a hit as `damageOfAHit`, so that the Weapon Data sheet
+  computes no rule of its own.
+- **Options considered:** Tagged segments; one text with link positions beside it; markup inside one text.
+- **Option chosen:** Tagged segments.
+- **Why:** A user interface shows the segments one after another without parsing anything, and joined in order their
+  texts are the templated text with every Placeholder replaced, as COMP, Article resolution, requires.
+- **Links:** Specification revision 3fd37d181b3675d4ca0bef981cb8c3ab43b35ff4.

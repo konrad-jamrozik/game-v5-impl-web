@@ -37,6 +37,11 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 - `leads-and-progression/leads.yaml`: patched unchanged from specification commit
   `ef44fdc642094f1b969d5e7ea048ccf6019bee60` on 2026-11-19, replacing each Lead's `requires` with the Condition
   `discovered_when`.
+- `compendium/compendium_articles/`: the 63 CompendiumArticle files, one file per GDR, patched unchanged from
+  specification commit `3fd37d181b3675d4ca0bef981cb8c3ab43b35ff4` on 2026-11-19; they replace
+  `compendium/encyclopedia_articles.yaml`, which that commit deleted. The copy has 85 YAML files in all. The
+  Placeholders of the articles show the values of this copy, e.g. those of `agents/agent_parameters.yaml` under
+  DEC-038.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

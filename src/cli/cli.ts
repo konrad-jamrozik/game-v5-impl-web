@@ -87,7 +87,8 @@ const HELP = `Commands
              saves | load <saveId> | save | delete <saveId> | deletecampaign <campaignId>
              config | set <setting> <value> | reset <setting>
   Look       state | agents | leads | investigations | sites | missions | factions | upgrades
-             report | history | retained | actions | gamedata | articles | preview <site> <agent...>
+             report | history | retained | actions | gamedata | articles | term <text...>
+             preview <site> <agent...>
   Act        assign <Standby|Contracting|Training> <agent...> | hire | dismiss <agent...> | buy <upgrade>
              investigate <lead> <agent...> | join <investigation> <agent...> | deploy <site> <agent...> | next
   Timeline   timeline | undo | redo | undoall | redoall | autosaves | back | forward
@@ -273,7 +274,12 @@ export function createCli(engine: Engine, out: CliOutput) {
       case 'gamedata':
         return print(command, player.queries.getGameData());
       case 'articles':
-        return print(command, player.queries.getEncyclopediaArticles());
+        // CLI, Output forms: each Compendium article in its resolved form, i.e. its segments of text, inserted values,
+        // and Article links, exactly as Player API reports it.
+        return print(command, player.queries.getCompendiumArticles());
+      case 'term':
+        // COMP, Article term lookup: the article that has the text as an Article term, or none.
+        return print(command, player.queries.getArticleForTerm(args.join(' ')));
       case 'preview':
         return print(command, player.queries.previewDeployment(first, rest));
 

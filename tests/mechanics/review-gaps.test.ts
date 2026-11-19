@@ -438,7 +438,7 @@ describe('INVSTG and LEAD: gaps', () => {
 
   it('Game build without a Lead: a Campaign is created', () => {
     const catalog = catalogWith((raw) => {
-      raw.files.find((file) => file.path.endsWith('leads.yaml'))!.gdrs.length = 0;
+      raw.files.find((file) => file.path.endsWith('/leads.yaml'))!.gdrs.length = 0;
       raw.pruneArticles();
     });
     const state = advance(newCampaign({ catalog }), {}, catalog);
