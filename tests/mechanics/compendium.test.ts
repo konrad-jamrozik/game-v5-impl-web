@@ -267,7 +267,7 @@ describe('COMP: Player API', () => {
     let turns = 0;
     while (!has('locate_red_dawn_safehouse_article') && turns < 300) {
       const { engagementId } = ok(
-        await engine.session.autopilot.engage('basic', { kind: 'untilTurnAdvanced' }),
+        await engine.session.autopilot.engage('basic', { kind: 'turnAdvancements', count: 1 }),
       );
       ok(await engine.session.autopilot.whenDisengaged(engagementId));
       expect(ok(engine.player.queries.getCurrentState()).ending).toBeNull();

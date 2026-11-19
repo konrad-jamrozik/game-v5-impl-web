@@ -1,13 +1,12 @@
 /**
- * The public engine API: the four namespaces `session`, `player`, `developer`, and `autopilotMemory` of ENG, API
- * hierarchy. Every user interface is an adapter over this API and implements no gameplay rule of its own.
+ * The public engine API: the three namespaces `session`, `player`, and `developer` of ENG, API hierarchy. Every user
+ * interface is an adapter over this API and implements no gameplay rule of its own.
  */
 import { bootstrapGdrCatalog, buildGdrCatalog, GAME_BUILD, type RawGdrFile } from '../gdr/index.ts';
 import { createGameRules } from './game-rules.ts';
 import type {
   ActionAvailability,
   AutopilotAi,
-  AutopilotMemoryApi,
   AvailableActionsView,
   CurrentStateView,
   DeploymentPreview,
@@ -89,7 +88,7 @@ export interface Engine {
     readonly saves: {
       list(): Promise<Result<SaveListEntry[]>>;
       load(save: string): Promise<Result<null>>;
-      /** Writes a new Campaign save, or replaces the one `save()` wrote that holds an equal Committed state. */
+      /** Writes a new Campaign save, or replaces the one `save()` wrote that holds an equal place in play. */
       save(): Promise<Result<{ saveId: string }>>;
       delete(save: string): Promise<Result<null>>;
       deleteCampaign(campaign: string): Promise<Result<null>>;
@@ -101,6 +100,13 @@ export interface Engine {
       selectPreset(preset: string): Result<null>;
       setPresetEdit(preset: string, value: { key: string; value: number }): Result<null>;
       removePresetEdit(preset: string, key: string): Result<null>;
+    };
+    readonly campaignConfiguration: {
+      /**
+       * CONFIG, Changing Campaign configuration during play: changes the named values of the Current campaign's
+       * Campaign configuration, by key; not a Player action.
+       */
+      set(values: Readonly<Record<string, number>>): Promise<Result<null>>;
     };
     readonly timeline: {
       getStatus(): Result<TimelineStatus>;
@@ -117,7 +123,7 @@ export interface Engine {
       disable(): Result<null>;
     };
     readonly autopilot: {
-      listAutopilotAis(): Result<{ autopilotAiId: string; name: string; wroteAutopilotMemory: boolean }[]>;
+      listAutopilotAis(): Result<{ autopilotAiId: string; name: string }[]>;
       engage(autopilotAiId: string, limit: AutopilotLimit): Promise<Result<{ engagementId: string }>>;
       getStatus(engagementId: string): Result<AutopilotStatus>;
       disengage(engagementId: string): Promise<Result<DisengagementResult>>;
@@ -130,7 +136,7 @@ export interface Engine {
   /** Developer API: available only while Dev mode is enabled. */
   readonly developer: {
     readonly queries: {
-      /** Campaign state in full, including World history and hidden values. */
+      /** Campaign state in full, including the Timeline, the History, and hidden values. */
       getCampaignState(): Result<unknown>;
     };
     readonly actions: {
@@ -143,8 +149,6 @@ export interface Engine {
       ): Promise<Result<CommitOutcome>>;
     };
   };
-  /** Autopilot memory API, as the Session controller holds it: always unavailable. */
-  readonly autopilotMemory: AutopilotMemoryApi;
   /** Calls the listener after anything a query could report has changed. Returns a function that stops it. */
   subscribe(listener: () => void): () => void;
   /** A number that changes whenever anything a query could report has changed. */
@@ -195,13 +199,6 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
   };
 }
 
-function memoryApi(core: EngineCore<CampaignState>, principal: Principal): AutopilotMemoryApi {
-  return {
-    read: () => core.readAutopilotMemory(principal),
-    write: (memory) => core.writeAutopilotMemory(principal, memory),
-  };
-}
-
 export interface EngineOptions {
   /** The Autopilot AIs this Game build offers. */
   readonly autopilotAis?: readonly AutopilotAi[];
@@ -226,7 +223,7 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
       if (core === null) {
         throw new Error('The engine has not started');
       }
-      return ai.step({ player: playerApi(core, principal), autopilotMemory: memoryApi(core, principal) });
+      return ai.step({ player: playerApi(core, principal) });
     },
   }));
   const core = await EngineCore.start(env, rules, runners);
@@ -261,6 +258,9 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
         setPresetEdit: (preset, value) => core.setPresetEdit(CONTROLLER, preset, value),
         removePresetEdit: (preset, key) => core.removePresetEdit(CONTROLLER, preset, key),
       },
+      campaignConfiguration: {
+        set: (values) => core.setCampaignConfiguration(CONTROLLER, values),
+      },
       timeline: {
         getStatus: () => core.getTimelineStatus(CONTROLLER),
         undoAction: () => core.undoAction(CONTROLLER),
@@ -293,7 +293,6 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
           developerAction('overrideRandomOutcome', { outcome, value }),
       },
     },
-    autopilotMemory: memoryApi(core, CONTROLLER),
     subscribe: (listener) => core.subscribe(listener),
     getRevision: () => core.getRevision(),
   };

@@ -5,17 +5,20 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { createBasicAutopilotAi } from '../../src/ai/index.ts';
-import type { AutopilotMemoryApi, Engine } from '../../src/engine/index.ts';
-import { autopilot, errorCode, inspect, ok, startEngine } from '../helpers/engine.ts';
-
-const noMemory: AutopilotMemoryApi = {
-  read: () => ({ ok: true, value: { present: false, memory: null }, autosaveFailures: [] }),
-  write: () => Promise.resolve({ ok: true, value: null, autosaveFailures: [] }),
-};
+import type { Engine } from '../../src/engine/index.ts';
+import {
+  autopilot,
+  currentWorld,
+  errorCode,
+  inspect,
+  liveWorld,
+  ok,
+  startEngine,
+} from '../helpers/engine.ts';
 
 /** Plays one Turn with the policy of the Basic Autopilot AI, as the Session controller, through Player API alone. */
 async function playTurn(engine: Engine): Promise<void> {
-  await createBasicAutopilotAi().step({ player: engine.player, autopilotMemory: noMemory });
+  await createBasicAutopilotAi().step({ player: engine.player });
 }
 
 describe('A Campaign is playable through Player API without Dev mode', () => {
@@ -114,15 +117,35 @@ describe('Campaign runs', () => {
     const stepwise = await startEngine();
     ok(await stepwise.engine.session.campaign.create({ seed: 'limits' }));
     while (ok(stepwise.engine.player.queries.getCurrentState()).turn < 13) {
+      // AUTO, Autopilot limits: one action never advances the Turn, which is left to the player.
       const result = await autopilot(stepwise.engine, { kind: 'singleAction' });
-      expect(result).toMatchObject({ reason: 'limitReached', progress: { playerActions: 1 } });
+      if (result.reason === 'advanceTurnWithheld') {
+        expect(result.progress).toEqual({ playerActions: 0, turnAdvancements: 0 });
+        ok(await stepwise.engine.player.actions.advanceTurn());
+      } else {
+        expect(result).toMatchObject({ reason: 'limitReached', progress: { playerActions: 1 } });
+      }
     }
     expect(inspect(stepwise.engine)).toEqual(inspect(whole.engine));
     expect(ok(whole.engine.session.autopilot.listAutopilotAis())).toEqual([
-      { autopilotAiId: 'basic', name: 'Basic Autopilot AI', wroteAutopilotMemory: false },
+      { autopilotAiId: 'basic', name: 'Basic Autopilot AI' },
     ]);
   });
 });
+
+/**
+ * TIMELINE, Returning to a Committed state: the current Committed state with the History, the Turn report, and the
+ * Campaign configuration, i.e. Campaign state without the rest of the Timeline, which undo and redo leave in place.
+ */
+function placeOf(engine: Engine): unknown {
+  const state = inspect(engine);
+  return {
+    world: currentWorld(state),
+    history: state.history,
+    turnReport: state.turnReport,
+    campaignConfiguration: state.campaignConfiguration,
+  };
+}
 
 describe('DETERM and TIMELINE with the real game', () => {
   it('the same Campaign seed and Player actions give equal Campaign state, also after save and load', async () => {
@@ -174,7 +197,7 @@ describe('DETERM and TIMELINE with the real game', () => {
         async (steps) => {
           const { engine } = await startEngine();
           ok(await engine.session.campaign.create({ seed: 'undo property' }));
-          let states = [inspect(engine)];
+          let states = [placeOf(engine)];
           let position = 0;
           for (const step of steps) {
             const view = ok(engine.player.queries.getCurrentState());
@@ -191,7 +214,7 @@ describe('DETERM and TIMELINE with the real game', () => {
               position = Math.min(states.length - 1, position + 1);
             } else if (step === 'advance') {
               if ((await engine.player.actions.advanceTurn()).ok) {
-                states = [inspect(engine)];
+                states = [placeOf(engine)];
                 position = 0;
               }
             } else if (step === 'bad') {
@@ -216,10 +239,10 @@ describe('DETERM and TIMELINE with the real game', () => {
                     : false;
             }
             if (committed) {
-              states = [...states.slice(0, position + 1), inspect(engine)];
+              states = [...states.slice(0, position + 1), placeOf(engine)];
               position += 1;
             }
-            expect(inspect(engine)).toEqual(states[position]);
+            expect(placeOf(engine)).toEqual(states[position]);
             const timeline = ok(engine.session.timeline.getStatus());
             expect(timeline.timelineEntries - timeline.undoneActions).toBe(position);
           }
@@ -308,7 +331,7 @@ describe('ENG: Information boundary with the real game', () => {
     view.agents.length = 0;
     const inspected = inspect(engine);
     expect(() => {
-      inspected.worldState.currentWorldState.agency.state.money = 7;
+      currentWorld(inspected).liveWorldState.agency.state.money = 7;
     }).toThrow();
     expect(ok(engine.player.queries.getCurrentState())).toMatchObject({ agency: { money: 500 } });
     expect(ok(engine.player.queries.getCurrentState()).agents).toHaveLength(4);
@@ -330,16 +353,29 @@ describe('DEV with the real game', () => {
     expect(errorCode(await engine.developer.actions.addMoney(0))).toBe('invalid_input');
     expect(ok(engine.session.timeline.getStatus()).timelineEntries).toBe(2);
     const state = inspect(engine);
-    const agent = state.worldState.currentWorldState.agents[0];
+    const agent = currentWorld(state).liveWorldState.agents[0];
     expect(Object.keys(agent)).toEqual(['id', 'archetype', 'constants', 'state']);
-    expect(Object.keys(state.worldState.currentWorldState.agency)).toEqual([
+    expect(Object.keys(currentWorld(state).liveWorldState.agency)).toEqual([
       'id',
       'archetype',
       'constants',
       'state',
     ]);
-    expect(Object.keys(state)).toEqual(['campaignConfiguration', 'worldState']);
-    expect(Object.keys(state.worldState)).toEqual(['currentWorldState', 'worldHistory']);
+    // CSTATE, Campaign state composition: the Timeline with its pointer, the History, the Campaign configuration,
+    // and the Turn report; each World state the Timeline holds has its Live and its Retired world state.
+    expect(Object.keys(state)).toEqual([
+      'timeline',
+      'timelinePointer',
+      'history',
+      'campaignConfiguration',
+      'turnReport',
+    ]);
+    expect(state.timelinePointer).toBe(2);
+    expect(state.timeline.timelineEntries.map((entry: any) => entry.playerAction.name)).toEqual([
+      'addMoney',
+      'addAgents',
+    ]);
+    expect(Object.keys(currentWorld(state))).toEqual(['liveWorldState', 'retiredWorldState']);
     ok(engine.session.developer.disable());
     ok(await engine.session.timeline.undoAction());
     ok(await engine.session.timeline.undoAction());
@@ -369,21 +405,19 @@ describe('DEV with the real game', () => {
     const damage = `combat.damage.${agent!.id}`;
     expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, 16))).toBe('rejected');
     expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, 4))).toBe('rejected');
-    expect(inspect(engine).worldState.currentWorldState.pendingRandomOutcomeOverrides).toEqual([]);
+    expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([]);
     // The Required progress outcome of the next Investigation of the Lead is fixed to 4, of the range 3 to 4.
     ok(await engine.developer.actions.overrideRandomOutcome(outcome, 4));
-    expect(inspect(engine).worldState.currentWorldState.pendingRandomOutcomeOverrides).toEqual([
-      { outcome, value: 4 },
-    ]);
+    expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([{ outcome, value: 4 }]);
     ok(await engine.player.actions.startInvestigation('locate_red_dawn_member', [agent!.id]));
     const actual = () =>
       (
-        inspect(engine).worldState.currentWorldState.investigations as {
+        liveWorld(engine).investigations as {
           constants: { actualRequiredProgress: number };
         }[]
       )[0]!.constants.actualRequiredProgress;
     expect(actual()).toBe(4);
-    expect(inspect(engine).worldState.currentWorldState.pendingRandomOutcomeOverrides).toEqual([]);
+    expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([]);
     // Player API reports the Actual required progress only as unknown.
     expect(ok(engine.player.queries.getCurrentState()).investigations[0]!.actualRequiredProgress).toBe(
       'unknown',

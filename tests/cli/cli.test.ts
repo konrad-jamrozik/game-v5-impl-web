@@ -178,7 +178,7 @@ describe('Terminal CLI', () => {
     expect(parse(lines[1]).error.code).toBe('dev_mode_disabled');
     expect(parse(lines[3]).ok).toBe(true);
     expect(parse(lines[4]).ok).toBe(true);
-    expect(parse(lines[5]).value.worldState).toBeDefined();
+    expect(parse(lines[5]).value.timeline).toBeDefined();
     expect(ok(engine.player.queries.getCurrentState()).agency.money).toBe(505);
   });
 

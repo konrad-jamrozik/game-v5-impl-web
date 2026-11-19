@@ -51,7 +51,7 @@ for (let seed = 0; seed < seeds; seed += 1) {
       break;
     }
     const began = performance.now();
-    const engaged = await engine.session.autopilot.engage('basic', { kind: 'untilTurnAdvanced' });
+    const engaged = await engine.session.autopilot.engage('basic', { kind: 'turnAdvancements', count: 1 });
     if (!engaged.ok) {
       throw new Error(engaged.error.message);
     }

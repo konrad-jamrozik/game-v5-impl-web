@@ -1,5 +1,5 @@
 /**
- * The game behavior of the Mechanics family, assembled behind the GameRules seam that the engine subsystems use.
+ * The Game rules of the Mechanics family, assembled behind the GameRules seam that the engine subsystems use.
  */
 import { produce } from 'immer';
 import { detach } from '../kernel/values.ts';
@@ -20,6 +20,7 @@ import {
   gameDataView,
   historyView,
   inspectCampaignState,
+  placeInPlay,
   previewDeployment,
   previewAssignAgents,
   previewAssignAgentsAlone,
@@ -168,7 +169,18 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
     turnReportView: (state) => turnReportView(state),
     historyView: (state) => historyView(state, gdrs),
     availableActionsView: (state) => availableActionsView(state, gdrs),
-    inspect: (state) => inspectCampaignState(state),
+    inspect: (timeline) => inspectCampaignState(timeline),
+    placeInPlay: (state) => placeInPlay(state),
+    withConfiguration(state, configuration) {
+      const same =
+        Object.keys(configuration).length === Object.keys(state.configuration).length &&
+        Object.entries(configuration).every(([key, value]) => state.configuration[key] === value);
+      return same
+        ? state
+        : produce(state, (draft) => {
+            draft.configuration = { ...state.configuration, ...configuration };
+          });
+    },
     extraPlayerQuery(state, query, args) {
       if (query === 'gameData') {
         return gameDataView(gdrs);

@@ -30,13 +30,10 @@ import {
   commitEntry,
   currentStamp,
   currentState,
-  discardMemory,
   fromSaved,
   newCampaignRuntime,
-  readMemory,
   toSaved,
   undoneCount,
-  writeMemory,
   type CampaignRuntime,
   type SavedCampaign,
 } from '../timeline/campaign-runtime.ts';
@@ -52,15 +49,23 @@ export type Principal =
 
 export const CONTROLLER: Principal = { kind: 'controller' };
 
+/**
+ * AUTO, Autopilot limits: `singleAction` and `turnActions` withhold the Advance turn the Autopilot AI requests, and
+ * `turnAdvancements` commits it.
+ */
 export type AutopilotLimit =
   | { readonly kind: 'singleAction' }
-  | { readonly kind: 'untilTurnAdvanced' }
+  | { readonly kind: 'turnActions' }
   | { readonly kind: 'turnAdvancements'; readonly count: number };
 
-export type DisengagementReason = 'limitReached' | 'disengagedByController' | 'campaignEnded' | 'aiFailed';
+export type DisengagementReason =
+  'limitReached' | 'advanceTurnWithheld' | 'disengagedByController' | 'campaignEnded' | 'aiFailed';
 
+/** AUTO, Autopilot progress. */
 export interface AutopilotProgress {
+  /** The committed Player actions other than Advance turn. */
   readonly playerActions: number;
+  /** The committed Advance turn actions. */
   readonly turnAdvancements: number;
 }
 
@@ -113,6 +118,8 @@ interface Engagement {
   readonly limit: AutopilotLimit;
   playerActions: number;
   turnAdvancements: number;
+  /** The Player actions committed since this Autopilot engagement began or last advanced the Turn; see DEC-012. */
+  actionsThisTurn: number;
   status: 'active' | 'ended';
   result: DisengagementResult | null;
   /** The Disengagement Autosave, when it could not be written; see SAVES, Edge cases and failure behavior. */
@@ -124,6 +131,9 @@ interface Engagement {
 
 /** An Autopilot AI that makes this many engine calls in one step without committing an action has failed. */
 const CALL_BUDGET_PER_STEP = 100_000;
+
+/** An Autopilot AI that commits this many Player actions in one Turn without requesting Advance turn has failed. */
+const ACTION_BUDGET_PER_TURN = 10_000;
 
 export interface SessionStatus {
   readonly hasCurrentCampaign: boolean;
@@ -195,8 +205,13 @@ export interface SetupReport {
 }
 
 export interface CommitOutcome {
-  /** False when the action had no effect and so was not a Player action. */
+  /** False when the action had no effect and so was not a Player action, or when it was withheld. */
   readonly committed: boolean;
+  /**
+   * True for an Advance turn that an Autopilot AI requested and the engine withheld under its Autopilot limit; see
+   * AUTO, Autopilot limits. It is neither a Player action nor a rejected action.
+   */
+  readonly withheld?: true;
 }
 
 /** A Campaign state as a Campaign save stores it, so that values a JSON text cannot hold do not count. */
@@ -400,24 +415,6 @@ export class EngineCore<S extends ShellState> {
     }
     if (!this.devMode) {
       return fail('dev_mode_disabled', 'Developer API is available only while Dev mode is enabled.');
-    }
-    return null;
-  }
-
-  /** Autopilot memory API: only the active Autopilot AI, during its own Autopilot engagement. */
-  private checkMemory(principal: Principal): Result<never> | null {
-    if (principal.kind !== 'autopilot') {
-      return fail('unauthorized', 'Autopilot memory API is unavailable to the Session controller.');
-    }
-    const engagement = this.activeEngagement();
-    if (engagement === null || engagement.id !== principal.engagementId) {
-      return fail('engagement_ended', 'This Autopilot engagement has ended.');
-    }
-    if (this.budgetExhausted(engagement)) {
-      return fail('engagement_ended', 'The Autopilot AI exhausted its execution budget.');
-    }
-    if (this.campaign === null) {
-      return fail('no_current_campaign', 'There is no Current campaign.');
     }
     return null;
   }
@@ -644,6 +641,67 @@ export class EngineCore<S extends ShellState> {
     this.presetEdits.get(preset.id)?.delete(key);
     this.changed();
     return ok(null);
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // Changing Campaign configuration during play; see CONFIG, Changing Campaign configuration during play
+
+  /**
+   * `session.campaignConfiguration.set(values)`: validates the whole request first, so an invalid one changes nothing.
+   * It is not a Player action: it adds no Timeline entry and moves no Timeline pointer, and the change stays in force
+   * through undo, redo, and Autosave navigation until the next change or a load; see DEC-013.
+   */
+  setCampaignConfiguration(principal: Principal, values: unknown): Promise<Result<null>> {
+    return this.runExclusive(async () => {
+      const checked = this.checkCampaignConfiguration(principal, values);
+      if (!checked.ok) {
+        return checked;
+      }
+      const campaign = this.requireCampaign();
+      const changed = checked.value.filter(([key, value]) => campaign.configuration[key] !== value);
+      if (changed.length === 0) {
+        return ok(null);
+      }
+      campaign.configuration = { ...campaign.configuration, ...Object.fromEntries(changed) };
+      const failures: AutosaveFailure[] = [];
+      await this.writeCurrentAutosave(failures);
+      this.changed();
+      return ok(null, failures);
+    });
+  }
+
+  /** The requested values, or why the request is invalid; nothing is changed either way. */
+  private checkCampaignConfiguration(principal: Principal, values: unknown): Result<[string, number][]> {
+    const denied = this.checkSession(principal, { needsCampaign: true, duringAutopilot: false });
+    if (denied) {
+      return denied;
+    }
+    if (typeof values !== 'object' || values === null || Array.isArray(values)) {
+      return fail('invalid_input', 'A change of Campaign configuration names values by their keys.');
+    }
+    const requested: [string, number][] = [];
+    for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
+      const descriptor = this.rules.configurationValues.find((item) => item.key === key);
+      if (descriptor === undefined) {
+        return fail('invalid_input', `There is no Campaign configuration value "${key}".`);
+      }
+      if (!descriptor.adjustable) {
+        return fail('invalid_input', `${descriptor.name} is fixed after Campaign creation.`);
+      }
+      if (!descriptor.isPermitted(value)) {
+        return fail(
+          'invalid_input',
+          `${descriptor.name} does not permit that value: ${descriptor.permitted}.`,
+        );
+      }
+      requested.push([key, value]);
+    }
+    return ok(requested);
+  }
+
+  /** The current Committed state under the Campaign configuration in force, which the Game rules read. */
+  private present(campaign: CampaignRuntime<S>): S {
+    return this.rules.withConfiguration(currentState(campaign), campaign.configuration);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -939,8 +997,8 @@ export class EngineCore<S extends ShellState> {
   }
 
   /**
-   * SAVES, Saving: writes a new Campaign save, or replaces the Campaign save written by `save()` that holds a
-   * Committed state equal to the current one.
+   * SAVES, Saving: writes a new Campaign save, or replaces the Campaign save written by `save()` that holds an equal
+   * place in play.
    */
   save(principal: Principal): Promise<Result<{ saveId: string }>> {
     return this.runExclusive(async () => {
@@ -960,10 +1018,11 @@ export class EngineCore<S extends ShellState> {
   }
 
   /**
-   * The Campaign save that `save()` wrote of this Campaign and whose Committed state equals the current one, if any.
-   * Equal Campaign states belong to the same Turn, so only Campaign saves of the current Turn are compared. A Campaign
-   * save holding the very same Committed state, i.e. the same stamp, is equal without reading it; any other is read
-   * and its Campaign state compared value by value. A Campaign save that cannot be read or loaded is not equal.
+   * The Campaign save that `save()` wrote of this Campaign and that holds an equal place in play, if any: an equal
+   * saved Committed state, History, and Turn report; see SAVES, Saving. Equal Committed states belong to the same
+   * Turn, so only Campaign saves of the current Turn are compared. A Campaign save holding the very same Committed
+   * state, i.e. the same stamp, is equal without reading it; any other is read and compared value by value. A
+   * Campaign save that cannot be read or loaded is not equal.
    */
   private async equalSave(campaign: CampaignRuntime<S>): Promise<string | null> {
     try {
@@ -989,7 +1048,13 @@ export class EngineCore<S extends ShellState> {
         return header.saveId;
       }
       const loaded = await this.readCampaign(header.saveId);
-      if (!('ok' in loaded) && deepEqual(asStored(currentState(loaded.campaign)), asStored(state))) {
+      if (
+        !('ok' in loaded) &&
+        deepEqual(
+          asStored(this.rules.placeInPlay(currentState(loaded.campaign))),
+          asStored(this.rules.placeInPlay(state)),
+        )
+      ) {
         return header.saveId;
       }
     }
@@ -1250,6 +1315,8 @@ export class EngineCore<S extends ShellState> {
       if ('ok' in loaded) {
         return loaded;
       }
+      // TIMELINE, Autosave navigation, Loading a target: the Campaign configuration of the Session takes precedence.
+      loaded.campaign.configuration = campaign.configuration;
       this.campaign = loaded.campaign;
       const failures: AutosaveFailure[] = [];
       await this.writeCurrentAutosave(failures);
@@ -1264,7 +1331,8 @@ export class EngineCore<S extends ShellState> {
       if (denied) {
         return denied;
       }
-      const targets = await this.autosaveTargets(this.requireCampaign());
+      const campaign = this.requireCampaign();
+      const targets = await this.autosaveTargets(campaign);
       const target = this.toTarget(targets.later);
       if (targets.later === null || target === null) {
         return fail('no_target', 'There is no later Autosave to go forward to.');
@@ -1273,6 +1341,8 @@ export class EngineCore<S extends ShellState> {
       if ('ok' in loaded) {
         return loaded;
       }
+      // TIMELINE, Autosave navigation, Loading a target: the Campaign configuration of the Session takes precedence.
+      loaded.campaign.configuration = campaign.configuration;
       this.campaign = loaded.campaign;
       if (targets.later.kind === 'furthestProgressAutosave') {
         await this.deleteSave(targets.later.saveId);
@@ -1315,7 +1385,7 @@ export class EngineCore<S extends ShellState> {
     if (denied) {
       return denied;
     }
-    const state = currentState(this.requireCampaign());
+    const state = this.present(this.requireCampaign());
     try {
       switch (query) {
         case 'currentState':
@@ -1347,7 +1417,15 @@ export class EngineCore<S extends ShellState> {
       return denied;
     }
     try {
-      return ok(this.rules.inspect(currentState(this.requireCampaign())));
+      const campaign = this.requireCampaign();
+      return ok(
+        this.rules.inspect({
+          states: campaign.states,
+          entries: campaign.entries,
+          position: campaign.position,
+          configuration: campaign.configuration,
+        }),
+      );
     } catch (error) {
       return this.defectResult(error);
     }
@@ -1362,10 +1440,17 @@ export class EngineCore<S extends ShellState> {
         return denied;
       }
       const campaign = this.requireCampaign();
-      const state = currentState(campaign);
+      const state = this.present(campaign);
+      // The Campaign configuration is kept with the Timeline entry when a change made it differ; see SCHEMA, Replay.
+      const entry: ActionRecord = {
+        surface: record.surface,
+        name: record.name,
+        args: detach(record.args),
+        ...(state === currentState(campaign) ? {} : { configuration: campaign.configuration }),
+      };
       let next: S | Rejection;
       try {
-        next = this.rules.applyAction(state, { ...record, args: detach(record.args) });
+        next = this.rules.applyAction(state, entry);
         if (!isRejection(next) && next !== state) {
           const violations = this.rules.checkInvariants(next);
           if (violations.length > 0) {
@@ -1382,7 +1467,7 @@ export class EngineCore<S extends ShellState> {
         return ok({ committed: false });
       }
       await this.removeAbandonedAutosaves(campaign);
-      commitEntry(campaign, { ...record, args: detach(record.args) }, next, this.env.newId());
+      commitEntry(campaign, entry, next, this.env.newId());
       const failures: AutosaveFailure[] = [];
       await this.writeCurrentAutosave(failures);
       await this.afterCommit(principal, false, failures);
@@ -1399,7 +1484,7 @@ export class EngineCore<S extends ShellState> {
         return denied;
       }
       const campaign = this.requireCampaign();
-      const state = currentState(campaign);
+      const state = this.present(campaign);
       let next: S | Rejection;
       try {
         next = this.rules.advanceTurn(state);
@@ -1414,6 +1499,17 @@ export class EngineCore<S extends ShellState> {
       }
       if (isRejection(next)) {
         return fail(next.code, next.message, next.reason);
+      }
+      // AUTO, Autopilot limits: under `singleAction` and `turnActions` the engine withholds an Advance turn that it
+      // would commit, changes nothing, and ends the Autopilot engagement with the reason Advance turn withheld.
+      const engagement = this.activeEngagement();
+      if (
+        principal.kind === 'autopilot' &&
+        engagement !== null &&
+        (engagement.limit.kind === 'singleAction' || engagement.limit.kind === 'turnActions')
+      ) {
+        await this.endEngagement(engagement, 'advanceTurnWithheld');
+        return ok({ committed: false, withheld: true }, [...engagement.disengagementFailures]);
       }
       await this.removeAbandonedAutosaves(campaign);
       const endedTurn = state.world.current.turn;
@@ -1458,21 +1554,12 @@ export class EngineCore<S extends ShellState> {
   // ---------------------------------------------------------------------------------------------
   // Autopilot; see AUTO
 
-  listAutopilotAis(
-    principal: Principal,
-  ): Result<{ autopilotAiId: string; name: string; wroteAutopilotMemory: boolean }[]> {
+  listAutopilotAis(principal: Principal): Result<{ autopilotAiId: string; name: string }[]> {
     const denied = this.checkSession(principal, { needsCampaign: false, duringAutopilot: false });
     if (denied) {
       return denied;
     }
-    const memory = this.campaign === null ? null : readMemory(this.campaign);
-    return ok(
-      this.ais.map((ai) => ({
-        autopilotAiId: ai.id,
-        name: ai.name,
-        wroteAutopilotMemory: memory !== null && memory.autopilotAiId === ai.id,
-      })),
-    );
+    return ok(this.ais.map((ai) => ({ autopilotAiId: ai.id, name: ai.name })));
   }
 
   private parseLimit(limit: unknown): AutopilotLimit | null {
@@ -1480,7 +1567,7 @@ export class EngineCore<S extends ShellState> {
       return null;
     }
     const { kind, count } = limit as { kind?: unknown; count?: unknown };
-    if (kind === 'singleAction' || kind === 'untilTurnAdvanced') {
+    if (kind === 'singleAction' || kind === 'turnActions') {
       return count === undefined ? { kind } : null;
     }
     if (
@@ -1513,12 +1600,6 @@ export class EngineCore<S extends ShellState> {
         return fail('invalid_input', 'That Autopilot AI is not available.');
       }
       const campaign = this.requireCampaign();
-      const writtenByAnother =
-        (campaign.memoryBase !== null && campaign.memoryBase.autopilotAiId !== ai.id) ||
-        campaign.memoryWrites.some((write) => write.autopilotAiId !== ai.id);
-      if (writtenByAnother) {
-        discardMemory(campaign);
-      }
       const failures: AutosaveFailure[] = [];
       const turn = currentState(campaign).world.current.turn;
       const header = this.headerFor(
@@ -1538,6 +1619,7 @@ export class EngineCore<S extends ShellState> {
         limit: parsed,
         playerActions: 0,
         turnAdvancements: 0,
+        actionsThisTurn: 0,
         status: 'active',
         result: null,
         disengagementFailures: [],
@@ -1624,20 +1706,30 @@ export class EngineCore<S extends ShellState> {
     if (engagement === null || principal.kind !== 'autopilot') {
       return;
     }
-    engagement.playerActions += 1;
     if (advancedTurn) {
       engagement.turnAdvancements += 1;
+      engagement.actionsThisTurn = 0;
+    } else {
+      engagement.playerActions += 1;
+      engagement.actionsThisTurn += 1;
     }
     engagement.callsInStep = 0;
     const limit = engagement.limit;
+    // Advance turn under `singleAction` is withheld before it commits, so every action counted here is another one.
     const reached =
       limit.kind === 'singleAction' ||
-      (limit.kind === 'untilTurnAdvanced' && advancedTurn) ||
       (limit.kind === 'turnAdvancements' && engagement.turnAdvancements >= limit.count);
     if (reached) {
       await this.endEngagement(engagement, 'limitReached');
     } else if (this.campaign !== null && this.rules.isEnded(currentState(this.campaign))) {
       await this.endEngagement(engagement, 'campaignEnded');
+    } else if (engagement.actionsThisTurn >= ACTION_BUDGET_PER_TURN) {
+      // DEC-012: an Autopilot AI that never requests Advance turn exhausts its execution budget.
+      await this.endEngagement(
+        engagement,
+        'aiFailed',
+        `The Autopilot AI made ${ACTION_BUDGET_PER_TURN} Player actions in one Turn without requesting Advance turn.`,
+      );
     } else {
       return;
     }
@@ -1651,7 +1743,7 @@ export class EngineCore<S extends ShellState> {
         await this.runExclusive(() => this.endEngagement(engagement, 'campaignEnded'));
         break;
       }
-      const before = engagement.playerActions;
+      const before = engagement.playerActions + engagement.turnAdvancements;
       engagement.callsInStep = 0;
       try {
         await engagement.ai.step(principal);
@@ -1666,7 +1758,7 @@ export class EngineCore<S extends ShellState> {
       if (engagement.status !== 'active') {
         break;
       }
-      if (engagement.playerActions === before) {
+      if (engagement.playerActions + engagement.turnAdvancements === before) {
         await this.runExclusive(() =>
           this.endEngagement(engagement, 'aiFailed', 'The Autopilot AI produced no valid action.'),
         );
@@ -1728,46 +1820,6 @@ export class EngineCore<S extends ShellState> {
       return this.pendingAutosave.then(() => ok(disengagement, this.endedFailures.get(engagementId) ?? []));
     }
     return Promise.resolve(fail('invalid_input', 'There is no such Autopilot engagement in this Session.'));
-  }
-
-  // ---------------------------------------------------------------------------------------------
-  // Autopilot memory API; see AUTO, Autopilot memory
-
-  readAutopilotMemory(principal: Principal): Result<{ present: boolean; memory: unknown }> {
-    const denied = this.checkMemory(principal);
-    if (denied) {
-      return denied;
-    }
-    const memory = readMemory(this.requireCampaign());
-    return ok(
-      memory === null ? { present: false, memory: null } : { present: true, memory: detach(memory.memory) },
-    );
-  }
-
-  writeAutopilotMemory(principal: Principal, memory: unknown): Promise<Result<null>> {
-    return this.runExclusive(async () => {
-      const denied = this.checkMemory(principal);
-      if (denied) {
-        return denied;
-      }
-      let plain: unknown;
-      try {
-        plain = JSON.parse(JSON.stringify(memory)) as unknown;
-      } catch {
-        return fail('invalid_input', 'Autopilot memory must be plain data.');
-      }
-      if (plain === undefined) {
-        return fail('invalid_input', 'Autopilot memory must be plain data.');
-      }
-      const engagement = this.activeEngagement();
-      if (engagement === null) {
-        return fail('engagement_ended', 'This Autopilot engagement has ended.');
-      }
-      writeMemory(this.requireCampaign(), engagement.ai.id, plain);
-      const failures: AutosaveFailure[] = [];
-      await this.writeCurrentAutosave(failures);
-      return ok(null, failures);
-    });
   }
 }
 

@@ -48,7 +48,10 @@
 - **Description:** The rules for changing Campaign configuration during play are stated, but no value is adjustable
   and no operation is named, so an implementer cannot tell whether to expose an operation.
 - **Links:** DEC-013
-- **Resolution:** Open
+- **Resolution:** Resolved in 44c112e3731ec5d173c4eddb7956c4a46dbf46c5, which the Implementation follows since this
+  update: CONFIG, Changing Campaign configuration during play, now names `session.campaignConfiguration.set(values)` as
+  the one operation, a Session API operation rather than a Player action, so the implementer knows to expose it.
+  Which values are adjustable during play and what the operation reports remain TODOs, which DEC-013 settles.
 
 ## PROB-005: GDR identifier format and YAML property naming are TODOs
 
@@ -168,12 +171,12 @@
 
 - **Category:** Implicit gap
 - **Severity:** Medium
-- **Affected specifications:** ENG, API hierarchy: "The complete namespace inventory is `session`, `player`,
-  `developer`, and `autopilotMemory`." AUTO, Autopilot lifecycle and concurrency: "Autopilot disengages as AI failed
+- **Affected specifications:** ENG, API hierarchy: "The complete namespace inventory is `session`, `player`, and
+  `developer`." AUTO, Autopilot lifecycle and concurrency: "Autopilot disengages as AI failed
   when the Autopilot AI reports an error, produces no valid action, or exhausts its configured finite execution
   budget."
 - **Description:** During an Autopilot engagement the Autopilot AI commits Player actions and the engagement can end
-  without any call from the Session controller. No operation of the four namespaces tells an interface that
+  without any call from the Session controller. No operation of the namespaces tells an interface that
   something a query reports has changed, so an interface cannot show the progress of an engagement except by asking
   again and again.
 - **Links:** DEC-026
@@ -484,4 +487,31 @@
 - **Description:** An Agent on an Investigation can no longer be assigned to Contracting, so the example describes an
   action the engine rejects; with Standby in its place it holds.
 - **Links:** DEC-052
+- **Resolution:** Open
+
+## PROB-035: The Action undo and redo example still compares complete Campaign state
+
+- **Category:** Conflict
+- **Severity:** Low
+- **Affected specifications:** TIMELINE, Acceptance examples, Action undo and redo: "Undo each action and redo it with
+  Dev mode disabled. Complete Campaign state equals the original results after each step". CSTATE, Campaign state
+  composition: Campaign state holds the "Timeline (of the current Turn)" and the "Timeline pointer". TIMELINE,
+  Action navigation: each navigation operation "changes nothing but the Timeline pointer".
+- **Description:** Since Campaign state holds the Timeline and its Timeline pointer, an undo changes complete Campaign
+  state: the Timeline pointer moves and the undone action becomes an Undone action. Complete Campaign state after an
+  undo therefore never equals the original result at that Committed state, which had no Undone action; the example
+  holds for the current Committed state, the History, the Turn report, and the Campaign configuration.
+- **Links:** DEC-057
+- **Resolution:** Open
+
+## PROB-036: What changing Campaign configuration during play reports is a TODO
+
+- **Category:** Needed TODO
+- **Severity:** Low
+- **Affected specifications:** CONFIG, TODOs: "TODO: Define what `session.campaignConfiguration.set(values)` reports,
+  under Changing Campaign configuration during play." CONFIG, TODOs: "TODO: Define the inventory of Campaign
+  configuration values that are adjustable during play".
+- **Description:** The operation is named, but neither its result nor any value it can change is stated, so the
+  implementer chooses the result and has no value of this Game build to exercise it with.
+- **Links:** DEC-013
 - **Resolution:** Open

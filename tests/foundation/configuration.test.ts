@@ -144,3 +144,74 @@ describe('CONFIG: Acceptance examples', () => {
     expect(setting(h, 'musicVolume').effectiveValue).toBe(30);
   });
 });
+
+describe('CONFIG: Changing Campaign configuration during play', () => {
+  // The test rules make the multiplier adjustable during play and starting money fixed after creation.
+  const set = (h: Harness, values: unknown) => h.core.setCampaignConfiguration(CONTROLLER, values);
+  const code = (result: { ok: boolean; error?: { code: string } }) => (result.ok ? 'ok' : result.error?.code);
+
+  it('Invalid adjustment and Fixed value: the whole request fails and nothing changes', async () => {
+    const h = await startHarness();
+    expect(code(await set(h, { multiplier: 2 }))).toBe('no_current_campaign');
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const before = h.state();
+    for (const values of [
+      { multiplier: 9 },
+      { multiplier: 3, startingMoney: 100 },
+      { multiplier: 3, unknown: 1 },
+      [1],
+      null,
+    ]) {
+      expect(code(await set(h, values))).toBe('invalid_input');
+    }
+    expect(h.state()).toEqual(before);
+  });
+
+  it('a change is not a Player action, stays through undo and redo, and is saved at once', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    expectOk(await h.act('gain', { amount: 1 }));
+    const first = h.state();
+    expectOk(await set(h, { multiplier: 3 }));
+    // A request that leaves Campaign configuration unchanged is accepted and changes nothing.
+    expectOk(await set(h, { multiplier: 3 }));
+    expectOk(await set(h, {}));
+    expect(expectOk(h.core.getTimelineStatus(CONTROLLER))).toMatchObject({
+      timelineEntries: 1,
+      undoneActions: 0,
+    });
+    expect(h.state().configuration.multiplier).toBe(3);
+    // Undo and redo move only the Timeline pointer: the change stays, and redo reaches the Committed state as it was.
+    expectOk(await h.core.undoAction(CONTROLLER));
+    expect(h.state().configuration.multiplier).toBe(3);
+    expectOk(await h.core.redoAction(CONTROLLER));
+    expect(h.state()).toEqual({ ...first, configuration: { ...first.configuration, multiplier: 3 } });
+    // The Current Autosave holds the change, so resuming from it keeps it.
+    const current = expectOk(await h.core.listSaves(CONTROLLER)).find(
+      (save) => save.autosaveKind === 'current',
+    );
+    await h.restart();
+    expectOk(await h.core.load(CONTROLLER, current!.saveId));
+    expect(h.state().configuration.multiplier).toBe(3);
+    expectOk(await h.act('gain', { amount: 1 }));
+    // Replay after a load commits each Timeline entry under the Campaign configuration it was committed under.
+    const { saveId } = expectOk(await h.core.save(CONTROLLER));
+    const played = h.state();
+    expectOk(await h.core.load(CONTROLLER, saveId));
+    expect(h.state()).toEqual(played);
+  });
+
+  it('a load takes the saved Campaign configuration, while Autosave navigation keeps the current one', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER));
+    const { saveId } = expectOk(await h.core.save(CONTROLLER));
+    expectOk(await h.core.advanceTurn(CONTROLLER));
+    expectOk(await set(h, { multiplier: 4 }));
+    expectOk(await h.core.undoToAutosave(CONTROLLER));
+    expect(h.state().configuration.multiplier).toBe(4);
+    expectOk(await h.core.redoToAutosave(CONTROLLER));
+    expect(h.state().configuration.multiplier).toBe(4);
+    expectOk(await h.core.load(CONTROLLER, saveId));
+    expect(h.state().configuration.multiplier).toBe(1);
+  });
+});

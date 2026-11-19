@@ -49,12 +49,12 @@ Each layer imports only from the layers before it; ESLint and `tests/architectur
 | `src/cli`    | The terminal CLI and Game storage as JSON files.                                                    |
 | `src/web`    | The web UI and Game storage in IndexedDB.                                                           |
 
-`src/engine/index.ts` is the engine API: `session`, `player`, `developer`, and `autopilotMemory`. Every operation
-returns a result that is a value or an error with a code and a message; a failed operation changes nothing.
+`src/engine/index.ts` is the engine API: `session`, `player`, and `developer`. Every operation returns a result that
+is a value or an error with a code and a message; a failed operation changes nothing.
 
-Campaign state is an immutable value. An action produces the next Committed state with Immer, the Timeline keeps the
-Committed states of the current Turn, and a Campaign save stores the Turn-start state and the Timeline entries, which
-loading replays.
+Each Committed state is an immutable value. An action produces the next Committed state with Immer, the Timeline keeps
+the Committed states of the current Turn with its Timeline pointer, and a Campaign save stores the Turn-start state,
+the Timeline entries, the Timeline pointer, and the Campaign configuration in force, and loading replays the entries.
 
 ## Tests
 
@@ -95,8 +95,9 @@ from Google Fonts; DEC-034 gives the light theme.
   - Records: Turn report (what the last Advance turn did, with each Combat report and its Combat log), History (the
     Turn by Turn table), Charts (Panic, money, Serving Agents, and funding), and Compendium (the Player-visible
     Encyclopedia articles, by category, with a search field).
-- **Autopilot controls.** Choose an Autopilot AI and engage it for one Player action, until the Turn advances, or for
-  a number of Turns; show its progress and a Stop button.
+- **Autopilot controls.** Choose an Autopilot AI and engage it for One action or This Turn's actions, neither of which
+  advances the Turn, or for a number of Turns; show its progress and a Stop button, and, when the engagement ends, a
+  line that says why, until Autopilot is engaged again or the Committed state changes.
 - **Developer drawer.** Enables Dev mode, adds money or Agents, sets a random outcome override, and shows the full
   Campaign state.
 

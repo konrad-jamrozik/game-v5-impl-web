@@ -83,7 +83,7 @@ export function readable(value: unknown, indent = ''): string {
 
 const HELP = `Commands
   Session    status | new [seed] | close | presets | preset <id> | setup | select <preset>
-             edit <preset> <key> <value> | unedit <preset> <key>
+             edit <preset> <key> <value> | unedit <preset> <key> | adjust [<key> <value>]...
              saves | load <saveId> | save | delete <saveId> | deletecampaign <campaignId>
              config | set <setting> <value> | reset <setting>
   Look       state | agents | leads | investigations | sites | missions | factions | upgrades
@@ -92,7 +92,8 @@ const HELP = `Commands
              investigate <lead> <agent...> | join <investigation> <agent...> | deploy <site> <agent...> | next
   Timeline   timeline | undo | redo | undoall | redoall | autosaves | back | forward
   Autopilot  ais | auto <ai> <limit> | engage <ai> <limit> | autostatus <engagement> | disengage <engagement>
-             wait <engagement>; <limit> is single, turn, or turns <count>; auto engages and waits
+             wait <engagement>; <limit> is single (one action), turn (this Turn's actions), or turns <count>;
+             auto engages and waits
   Developer  dev on | dev off | inspect | addmoney <amount> | addagents <count> | override <outcome> <value>
   Other      help | quit
 Each command prints the whole result of its operation; --json prints it as one line of JSON. The commands agents,
@@ -110,7 +111,7 @@ function parseLimit(words: readonly string[]): AutopilotLimit | null {
     case 'single':
       return { kind: 'singleAction' };
     case 'turn':
-      return { kind: 'untilTurnAdvanced' };
+      return { kind: 'turnActions' };
     case 'turns':
       return { kind: 'turnAdvancements', count: Number(words[1]) };
     default:
@@ -192,6 +193,18 @@ export function createCli(engine: Engine, out: CliOutput) {
         );
       case 'unedit':
         return print(command, session.newCampaignSetup.removePresetEdit(first, rest[0] ?? ''));
+      case 'adjust': {
+        // `adjust <key> <value> ...`: session.campaignConfiguration.set with every named value at once.
+        const words = args.filter((word) => word !== '');
+        if (words.length % 2 !== 0) {
+          return usage(command, 'usage: adjust [<key> <value>]...');
+        }
+        const values: Record<string, number> = {};
+        for (let i = 0; i < words.length; i += 2) {
+          values[words[i] ?? ''] = Number(words[i + 1]);
+        }
+        return print(command, await session.campaignConfiguration.set(values));
+      }
       case 'saves':
         return print(command, await session.saves.list());
       case 'load':

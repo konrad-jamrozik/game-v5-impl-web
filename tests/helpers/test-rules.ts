@@ -171,7 +171,26 @@ export const testRules: GameRules<TestState> = {
   },
   historyView: (state) => state.world.history.reports.map((report) => ({ turn: report.turn })),
   availableActionsView: () => ['gain', 'spend', 'roll', 'hire', 'advanceTurn'],
-  inspect: (state) => structuredClone(state),
+  // The current Committed state under the Campaign configuration in force, so that tests can read it whole.
+  inspect: ({ states, position, configuration }) => {
+    const state = states[position];
+    if (state === undefined) {
+      throw new Error('The Timeline has no Committed state at its pointer');
+    }
+    return structuredClone({
+      ...state,
+      configuration: { ...state.configuration, ...configuration } as TestState['configuration'],
+    });
+  },
+  placeInPlay: (state) => ({ world: state.world }),
+  withConfiguration: (state, configuration) =>
+    Object.entries(configuration).every(
+      ([key, value]) => state.configuration[key as keyof TestState['configuration']] === value,
+    )
+      ? state
+      : produce(state, (draft) => {
+          draft.configuration = { ...state.configuration, ...configuration } as TestState['configuration'];
+        }),
 };
 
 export interface Harness {

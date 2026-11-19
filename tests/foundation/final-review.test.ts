@@ -126,10 +126,10 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
     ok(await engine.session.campaign.create({ seed: 'frozen' }));
     ok(engine.session.developer.enable());
     const state = ok(engine.developer.queries.getCampaignState()) as {
-      worldState: { currentWorldState: object };
+      timeline: { turnStartState: { liveWorldState: object } };
     };
     expect(Object.isFrozen(state)).toBe(true);
-    expect(Object.isFrozen(state.worldState.currentWorldState)).toBe(true);
+    expect(Object.isFrozen(state.timeline.turnStartState.liveWorldState)).toBe(true);
   });
 });
 

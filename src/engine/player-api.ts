@@ -1,5 +1,5 @@
 /**
- * Player API and Autopilot memory API, as types. This is everything an Autopilot AI may see of the engine: every
+ * Player API, as types. This is everything an Autopilot AI may see of the engine: every
  * value here is Player-visible information, and no Type has a property for a hidden value, e.g. the Campaign seed
  * or a Faction's countdowns; see ENG, Information boundary.
  */
@@ -457,23 +457,13 @@ export interface PlayerApi {
   };
 }
 
-/** Autopilot memory API: available only to the active Autopilot AI. */
-export interface AutopilotMemoryApi {
-  /** The Autopilot memory most recently written at or before the current Committed state, or its absence. */
-  read(): Result<{ readonly present: boolean; readonly memory: unknown }>;
-  write(memory: unknown): Promise<Result<null>>;
-}
-
 /** An Autopilot AI that a Game build offers. */
 export interface AutopilotAi {
   readonly id: string;
   readonly name: string;
   /**
-   * Plays on through Player API: makes queries and commits at least one Player action. The engine calls it again
-   * until the Autopilot engagement ends.
+   * Plays on through Player API: makes queries and commits at least one Player action, or requests Advance turn. The
+   * engine calls it again until the Autopilot engagement ends; see AUTO, What an Autopilot AI receives.
    */
-  step(api: {
-    readonly player: PlayerApi;
-    readonly autopilotMemory: AutopilotMemoryApi;
-  }): Promise<void> | void;
+  step(api: { readonly player: PlayerApi }): Promise<void> | void;
 }

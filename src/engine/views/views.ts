@@ -62,6 +62,7 @@ import type {
   MissionView,
 } from '../player-api.ts';
 import { reject, type Rejection } from '../result.ts';
+import type { ActionRecord } from '../rules.ts';
 import { summarize } from '../state/summary.ts';
 import { isServing } from '../state/types.ts';
 import type {
@@ -739,11 +740,8 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
   return view;
 }
 
-/**
- * `developer.queries.getCampaignState()`: Campaign state in full, detached, in its conceptual hierarchy, with each
- * Campaign instance as its four properties; see DEV, Inspection contract and DEC-019.
- */
-export function inspectCampaignState(state: CampaignState): unknown {
+/** One World state, i.e. its Live world state and its Retired world state; see CSTATE, Campaign state composition. */
+function inspectWorldState(state: CampaignState): unknown {
   const world = state.world.current;
   const retainedAgent = (agent: Agent) => !isServing(agent.state);
   const retainedInvestigation = (item: Investigation) => item.state.lifecycle !== 'Active';
@@ -762,47 +760,92 @@ export function inspectCampaignState(state: CampaignState): unknown {
   const missionSites = split(world.missionSites, retainedSite);
   const missions = split(world.missions, retainedMission);
   const enemies = split(world.enemies, retainedEnemy);
+  return {
+    liveWorldState: {
+      campaignSeed: world.seed,
+      randomGenerator: world.rng,
+      nextInstanceNumbers: world.nextInstanceNumbers,
+      pendingRandomOutcomeOverrides: world.randomOverrides,
+      turn: world.turn,
+      panic: world.panic,
+      campaignEnding: world.ending,
+      endingReasons: world.endingReasons,
+      endingTurn: world.endingTurn,
+      agency: world.agency,
+      agents: agents.current,
+      factions: Object.values(world.factions),
+      investigations: investigations.current,
+      missionSites: missionSites.current,
+      missions: missions.current,
+      enemies: enemies.current,
+    },
+    retiredWorldState: {
+      agents: agents.retained,
+      investigations: investigations.retained,
+      missionSites: missionSites.retained,
+      missions: missions.retained,
+      enemies: enemies.retained,
+    },
+  };
+}
+
+/**
+ * The History: the History entries and the recorded values of every Turn series for the ended Turns only. The
+ * recorded values of the current Turn are read off the Timeline; see WHIST, Turn series.
+ */
+function historyOf(state: CampaignState): unknown {
+  const ended = (values: readonly { readonly turn: number }[]) =>
+    values.filter((value) => value.turn < state.world.current.turn);
+  return {
+    historyEntries: state.world.history.historyEntries,
+    turnSeries: {
+      moneyAtStartOfTurn: ended(state.world.history.moneyAtStartOfTurn),
+      moneyAtEndOfTurn: ended(state.world.history.moneyAtEndOfTurn),
+    },
+  };
+}
+
+/**
+ * `developer.queries.getCampaignState()`: Campaign state in full, detached, in its conceptual hierarchy, with each
+ * Campaign instance as its four properties; see CSTATE, Campaign state composition, DEV, Inspection contract, and
+ * DEC-019. The Timeline holds a World state for each of its Committed states, each with the Player action that
+ * produced it.
+ */
+export function inspectCampaignState(timeline: {
+  readonly states: readonly CampaignState[];
+  readonly entries: readonly ActionRecord[];
+  readonly position: number;
+  readonly configuration: Readonly<Record<string, number>>;
+}): unknown {
+  const turnStart = must(timeline.states[0], 'The Timeline has no Turn-start state');
+  const current = must(
+    timeline.states[timeline.position],
+    'The Timeline has no Committed state at its pointer',
+  );
   return deepFreeze(
     detach({
-      campaignConfiguration: state.configuration,
-      worldState: {
-        currentWorldState: {
-          campaignSeed: world.seed,
-          randomGenerator: world.rng,
-          nextInstanceNumbers: world.nextInstanceNumbers,
-          pendingRandomOutcomeOverrides: world.randomOverrides,
-          turn: world.turn,
-          panic: world.panic,
-          campaignEnding: world.ending,
-          endingReasons: world.endingReasons,
-          endingTurn: world.endingTurn,
-          agency: world.agency,
-          agents: agents.current,
-          factions: Object.values(world.factions),
-          investigations: investigations.current,
-          missionSites: missionSites.current,
-          missions: missions.current,
-          enemies: enemies.current,
-        },
-        worldHistory: {
-          turnReport: state.world.history.turnReport,
-          historyEntries: state.world.history.historyEntries,
-          turnSeries: {
-            moneyAtStartOfTurn: state.world.history.moneyAtStartOfTurn,
-            moneyAtEndOfTurn: state.world.history.moneyAtEndOfTurn,
-          },
-          currentTurnStart: state.world.history.currentTurnStart,
-          // WHIST, Action record: the Action record of the current Turn, i.e. of the Open History entry; see DEC-051.
-          currentActions: state.world.history.currentActions,
-          retainedCampaignInstances: {
-            agents: agents.retained,
-            investigations: investigations.retained,
-            missionSites: missionSites.retained,
-            missions: missions.retained,
-            enemies: enemies.retained,
-          },
-        },
+      timeline: {
+        turnStartState: inspectWorldState(turnStart),
+        timelineEntries: timeline.entries.map((entry, index) => ({
+          playerAction: entry,
+          worldState: inspectWorldState(
+            must(timeline.states[index + 1], 'The Timeline has no Committed state for an entry'),
+          ),
+        })),
       },
+      timelinePointer: timeline.position,
+      history: historyOf(current),
+      campaignConfiguration: timeline.configuration,
+      turnReport: current.world.history.turnReport,
     }),
   );
+}
+
+/** SAVES, Saving: the World state of a Committed state, the History, and the Turn report. */
+export function placeInPlay(state: CampaignState): unknown {
+  return {
+    worldState: state.world.current,
+    history: historyOf(state),
+    turnReport: state.world.history.turnReport,
+  };
 }

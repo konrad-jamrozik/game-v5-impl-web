@@ -1,5 +1,5 @@
 import type { ActionRecord, ShellState } from '../rules.ts';
-import type { MemoryValue, MemoryWrite, SavedCampaign } from '../timeline/campaign-runtime.ts';
+import type { SavedCampaign } from '../timeline/campaign-runtime.ts';
 import type { SaveHeader, SaveKind } from './storage.ts';
 
 /** The Save size limit: 100 MiB; see SAVES, Save size limit. */
@@ -26,8 +26,7 @@ export function encodeSave<S extends ShellState>(header: SaveHeader, saved: Save
     entries: saved.entries,
     stamps: saved.stamps,
     position: saved.position,
-    memoryBase: saved.memoryBase,
-    memoryWrites: saved.memoryWrites,
+    configuration: saved.configuration,
   });
   const head = JSON.stringify({
     format: FORMAT,
@@ -77,21 +76,18 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
+function isConfiguration(value: unknown): value is Readonly<Record<string, number>> {
+  return isRecord(value) && Object.values(value).every((item) => typeof item === 'number');
+}
+
 function isActionRecord(value: unknown): value is ActionRecord {
   return (
     isRecord(value) &&
     (value['surface'] === 'player' || value['surface'] === 'developer') &&
     typeof value['name'] === 'string' &&
-    'args' in value
+    'args' in value &&
+    (value['configuration'] === undefined || isConfiguration(value['configuration']))
   );
-}
-
-function isMemoryValue(value: unknown): value is MemoryValue {
-  return isRecord(value) && typeof value['autopilotAiId'] === 'string' && 'memory' in value;
-}
-
-function isMemoryWrite(value: unknown): value is MemoryWrite {
-  return isMemoryValue(value) && Number.isSafeInteger((value as { position?: unknown }).position);
 }
 
 const KINDS: readonly string[] = [
@@ -103,7 +99,11 @@ const KINDS: readonly string[] = [
   'furthestProgressAutosave',
 ];
 
-/** Reads the body of a Campaign save, or says why the Game build does not load it. */
+/**
+ * Reads the body of a Campaign save, or says why the Game build does not load it. A Campaign save written before
+ * Autopilot memory was removed also holds `memoryBase` and `memoryWrites`, which are ignored, and holds no
+ * `configuration`, so its Campaign configuration is that of its saved Committed state; it loads; see DEC-008.
+ */
 export function decodeSave<S extends ShellState>(
   body: string,
   gameBuild: string,
@@ -131,8 +131,7 @@ export function decodeSave<S extends ShellState>(
     entries,
     stamps,
     position,
-    memoryBase,
-    memoryWrites,
+    configuration,
   } = parsed;
   if (
     typeof campaignId !== 'string' ||
@@ -149,9 +148,7 @@ export function decodeSave<S extends ShellState>(
     position < 0 ||
     position > entries.length ||
     stamps.length !== entries.length + 1 ||
-    !(memoryBase === null || isMemoryValue(memoryBase)) ||
-    !Array.isArray(memoryWrites) ||
-    !memoryWrites.every(isMemoryWrite) ||
+    !(configuration === undefined || isConfiguration(configuration)) ||
     !isCampaignState(turnStart)
   ) {
     return 'corrupt_campaign_save';
@@ -161,7 +158,10 @@ export function decodeSave<S extends ShellState>(
     saveId,
     kind: kind as SaveKind,
     writtenAt,
-    saved: { pastStamps, turnStart, entries, stamps, position, memoryBase, memoryWrites },
+    saved:
+      configuration === undefined
+        ? { pastStamps, turnStart, entries, stamps, position }
+        : { pastStamps, turnStart, entries, stamps, position, configuration },
   };
 }
 

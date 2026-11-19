@@ -24,12 +24,7 @@ async function run(h: Harness, id: string, limit: unknown) {
 describe('AUTO: Acceptance examples', () => {
   it('Listing Autopilot AIs', async () => {
     const h = await withAis((core) => [
-      scriptedAi('x', core, [
-        async (api) => {
-          await api.core.writeAutopilotMemory(api.principal, { plan: 'M' });
-          await api.act('gain', { amount: 1 });
-        },
-      ]),
+      scriptedAi('x', core, [async (api) => void (await api.act('gain', { amount: 1 }))]),
       scriptedAi('y', core, [async (api) => void (await api.act('gain', { amount: 1 }))]),
     ]);
     expectOk(await h.core.closeCampaign(CONTROLLER));
@@ -37,8 +32,8 @@ describe('AUTO: Acceptance examples', () => {
     expectOk(await h.core.createCampaign(CONTROLLER));
     await run(h, 'x', { kind: 'singleAction' });
     expect(expectOk(h.core.listAutopilotAis(CONTROLLER))).toEqual([
-      { autopilotAiId: 'x', name: 'Test AI x', wroteAutopilotMemory: true },
-      { autopilotAiId: 'y', name: 'Test AI y', wroteAutopilotMemory: false },
+      { autopilotAiId: 'x', name: 'Test AI x' },
+      { autopilotAiId: 'y', name: 'Test AI y' },
     ]);
     const before = h.state();
     const rejected = await h.core.engage(CONTROLLER, 'z', { kind: 'singleAction' });
@@ -91,7 +86,7 @@ describe('AUTO: Acceptance examples', () => {
     expect(seen).toEqual(['rejected:true', 'late:engagement_ended']);
     expect(h.view().money).toBe(101);
     const turns = await run(h, 'turns', { kind: 'turnAdvancements', count: 2 });
-    expect(turns.progress).toEqual({ playerActions: 4, turnAdvancements: 2 });
+    expect(turns.progress).toEqual({ playerActions: 2, turnAdvancements: 2 });
     expect(seen.at(-1)).toBe('third:false');
     expect(h.view().turn).toBe(3);
   });
@@ -107,74 +102,60 @@ describe('AUTO: Acceptance examples', () => {
         },
       ]),
     ]);
-    const result = await run(h, 'x', { kind: 'untilTurnAdvanced' });
+    const result = await run(h, 'x', { kind: 'turnAdvancements', count: 1 });
     expect(result.reason).toBe('limitReached');
     expect(outcomes).toEqual([false]);
     expect(h.view()).toMatchObject({ turn: 2 });
   });
 
-  it('Autopilot memory follows undo and redo', async () => {
-    const reads: unknown[] = [];
-    let written: () => void = () => undefined;
-    const bothWritten = new Promise<void>((resolve) => {
-      written = resolve;
-    });
+  it('turnActions: the requested Advance turn is withheld and the Turn is left to the player', async () => {
+    const outcomes: unknown[] = [];
     const h = await withAis((core) => [
       scriptedAi('x', core, [
         async (api) => {
-          reads.push(expectOk(api.core.readAutopilotMemory(api.principal)));
-          await api.act('gain', { amount: 1 }); // reaches P
-          expectOk(await api.core.writeAutopilotMemory(api.principal, 'M'));
-          await api.act('gain', { amount: 1 }); // reaches Q
-          expectOk(await api.core.writeAutopilotMemory(api.principal, 'M2'));
-          written();
-          await new Promise(() => undefined);
-        },
-        async (api) => {
-          reads.push(expectOk(api.core.readAutopilotMemory(api.principal)));
           await api.act('gain', { amount: 1 });
+          await api.act('gain', { amount: 1 });
+          outcomes.push(expectOk((await api.advance()) as { ok: true; value: unknown }));
+          outcomes.push(((await api.act('gain', { amount: 1 })) as { ok: boolean }).ok);
         },
       ]),
     ]);
-    const { engagementId } = expectOk(
-      await h.core.engage(CONTROLLER, 'x', { kind: 'turnAdvancements', count: 1 }),
-    );
-    await bothWritten;
-    expectOk(await h.core.disengage(CONTROLLER, engagementId));
-    expectOk(await h.core.undoAction(CONTROLLER)); // back to P
-    const { saveId } = expectOk(await h.core.save(CONTROLLER));
-    await run(h, 'x', { kind: 'singleAction' });
-    expect(reads).toEqual([
-      { present: false, memory: null },
-      { present: true, memory: 'M' },
-    ]);
-    // Save at P with its Undone actions, load, and redo to Q: X reads M2.
-    expectOk(await h.core.load(CONTROLLER, saveId));
-    expectOk(await h.core.redoAction(CONTROLLER));
-    await run(h, 'x', { kind: 'singleAction' });
-    expect(reads.at(-1)).toEqual({ present: true, memory: 'M2' });
-    // The Session controller's Player API never returns Autopilot memory.
-    expect(JSON.stringify(h.core.playerQuery(CONTROLLER, 'currentState'))).not.toContain('M2');
+    const result = await run(h, 'x', { kind: 'turnActions' });
+    expect(result).toMatchObject({
+      reason: 'advanceTurnWithheld',
+      limitReached: false,
+      progress: { playerActions: 2, turnAdvancements: 0 },
+    });
+    expect(outcomes).toEqual([{ committed: false, withheld: true }, false]);
+    expect(h.view()).toMatchObject({ turn: 1, money: 102 });
+    expect(expectOk(h.core.getTimelineStatus(CONTROLLER)).timelineEntries).toBe(2);
   });
 
-  it('A different Autopilot AI discards Autopilot memory', async () => {
-    const reads: Record<string, unknown[]> = { x: [], y: [] };
-    const reader = (id: string) => async (api: Parameters<Parameters<typeof scriptedAi>[2][number]>[0]) => {
-      reads[id]!.push(expectOk(api.core.readAutopilotMemory(api.principal)).present);
-      await api.act('gain', { amount: 1 });
-      if (id === 'x' && reads['x']!.length === 1) {
-        await api.core.writeAutopilotMemory(api.principal, 'M');
-      }
-    };
-    const h = await withAis((core) => [
-      scriptedAi('x', core, [reader('x')]),
-      scriptedAi('y', core, [reader('y')]),
-    ]);
-    await run(h, 'x', { kind: 'singleAction' });
-    await run(h, 'y', { kind: 'singleAction' });
-    expectOk(await h.core.undoAction(CONTROLLER));
-    await run(h, 'x', { kind: 'singleAction' });
-    expect(reads).toEqual({ x: [false, false], y: [false] });
+  it('singleAction: an Autopilot AI with nothing to do ends the engagement with no Player action', async () => {
+    const h = await withAis((core) => [scriptedAi('x', core, [async (api) => void (await api.advance())])]);
+    const before = h.state();
+    for (const limit of [{ kind: 'singleAction' }, { kind: 'turnActions' }]) {
+      const result = await run(h, 'x', limit);
+      expect(result).toMatchObject({
+        reason: 'advanceTurnWithheld',
+        progress: { playerActions: 0, turnAdvancements: 0 },
+      });
+    }
+    // Campaign state and the Timeline are unchanged, and both Autosaves of the engagement are written.
+    expect(h.state()).toEqual(before);
+    expect(expectOk(h.core.getTimelineStatus(CONTROLLER)).timelineEntries).toBe(0);
+    const kinds = expectOk(await h.core.listSaves(CONTROLLER)).map((save) => save.autosaveKind);
+    expect(kinds).toEqual(expect.arrayContaining(['engagement', 'disengagement']));
+  });
+
+  it('turnAdvancements commits the requested Advance turn', async () => {
+    const h = await withAis((core) => [scriptedAi('x', core, [async (api) => void (await api.advance())])]);
+    const result = await run(h, 'x', { kind: 'turnAdvancements', count: 2 });
+    expect(result).toMatchObject({
+      reason: 'limitReached',
+      progress: { playerActions: 0, turnAdvancements: 2 },
+    });
+    expect(h.view().turn).toBe(3);
   });
 
   it('Disengagement during an action; the Session controller is limited during an engagement', async () => {
@@ -210,6 +191,7 @@ describe('AUTO: Acceptance examples', () => {
       await h.core.createCampaign(CONTROLLER),
       await h.core.closeCampaign(CONTROLLER),
       await h.core.engage(CONTROLLER, 'x', { kind: 'singleAction' }),
+      await h.core.setCampaignConfiguration(CONTROLLER, { multiplier: 3 }),
       h.core.enableDevMode(CONTROLLER),
       h.core.developerQuery(CONTROLLER),
     ]) {
@@ -283,11 +265,6 @@ describe('ENG: Principal access matrix', () => {
     await run(h, 'x', { kind: 'singleAction' });
     expect(codes).toEqual(new Array(10).fill('unauthorized'));
     expect(h.view().money).toBe(101);
-    // The Session controller cannot use Autopilot memory API.
-    const read = h.core.readAutopilotMemory(CONTROLLER);
-    expect(!read.ok && read.error.code).toBe('unauthorized');
-    const write = await h.core.writeAutopilotMemory(CONTROLLER, 'injected');
-    expect(!write.ok && write.error.code).toBe('unauthorized');
   });
 });
 

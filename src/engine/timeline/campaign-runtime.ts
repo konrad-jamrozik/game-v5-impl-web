@@ -1,25 +1,17 @@
-import { EngineDefect, detach } from '../../kernel/index.ts';
+import { EngineDefect } from '../../kernel/index.ts';
 import { isRejection, type Rejection } from '../result.ts';
 import type { ActionRecord, GameRules, ShellState } from '../rules.ts';
 
-/** The Autopilot memory of a Campaign at one Committed state, with the Autopilot AI that wrote it. */
-export interface MemoryValue {
-  readonly autopilotAiId: string;
-  readonly memory: unknown;
-}
-
-/** Autopilot memory written at one Committed state of the current Turn. */
-export interface MemoryWrite extends MemoryValue {
-  /** How many Timeline entries were not Undone actions at the Committed state it was written at. */
-  readonly position: number;
-}
-
 /**
- * One Campaign as a Session holds it: its Campaign ID, the Timeline of the current Turn, the Autopilot memory, and
- * the stamps that order its Committed states on the line of play; see TIMELINE and DEC-010.
+ * One Campaign as a Session holds it: its Campaign ID, the Timeline of the current Turn with its Timeline pointer,
+ * and the stamps that order its Committed states on the line of play; see TIMELINE and DEC-010.
  *
  * `states[i]` is the Committed state after `i` Timeline entries, and `states[0]` is the Turn-start state. The
- * Campaign state is `states[position]`, and the Timeline entries from `position` on are the Undone actions.
+ * Timeline pointer is `position`: the current Committed state is `states[position]`, and the Timeline entries from
+ * `position` on are the Undone actions.
+ *
+ * `configuration` is the Campaign configuration in force. Each Committed state holds the Campaign configuration it
+ * was produced under, which a later change never rewrites; see CONFIG, Changing Campaign configuration during play.
  */
 export interface CampaignRuntime<S extends ShellState> {
   readonly campaignId: string;
@@ -30,9 +22,7 @@ export interface CampaignRuntime<S extends ShellState> {
   /** `stamps[i]` identifies `states[i]`. */
   stamps: string[];
   position: number;
-  /** The Autopilot memory at the Turn-start state, or null when there is none. */
-  memoryBase: MemoryValue | null;
-  memoryWrites: MemoryWrite[];
+  configuration: Readonly<Record<string, number>>;
 }
 
 export function newCampaignRuntime<S extends ShellState>(
@@ -47,8 +37,7 @@ export function newCampaignRuntime<S extends ShellState>(
     entries: [],
     stamps: [stamp],
     position: 0,
-    memoryBase: null,
-    memoryWrites: [],
+    configuration: initial.configuration,
   };
 }
 
@@ -77,12 +66,11 @@ export function undoneCount<S extends ShellState>(campaign: CampaignRuntime<S>):
   return campaign.entries.length - campaign.position;
 }
 
-/** Discards every Undone action, with the Autopilot memory written at the discarded Committed states. */
+/** Removes every Undone action for good. */
 function discardUndone<S extends ShellState>(campaign: CampaignRuntime<S>): void {
   campaign.entries.length = campaign.position;
   campaign.states.length = campaign.position + 1;
   campaign.stamps.length = campaign.position + 1;
-  campaign.memoryWrites = campaign.memoryWrites.filter((write) => write.position <= campaign.position);
 }
 
 /** Records one committed action other than Advance turn as a Timeline entry. */
@@ -106,43 +94,11 @@ export function commitAdvanceTurn<S extends ShellState>(
   stamp: string,
 ): void {
   discardUndone(campaign);
-  const memory = readMemory(campaign);
   campaign.pastStamps = [...campaign.pastStamps, ...campaign.stamps];
   campaign.states = [next];
   campaign.entries = [];
   campaign.stamps = [stamp];
   campaign.position = 0;
-  campaign.memoryBase = memory;
-  campaign.memoryWrites = [];
-}
-
-/** The Autopilot memory most recently written at or before the current Committed state. */
-export function readMemory<S extends ShellState>(campaign: CampaignRuntime<S>): MemoryValue | null {
-  let found: MemoryValue | null = campaign.memoryBase;
-  let foundPosition = -1;
-  for (const write of campaign.memoryWrites) {
-    if (write.position <= campaign.position && write.position >= foundPosition) {
-      found = { autopilotAiId: write.autopilotAiId, memory: write.memory };
-      foundPosition = write.position;
-    }
-  }
-  return found;
-}
-
-/** Replaces the Autopilot memory at the current Committed state. */
-export function writeMemory<S extends ShellState>(
-  campaign: CampaignRuntime<S>,
-  autopilotAiId: string,
-  memory: unknown,
-): void {
-  campaign.memoryWrites = campaign.memoryWrites.filter((write) => write.position !== campaign.position);
-  campaign.memoryWrites.push({ position: campaign.position, autopilotAiId, memory: detach(memory) });
-}
-
-/** Discards the Autopilot memory at every Committed state the Timeline can restore. */
-export function discardMemory<S extends ShellState>(campaign: CampaignRuntime<S>): void {
-  campaign.memoryBase = null;
-  campaign.memoryWrites = [];
 }
 
 /** What a Campaign save holds of a Campaign besides its identifiers; see SAVES, Campaign save contents. */
@@ -151,10 +107,13 @@ export interface SavedCampaign<S extends ShellState> {
   readonly turnStart: S;
   readonly entries: readonly ActionRecord[];
   readonly stamps: readonly string[];
-  /** The number of Timeline entries that are not Undone actions. */
+  /** The Timeline pointer: the number of Timeline entries that are not Undone actions. */
   readonly position: number;
-  readonly memoryBase: MemoryValue | null;
-  readonly memoryWrites: readonly MemoryWrite[];
+  /**
+   * The Campaign configuration in force; absent in a Campaign save written before it was kept, whose Campaign
+   * configuration is then that of its saved Committed state.
+   */
+  readonly configuration?: Readonly<Record<string, number>>;
 }
 
 export function toSaved<S extends ShellState>(campaign: CampaignRuntime<S>): SavedCampaign<S> {
@@ -168,14 +127,14 @@ export function toSaved<S extends ShellState>(campaign: CampaignRuntime<S>): Sav
     entries: [...campaign.entries],
     stamps: [...campaign.stamps],
     position: campaign.position,
-    memoryBase: campaign.memoryBase,
-    memoryWrites: [...campaign.memoryWrites],
+    configuration: campaign.configuration,
   };
 }
 
 /**
  * Rebuilds a Campaign from what a Campaign save holds, by committing its Timeline entries again from the Turn-start
- * state. Returns a rejection when an entry cannot be committed again, which means the Campaign save is not valid.
+ * state, each under the Campaign configuration it was first committed under. Returns a rejection when an entry cannot
+ * be committed again, which means the Campaign save is not valid.
  */
 export function fromSaved<S extends ShellState>(
   campaignId: string,
@@ -185,12 +144,18 @@ export function fromSaved<S extends ShellState>(
   const states: S[] = [saved.turnStart];
   let state = saved.turnStart;
   for (const record of saved.entries) {
-    const next = rules.applyAction(state, record);
+    const base =
+      record.configuration === undefined ? state : rules.withConfiguration(state, record.configuration);
+    const next = rules.applyAction(base, record);
     if (isRejection(next)) {
       return next;
     }
     states.push(next);
     state = next;
+  }
+  const current = states[saved.position];
+  if (current === undefined) {
+    throw new EngineDefect('The Timeline pointer of a Campaign save is beyond its Timeline');
   }
   return {
     campaignId,
@@ -199,7 +164,6 @@ export function fromSaved<S extends ShellState>(
     entries: [...saved.entries],
     stamps: [...saved.stamps],
     position: saved.position,
-    memoryBase: saved.memoryBase,
-    memoryWrites: [...saved.memoryWrites],
+    configuration: saved.configuration ?? current.configuration,
   };
 }

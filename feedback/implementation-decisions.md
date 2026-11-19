@@ -135,14 +135,23 @@
 
 - **Category:** Treatment of guidance
 - **Affected specifications:** SCHEMA, Suggested approach: "In memory, share what did not change"; "In a Campaign
-  save, store the Turn-start state and the Timeline entries"; "Store Autopilot memory beside the Timeline entries".
+  save, store the Turn-start state and the Player actions". SCHEMA, Replay: "the Campaign configuration changes made
+  during the Turn are stored with the Timeline entries they preceded".
 - **Description:** Used as is, for everything the document suggests. In memory each Committed state of the current
   Turn is an immutable value produced by Immer that shares its unchanged parts with the one before it. A Campaign
-  save holds the Turn-start state, the ordered Timeline entries, the number of Undone actions, and the Autopilot
-  memory written at each Committed state; loading rebuilds the other Committed states by replay. Game storage holds no
-  copy of a GDR. The Current Autosave is rewritten whole after every change, with the encoded Turn-start state reused
-  between writes, and Autosaves share no stored data with each other. DEC-023 states the physical layout, which the
-  document leaves as a TODO.
+  save holds the Turn-start state, the ordered Timeline entries, the Timeline pointer as the number of entries that
+  are not Undone actions, and the Campaign configuration in force; a Timeline entry committed under a Campaign
+  configuration that a change made differ from that of the Committed state before it holds that configuration, and
+  loading rebuilds the other Committed states by replay, each entry under its own. Each Committed state keeps the
+  Campaign configuration it was produced under; the Session keeps the one in force beside the Timeline. The History
+  and the Turn report are kept inside each Committed state, so a Campaign save holds them in its Turn-start state and
+  replay reproduces them. Game storage holds no copy of a GDR. The Current Autosave is rewritten whole after every
+  change, with the encoded Turn-start state reused between writes, and Autosaves share no stored data with each other.
+  DEC-023 states the physical layout, which the document leaves as a TODO. Until specification revision
+  44c112e3731ec5d173c4eddb7956c4a46dbf46c5 removed Autopilot memory, a Campaign save also held the Autopilot memory
+  written at each Committed state; a Campaign save written then still loads, its Autopilot memory ignored and its
+  Campaign configuration taken from its saved Committed state, because the Campaign state it holds and the rules its
+  Timeline entries replay under are unchanged.
 - **Options considered:** Full copies; patches; replay with shared in-memory states.
 - **Option chosen:** Replay with shared in-memory states, as suggested.
 - **Why:** It is compact, needs no reverse changes, and relies only on guarantees the specifications already give.
@@ -159,7 +168,10 @@
   identifier. Nothing is thrown to the caller; an engine defect is returned as the error code `engine_defect` and
   commits nothing. Queries and the operations that touch only Session state are synchronous. Every operation that
   can write to Game storage returns a Promise, and a successful result lists the Autosaves that could not be written.
-  An action with no effect returns success with `committed: false` and is not a Player action.
+  An action with no effect returns success with `committed: false` and is not a Player action. An Advance turn that an
+  Autopilot AI requests and the engine withholds under AUTO, Autopilot limits, returns success with
+  `committed: false` and `withheld: true`. `session.campaignConfiguration.set(values)` takes the values as an object
+  from each Campaign configuration value's key to its new value, and returns success with no value.
   `setPresetEdit(preset, value)` takes the value as a pair of the Campaign configuration value's key and its new
   value, and `removePresetEdit(preset, value)` takes the key. One operation is added to `session.autopilot`:
   `whenDisengaged(engagementId)`, which resolves with the disengagement result.
@@ -216,28 +228,45 @@
 
 - **Category:** Gap resolution
 - **Affected specifications:** AUTO, Autopilot lifecycle and concurrency: "Autopilot disengages as AI failed when the
-  Autopilot AI reports an error, produces no valid action, or exhausts its configured finite execution budget."
-- **Description:** The engine runs an Autopilot AI in steps. A step that ends without committing a Player action
-  disengages Autopilot as AI failed, and so does a step that reports an error. A step that makes more than 100,000
-  calls of Player API and Autopilot memory API disengages Autopilot as AI failed at that call, and every later call
-  of that step fails with `engagement_ended`. Player actions committed before the failure remain.
-- **Options considered:** A wall-clock limit; a limit on engine calls and on steps without progress.
-- **Option chosen:** A limit on engine calls and on steps without progress.
+  Autopilot AI reports an error, produces no valid action, or exhausts its configured finite execution budget." AUTO,
+  same section: "That budget prevents indefinitely repeated invalid actions, an Autopilot AI that makes no progress,
+  and one that never requests Advance turn".
+- **Description:** The engine runs an Autopilot AI in steps. A step that ends without committing a Player action and
+  without having an Advance turn withheld disengages Autopilot as AI failed, and so does a step that reports an
+  error. A step that makes more than 100,000 calls of Player API disengages Autopilot as AI failed at that call, and
+  every later call of that step fails with `engagement_ended`. An Autopilot AI that commits 10,000 Player actions
+  other than Advance turn in one Turn of its Autopilot engagement, counted from engagement or from its last Advance
+  turn, disengages as AI failed, because it never requests Advance turn. Player actions committed before the failure
+  remain.
+- **Options considered:** A wall-clock limit; a limit on engine calls, on steps without progress, and on Player
+  actions in one Turn.
+- **Option chosen:** A limit on engine calls, on steps without progress, and on Player actions in one Turn.
 - **Why:** It is independent of the machine, so the same Autopilot AI fails at the same point everywhere.
 - **Links:** PROB-003
 
-## DEC-013: No operation changes Campaign configuration during play
+## DEC-013: Changing Campaign configuration during play
 
 - **Category:** Gap resolution
-- **Affected specifications:** CONFIG, Changing Campaign configuration during play: "An accepted change is committed
-  atomically as one Timeline entry". CONFIG, TODOs: "Only two Campaign configuration values exist so far ... both
-  fixed after Campaign creation, so neither is adjustable during play."
-- **Description:** The engine API offers no operation that changes Campaign configuration during play, because no
-  Campaign configuration value is adjustable during play. `getPreset` reports each value as fixed after creation.
-- **Options considered:** An operation that always rejects; no operation.
-- **Option chosen:** No operation.
-- **Why:** An operation that can never succeed adds nothing a caller can use, and its signature is itself a TODO.
-- **Links:** PROB-004
+- **Affected specifications:** CONFIG, Changing Campaign configuration during play: "`session.campaignConfiguration.set(values)`
+  is the one operation that changes Campaign configuration during play." CONFIG, TODOs: "Define what
+  `session.campaignConfiguration.set(values)` reports" and "Only two Campaign configuration values exist so far ...
+  both fixed after Campaign creation, so neither is adjustable during play."
+- **Description:** The engine API offered no operation that changes Campaign configuration during play, because no
+  Campaign configuration value is adjustable during play and CONFIG named none. Specification revision
+  44c112e3731ec5d173c4eddb7956c4a46dbf46c5 overrode that: CONFIG now names `session.campaignConfiguration.set(values)`
+  as a Session API operation, which the engine offers and the CLI reaches as `adjust`. It validates the whole
+  request before it changes anything, rejecting with `invalid_input` a value that does not exist, is fixed after
+  creation, or is not permitted; it needs a Current campaign and is unavailable during an Autopilot engagement. An
+  accepted change replaces the Current Autosave and reports no value; a request that changes nothing is accepted
+  and writes nothing. The change is not a Timeline entry: the Session keeps the Campaign configuration in force
+  beside the Timeline, undo, redo, and Autosave navigation keep it, a load takes the one of the Campaign save, and
+  each Player action is committed under it, under DEC-008. In this Game build no value is adjustable during play,
+  so every accepted request changes nothing; the test rules make one value adjustable to exercise the rules.
+- **Options considered:** An operation that always rejects; no operation; the operation CONFIG names.
+- **Option chosen:** The operation CONFIG names, since 44c112e3731ec5d173c4eddb7956c4a46dbf46c5.
+- **Why:** ENG, API hierarchy, now lists it in the required starter operation inventory, and the CLI must reach every
+  Session API operation.
+- **Links:** PROB-004, PROB-036
 
 ## DEC-014: GDR identifiers and YAML property naming
 
@@ -368,12 +397,16 @@
 - **Affected specifications:** DEV, Inspection contract: "Full Campaign state inspection presents each Campaign
   instance as its four properties, Instance ID, Archetype reference, Constants, and State".
 - **Description:** `developer.queries.getCampaignState()` returns a detached copy of Campaign state in its conceptual
-  hierarchy: `campaignConfiguration` and `worldState`, the latter divided into `currentWorldState` and
-  `worldHistory`. Current world state holds the Campaign seed, the generator state, the pending random outcome
-  overrides, the turn number, Panic and the Campaign ending values, and the Campaign instances that
-  participate in current gameplay. World history holds the Turn report, the History entries, the Turn series, and the
-  retained Campaign instances. Every Campaign instance is an object with exactly `id`, `archetype`, `constants`, and
-  `state`. With Dev mode disabled the query and every Player cheat action fail with the error code `dev_mode_disabled`,
+  hierarchy under CSTATE, Campaign state composition, as specification revision
+  44c112e3731ec5d173c4eddb7956c4a46dbf46c5 redrew it: `timeline`, with the `turnStartState` and the
+  `timelineEntries`, each a `playerAction` with the `worldState` it produced; `timelinePointer`, the number of
+  Timeline entries that are not Undone actions; `history`, with the History entries and the recorded values of each
+  Turn series for the ended Turns; `campaignConfiguration`, the one in force; and `turnReport`. Each World state is
+  divided into `liveWorldState`, which holds the Campaign seed, the generator state, the pending random outcome
+  overrides, the turn number, Panic and the Campaign ending values, and the Campaign instances still in play, and
+  `retiredWorldState`, which holds the Campaign instances that have left play. Every Campaign instance is an object
+  with exactly `id`, `archetype`, `constants`, and `state`. Before that revision it returned `campaignConfiguration`
+  and a `worldState` divided into `currentWorldState` and `worldHistory`. With Dev mode disabled the query and every Player cheat action fail with the error code `dev_mode_disabled`,
   during an Autopilot engagement with `autopilot_active`, without a Current campaign with `no_current_campaign`, and
   for an Autopilot AI with `unauthorized`. Disabling Dev mode revokes access at once, because every call checks it.
 - **Options considered:** Returning the stored layout; returning the conceptual hierarchy.
@@ -521,12 +554,13 @@
   Session ends for whatever reason.
 - **Links:** PROB-012
 
-## DEC-026: Change notification beside the four namespaces
+## DEC-026: Change notification beside the namespaces
 
 - **Category:** Gap resolution
-- **Affected specifications:** ENG, API hierarchy: "The complete namespace inventory is `session`, `player`,
-  `developer`, and `autopilotMemory`."
-- **Description:** The engine object that an adapter receives has two members outside the four namespaces:
+- **Affected specifications:** ENG, API hierarchy: "The complete namespace inventory is `session`, `player`, and
+  `developer`."
+- **Description:** The engine object that an adapter receives has two members outside the three namespaces, four
+  before specification revision 44c112e3731ec5d173c4eddb7956c4a46dbf46c5 removed `autopilotMemory`:
   `subscribe(listener)`, which calls the listener after anything a query could report has changed and returns a
   function that stops it, and `getRevision()`, a number that changes with every such change. They read and change no
   Campaign state, return no game value, and are not given to an Autopilot AI.
@@ -544,13 +578,14 @@
   "Both forms carry exactly what the engine API returns". CLI, TODOs: "TODO: State how the CLI names operations and
   their arguments, and how a caller discovers the available ones".
 - **Description:** The CLI reads one command per line, and each command is one engine API operation: the Session
-  commands `status`, `new`, `close`, `presets`, `preset`, `setup`, `select`, `edit`, `unedit`, `saves`,
+  commands `status`, `new`, `close`, `presets`, `preset`, `setup`, `select`, `edit`, `unedit`, `adjust`, `saves`,
   `load`, `save`, `delete`, `deletecampaign`, `config`, `set`, `reset`; the queries `state`, `report`, `history`, `actions`,
   `gamedata`, `preview`, and `agents`, `leads`, `investigations`, `sites`, `missions`, `factions`,
   `upgrades`, `retained`, which each print that part of the current state or of the history; the Player actions
   `assign`, `hire`, `dismiss`, `buy`, `investigate`, `join`, `deploy`, `next`; the navigation commands
   `timeline`, `undo`, `redo`, `undoall`, `redoall`, `autosaves`, `back`, `forward`; `ais`, `engage`,
-  `autostatus`, `disengage`, and `wait` for Autopilot, with `auto` engaging and waiting in one command; and `dev`,
+  `autostatus`, `disengage`, and `wait` for Autopilot, with `auto` engaging and waiting in one command and the
+  Autopilot limits written `single`, `turn` for `turnActions`, and `turns <count>`; and `dev`,
   `inspect`, `addmoney`, `addagents`, `override` for Developer access. `help` lists the commands. The readable
   form prints the whole result as indented `key: value` lines, with a list of flat records as a table; `--json`
   prints each result as one line of JSON, the result object of the operation with the command name. Both forms carry
@@ -578,7 +613,7 @@
   `globalConfiguration.get()` as problems and by nothing else. Disengaging an Autopilot engagement that has ended
   succeeds with its earlier result, and the status of an ended Autopilot engagement stays available for the Session.
   Engaging Autopilot on a Campaign that has ended is accepted and ends at once as Campaign ended with no Player
-  action. Autopilot memory must be plain data that JSON can hold. A Probability is reported as a pair of whole
+  action. A Probability is reported as a pair of whole
   numbers: as text in the views, because the pair can exceed the safe whole numbers, and as numbers in the Combat
   log, where it cannot. Full Campaign state inspection and `getGameData()` return frozen values. Lowering the
   Autosave limit removes every Turn-end Autosave above the new limit when the next Turn ends.
@@ -989,7 +1024,10 @@
   controller through the Timeline.
 - **Superseded:** Specification revision e8c0df392d633573975c72dd71f2dc4be1447718 drops the exception (WHIST, Open
   History entry): `getHistory()` returns the current Turn's Action record in its `openEntry`, and Developer inspection
-  returns it as `currentActions` of World history.
+  returned it as `currentActions` of World history. Since specification revision
+  44c112e3731ec5d173c4eddb7956c4a46dbf46c5 the Action record of the current Turn is read off the Timeline, so
+  Developer inspection returns it as the Player actions of the Timeline entries up to the Timeline pointer, under
+  DEC-019.
 - **Links:** PROB-032
 
 ## DEC-052: Stale examples yield to the rules they illustrate
@@ -1083,3 +1121,20 @@
   every reader fail to compile until it was updated. One unit per Combat report field keeps the report uniform, and
   an Enemy's value in hundredths is still exactly its whole value.
 - **Links:** Specification revision 349ab4a4b2d9527ce37d2261cc36cfb26bd3b724.
+
+## DEC-057: Undo and redo are checked against the current Committed state, not complete Campaign state
+
+- **Category:** Conflict resolution
+- **Affected specifications:** TIMELINE, Acceptance examples, Action undo and redo; CSTATE, Campaign state
+  composition; TIMELINE, Action navigation.
+- **Description:** The tests of undo and redo, e.g. the property test in `tests/engine/campaign.test.ts`, require
+  that after each undo and redo the current Committed state, the History, the Turn report, and the Campaign
+  configuration equal those first reached there, and leave the rest of the Timeline, i.e. its Undone actions and
+  its Timeline pointer, out of the comparison. Tests that compare two Campaigns played by the same Player actions
+  still compare complete Campaign state, Timeline included.
+- **Options considered:** Comparing complete Campaign state, which the rules make impossible after an undo; comparing
+  what Returning to a Committed state guarantees.
+- **Option chosen:** Comparing what Returning to a Committed state guarantees.
+- **Why:** TIMELINE, Returning to a Committed state, states the guarantee, and an undo is defined to change the
+  Timeline pointer, which complete Campaign state now holds.
+- **Links:** PROB-035

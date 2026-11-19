@@ -1,6 +1,6 @@
 /** CINST, Campaign instance identity, and DOMAIN, Campaign instance identity scope: Instance IDs counted per Type. */
 import { describe, expect, it } from 'vitest';
-import { inspect, ok, startEngine } from '../helpers/engine.ts';
+import { liveWorld, ok, startEngine } from '../helpers/engine.ts';
 
 describe('CINST: Instance IDs', () => {
   it('each Campaign instance Type numbers its Campaign instances from 1, and an undone creation frees its number', async () => {
@@ -26,9 +26,7 @@ describe('CINST: Instance IDs', () => {
     let sites: string[] = [];
     for (let turn = 0; turn < 60 && sites.length === 0; turn += 1) {
       ok(await engine.player.actions.advanceTurn());
-      sites = (inspect(engine).worldState.currentWorldState.missionSites as { id: string }[]).map(
-        (site) => site.id,
-      );
+      sites = (liveWorld(engine).missionSites as { id: string }[]).map((site) => site.id);
     }
     expect(sites[0]).toBe('mission-site-1');
   });

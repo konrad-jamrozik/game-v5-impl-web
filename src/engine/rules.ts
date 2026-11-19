@@ -1,8 +1,8 @@
 import type { Rejection } from './result.ts';
 
 /**
- * The seam between the engine subsystems of the Foundation family, e.g. Timeline and Saves, and the game behavior
- * of the Mechanics family. The engine subsystems know only this interface; they never look inside Campaign state
+ * The seam between the engine subsystems of the Foundation family, e.g. Timeline and Saves, and the Game rules of
+ * the Mechanics family. The engine subsystems know only this interface; they never look inside Campaign state
  * beyond the few values named by ShellState.
  */
 export interface ShellState {
@@ -24,6 +24,12 @@ export interface ActionRecord {
   readonly name: string;
   /** Plain data, so that a Campaign save can hold it and replay can apply it again. */
   readonly args: unknown;
+  /**
+   * The Campaign configuration the action was committed under, kept only when a change of Campaign configuration
+   * made it differ from that of the Committed state before it, so that replay commits it under the same one; see
+   * SCHEMA, Replay.
+   */
+  readonly configuration?: Readonly<Record<string, number>>;
 }
 
 /** One Campaign configuration value, as the Mechanics specification introducing it states it. */
@@ -70,8 +76,23 @@ export interface GameRules<S extends ShellState> {
   turnReportView(state: S): unknown;
   historyView(state: S): unknown;
   availableActionsView(state: S): unknown;
-  /** Full Campaign state for Developer API inspection, detached. */
-  inspect(state: S): unknown;
+  /**
+   * Full Campaign state for Developer API inspection, detached: the Timeline of the current Turn with its Timeline
+   * pointer, and the History, Campaign configuration, and Turn report of the current Committed state; see DEC-019.
+   */
+  inspect(timeline: {
+    readonly states: readonly S[];
+    readonly entries: readonly ActionRecord[];
+    readonly position: number;
+    readonly configuration: Readonly<Record<string, number>>;
+  }): unknown;
+  /** The same Committed state under another Campaign configuration; the state itself when that one is equal. */
+  withConfiguration(state: S, configuration: Readonly<Record<string, number>>): S;
+  /**
+   * SAVES, Saving: what two Campaign saves must have equal to hold an equal place in play, i.e. the World state of the
+   * Committed state, the History, and the Turn report, and nothing the Timeline or the Campaign configuration holds.
+   */
+  placeInPlay(state: S): unknown;
   /** A further Player API query, by name; it returns only Player-visible information. */
   extraPlayerQuery?(state: S, query: string, args: unknown): unknown;
 }

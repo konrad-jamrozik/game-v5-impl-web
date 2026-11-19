@@ -19,7 +19,7 @@ const engine = await createEngine(
 await engine.session.globalConfiguration.set('autosaveLimit', 0);
 await engine.session.campaign.create({ seed });
 for (let t = 0; t < turns; t += 1) {
-  const engaged = await engine.session.autopilot.engage('basic', { kind: 'untilTurnAdvanced' });
+  const engaged = await engine.session.autopilot.engage('basic', { kind: 'turnAdvancements', count: 1 });
   if (!engaged.ok) {
     throw new Error(engaged.error.message);
   }

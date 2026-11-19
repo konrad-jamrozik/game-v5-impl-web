@@ -1,7 +1,8 @@
 /**
  * BASICAI (Basic Autopilot AI): a sound, cautious player. It reaches the game only through Player API, decides each
- * Player action from the current Player-visible information alone, keeps no plan across turns, and writes no
- * Autopilot memory. Its thresholds are the Implementer's choice; see DEC-021.
+ * Player action from the current Player-visible information alone, and keeps no plan across turns. When no step of
+ * its Turn routine has a Player action left to make, it requests Advance turn, which the engine withholds under the
+ * Autopilot limits `singleAction` and `turnActions`. Its thresholds are the Implementer's choice; see DEC-021.
  */
 import type {
   AgentView,

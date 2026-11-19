@@ -22,10 +22,12 @@
 - src/engine/session/core.ts
 - src/engine/index.ts
 - src/engine/player-api.ts
-- src/engine/timeline/campaign-runtime.ts
 - src/ai/index.ts
+- src/cli/cli.ts
+- src/web/screens/AutopilotBar.tsx
 - tests/foundation/autopilot.test.ts
 - tests/foundation/final-review.test.ts
+- tests/engine/campaign.test.ts
 - tests/helpers/test-rules.ts
 
 ## AVIEW: Agents View
@@ -122,6 +124,11 @@
 - src/engine/state/create.ts
 - tests/foundation/configuration.test.ts
 - src/web/screens/MainMenu.tsx
+- src/engine/index.ts
+- src/engine/timeline/campaign-runtime.ts
+- src/engine/saves/encoding.ts
+- src/cli/cli.ts
+- tests/helpers/test-rules.ts
 
 ## CONV: Specification Conventions
 
@@ -157,7 +164,10 @@ No files.
 - src/engine/state/create.ts
 - src/engine/views/views.ts
 - src/engine/rules.ts
+- src/engine/game-rules.ts
+- src/engine/timeline/campaign-runtime.ts
 - tests/engine/campaign.test.ts
+- tests/helpers/engine.ts
 
 ## CVIEW: Charts View
 
@@ -707,7 +717,7 @@ No files.
 - src/web/format.ts
 - tests/web/consequences.test.ts
 
-## WHIST: World History
+## WHIST: History and Turn Report
 
 - src/engine/index.ts
 - src/engine/state/types.ts

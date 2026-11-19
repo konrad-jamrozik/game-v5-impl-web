@@ -83,6 +83,19 @@ export function inspect(engine: Engine): any {
   return state;
 }
 
+/** The World state of the current Committed state, i.e. the one the Timeline pointer is on, from full inspection. */
+export function currentWorld(state: any): any {
+  const pointer = state.timelinePointer as number;
+  return pointer === 0
+    ? state.timeline.turnStartState
+    : state.timeline.timelineEntries[pointer - 1].worldState;
+}
+
+/** The Live world state of the current Committed state, through Developer API. */
+export function liveWorld(engine: Engine): any {
+  return currentWorld(inspect(engine)).liveWorldState;
+}
+
 /** Engages Autopilot and waits for disengagement. */
 export async function autopilot(
   engine: Engine,

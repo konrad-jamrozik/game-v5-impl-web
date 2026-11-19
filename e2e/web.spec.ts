@@ -154,6 +154,30 @@ test('a reload continues the Campaign from its Current Autosave, with its Undone
   await expect(id(page, 'money')).toHaveText('320');
 });
 
+test('the Autopilot controls leave the Turn to the Player and say why each engagement ended', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('autopilot');
+  await id(page, 'new-campaign').click();
+  await id(page, 'autopilot-toggle').click();
+  // CSCR, Autopilot controls: neither One action nor This Turn's actions advances the Turn.
+  await expect(id(page, 'autopilot-turn')).toHaveText("This Turn's actions");
+  await id(page, 'autopilot-turn').click();
+  await expect(id(page, 'autopilot-ended')).toHaveText(
+    /^Autopilot finished this Turn's actions: \d+ Player actions?\. Advancing the Turn is up to you\.$/,
+  );
+  await expect(id(page, 'turn')).toHaveText('1');
+  await id(page, 'autopilot-single').click();
+  await expect(id(page, 'autopilot-ended')).toHaveText('Autopilot has nothing more to do this Turn.');
+  await expect(id(page, 'turn')).toHaveText('1');
+  // The line stays until the Committed state changes.
+  await id(page, 'undo').click();
+  await expect(id(page, 'autopilot-ended')).toHaveCount(0);
+  await id(page, 'redo').click();
+  await expect(id(page, 'autopilot-ended')).toHaveCount(0);
+});
+
 test('the Agents View keeps its columns, selects ranges, locks Blocked by under an Assignment filter, and lists the Memorial', async ({
   page,
 }) => {

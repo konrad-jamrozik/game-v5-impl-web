@@ -230,6 +230,21 @@ describe('SAVES: Acceptance examples', () => {
     expect(!missing.ok && missing.error.message).toContain('no-such-save');
   });
 
+  it('A Campaign save written with Autopilot memory and without a Campaign configuration still loads', async () => {
+    const h = await startHarness();
+    expectOk(await h.core.createCampaign(CONTROLLER, { seed: 'old' }));
+    expectOk(await h.act('gain', { amount: 3 }));
+    const saved = h.state();
+    const { saveId } = expectOk(await h.core.save(CONTROLLER));
+    // The layout of the earlier Game build: Autopilot memory beside the Timeline, and no Campaign configuration.
+    const body = JSON.parse(h.storage.saves.get(saveId)!.body) as Record<string, unknown>;
+    delete body['configuration'];
+    h.storage.overwriteBody(saveId, JSON.stringify({ ...body, memoryBase: null, memoryWrites: [] }));
+    expectOk(await h.core.createCampaign(CONTROLLER, { seed: 'other' }));
+    expectOk(await h.core.load(CONTROLLER, saveId));
+    expect(h.state()).toEqual(saved);
+  });
+
   it('Saving again replaces an equal Campaign save', async () => {
     const h = await startHarness();
     expectOk(await h.core.createCampaign(CONTROLLER));
