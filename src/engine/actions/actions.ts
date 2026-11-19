@@ -13,6 +13,7 @@ import {
   isFitForWork,
   recordParticipation,
 } from '../mechanics/agents/agents.ts';
+import { damageBounds } from '../mechanics/combat/combat.ts';
 import {
   agencyCaps,
   countDeployed,
@@ -491,8 +492,15 @@ function deployAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
 /** ECON, Adding money. */
 function addMoney(world: CurrentWorldState, args: Args): Rejection | null {
   const amount = args['amount'];
-  if (!isWhole(amount) || amount < 1) {
-    return reject('invalid_amount', 'The amount must be a whole number of at least 1.', 'invalid_input');
+  if (!isWhole(amount) || amount === 0) {
+    return reject('invalid_amount', 'The amount must be a whole number other than 0.', 'invalid_input');
+  }
+  // ECON, Agency properties: money is at least 0 in every Campaign without a Campaign ending.
+  if (world.agency.state.money + amount < 0) {
+    return reject(
+      'negative_money',
+      `Removing ${-amount} money would leave negative money: the Agency has ${world.agency.state.money}.`,
+    );
   }
   if (!Number.isSafeInteger(world.agency.state.money + amount)) {
     return reject(
@@ -575,6 +583,17 @@ function overrideRandomOutcome(world: CurrentWorldState, args: Args, gdrs: GdrCa
           : typeof value === 'string' && value.length > 0;
     if (!valid) {
       return reject('invalid_value', 'That is not a possible value of this random outcome.', 'invalid_input');
+    }
+    // COMBAT, Damage outcome: a supplied damage outcome is one of the whole numbers from lo to hi.
+    const combatant = world.agents[instanceId] ?? world.enemies[instanceId];
+    if (outcome.startsWith('combat.damage.') && combatant !== undefined && isWhole(value)) {
+      const bounds = damageBounds(combatant.state.weaponDamage, gdrs.combatParameters);
+      if (value < bounds.lo || value > bounds.hi) {
+        return reject(
+          'damage_out_of_range',
+          `The damage outcome of ${instanceId} must be a whole number from ${bounds.lo} to ${bounds.hi}.`,
+        );
+      }
     }
     world.randomOverrides = world.randomOverrides.filter((item) => item.outcome !== outcome);
     world.randomOverrides.push({ outcome, value: value as number | boolean | string });

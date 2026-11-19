@@ -44,6 +44,9 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
   if (world.agency.archetype !== gdrs.agencyArchetype.id) {
     fail('ECON: the Agency has no AgencyArchetype');
   }
+  if (world.ending === null && world.agency.state.money < 0) {
+    fail('ECON: money is below 0 in a Campaign that has no Campaign ending');
+  }
   if (world.agency.state.funding < 0) {
     fail('ECON: funding is below 0');
   }
@@ -90,6 +93,13 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
       s.currentHealthHundredths > s.baseHealth * 100
     ) {
       fail(`${where}: skill or health is outside its range`);
+    }
+    if (
+      isServing(s) &&
+      s.assignment?.kind !== 'Recovery' &&
+      s.currentHealthHundredths !== s.baseHealth * 100
+    ) {
+      fail(`${where}: Serving and not on Recovery with current health below its base health`);
     }
     if (s.exactExhaustionHundredths < 0) {
       fail(`${where}: exhaustion is outside its range`);

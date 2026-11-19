@@ -640,6 +640,8 @@ describe('MISSION: Mission exhaustion', () => {
     // a2 has the highest effective skill, so the first Enemy attack targets it, and 5 health is all it has.
     state = tweak(state, (world) => {
       world.agents[a2]!.state.skillHundredths = 100000;
+      // Base health 5 too: a Serving Agent that is not on Recovery has full current health.
+      world.agents[a2]!.state.baseHealth = 5;
       world.agents[a2]!.state.currentHealthHundredths = 500;
     });
     state = act(state, 'deployAgents', { missionSite: created.site, agents: [a1, a2] });

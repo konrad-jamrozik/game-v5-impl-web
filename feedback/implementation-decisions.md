@@ -402,7 +402,12 @@
 - **Why:** It matches "when that random outcome is next decided" and keeps replay exact, because the pending
   overrides are Campaign state.
 - **Update:** Specification commit 438b909e6ef6bf0cd581856d790a318ac8879628 replaced the Investigation completion outcome, a
-  true-or-false outcome, by the whole-number Required progress outcome.
+  true-or-false outcome, by the whole-number Required progress outcome. Specification commit
+  a4fbc4d24b254e2e567a1c5f393a3dcb984a18a1 overrode the discarding of an impossible damage value: COMBAT, Damage outcome now says a supplied damage outcome
+  "must be one of the whole numbers from `lo` to `hi`; any other value is rejected and never applied", so an override
+  of a damage outcome is rejected when its value is outside the bounds that the Combatant's weapon damage gives when
+  the override is requested. A pending value that a later change of weapon damage puts outside the bounds, e.g. a
+  purchased Upgrade, is still discarded when the outcome is decided, so it is never applied.
 - **Links:** PROB-009
 
 ## DEC-021: Thresholds and procedure of the Basic Autopilot AI

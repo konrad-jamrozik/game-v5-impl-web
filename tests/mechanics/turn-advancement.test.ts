@@ -67,7 +67,7 @@ describe('TURN: Acceptance examples', () => {
     state = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [a4] });
     const i1 = Object.keys(state.world.current.investigations)[0]!;
     expect(state.world.current.investigations[i1]!.constants.actualRequiredProgress).toBe(3);
-    // The specification's example still has a3 In transit; the Transit rule moves it within base at once (PROB-022).
+    // Under AGENT, Transit rule, a3 moves within base and is At assignment at once.
     expect(agent(state, a3).state.status).toBe('AtAssignment');
 
     state = advance(state);

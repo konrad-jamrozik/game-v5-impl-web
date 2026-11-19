@@ -65,7 +65,7 @@ function lineText(item: ActionRecordItem, count: number, money: number, names: A
     case 'deployAgents':
       return `Deployed ${agents} to ${names.missionSite(text(item, 'missionSite'))}`;
     case 'addMoney':
-      return `Added ${money} money (cheat)`;
+      return money < 0 ? `Removed ${-money} money (cheat)` : `Added ${money} money (cheat)`;
     case 'addAgents': {
       const each = arg(item, 'count');
       return `Added ${plural((typeof each === 'number' ? each : 0) * count, 'Agent')} (cheat)`;

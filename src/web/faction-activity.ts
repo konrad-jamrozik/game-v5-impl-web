@@ -1,6 +1,6 @@
 /**
  * The two values the GUI derives from the Response Mission sites the Factions produced: the status bar's Turns since
- * last faction activity (CSCR, Status bar values) and the series of each Faction chart (CVIEW, Faction charts). Both
+ * last enemy activity (CSCR, Status bar values) and the series of each Faction chart (CVIEW, Faction charts). Both
  * read every Response Mission site, whatever its lifecycle state, through its kind, target Faction, and Turn created,
  * which are Player-visible under MISSION, Player-visible information.
  */

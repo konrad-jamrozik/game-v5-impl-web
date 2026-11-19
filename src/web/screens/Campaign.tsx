@@ -453,7 +453,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           </div>
           {/* CSCR, Status bar values, 6: its label may wrap onto two lines, so the controls keep one row. */}
           <div className="fact fact-wrapping">
-            <span className="fact-label">Turns since last faction activity</span>
+            <span className="fact-label">Turns since last enemy activity</span>
             <span className="fact-value" data-testid="turns-since-faction-activity">
               {turnsSinceLastFactionActivity(state.turn, [
                 ...state.missionSites,

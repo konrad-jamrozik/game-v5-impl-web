@@ -58,7 +58,10 @@ describe('AGENT: Agent status', () => {
     const withStatus = (kind: 'Standby' | 'Recovery', status: 'AtAssignment' | 'InTransit' | 'Recovering') =>
       checkInvariants(
         tweak(state, (world) => {
-          world.agents[a1]!.state.currentHealthHundredths = 2000;
+          // Only an Agent on Recovery may be below its base health.
+          if (kind === 'Recovery') {
+            world.agents[a1]!.state.currentHealthHundredths = 2000;
+          }
           world.agents[a1]!.state.assignment = { kind };
           world.agents[a1]!.state.status = status;
         }),

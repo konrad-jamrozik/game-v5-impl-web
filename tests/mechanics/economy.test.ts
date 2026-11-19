@@ -79,7 +79,7 @@ describe('ECON: Acceptance examples', () => {
     const [a1, a2, a3] = agentIds(state) as [string, string, string];
     state = act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Contracting' });
     state = act(state, 'assignAgents', { agents: [a3], assignment: 'Training' });
-    // The specification's example still has a3 In transit; the Transit rule moves it within base at once (PROB-022).
+    // Under AGENT, Transit rule, a3 moves within base and is At assignment at once.
     expect(agent(state, a3).state.status).toBe('AtAssignment');
     expect(agency(state)).toMatchObject({ projectedIncome: 20, projectedUpkeep: 40 });
     state = advance(state);
@@ -183,18 +183,17 @@ describe('ECON: Acceptance examples', () => {
   });
 
   it('Negative money', () => {
-    let state = setMoney(newCampaign(), 15, 0);
-    state = tweak(advance(state), (world) => {
-      // Whether the Campaign ends is decided by Panic and Endings; clear the ending to check the rejections.
-      world.ending = null;
-      world.endingReasons = [];
-      world.endingTurn = null;
-    });
+    let state = advance(setMoney(newCampaign(), 15, 0));
+    // No later step raises money to at least 0, so the Ending check step records a Campaign ending.
     expect(money(state)).toBe(-25);
     expect(series(state).start.at(-1)).toBe(-25);
-    expectRejected(state, 'hireAgent', {}, 'not_enough_money');
-    expectRejected(state, 'purchaseUpgrade', { upgrade: 'agent_cap' }, 'not_enough_money');
-    state = act(state, 'addMoney', { amount: 25 }, 'developer');
+    expect(state.world.current.ending).toBe('Defeat');
+    expectRejected(state, 'hireAgent', {}, 'campaign_ended');
+    // In another Campaign, with money 15, addMoney removes money but never below 0.
+    state = setMoney(newCampaign(), 15, 0);
+    state = act(state, 'addMoney', { amount: -15 }, 'developer');
+    expect(money(state)).toBe(0);
+    expectRejected(state, 'addMoney', { amount: -1 }, 'negative_money', 'developer');
     expect(money(state)).toBe(0);
     state = act(state, 'addMoney', { amount: 75 }, 'developer');
     state = act(state, 'hireAgent');
@@ -453,9 +452,11 @@ describe('ECON: Acceptance examples', () => {
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'training_cap' }, 'not_enough_money');
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'agent_morale' }, 'unknown_upgrade');
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'sidearm' }, 'unknown_upgrade');
-    for (const amount of [0, -5, 2.5]) {
+    for (const amount of [0, 2.5]) {
       expectRejected(state, 'addMoney', { amount }, 'invalid_amount', 'developer');
     }
+    // addMoney(-5) would leave money −5.
+    expectRejected(setMoney(newCampaign(), 0), 'addMoney', { amount: -5 }, 'negative_money', 'developer');
     state = act(state, 'addMoney', { amount: 1 }, 'developer');
     state = act(state, 'purchaseUpgrade', { upgrade: 'training_cap' });
     expect(agency(state)).toMatchObject({ money: 0, trainingCap: 8 });

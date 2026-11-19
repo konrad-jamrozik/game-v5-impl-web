@@ -39,6 +39,7 @@ describe('HVIEW: Player actions list', () => {
         item('deployAgents', { missionSite: 's1', agents: ['a1', 'a2', 'a3'] }),
         item('dismissAgents', { agents: ['a9'] }),
         item('addMoney', { amount: 500 }, 500),
+        item('addMoney', { amount: -15 }, -15),
         item('addAgents', { count: 2 }),
         item('overrideRandomOutcome', { outcome: 'combat.hit.a1', value: true }),
       ],
@@ -52,6 +53,7 @@ describe('HVIEW: Player actions list', () => {
       'Deployed 3 Agents to Raid safehouse',
       'Dismissed 1 Agent',
       'Added 500 money (cheat)',
+      'Removed 15 money (cheat)',
       'Added 2 Agents (cheat)',
       'overrideRandomOutcome',
     ]);

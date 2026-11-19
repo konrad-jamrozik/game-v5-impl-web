@@ -365,6 +365,11 @@ describe('DEV with the real game', () => {
         await engine.developer.actions.overrideRandomOutcome('investigation.requiredProgress.nothing', 3),
       ),
     ).toBe('rejected');
+    // COMBAT, Damage outcome: a supplied damage outcome outside lo to hi, 5 to 15 here, is rejected.
+    const damage = `combat.damage.${agent!.id}`;
+    expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, 16))).toBe('rejected');
+    expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, 4))).toBe('rejected');
+    expect(inspect(engine).worldState.currentWorldState.pendingRandomOutcomeOverrides).toEqual([]);
     // The Required progress outcome of the next Investigation of the Lead is fixed to 4, of the range 3 to 4.
     ok(await engine.developer.actions.overrideRandomOutcome(outcome, 4));
     expect(inspect(engine).worldState.currentWorldState.pendingRandomOutcomeOverrides).toEqual([

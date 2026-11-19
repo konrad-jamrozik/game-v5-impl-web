@@ -301,7 +301,8 @@
   exhaustion and the Training gain outcome but kept a3's arrival in the first Advance turn, so the conflict remains;
   under the Transit rule a3 also gains 1 exhaustion in each of the two Advance turns, not only in the second.
 - **Links:** DEC-037
-- **Resolution:** Open
+- **Resolution:** Resolved in 4401e7860e3e0ecdb7bd3d6eae87e7bb8e0fa8ac, which the Implementation follows since this
+  update: both Acceptance examples were deleted, so only the Transit rule remains.
 
 ## PROB-023: The Bootstrap AgentParameters YAML file does not match the AgentParameters the specifications require
 

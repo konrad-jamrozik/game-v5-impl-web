@@ -1,4 +1,4 @@
-/** CSCR, Status bar values: Turns since last faction activity; CVIEW, Faction charts. */
+/** CSCR, Status bar values: Turns since last enemy activity; CVIEW, Faction charts. */
 import { describe, expect, it } from 'vitest';
 import { responseSitesSeries, turnsSinceLastFactionActivity } from '../../src/web/faction-activity.ts';
 
@@ -7,7 +7,7 @@ const response = (targetFaction: string, turnCreated: number) =>
 const initiative = (targetFaction: string, turnCreated: number) =>
   ({ kind: 'Initiative', targetFaction, turnCreated }) as const;
 
-describe('CSCR: Turns since last faction activity', () => {
+describe('CSCR: Turns since last enemy activity', () => {
   it('counts from the start of the Campaign before any Response Mission site exists', () => {
     expect(turnsSinceLastFactionActivity(1, [])).toBe(0);
     expect(turnsSinceLastFactionActivity(9, [initiative('f-1', 4)])).toBe(8);

@@ -183,6 +183,10 @@ describe('ENDING: Acceptance examples', () => {
     const invalid = (change: Parameters<typeof tweak>[1]) =>
       expect(checkInvariants(tweak(state, change), gdrs).length).toBeGreaterThan(0);
     invalid((world) => (world.panic = 101));
+    // ECON, Agency properties: money is negative only in a Campaign that has a Campaign ending.
+    invalid((world) => (world.agency.state.money = -1));
+    // AGENT, Agent status: a Serving Agent that is not on Recovery has full current health.
+    invalid((world) => (Object.values(world.agents)[0]!.state.currentHealthHundredths -= 100));
     invalid((world) => {
       world.ending = 'Victory';
       world.endingReasons = ['MoneyBelowZero'];
