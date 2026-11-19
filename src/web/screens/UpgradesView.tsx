@@ -30,12 +30,27 @@ const RATES: Record<string, { name: string; unit: string; value: (state: Current
   },
 };
 
-/** UVIEW, Upgrade cards: what one more acquisition changes, by its `effect` and `increment`. */
-function change(upgrade: UpgradeView, state: CurrentStateView): { kind: string; text: string } {
+/**
+ * UVIEW, Upgrade cards: what one more acquisition changes, by its `effect` and `increment`: the value it changes, as a
+ * line of its own, then that value now and after one more acquisition, or the Increment alone, as the Artboard shows.
+ */
+interface Change {
+  readonly kind: string;
+  readonly what: string;
+  readonly before: string | null;
+  readonly after: string;
+}
+
+function change(upgrade: UpgradeView, state: CurrentStateView): Change {
   const cap = CAPS[upgrade.effect];
   if (cap !== undefined) {
     const now = cap.value(state);
-    return { kind: 'Cap Upgrade', text: `${cap.name} ${now} → ${now + upgrade.incrementHundredths / 100}` };
+    return {
+      kind: 'Cap Upgrade',
+      what: cap.name,
+      before: String(now),
+      after: String(now + upgrade.incrementHundredths / 100),
+    };
   }
   const rate = RATES[upgrade.effect];
   if (rate !== undefined) {
@@ -43,15 +58,23 @@ function change(upgrade: UpgradeView, state: CurrentStateView): { kind: string; 
     const now = rate.value(state);
     return {
       kind: 'Rate Upgrade',
-      text: `${rate.name} ${decimalText(now)}${rate.unit} → ${decimalText(now + upgrade.incrementHundredths)}${rate.unit}`,
+      what: rate.name,
+      before: `${decimalText(now)}${rate.unit}`,
+      after: `${decimalText(now + upgrade.incrementHundredths)}${rate.unit}`,
     };
   }
   // UVIEW, Upgrade cards: the Increment added to the effective max health or the effective weapon damage of every
-  // Serving Agent, e.g. "+1 max health".
+  // Serving Agent, e.g. "+1 max health": "Max health of every Agent" above a bare "+1".
+  const increment = `+${upgrade.incrementHundredths / 100}`;
   if (upgrade.effect === 'agent_max_health') {
-    return { kind: 'Max health Upgrade', text: `+${upgrade.incrementHundredths / 100} max health` };
+    return { kind: 'Max health Upgrade', what: 'Max health of every Agent', before: null, after: increment };
   }
-  return { kind: 'Weapon damage Upgrade', text: `+${upgrade.incrementHundredths / 100} weapon damage` };
+  return {
+    kind: 'Weapon damage Upgrade',
+    what: 'Weapon damage of every Agent',
+    before: null,
+    after: increment,
+  };
 }
 
 export function UpgradesView(props: {
@@ -69,13 +92,17 @@ export function UpgradesView(props: {
       <div className="upgrade-cards" data-testid="upgrades">
         {state.agency.upgrades.map((upgrade) => {
           const purchase = purchases.find((item) => item.upgrade === upgrade.id);
-          const { kind, text } = change(upgrade, state);
+          const { kind, what, before, after } = change(upgrade, state);
           const missing = upgrade.price - money;
           return (
             <article key={upgrade.id} className="card upgrade-card" data-testid={`upgrade-${upgrade.id}`}>
-              <h4>{upgrade.name}</h4>
               <span className="label">{kind}</span>
-              <p className="upgrade-change figure">{text}</p>
+              <h4>{upgrade.name}</h4>
+              <p className="secondary small upgrade-what">{what}</p>
+              <p className="upgrade-change figure" data-testid={`upgrade-change-${upgrade.id}`}>
+                {before === null ? null : <>{before} → </>}
+                <span className="tone-good">{after}</span>
+              </p>
               <p className="muted small">Bought {upgrade.acquisitions}×</p>
               <div className="card-actions upgrade-buy">
                 <Button
@@ -91,7 +118,7 @@ export function UpgradesView(props: {
                   Buy · {upgrade.price}
                 </Button>
                 {missing > 0 ? (
-                  <span className="tone-bad small upgrade-missing">{missing} money missing</span>
+                  <span className="tone-bad small upgrade-missing">{missing} missing</span>
                 ) : null}
               </div>
               <Tally

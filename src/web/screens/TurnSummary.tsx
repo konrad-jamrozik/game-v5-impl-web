@@ -216,6 +216,19 @@ export function TurnSummary(props: {
               ))}
             </Group>
           )}
+          {model.interrupted.length === 0 ? null : (
+            <Group
+              title="Investigations interrupted"
+              count={model.interrupted.length}
+              testId="summary-interrupted"
+            >
+              {model.interrupted.map((item) => (
+                <div key={item.investigation} className="dialog-row sit-line">
+                  <span>{item.leadName}</span>
+                </div>
+              ))}
+            </Group>
+          )}
         </div>
         <footer className="dialog-actions">
           <button

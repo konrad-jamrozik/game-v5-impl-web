@@ -115,6 +115,13 @@
 - src/web/store.ts
 - e2e/web.spec.ts
 
+## COND: Conditions
+
+- src/engine/mechanics/conditions/
+- src/gdr/catalog.ts
+- src/gdr/types.ts
+- tests/mechanics/leads-investigations.test.ts
+
 ## CONFIG: Configuration
 
 - src/engine/session/core.ts
@@ -383,6 +390,10 @@ No files.
 ## LEAD: Leads and Progression
 
 - src/engine/mechanics/leads/
+- src/engine/mechanics/conditions/
+- src/engine/state/create.ts
+- src/engine/actions/actions.ts
+- src/engine/saves/encoding.ts
 - src/engine/views/views.ts
 - src/gdr/catalog.ts
 - src/gdr/types.ts
@@ -436,6 +447,8 @@ No files.
 ## MISSION: Missions
 
 - src/engine/mechanics/missions/
+- src/engine/mechanics/conditions/
+- tests/mechanics/leads-investigations.test.ts
 - src/engine/actions/actions.ts
 - src/engine/turn/advance.ts
 - src/engine/views/views.ts

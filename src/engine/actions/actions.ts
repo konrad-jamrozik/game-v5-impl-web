@@ -30,7 +30,7 @@ import {
   requiredProgressOutcome,
   requiredProgressRange,
 } from '../mechanics/investigations/investigations.ts';
-import { activeInvestigationOf, leadAvailability } from '../mechanics/leads/leads.ts';
+import { activeInvestigationOf, discoverLeads, leadAvailability } from '../mechanics/leads/leads.ts';
 import { seededRandom, type Random } from '../random.ts';
 import { reject, type Rejection } from '../result.ts';
 import type { ActionRecord } from '../rules.ts';
@@ -335,17 +335,15 @@ function startInvestigation(
   random: Random | null,
 ): Rejection | null {
   const lead = gdrs.leads.find((item) => item.id === args['lead']);
-  const availability = lead === undefined ? null : leadAvailability(lead, world);
+  const availability = lead === undefined ? null : leadAvailability(lead, world, gdrs.missionSiteArchetypes);
   // Condition 1: an undiscovered Lead is rejected with the same error as an unknown one, so that the rejection does
   // not reveal whether it exists; see LEAD, Lead discovery.
-  if (lead === undefined || availability === null || !availability.prerequisitesHold) {
+  if (lead === undefined || availability === null || !availability.discovered) {
     return reject('unknown_lead', 'That identifier names no discovered Lead.');
   }
+  // LEAD, Player-visible information: the rejection says only that the Lead is not available, never why.
   if (!availability.available) {
-    return reject(
-      'lead_not_available',
-      `${lead.name} is not available: condition ${availability.blockingConditions.join(', ')} of Lead availability does not hold.`,
-    );
+    return reject('lead_not_available', `${lead.name} is not available.`);
   }
   const active = activeInvestigationOf(lead.id, world.investigations);
   if (active !== null) {
@@ -611,6 +609,20 @@ export function applyGameAction(
   record: ActionRecord,
   gdrs: GdrCatalog,
   random: Random | null = null,
+): Rejection | null {
+  const rejection = dispatchAction(world, record, gdrs, random);
+  // LEAD, Lead discovery: `discovered_when` is evaluated in the World state that every Player action produces.
+  if (rejection === null) {
+    discoverLeads(world, gdrs.leads);
+  }
+  return rejection;
+}
+
+function dispatchAction(
+  world: CurrentWorldState,
+  record: ActionRecord,
+  gdrs: GdrCatalog,
+  random: Random | null,
 ): Rejection | null {
   // ENDING, After a Campaign ending: every Player action is rejected, whatever else also fails.
   if (world.ending !== null) {

@@ -70,6 +70,8 @@ export interface TurnSummaryModel {
   readonly newSites: readonly SummarySite[];
   readonly endedSites: readonly SummaryEndedSite[];
   readonly leads: readonly LeadView[];
+  /** TSUM, Groups: the Investigations interrupted, each with its Lead's name. */
+  readonly interrupted: readonly { readonly investigation: string; readonly leadName: string }[];
 }
 
 /** Whether the Turn report lists at least one thing the Turn summary shows. */
@@ -80,7 +82,8 @@ export function turnSummaryHasContent(report: TurnReport): boolean {
     report.createdMissionSites.length > 0 ||
     report.expiredMissionSites.length > 0 ||
     report.cancelledMissionSites.length > 0 ||
-    report.discoveredLeads.length > 0
+    report.discoveredLeads.length > 0 ||
+    report.investigationsInterrupted.length > 0
   );
 }
 
@@ -207,5 +210,9 @@ export function turnSummary(
       const lead = leads.get(id);
       return lead === undefined ? [] : [lead];
     }),
+    interrupted: report.investigationsInterrupted.map((item) => ({
+      investigation: item.investigation,
+      leadName: leads.get(item.lead)?.name ?? item.lead,
+    })),
   };
 }

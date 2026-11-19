@@ -8,7 +8,26 @@ import type {
   WeaponGdr,
 } from '../../../gdr/index.ts';
 import type { Random } from '../../random.ts';
-import type { Enemy, MissionSite, MissionSiteOrigin } from '../../state/types.ts';
+import type { Enemy, Faction, MissionSite, MissionSiteOrigin } from '../../state/types.ts';
+import { conditionHolds, type ConditionWorld } from '../conditions/conditions.ts';
+
+/**
+ * MISSION, Whether a Mission site can exist: a Mission site of the MissionSiteArchetype targeting the Faction can exist
+ * exactly when the Faction is not Eliminated and the MissionSiteArchetype's `can_exist_when`, if any, holds, with the
+ * Faction supplied to every `mission_won` Condition. A Derived value of the given World state.
+ */
+export function missionSiteCanExist(
+  archetype: MissionSiteArchetypeGdr,
+  faction: Faction | undefined,
+  world: ConditionWorld,
+): boolean {
+  if (faction === undefined || faction.state.eliminated) {
+    return false;
+  }
+  return (
+    archetype.canExistWhen === null || conditionHolds(archetype.canExistWhen, world, { faction: faction.id })
+  );
+}
 
 /**
  * MISSION, Mission exhaustion: the exhaustion every survivor of a Mission gains,

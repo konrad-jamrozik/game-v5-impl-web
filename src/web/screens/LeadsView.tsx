@@ -22,23 +22,19 @@ const TONES = { next: 'tone-accent', plain: 'secondary', muted: 'muted' } as con
 /** LVIEW, Team: the sortable columns of the Agents to add table. */
 type CandidateKey = 'id' | 'assignment' | 'effectiveSkill' | 'skillHundredths' | 'exhaustion';
 
-function blockers(lead: LeadView, siteName: (archetype: string) => string): string[] {
-  const texts: string[] = [];
-  if (!lead.conditions.prerequisitesHold) {
-    const missing = lead.requires.filter((item) => !item.holds).map((item) => siteName(item.missionWon));
-    texts.push(`needs a won Mission at ${missing.join(', ')}`);
-  }
-  if (!lead.conditions.noMissionWon) {
-    texts.push('its Mission is already won');
-  }
-  if (!lead.conditions.noUnfinishedMissionSite) {
-    texts.push('the Mission site it created is not yet finished');
-  }
-  if (!lead.conditions.factionNotEliminated) {
-    texts.push('its Faction is eliminated');
-  }
-  return texts;
-}
+/** LVIEW, Selected Lead: the Lead status with what it means, and no condition or cause. */
+const STATUS_TEXT = {
+  Available: 'Available',
+  Inactive: 'Inactive · cannot be investigated for now',
+  Archived: 'Archived · can never be investigated again',
+} as const;
+
+/** LVIEW, Selected Lead: the note on `investigate_again`, shown only for `never` and `always`. */
+const INVESTIGATE_AGAIN_NOTE = {
+  never: 'Can be completed only once',
+  until_mission_won: null,
+  always: 'Can be investigated again after a win',
+} as const;
 
 interface ListItem {
   readonly lead: LeadView;
@@ -89,7 +85,8 @@ export function LeadsView(props: {
           const site = state.missionSites.find(
             (item) => item.lead === lead.id && (item.lifecycle === 'Active' || item.lifecycle === 'Deployed'),
           );
-          return { lead, detail: site === undefined ? 'blocked' : `${site.name} open`, tone: 'muted' };
+          // LVIEW, Lead list: the unfinished Mission site it created, when it has one, and no other cause.
+          return { lead, detail: site === undefined ? '' : site.name, tone: 'muted' };
         }),
     },
     {
@@ -194,10 +191,7 @@ function LeadDetails(props: {
     (item) => item.id === lead.createsMissionSite,
   );
   const enemies = archetype?.enemies.reduce((sum, item) => sum + item.count, 0);
-  const completions =
-    snapshot.history?.retained.investigations.filter(
-      (item) => item.lead === lead.id && item.lifecycle === 'Completed',
-    ).length ?? 0;
+  const completions = lead.completionCount;
   const range = rangeText(lead);
   return (
     <div className="pane" data-testid={`lead-details-${lead.id}`}>
@@ -207,20 +201,13 @@ function LeadDetails(props: {
         <dt>Faction</dt>
         <dd>{faction}</dd>
         <dt>Status</dt>
-        <dd className={lead.status === 'Available' ? 'tone-good' : 'muted'}>
-          {lead.status}
-          {lead.status === 'Available' ? '' : ` · ${blockers(lead, siteName).join('; ')}`}
+        <dd className={lead.status === 'Available' ? 'tone-good' : 'muted'} data-testid="lead-status">
+          {STATUS_TEXT[lead.status]}
         </dd>
-        {lead.requires.length === 0 ? null : (
+        {INVESTIGATE_AGAIN_NOTE[lead.investigateAgain] === null ? null : (
           <>
-            <dt>Requires</dt>
-            <dd>
-              {lead.requires.map((item) => (
-                <div key={item.missionWon} className={item.holds ? 'tone-good' : 'muted'}>
-                  {item.holds ? '✓' : '✗'} a won Mission at {siteName(item.missionWon)}
-                </div>
-              ))}
-            </dd>
+            <dt>Repeats</dt>
+            <dd data-testid="lead-investigate-again">{INVESTIGATE_AGAIN_NOTE[lead.investigateAgain]}</dd>
           </>
         )}
         <dt>Completion creates</dt>

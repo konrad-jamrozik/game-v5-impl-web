@@ -746,7 +746,9 @@
 - **Option chosen:** The longest path of discovered Leads of the same Faction, not counting the Lead itself.
 - **Why:** "behind it" and "its Faction's chain" read most directly that way, and only the order matters, so counting
   the Lead itself would change nothing.
-- **Links:** PROB-021
+- **Links:** PROB-021, DEC-060. Overridden by Specification revision ef44fdc642094f1b969d5e7ea048ccf6019bee60, which
+  replaces Lead prerequisites with the Condition `discovered_when` and makes it not Player-visible, so the path of
+  prerequisites can no longer be read; DEC-060 measures the chain instead.
 
 ## DEC-037: A move from Standby to Training follows the Transit rule, not the stale Acceptance examples
 
@@ -1194,3 +1196,54 @@
 - **Why:** The specifications make health lost the stored value and require that buying an Upgrade rewrites no
   Agent value; a field whose meaning changed under an old name would be misread by code not updated with it.
 - **Links:** Specification revision 9f17570197ece7aad7cfed35c432f25f581d8a2b.
+
+## DEC-060: The Basic Autopilot AI reads a Lead's place in its Faction's chain from the Turns of discovery
+
+- **Category:** Conflict resolution
+- **Affected specifications:** BASICAI, Keep Mission sites coming: "the one with the longest chain of discovered Leads
+  behind it, each creating the MissionSiteArchetype a prerequisite of the next names." LEAD, Player-visible
+  information: "The `discovered_when` of any Lead, and whether it or any part of it holds | No".
+- **Description:** Behind a discovered Lead are the discovered Leads of the same Faction that were discovered in an
+  earlier Turn, as the History entries' Leads discovered report it; a Lead discovered at campaign creation counts as
+  discovered before the first Turn. The Basic Autopilot AI sorts by that count, most first, after the Leads whose Won
+  Mission site makes a Faction Eliminated. Equal Leads keep the order Player API lists them in.
+- **Options considered:** Reading `discovered_when` from the GDRs; counting Won Missions against the Faction; the
+  order of discovery from History.
+- **Option chosen:** The order of discovery from History.
+- **Why:** An Autopilot AI sees only Player API, and what discovers a Lead is not Player-visible, while the Turn in
+  which each Lead was discovered is; with the Bootstrap GDRs it orders each Faction's Leads exactly as the chain of
+  prerequisites did.
+- **Links:** PROB-037, DEC-036
+
+## DEC-061: Stale mentions of Lead prerequisites are read as the Lead's `discovered_when`
+
+- **Category:** Conflict resolution
+- **Affected specifications:** BOOT, Leads: "it has no prerequisites and creates `apprehend_member`" and "names its
+  prerequisite Leads"; MECH, Leads and Progression: "It owns what a Lead describes, Lead prerequisites, Lead
+  availability"; DOM, Glossary, Lead availability: "as far as its prerequisites, its own earlier results, and its
+  Faction allow".
+- **Description:** Wherever a specification still speaks of a Lead's prerequisites, the Implementation reads it as
+  the Condition `discovered_when` of LEAD, Lead discovery, and implements only LEAD's rules.
+- **Options considered:** Reading prerequisites as `discovered_when`; keeping a prerequisite concept of its own.
+- **Option chosen:** Reading prerequisites as `discovered_when`.
+- **Why:** LEAD owns Lead discovery and no longer defines prerequisites, so the other mentions only lag behind it.
+- **Links:** PROB-038
+
+## DEC-062: How the set of discovered Leads and the Investigations interrupted are held and ordered
+
+- **Category:** Gap resolution
+- **Affected specifications:** LEAD, Lead discovery: "Which Leads are discovered is a Campaign-wide Authoritative
+  value: the set of discovered Leads, each by its GDR identifier." INVSTG, Turn report: "The Turn report also holds
+  the Investigations interrupted in that Advance turn ... each by its Instance ID with its Lead".
+- **Description:** World state holds `discoveredLeads`, a list of Lead GDR identifiers in the order the Leads were
+  discovered and, among Leads discovered in one World state, in Game build order, as DEC-035 orders them in the Turn
+  report. It is evaluated after campaign creation, after each accepted Player action, and once at the end of each
+  Advance turn. The Turn report and the History entry list the Investigations interrupted in the order of their
+  Instance IDs, as `investigationsInterrupted` with each Investigation's Lead. The Save format number moved from 10
+  to 11, because a Save of the earlier format has no set of discovered Leads.
+- **Options considered:** A list in discovery order; a list in Game build order; a map from Lead to its Turn of
+  discovery. For the interrupted Investigations: Instance ID order; Campaign state order.
+- **Option chosen:** A list in discovery order; Instance ID order.
+- **Why:** The set needs an order to be stored deterministically, and the discovery order adds nothing that History
+  does not already show; Instance ID order is the order every other Investigation list of the Turn report uses.
+- **Links:** PROB-039, DEC-035, Specification revision ef44fdc642094f1b969d5e7ea048ccf6019bee60.

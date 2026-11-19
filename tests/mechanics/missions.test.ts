@@ -106,7 +106,7 @@ describe('MISSION: examples', () => {
     // An Deployed Mission site is an Unfinished Mission site: it blocks its Lead and is in Current world state.
     expect(
       currentStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
-    ).toMatchObject({ conditions: { noUnfinishedMissionSite: false } });
+    ).toMatchObject({ available: false, status: 'Inactive' });
     expect(currentStateView(state, gdrs).missionSites.map((item) => item.id)).toEqual([s1]);
     expect(mission(state, m1)).toMatchObject({
       archetype: 'standard_mission',
@@ -212,9 +212,7 @@ describe('MISSION: examples', () => {
     expect([money(state), funding(state), state.world.current.panic]).toEqual([385, 20, 9]);
     expect(
       currentStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
-    ).toMatchObject({
-      conditions: { noMissionWon: false, noUnfinishedMissionSite: true },
-    });
+    ).toMatchObject({ available: false, status: 'Archived', completionCount: 1 });
     expectRejected(state, 'deployAgents', { missionSite: s1, agents: [a1] }, 'mission_site_not_active');
     // A Won Mission and its Concluded Mission site are Retired: in World history, not Current world state.
     expect(currentStateView(state, gdrs).missionSites).toHaveLength(0);

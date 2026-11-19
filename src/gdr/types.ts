@@ -161,9 +161,25 @@ export interface LeadGdr {
   readonly faction: string;
   /** The Required progress, in progress points (INVSTG, LEAD). */
   readonly requiredProgress: number;
-  readonly requires: readonly { readonly missionWon: string }[];
+  /** LEAD, Lead discovery: the Condition that discovers the Lead; none for a Lead discovered from campaign creation. */
+  readonly discoveredWhen: Condition | null;
+  /** LEAD, Lead availability: whether the Lead can be investigated again; `until_mission_won` when omitted. */
+  readonly investigateAgain: InvestigateAgain;
   readonly onCompletion: { readonly createMissionSite: string };
 }
+
+export type InvestigateAgain = 'never' | 'until_mission_won' | 'always';
+
+/**
+ * COND, Condition format: a Condition of one Condition kind with its value, or `all`, `any`, or `not` of Conditions.
+ * The Condition kinds are `mission_won` (MISSION) and `lead_completed` (LEAD).
+ */
+export type Condition =
+  | { readonly kind: 'all'; readonly conditions: readonly Condition[] }
+  | { readonly kind: 'any'; readonly conditions: readonly Condition[] }
+  | { readonly kind: 'not'; readonly condition: Condition }
+  | { readonly kind: 'mission_won'; readonly missionSiteArchetype: string }
+  | { readonly kind: 'lead_completed'; readonly lead: string };
 
 export interface InvestigationArchetypeGdr {
   readonly type: 'InvestigationArchetype';
@@ -198,6 +214,8 @@ export interface MissionSiteArchetypeGdr {
   };
   /** Only for the `response` kind: the `level` of the Faction operation level it serves. */
   readonly operationLevel: number | null;
+  /** MISSION, Whether a Mission site can exist: only for the `initiative` kind; none sets no such Condition. */
+  readonly canExistWhen: Condition | null;
 }
 
 export interface MissionArchetypeGdr {

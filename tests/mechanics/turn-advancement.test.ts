@@ -344,7 +344,7 @@ describe('TURN: examples', () => {
     state = advance(state);
     expect(expiration()).toEqual(['Expired', 'Expired']);
     expect(state.world.current.panic).toBe(13);
-    expect(currentStateView(state, gdrs).leads[0]!.blockingConditions).toEqual([]);
+    expect(currentStateView(state, gdrs).leads[0]!.status).toBe('Available');
   });
 
   it('Money below zero, Defeat, and Turn close', () => {

@@ -9,6 +9,7 @@ import type {
   AnyGdr,
   BackgroundArtworkGdr,
   CatalogEncyclopediaArticle,
+  Condition,
   EncyclopediaArticleGdr,
   FactionActivityLevelGdr,
   GdrCatalog,
@@ -86,6 +87,73 @@ function effectsOf<S extends Record<string, z.ZodType>>(effects: ReadonlyMap<str
   return z.strictObject(shape).safeParse(Object.fromEntries(effects)) as z.ZodSafeParseResult<
     Partial<{ [K in keyof S]: z.output<S[K]> }>
   >;
+}
+/**
+ * COND, Condition format: a map with exactly one key, `all`, `any`, `not`, or the name of a Condition kind, whose
+ * value is a list of Conditions, one Condition, or the value of the Condition kind. Every Condition property permits
+ * exactly the Condition kinds `mission_won` and `lead_completed`, each with a GDR identifier, whose references are
+ * resolved under `conditionReferences`. Returns null for a Condition that violates the format.
+ */
+function parseCondition(raw: unknown): Condition | null {
+  const map = z.strictObject({ $entries: z.array(z.tuple([z.string(), z.unknown()])) }).safeParse(raw);
+  if (!map.success || map.data.$entries.length !== 1) {
+    return null;
+  }
+  const [key, value] = map.data.$entries[0] ?? ['', null];
+  const list = (): Condition[] | null => {
+    if (!Array.isArray(value)) {
+      return null;
+    }
+    const parsed = value.map(parseCondition);
+    return parsed.every((item) => item !== null) ? parsed : null;
+  };
+  switch (key) {
+    case 'all':
+    case 'any': {
+      const conditions = list();
+      return conditions === null ? null : { kind: key, conditions };
+    }
+    case 'not': {
+      const inner = parseCondition(value);
+      return inner === null ? null : { kind: 'not', condition: inner };
+    }
+    case 'mission_won':
+      return id.safeParse(value).success
+        ? { kind: 'mission_won', missionSiteArchetype: value as string }
+        : null;
+    case 'lead_completed':
+      return id.safeParse(value).success ? { kind: 'lead_completed', lead: value as string } : null;
+    default:
+      return null;
+  }
+}
+/** A Condition property: a valid Condition, under COND, Condition format. */
+const condition = z.unknown().transform((raw, context) => {
+  const parsed = parseCondition(raw);
+  if (parsed === null) {
+    context.addIssue({ code: 'custom', message: 'Condition is valid' });
+    return z.NEVER;
+  }
+  return parsed;
+});
+/** The GDR identifiers the simple Conditions of a Condition name, by Condition kind, at any depth. */
+function conditionReferences(item: Condition): { missionSiteArchetypes: string[]; leads: string[] } {
+  switch (item.kind) {
+    case 'all':
+    case 'any': {
+      const parts = item.conditions.map(conditionReferences);
+      return {
+        missionSiteArchetypes: parts.flatMap((part) => part.missionSiteArchetypes),
+        leads: parts.flatMap((part) => part.leads),
+      };
+    }
+    case 'not':
+      return conditionReferences(item.condition);
+    case 'mission_won':
+      return { missionSiteArchetypes: [item.missionSiteArchetype], leads: [] };
+    case 'lead_completed':
+      return { missionSiteArchetypes: [], leads: [item.lead] };
+  }
 }
 const range = z.tuple([z.int(), z.int()]);
 /** COMP, Encyclopedia article GDR validation, rules 1 and 2: a required, non-empty text. */
@@ -338,20 +406,13 @@ const schemas = {
       description: z.string().min(1),
       faction: id,
       required_progress: whole(1),
-      requires: z.array(entries(z.unknown())),
+      // LEAD, Lead GDR validation, rules 4 and 5.
+      discovered_when: condition.optional(),
+      investigate_again: z.enum(['never', 'until_mission_won', 'always']).optional(),
       on_completion: effectList,
     })
     .transform((g, context) => {
-      const requires: { missionWon: string }[] = [];
-      for (const entry of g.requires) {
-        const [only] = entry;
-        if (entry.length !== 1 || only?.[0] !== 'mission_won' || typeof only[1] !== 'string') {
-          context.addIssue({ code: 'custom', message: 'Prerequisite kinds are known' });
-          return z.NEVER;
-        }
-        requires.push({ missionWon: only[1] });
-      }
-      // LEAD, Lead GDR validation, rule 7: exactly one Effect, of the Effect kind `create_mission_site`.
+      // LEAD, Lead GDR validation, rule 6: exactly one Effect, of the Effect kind `create_mission_site`.
       const effects = effectsOf(g.on_completion, { create_mission_site: id });
       const created = effects.data?.create_mission_site;
       if (!effects.success || g.on_completion.size !== 1 || created === undefined) {
@@ -365,7 +426,8 @@ const schemas = {
         description: g.description,
         faction: g.faction,
         requiredProgress: g.required_progress,
-        requires,
+        discoveredWhen: g.discovered_when ?? null,
+        investigateAgain: g.investigate_again ?? 'until_mission_won',
         onCompletion: { createMissionSite: created },
       };
     }),
@@ -394,6 +456,7 @@ const schemas = {
       expires_in_turns: whole(1),
       enemies: entries(whole(1)),
       on_win: effectList.optional(),
+      can_exist_when: condition.optional(),
       operation_level: z.int().optional(),
     })
     .transform((g, context) => {
@@ -411,6 +474,11 @@ const schemas = {
       }
       if ((g.kind === 'response') !== (g.operation_level !== undefined)) {
         context.addIssue({ code: 'custom', message: 'Operation level only for Response' });
+        return z.NEVER;
+      }
+      // MISSION, MissionSiteArchetype validation, rule 9: Existence Condition only for Initiative.
+      if (g.kind === 'response' && g.can_exist_when !== undefined) {
+        context.addIssue({ code: 'custom', message: 'Existence Condition only for Initiative' });
         return z.NEVER;
       }
       if (g.enemies.length === 0) {
@@ -431,6 +499,7 @@ const schemas = {
           eliminateTargetFaction: onWin.data.eliminate_faction === true,
         },
         operationLevel: g.operation_level ?? null,
+        canExistWhen: g.can_exist_when ?? null,
       };
     }),
   MissionArchetype: z.strictObject({ id, type: z.literal('MissionArchetype'), name }),
@@ -695,6 +764,17 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     }
   }
 
+  // MISSION, Mission won Condition kind, and LEAD, Lead completed Condition kind: the value of each names a
+  // MissionSiteArchetype, of either kind, or a Lead that the Game build supplies.
+  const conditionResolves = (item: Condition): boolean => {
+    const references = conditionReferences(item);
+    return (
+      references.missionSiteArchetypes.every((site) =>
+        missionSiteArchetypes.some((each) => each.id === site),
+      ) && references.leads.every((lead) => leads.some((each) => each.id === lead))
+    );
+  };
+
   // MISSION, MissionSiteArchetype validation.
   for (const site of missionSiteArchetypes) {
     const keys = site.enemies.map(([key]) => key);
@@ -704,37 +784,23 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     if (site.operationLevel !== null && !operationLevelNumbers.includes(site.operationLevel)) {
       problems.push(`MissionSiteArchetype ${site.id}: Operation level only for Response`);
     }
+    // MISSION, MissionSiteArchetype validation, rule 9: each Condition kind with a value its Condition kind permits.
+    if (site.canExistWhen !== null && !conditionResolves(site.canExistWhen)) {
+      problems.push(`MissionSiteArchetype ${site.id}: Existence Condition only for Initiative`);
+    }
   }
 
   // LEAD, Lead GDR validation.
-  const siteIds = new Set(missionSiteArchetypes.map((site) => site.id));
   for (const lead of leads) {
     if (!factionArchetypes.some((archetype) => archetype.id === lead.faction)) {
       problems.push(`Lead ${lead.id}: Faction resolves`);
     }
-    const required = lead.requires.map((entry) => entry.missionWon);
-    if (required.some((site) => !siteIds.has(site)) || new Set(required).size !== required.length) {
-      problems.push(`Lead ${lead.id}: Prerequisite references resolve`);
+    if (lead.discoveredWhen !== null && !conditionResolves(lead.discoveredWhen)) {
+      problems.push(`Lead ${lead.id}: Discovery Condition is valid`);
     }
     const created = missionSiteArchetypes.find((site) => site.id === lead.onCompletion.createMissionSite);
     if (created?.kind !== 'initiative') {
       problems.push(`Lead ${lead.id}: Completion effect is valid`);
-    }
-    const visiting = new Set<string>();
-    const hasCycle = (current: LeadGdr): boolean => {
-      if (visiting.has(current.id)) {
-        return true;
-      }
-      visiting.add(current.id);
-      // Each Lead points to every Lead whose create_mission_site names a MissionSiteArchetype its requires names.
-      const found = current.requires.some((entry) =>
-        leads.some((next) => next.onCompletion.createMissionSite === entry.missionWon && hasCycle(next)),
-      );
-      visiting.delete(current.id);
-      return found;
-    };
-    if (hasCycle(lead)) {
-      problems.push(`Lead ${lead.id}: Prerequisites form no cycle`);
     }
   }
 

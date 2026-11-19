@@ -329,27 +329,27 @@ class Turn {
       );
     }
     // A Lead whose Won Mission site makes a Faction Eliminated comes first, then the one furthest along its Faction's
-    // chain: the one with the longest chain of discovered Leads behind it, each creating the MissionSiteArchetype a
-    // prerequisite of the next names. Only discovered Leads are Player-visible, so the chain reads nothing hidden.
+    // chain. What discovers a Lead is not Player-visible, so the chain behind a Lead is read from the Turns in which
+    // the Leads were discovered, which History reports: the discovered Leads of the same Faction discovered in an
+    // earlier Turn are behind it; see DEC-060.
     const eliminates = (site: string): boolean =>
       this.data.missionSiteArchetypes.find((item) => item.id === site)?.onWin?.eliminatesTargetFaction ===
       true;
-    const chainLength = (lead: LeadView, trail: readonly string[]): number => {
-      let longest = 0;
-      for (const behind of state.leads) {
-        if (
-          behind.factionArchetype === lead.factionArchetype &&
-          !trail.includes(behind.id) &&
-          lead.requires.some((required) => required.missionWon === behind.createsMissionSite)
-        ) {
-          longest = Math.max(longest, 1 + chainLength(behind, [...trail, behind.id]));
-        }
+    const discoveredIn = new Map<string, number>();
+    for (const entry of this.unwrap(this.player.queries.getHistory()).entries) {
+      for (const lead of entry.report.discoveredLeads) {
+        discoveredIn.set(lead, entry.turn);
       }
-      return longest;
-    };
+    }
+    const chainLength = (lead: LeadView): number =>
+      state.leads.filter(
+        (behind) =>
+          behind.factionArchetype === lead.factionArchetype &&
+          (discoveredIn.get(behind.id) ?? 0) < (discoveredIn.get(lead.id) ?? 0),
+      ).length;
     const eliminatesFirst = (lead: LeadView): number => (eliminates(lead.createsMissionSite) ? 1 : 0);
     const leads = [...state.leads].sort(
-      (a, b) => eliminatesFirst(b) - eliminatesFirst(a) || chainLength(b, [b.id]) - chainLength(a, [a.id]),
+      (a, b) => eliminatesFirst(b) - eliminatesFirst(a) || chainLength(b) - chainLength(a),
     );
     for (const lead of leads) {
       if (!lead.canBeInvestigatedNow || !winnable(lead.id)) {

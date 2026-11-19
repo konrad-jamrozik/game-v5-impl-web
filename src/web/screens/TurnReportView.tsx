@@ -187,7 +187,8 @@ function Sections(props: {
     report.missions.length +
       report.investigationsCompleted.length +
       siteCount +
-      report.discoveredLeads.length ===
+      report.discoveredLeads.length +
+      report.investigationsInterrupted.length ===
     0
   ) {
     return (
@@ -316,6 +317,29 @@ function Sections(props: {
           </button>
         ))}
       </Section>
+
+      {/* TRVIEW, Sections: Investigations interrupted, left out when there is none. */}
+      {report.investigationsInterrupted.length === 0 ? null : (
+        <Section
+          title="Investigations interrupted"
+          count={report.investigationsInterrupted.length}
+          testId="interrupted-investigations"
+        >
+          {report.investigationsInterrupted.map((item) => (
+            <button
+              key={item.investigation}
+              type="button"
+              className="list-row"
+              onClick={() => {
+                onOpen({ kind: 'lead', lead: item.lead });
+              }}
+            >
+              <span className="list-name">{leadName(item.lead)}</span>
+              <span className="list-value muted">Abandoned</span>
+            </button>
+          ))}
+        </Section>
+      )}
     </>
   );
 }

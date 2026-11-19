@@ -522,3 +522,42 @@
   implementer chooses the result and has no value of this Game build to exercise it with.
 - **Links:** DEC-013
 - **Resolution:** Open
+
+## PROB-037: The Basic Autopilot AI measures its chain by prerequisites, which are gone and whose replacement is hidden
+
+- **Category:** Conflict
+- **Severity:** High
+- **Affected specifications:** BASICAI, Keep Mission sites coming: "the one with the longest chain of discovered Leads
+  behind it, each creating the MissionSiteArchetype a prerequisite of the next names." LEAD, Player-visible
+  information: "The `discovered_when` of any Lead, and whether it or any part of it holds | No".
+- **Description:** Leads and Progression no longer has prerequisites, and the Condition `discovered_when` that
+  replaces them is not Player-visible, while an Autopilot AI sees only Player API. The chain the Basic Autopilot AI
+  sorts by can therefore not be read as stated.
+- **Links:** DEC-060, PROB-021
+- **Resolution:** Open
+
+## PROB-038: Bootstrap GDRs, About Mechanics, and Domain Model still speak of Lead prerequisites
+
+- **Category:** Conflict
+- **Severity:** Low
+- **Affected specifications:** BOOT, Leads: "it has no prerequisites and creates `apprehend_member`" and "names its
+  prerequisite Leads"; MECH, Leads and Progression: "It owns what a Lead describes, Lead prerequisites, Lead
+  availability"; DOM, Glossary, Lead availability: "as far as its prerequisites, its own earlier results, and its
+  Faction allow".
+- **Description:** Leads and Progression replaced Lead prerequisites with the Condition `discovered_when`, which
+  discovers a Lead rather than gating its availability, but these passages still name prerequisites.
+- **Links:** DEC-061
+- **Resolution:** Open
+
+## PROB-039: The order of the Investigations interrupted in an Advance turn is unstated
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** INVSTG, Turn report: "The Turn report also holds the Investigations interrupted in that
+  Advance turn, under Lead no longer available, each by its Instance ID with its Lead, and the History entry holds
+  the same list, unreduced."
+- **Description:** The list is Player-visible information and one Advance turn can interrupt several Investigations,
+  but no order is stated, so two Implementations can report the same Turn differently. The set of discovered Leads
+  that LEAD, Lead discovery, stores likewise has no stated order for an Implementation that stores it as a list.
+- **Links:** DEC-062
+- **Resolution:** Open

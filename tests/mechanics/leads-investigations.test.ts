@@ -7,6 +7,8 @@ import {
   progressGain,
   requiredProgressRange,
 } from '../../src/engine/mechanics/investigations/investigations.ts';
+import { missionWonHolds } from '../../src/engine/mechanics/conditions/conditions.ts';
+import { leadAvailability } from '../../src/engine/mechanics/leads/leads.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import { isServing, type CampaignState } from '../../src/engine/state/types.ts';
 import { isRejection } from '../../src/engine/result.ts';
@@ -45,9 +47,24 @@ import {
 
 const leads = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
   Object.fromEntries(currentStateView(state, catalog).leads.map((lead) => [lead.id, lead]));
+/**
+ * The numbers of the conditions of LEAD, Lead availability, that do not hold, for each discovered Lead. They are not
+ * Player-visible, so they are read from the engine's own rule, not from Player API.
+ */
 const blocking = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
   Object.fromEntries(
-    currentStateView(state, catalog).leads.map((lead) => [lead.id, lead.blockingConditions]),
+    catalog.leads
+      .filter((lead) => state.world.current.discoveredLeads.includes(lead.id))
+      .map((lead) => {
+        const a = leadAvailability(lead, state.world.current, catalog.missionSiteArchetypes);
+        const conditions = [
+          a.discovered,
+          a.mayBeInvestigatedAgain,
+          a.noUnfinishedMissionSite,
+          a.missionSiteCanExist,
+        ];
+        return [lead.id, conditions.flatMap((holds, index) => (holds ? [] : [index + 1]))];
+      }),
   );
 const statuses = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
   Object.fromEntries(currentStateView(state, catalog).leads.map((lead) => [lead.id, lead.status]));
@@ -57,6 +74,8 @@ const discovered = (state: CampaignState) => {
   expect(state.world.history.historyEntries.at(-1)?.report.discoveredLeads).toEqual(listed);
   return listed;
 };
+/** COND, Condition format: a Condition as the GDR build writes a nested map. */
+const cond = (key: string, value: unknown) => ({ $entries: [[key, value]] });
 const investigations = (state: CampaignState) => Object.values(state.world.current.investigations);
 const sites = (state: CampaignState) => Object.values(state.world.current.missionSites);
 /** Sets an Investigation's progress just short of its Actual required progress, so that any gain completes it. */
@@ -122,23 +141,23 @@ function winLead(state: CampaignState, lead: string): CampaignState {
 describe('LEAD: examples', () => {
   it('Campaign creation', () => {
     const state = newCampaign();
-    // Leads add nothing to Campaign state.
-    expect(state.world.current).not.toHaveProperty('leadProgression');
+    // LEAD, Lead discovery: the set of discovered Leads is stored; member, without `discovered_when`, is in it from
+    // campaign creation.
+    expect(state.world.current.discoveredLeads).toEqual([MEMBER]);
     // Only member is discovered: the query returns nothing about safehouse or hq, not even that they exist.
     expect(blocking(state)).toEqual({ [MEMBER]: [] });
     const view = leads(state);
     expect(view[MEMBER]).toMatchObject({
       available: true,
       canBeInvestigatedNow: true,
-      requires: [],
-      conditions: {
-        prerequisitesHold: true,
-        noMissionWon: true,
-        noUnfinishedMissionSite: true,
-        factionNotEliminated: true,
-      },
+      investigateAgain: 'until_mission_won',
+      completionCount: 0,
       status: 'Available',
     });
+    // LEAD, Player-visible information: neither `discovered_when` nor the conditions of Lead availability.
+    expect(Object.keys(view[MEMBER]!)).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/discovered|condition|blocking|requires/i)]),
+    );
     expect(JSON.stringify(currentStateView(state, gdrs))).not.toMatch(/safehouse|locate_red_dawn_hq/);
     expect(turnReportView(state)).toBeNull();
   });
@@ -175,9 +194,11 @@ describe('LEAD: examples', () => {
     expect(state.world.current.missions[m1]!.state.lifecycle).toBe('Won');
     expect(blocking(state)).toEqual({ [MEMBER]: [2], [SAFEHOUSE]: [] });
     expect(statuses(state)).toEqual({ [MEMBER]: 'Archived', [SAFEHOUSE]: 'Available' });
-    expect(leads(state)[MEMBER]).toMatchObject({ available: false, conditions: { noMissionWon: false } });
+    expect(leads(state)[MEMBER]).toMatchObject({ available: false, completionCount: 1 });
     expect(discovered(state)).toEqual([SAFEHOUSE]);
-    // Player-visible information: exactly member and safehouse, with every property of safehouse; nothing of hq.
+    expect(state.world.current.discoveredLeads).toEqual([MEMBER, SAFEHOUSE]);
+    // Player-visible information: exactly member and safehouse, with the Player-visible properties of safehouse and
+    // without its `discovered_when`; nothing of hq.
     expect(leads(state)[SAFEHOUSE]).toEqual({
       id: SAFEHOUSE,
       name: expect.any(String),
@@ -187,16 +208,10 @@ describe('LEAD: examples', () => {
       assessed: false,
       requiredProgress: 'unknown',
       requiredProgressRange: 'unknown',
-      requires: [{ missionWon: 'apprehend_member', holds: true }],
+      investigateAgain: 'until_mission_won',
       createsMissionSite: 'raid_safehouse',
+      completionCount: 0,
       available: true,
-      conditions: {
-        prerequisitesHold: true,
-        noMissionWon: true,
-        noUnfinishedMissionSite: true,
-        factionNotEliminated: true,
-      },
-      blockingConditions: [],
       status: 'Available',
       canBeInvestigatedNow: true,
       activeInvestigation: null,
@@ -214,6 +229,9 @@ describe('LEAD: examples', () => {
       { lead: MEMBER, agents: [ids[0]] },
       'lead_not_available',
     );
+    // LEAD, Player-visible information: the rejection says only that the Lead is not available, never why.
+    const rejection = tryAct(arrive(state), 'startInvestigation', { lead: MEMBER, agents: [ids[0]] });
+    expect(JSON.stringify(rejection)).not.toMatch(/condition|won|eliminat/i);
   });
 
   it('A Lost Mission and an Expired Mission site, then a Won Mission', () => {
@@ -277,7 +295,8 @@ describe('LEAD: examples', () => {
     expect(onlyFaction(state).state.eliminated).toBe(true);
     expect(blocking(state)).toEqual({ [MEMBER]: [2, 4], [SAFEHOUSE]: [2, 4], [HQ]: [2, 4] });
     expect(statuses(state)).toEqual({ [MEMBER]: 'Archived', [SAFEHOUSE]: 'Archived', [HQ]: 'Archived' });
-    expect(leads(state)[HQ]!.requires).toEqual([{ missionWon: 'raid_safehouse', holds: true }]);
+    // A discovered Lead stays discovered when its Faction is Eliminated.
+    expect(state.world.current.discoveredLeads).toEqual([MEMBER, SAFEHOUSE, HQ]);
     expect(state.world.current.ending).toBe('Victory');
   });
 
@@ -338,7 +357,7 @@ describe('LEAD: examples', () => {
       raw.add('leads-and-progression/leads.yaml', {
         ...raw.get(SAFEHOUSE),
         id: 'test_lead',
-        requires: [{ $entries: [['mission_won', 'raid_hq']] }],
+        discovered_when: { $entries: [['mission_won', 'raid_hq']] },
         on_completion: [effect('create_mission_site', 'test_site')],
       });
     });
@@ -390,12 +409,12 @@ describe('LEAD: examples', () => {
     expect(checkInvariants(state, catalog)).toEqual([]);
   });
 
-  it('Prerequisites: a Won Response Mission counts; a Mission site of another Faction does not', () => {
+  it('mission_won Condition: a Won Response Mission counts; a Mission site of another Faction does not', () => {
     const catalog = catalogWith((raw) =>
       raw.add('leads-and-progression/leads.yaml', {
         ...raw.get(SAFEHOUSE),
         id: 'test_lead',
-        requires: [{ $entries: [['mission_won', 'foil_sabotage']] }],
+        discovered_when: cond('mission_won', 'foil_sabotage'),
       }),
     );
     let state = withAgents(newCampaign({ catalog }), 4);
@@ -412,28 +431,169 @@ describe('LEAD: examples', () => {
     expect(state.world.current.missions[missionAt(state, site.site)]!.state.lifecycle).toBe('Won');
     expect(blocking(state, catalog)['test_lead']).toEqual([]);
     expect(discovered(state)).toEqual(['test_lead']);
-    // The same Won Mission at a Mission site that targets another Faction makes no prerequisite hold.
+    // MISSION, Mission won Condition kind: the same Won Mission at a Mission site that targets another Faction does not
+    // make it hold. LEAD, Lead discovery: the Lead stays discovered all the same, because discovery is stored.
+    const faction = onlyFaction(state).id;
+    expect(missionWonHolds('foil_sabotage', faction, state.world.current)).toBe(true);
     const elsewhere = tweak(state, (world) => {
       (world.missionSites[site.site]!.constants as { targetFaction: string }).targetFaction =
         'no_such_faction';
     });
-    expect(leads(elsewhere, catalog)['test_lead']).toBeUndefined();
+    expect(missionWonHolds('foil_sabotage', faction, elsewhere.world.current)).toBe(false);
+    expect(leads(elsewhere, catalog)['test_lead']).toBeDefined();
+  });
+
+  it('lead_completed with all, any, and not: discovery from the World state an Advance turn produces', () => {
+    const catalog = catalogWith((raw) => {
+      raw.add('leads-and-progression/leads.yaml', {
+        ...raw.get(SAFEHOUSE),
+        id: 'test_lead',
+        discovered_when: cond('all', [
+          cond('lead_completed', MEMBER),
+          cond('not', cond('mission_won', 'raid_hq')),
+          cond('any', [cond('lead_completed', MEMBER), cond('mission_won', 'raid_hq')]),
+        ]),
+      });
+      // COND, Condition format: an empty `any` does not hold, so this Lead is never discovered.
+      raw.add('leads-and-progression/leads.yaml', {
+        ...raw.get(SAFEHOUSE),
+        id: 'test_never',
+        discovered_when: cond('any', []),
+      });
+    });
+    let state = newCampaign({ catalog });
+    const [a1] = agentIds(state) as [string];
+    expect(state.world.current.discoveredLeads).toEqual([MEMBER]);
+    state = act(state, 'startInvestigation', { lead: MEMBER, agents: [a1] }, 'player', catalog);
+    const i1 = investigations(state)[0]!.id;
+    state = advance(finishing(arrive(state), i1), {}, catalog);
+    expect(state.world.current.investigations[i1]!.state.lifecycle).toBe('Completed');
+    // The Investigation completed in step 5; the Lead is discovered from the World state the Advance turn produces.
+    expect(discovered(state)).toEqual(['test_lead']);
+    expect(state.world.current.discoveredLeads).toEqual([MEMBER, 'test_lead']);
+    expect(leads(state, catalog)['test_never']).toBeUndefined();
+  });
+
+  it('investigate_again: never Archives a Lead at its completion; always keeps it after a win', () => {
+    const catalog = catalogWith((raw) => {
+      raw.add('leads-and-progression/leads.yaml', {
+        ...raw.get(MEMBER),
+        id: 'test_once',
+        investigate_again: 'never',
+      });
+      raw.add('leads-and-progression/leads.yaml', {
+        ...raw.get(MEMBER),
+        id: 'test_always',
+        investigate_again: 'always',
+      });
+    });
+    let state = withAgents(newCampaign({ money: 100_000, catalog }), 8, catalog);
+    const ids = agentIds(state);
+    expect(leads(state, catalog)['test_once']).toMatchObject({
+      investigateAgain: 'never',
+      status: 'Available',
+    });
+    state = act(state, 'startInvestigation', { lead: 'test_once', agents: [ids[0]] }, 'player', catalog);
+    state = act(state, 'startInvestigation', { lead: 'test_always', agents: [ids[1]] }, 'player', catalog);
+    const [once, always] = investigations(state).map((item) => item.id) as [string, string];
+    state = advance(finishing(finishing(arrive(state), once), always), {}, catalog);
+    const onceSite = sites(state)[0]!;
+    const alwaysSite = sites(state)[1]!;
+    // One attempt: Archived at once, while the Mission site it created is still Active.
+    expect(onceSite.state.lifecycle).toBe('Active');
+    expect(blocking(state, catalog)['test_once']).toEqual([2, 3]);
+    expect(statuses(state, catalog)).toMatchObject({ test_once: 'Archived', test_always: 'Inactive' });
+    state = act(
+      arrive(state),
+      'deployAgents',
+      { missionSite: alwaysSite.id, agents: ids.slice(2, 4) },
+      'player',
+      catalog,
+    );
+    state = advance(state, winning(state, alwaysSite.id), catalog);
+    expect(state.world.current.missions[missionAt(state, alwaysSite.id)]!.state.lifecycle).toBe('Won');
+    expect(blocking(state, catalog)['test_always']).toEqual([]);
+    expect(leads(state, catalog)['test_always']).toMatchObject({ status: 'Available', completionCount: 1 });
+  });
+
+  it('can_exist_when: a Mission site that cannot exist is Cancelled, and its Lead is Inactive', () => {
+    const catalog = catalogWith((raw) => {
+      raw.add('missions/mission_site_archetypes.yaml', {
+        ...raw.get('apprehend_member'),
+        id: 'test_site',
+        can_exist_when: cond('not', cond('lead_completed', MEMBER)),
+      });
+      raw.add('leads-and-progression/leads.yaml', {
+        ...raw.get(MEMBER),
+        id: 'test_lead',
+        on_completion: [effect('create_mission_site', 'test_site')],
+      });
+    });
+    let state = withAgents(newCampaign({ catalog }), 4, catalog);
+    const [a1, a2] = agentIds(state) as [string, string];
+    expect(blocking(state, catalog)['test_lead']).toEqual([]);
+    state = act(state, 'startInvestigation', { lead: MEMBER, agents: [a1] }, 'player', catalog);
+    state = act(state, 'startInvestigation', { lead: 'test_lead', agents: [a2] }, 'player', catalog);
+    const [i1, i2] = investigations(state).map((item) => item.id) as [string, string];
+    state = advance(finishing(finishing(arrive(state), i1), i2), {}, catalog);
+    // Both complete in step 5; member's completion means test_site cannot exist, so it is Cancelled in step 6.
+    const created = sites(state).find((site) => site.archetype === 'test_site')!;
+    expect(created.state.lifecycle).toBe('Cancelled');
+    expect(turnReportView(state)!.cancelledMissionSites).toEqual([created.id]);
+    expect(state.world.current.investigations[i2]!.state.lifecycle).toBe('Completed');
+    // Condition 4 does not hold, which never ends in practice, yet the Lead is only Inactive, and why is not shown.
+    expect(blocking(state, catalog)['test_lead']).toEqual([4]);
+    expect(statuses(state, catalog)['test_lead']).toBe('Inactive');
   });
 
   it('GDR validation', () => {
-    const requires = (site: string) => ({ $entries: [['mission_won', site]] });
-    expectDefective((raw) => raw.get(MEMBER)['requires'].push(requires('raid_hq')));
-    expectDefective((raw) => (raw.get(SAFEHOUSE)['requires'] = [requires('raid_safehouse')]));
-    expectDefective((raw) => (raw.get(HQ)['requires'] = [requires('no_such_site')]));
-    expectDefective((raw) => raw.get(HQ)['requires'].push(requires('raid_safehouse')));
+    expectDefective((raw) => (raw.get(SAFEHOUSE)['discovered_when'] = cond('mission_won', 'no_such_site')));
     expectDefective(
-      (raw) => (raw.get(SAFEHOUSE)['requires'] = [{ $entries: [['mission_won_from_lead', MEMBER]] }]),
+      (raw) => (raw.get(SAFEHOUSE)['discovered_when'] = cond('lead_completed', 'no_such_lead')),
     );
+    expectDefective((raw) => (raw.get(SAFEHOUSE)['discovered_when'] = cond('mission_won_from_lead', MEMBER)));
+    expectDefective(
+      (raw) => (raw.get(SAFEHOUSE)['discovered_when'] = cond('mission_lost', 'apprehend_member')),
+    );
+    expectDefective((raw) => (raw.get(SAFEHOUSE)['discovered_when'] = { $entries: [] }));
+    expectDefective(
+      (raw) =>
+        (raw.get(SAFEHOUSE)['discovered_when'] = {
+          $entries: [
+            ['mission_won', 'apprehend_member'],
+            ['lead_completed', MEMBER],
+          ],
+        }),
+    );
+    expectDefective(
+      (raw) => (raw.get(SAFEHOUSE)['discovered_when'] = cond('all', cond('lead_completed', MEMBER))),
+    );
+    expectDefective(
+      (raw) => (raw.get(SAFEHOUSE)['discovered_when'] = cond('not', [cond('lead_completed', MEMBER)])),
+    );
+    expectDefective((raw) => (raw.get(SAFEHOUSE)['discovered_when'] = [cond('lead_completed', MEMBER)]));
+    expectDefective((raw) => (raw.get(SAFEHOUSE)['investigate_again'] = 'twice'));
+    expectDefective((raw) => (raw.get(SAFEHOUSE)['requires'] = []));
+    // A Condition that can never hold is valid, e.g. one that requires the Lead itself to be a Completed Lead.
+    expect(
+      catalogWith(
+        (raw) => (raw.get(SAFEHOUSE)['discovered_when'] = cond('lead_completed', SAFEHOUSE)),
+      ).leads.find((lead) => lead.id === SAFEHOUSE)?.discoveredWhen,
+    ).toEqual({ kind: 'lead_completed', lead: SAFEHOUSE });
+    // MISSION, MissionSiteArchetype validation, rule 9: Existence Condition only for Initiative, and valid.
+    expectDefective((raw) => (raw.get('foil_sabotage')['can_exist_when'] = cond('lead_completed', MEMBER)));
+    expectDefective((raw) => (raw.get('raid_hq')['can_exist_when'] = cond('mission_won', 'no_such_site')));
+    expectDefective((raw) => (raw.get('raid_hq')['can_exist_when'] = cond('panic_below', 50)));
+    expect(
+      catalogWith(
+        (raw) => (raw.get('raid_hq')['can_exist_when'] = cond('mission_won', 'foil_sabotage')),
+      ).missionSiteArchetypes.find((site) => site.id === 'raid_hq')?.canExistWhen,
+    ).toEqual({ kind: 'mission_won', missionSiteArchetype: 'foil_sabotage' });
     expectDefective((raw) => (raw.get(MEMBER)['faction'] = 'apprehend_member'));
     expectDefective((raw) => (raw.get(MEMBER)['required_progress'] = 0));
     expectDefective((raw) => (raw.get(MEMBER)['required_progress'] = { $decimal: '2.5' }));
     expectDefective((raw) => (raw.get(MEMBER)['difficulty'] = 3));
-    // Rule 7, Completion effect is valid: exactly one Effect, of the Effect kind `create_mission_site`, naming a
+    // Rule 6, Completion effect is valid: exactly one Effect, of the Effect kind `create_mission_site`, naming a
     // MissionSiteArchetype of kind initiative, in a valid Effect list (EFFECT, Effect list format).
     expectDefective((raw) => (raw.get(MEMBER)['on_completion'][0].$entries[0][1] = 'foil_sabotage'));
     expectDefective((raw) => raw.get(MEMBER)['on_completion'].push(effect('money', 1)));
@@ -1011,7 +1171,57 @@ describe('INVSTG: examples', () => {
     ]);
   });
 
-  it('An Investigation whose Faction is Eliminated', () => {
+  it('Lead no longer available: an Active Investigation is interrupted at the end of Mission resolution', () => {
+    let state = withAgents(newCampaign({ money: 100_000 }), 12);
+    state = tweak(state, (world) => {
+      world.agency.state.acquisitions['transport_cap'] = 4;
+    });
+    const ids = agentIds(state);
+    const hq = addMissionSite(state, 'raid_hq');
+    state = act(hq.state, 'deployAgents', { missionSite: hq.site, agents: ids.slice(0, 8) });
+    state = act(state, 'startInvestigation', { lead: MEMBER, agents: [ids[8], ids[9]] });
+    const i1 = investigations(state).at(-1)!.id;
+    // ids[9] is still In transit toward the Investigation when it is interrupted.
+    state = tweak(state, (world) => {
+      arriveAgent(world.agents[ids[8]!]!.state);
+    });
+    state = tweak(advance(state, winning(state, hq.site)), (world) => {
+      world.ending = null;
+    });
+    expect(onlyFaction(state).state.eliminated).toBe(true);
+    // It made its progress in step 5 first, and loses it.
+    expect(
+      turnReportView(state)!.investigations.find((item) => item.investigation === i1)!.progressGain,
+    ).toBe(100);
+    expect(state.world.current.investigations[i1]!.state).toMatchObject({
+      lifecycle: 'Abandoned',
+      currentTeam: [],
+      progress: 0,
+    });
+    for (const member of [ids[8]!, ids[9]!]) {
+      expect(agent(state, member).state).toMatchObject({
+        assignment: { kind: 'Standby' },
+        status: 'InTransit',
+      });
+      expect(agent(state, member).state.participationHistory.at(-1)).toMatchObject({ id: i1 });
+    }
+    // It creates no Mission site, and the Turn report and History entry list it with its Lead.
+    expect(sites(state).filter((site) => site.archetype === 'apprehend_member')).toHaveLength(0);
+    expect(turnReportView(state)!.investigationsInterrupted).toEqual([{ investigation: i1, lead: MEMBER }]);
+    expect(state.world.history.historyEntries.at(-1)!.report.investigationsInterrupted).toEqual([
+      { investigation: i1, lead: MEMBER },
+    ]);
+    expect(statuses(state)[MEMBER]).toBe('Archived');
+    // An Advance turn that interrupts none lists none.
+    const next = advance(state);
+    expect(turnReportView(next)!.investigationsInterrupted).toEqual([]);
+    expect(agent(next, ids[9]!).state).toMatchObject({
+      assignment: { kind: 'Standby' },
+      status: 'AtAssignment',
+    });
+  });
+
+  it('An Investigation whose Faction is Eliminated completes when it completes in the same Advance turn', () => {
     let state = newCampaign({ money: 100_000 });
     const [a1, a2] = agentIds(state) as [string, string];
     state = arrive(start(state, MEMBER, [a1], 4));

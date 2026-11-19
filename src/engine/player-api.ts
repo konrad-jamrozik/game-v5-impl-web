@@ -191,19 +191,17 @@ export interface LeadView {
   readonly requiredProgress: number | Unknown;
   /** The Required progress range, in progress points; unknown until the Lead is an Assessed Lead. */
   readonly requiredProgressRange: { readonly min: number; readonly max: number } | Unknown;
-  /** Each prerequisite: the MissionSiteArchetype its `mission_won` names, and whether it holds. */
-  readonly requires: readonly { readonly missionWon: string; readonly holds: boolean }[];
+  /** LEAD, Lead: whether the Lead can be investigated again after an Investigation of it is Completed. */
+  readonly investigateAgain: 'never' | 'until_mission_won' | 'always';
   /** The MissionSiteArchetype its completion effect creates. */
   readonly createsMissionSite: string;
+  /** LEAD, Missions from a Lead: the number of Completed Investigations of the Lead. */
+  readonly completionCount: number;
+  /**
+   * Whether the Lead is available. Which conditions of Lead availability hold, and so why a Lead is not available, is
+   * not Player-visible (LEAD, Player-visible information).
+   */
   readonly available: boolean;
-  readonly conditions: {
-    readonly prerequisitesHold: boolean;
-    readonly noMissionWon: boolean;
-    readonly noUnfinishedMissionSite: boolean;
-    readonly factionNotEliminated: boolean;
-  };
-  /** The numbers, 1 to 4, of the conditions of Lead availability that do not hold. */
-  readonly blockingConditions: readonly number[];
   /** LEAD, Lead status: the summary of the Lead's availability. */
   readonly status: 'Available' | 'Inactive' | 'Archived';
   readonly canBeInvestigatedNow: boolean;

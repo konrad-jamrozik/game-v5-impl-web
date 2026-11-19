@@ -43,11 +43,12 @@ import {
   progressGain,
   reachesActualRequiredProgress,
 } from '../mechanics/investigations/investigations.ts';
-import { leadDiscovered } from '../mechanics/leads/leads.ts';
+import { discoverLeads, leadAvailability } from '../mechanics/leads/leads.ts';
 import {
   consequencesOf,
   createMissionSite,
   missionExhaustion,
+  missionSiteCanExist,
   selectResponseArchetype,
 } from '../mechanics/missions/missions.ts';
 import { recoverAgent } from '../mechanics/recovery/recovery.ts';
@@ -62,6 +63,7 @@ import {
   type ConsequenceRecord,
   type CurrentWorldState,
   type HistoryEntry,
+  type InvestigationInterruptedRecord,
   type MissionGrowthRecord,
   type MissionResultRecord,
   type TurnReport,
@@ -518,12 +520,46 @@ export function applyAdvanceTurn(
     });
   }
   world.agency.state.funding = fundingAfter(fundingAtStep6, missionFunding);
+  // MISSION, Cancellation: every Active Mission site that cannot exist, read after every resolution of the step.
   const cancelledMissionSites: string[] = [];
   for (const site of Object.values(world.missionSites)) {
-    if (site.state.lifecycle === 'Active' && world.factions[site.constants.targetFaction]?.state.eliminated) {
+    if (site.state.lifecycle !== 'Active') {
+      continue;
+    }
+    const archetype = must(
+      gdrs.missionSiteArchetypes.find((item) => item.id === site.archetype),
+      `MissionSiteArchetype ${site.archetype}`,
+    );
+    if (!missionSiteCanExist(archetype, world.factions[site.constants.targetFaction], world)) {
       site.state.lifecycle = 'Cancelled';
       cancelledMissionSites.push(site.id);
     }
+  }
+  // INVSTG, Lead no longer available: after the Cancellation part, every Active Investigation whose Lead is not
+  // available is interrupted. Its members go to Standby, In transit, and leave its Current team; it becomes Abandoned
+  // with Investigation progress 0 and creates no Mission site.
+  const investigationsInterrupted: InvestigationInterruptedRecord[] = [];
+  for (const investigation of Object.values(world.investigations).sort(byInstanceId)) {
+    if (investigation.state.lifecycle !== 'Active') {
+      continue;
+    }
+    const lead = must(
+      gdrs.leads.find((item) => item.id === investigation.constants.lead),
+      'Lead of an Investigation',
+    );
+    if (leadAvailability(lead, world, gdrs.missionSiteArchetypes).available) {
+      continue;
+    }
+    for (const member of investigation.state.currentTeam) {
+      const agent = must(world.agents[member], `Agent ${member}`);
+      agent.state.assignment = { kind: 'Standby' };
+      agent.state.status = 'InTransit';
+      recordParticipation(agent.state, 'Investigation', investigation.id);
+    }
+    investigation.state.currentTeam = [];
+    investigation.state.progress = 0;
+    investigation.state.lifecycle = 'Abandoned';
+    investigationsInterrupted.push({ investigation: investigation.id, lead: lead.id });
   }
   // When two Won Missions defeat one Faction, the Turn report names the defeat once, on the first in state order.
   const reportedEliminations = new Set<string>();
@@ -704,6 +740,10 @@ export function applyAdvanceTurn(
   world.turn = turn + 1;
   history.moneyAtStartOfTurn.push({ turn: world.turn, value: world.agency.state.money });
 
+  // LEAD, Lead discovery: within an Advance turn only the World state it produces counts. The Turn report lists the
+  // Leads that joined the set of discovered Leads, in Game build order (DEC-035).
+  const discoveredLeads = discoverLeads(world, gdrs.leads);
+
   const report: TurnReport = {
     turn,
     transit: { arrived },
@@ -718,10 +758,8 @@ export function applyAdvanceTurn(
       .map((item) => ({ investigation: item.investigation, gain: item.progressGain })),
     missions: missionReports,
     combatReports: missionReports.map((item) => must(combatReports.get(item.mission), 'Combat report')),
-    // LEAD, Turn report: the Leads discovered in the World state it commits and not in the one before this Advance turn.
-    discoveredLeads: gdrs.leads
-      .filter((lead) => leadDiscovered(lead, world) && !leadDiscovered(lead, before))
-      .map((lead) => lead.id),
+    discoveredLeads,
+    investigationsInterrupted,
     createdMissionSites,
     cancelledMissionSites,
     expiredMissionSites,
@@ -799,6 +837,7 @@ function reduceReport(
       }),
       investigationsCompleted: report.investigationsCompleted.map((item) => ({ ...item })),
       discoveredLeads: [...report.discoveredLeads],
+      investigationsInterrupted: report.investigationsInterrupted.map((item) => ({ ...item })),
       createdMissionSites: [...report.createdMissionSites],
       expiredMissionSites: report.expiredMissionSites.map((item) => item.missionSite),
       cancelledMissionSites: report.cancelledMissionSites,

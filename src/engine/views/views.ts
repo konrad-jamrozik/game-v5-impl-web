@@ -38,6 +38,7 @@ import {
 } from '../mechanics/investigations/investigations.ts';
 import {
   activeInvestigationOf,
+  completionCount,
   leadAvailability,
   leadOfMissionSite,
   leadStatus,
@@ -278,8 +279,8 @@ function investigationView(
 /** LEAD, Player-visible information: only discovered Leads; an undiscovered Lead is left out of every result. */
 function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
   return gdrs.leads.flatMap((lead) => {
-    const availability = leadAvailability(lead, world);
-    if (!availability.prerequisitesHold) {
+    const availability = leadAvailability(lead, world, gdrs.missionSiteArchetypes);
+    if (!availability.discovered) {
       return [];
     }
     const active = activeInvestigationOf(lead.id, world.investigations);
@@ -297,16 +298,10 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
       requiredProgressRange: assessed
         ? requiredProgressRange(lead.requiredProgress, gdrs.investigationParameters)
         : 'unknown',
-      requires: availability.prerequisites.map((item) => ({ ...item })),
+      investigateAgain: lead.investigateAgain,
       createsMissionSite: lead.onCompletion.createMissionSite,
+      completionCount: completionCount(lead.id, world.investigations),
       available: availability.available,
-      conditions: {
-        prerequisitesHold: availability.prerequisitesHold,
-        noMissionWon: availability.noMissionWon,
-        noUnfinishedMissionSite: availability.noUnfinishedMissionSite,
-        factionNotEliminated: availability.factionNotEliminated,
-      },
-      blockingConditions: [...availability.blockingConditions],
       status: leadStatus(availability),
       canBeInvestigatedNow: availability.available && active === null,
       activeInvestigation: active?.id ?? null,
@@ -568,7 +563,7 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
       : gdrs.leads
           .filter(
             (lead) =>
-              leadAvailability(lead, world).available &&
+              leadAvailability(lead, world, gdrs.missionSiteArchetypes).available &&
               activeInvestigationOf(lead.id, world.investigations) === null,
           )
           .map((lead) => lead.id),

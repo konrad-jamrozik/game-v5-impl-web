@@ -293,6 +293,11 @@ export interface CurrentWorldState {
   missionSites: Record<string, MissionSite>;
   missions: Record<string, Mission>;
   enemies: Record<string, Enemy>;
+  /**
+   * LEAD, Lead discovery: the set of discovered Leads, by GDR identifier, in the order they were discovered and, among
+   * Leads discovered in one World state, in Game build order. Part of the Retired world state: no Lead leaves it.
+   */
+  discoveredLeads: string[];
 }
 
 // ---- World history: Turn report, History entries, Turn series ------------------------------------
@@ -337,6 +342,12 @@ export interface InvestigationCompletedRecord {
   readonly investigation: string;
   /** The gain its Progress gain added in that Advance turn, in hundredths of a progress point. */
   readonly gain: number;
+}
+
+/** INVSTG, Lead no longer available: one Investigation interrupted in an Advance turn. */
+export interface InvestigationInterruptedRecord {
+  readonly investigation: string;
+  readonly lead: string;
 }
 
 export interface TurnReport {
@@ -387,6 +398,8 @@ export interface TurnReport {
   readonly combatReports: readonly CombatReport[];
   /** LEAD, Turn report: the Leads discovered in this Advance turn, by GDR identifier, in Game build order. */
   readonly discoveredLeads: readonly string[];
+  /** INVSTG, Turn report: the Investigations interrupted in this Advance turn, in Instance ID order, with their Leads. */
+  readonly investigationsInterrupted: readonly InvestigationInterruptedRecord[];
   /** MISSION, Turn report: the Mission sites created in this Advance turn, in creation order. */
   readonly createdMissionSites: readonly string[];
   /** MISSION, Turn report: the Mission sites that became Cancelled in this Advance turn. */
@@ -474,6 +487,8 @@ export interface HistoryEntry {
     readonly investigationsCompleted: readonly InvestigationCompletedRecord[];
     /** LEAD, Turn report: the same list as the Turn report, unreduced. */
     readonly discoveredLeads: readonly string[];
+    /** INVSTG, Turn report: the same list as the Turn report, unreduced. */
+    readonly investigationsInterrupted: readonly InvestigationInterruptedRecord[];
     /** MISSION, Turn report: the same three lists as the Turn report, unreduced, by Instance ID. */
     readonly createdMissionSites: readonly string[];
     readonly expiredMissionSites: readonly string[];

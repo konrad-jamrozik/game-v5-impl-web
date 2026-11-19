@@ -145,10 +145,10 @@ describe('BOOT: the Bootstrap GDRs', () => {
       'black_lotus',
     ]);
     for (const faction of catalog.factionArchetypes) {
-      // BOOT, Victory path: a prerequisite holds only for a Won Mission targeting the Lead's own Faction.
+      // BOOT, Victory path: a `mission_won` Condition of a Lead holds only for a Won Mission targeting its own Faction.
       const leads = catalog.leads.filter((item) => item.faction === faction.id);
-      // Follow the Leads from one without prerequisites to one whose Mission site eliminates the Faction.
-      let lead = leads.find((item) => item.requires.length === 0);
+      // Follow the Leads from one without `discovered_when` to one whose Mission site eliminates the Faction.
+      let lead = leads.find((item) => item.discoveredWhen === null);
       const path: string[] = [];
       while (lead !== undefined) {
         const current = lead;
@@ -157,8 +157,10 @@ describe('BOOT: the Bootstrap GDRs', () => {
         if (site?.onWin?.eliminateTargetFaction === true) {
           break;
         }
-        lead = leads.find((item) =>
-          item.requires.some((required) => required.missionWon === current.onCompletion.createMissionSite),
+        lead = leads.find(
+          (item) =>
+            item.discoveredWhen?.kind === 'mission_won' &&
+            item.discoveredWhen.missionSiteArchetype === current.onCompletion.createMissionSite,
         );
       }
       expect(path).toEqual([

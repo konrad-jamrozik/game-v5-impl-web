@@ -373,11 +373,13 @@ describe('RECOVER: gaps', () => {
 
 describe('INVSTG and LEAD: gaps', () => {
   it('Rejections of startInvestigation, and Agents of another Investigation', () => {
-    let state = withAgents(newCampaign(), 7);
-    const [a1, a2, a3, a4, a7, a6] = agentIds(state) as [string, string, string, string, string, string];
+    // LEAD, Lead discovery: the set of discovered Leads is stored at campaign creation, so the Campaign is created
+    // from the catalog that holds other_lead.
     const catalog = catalogWith((raw) =>
       raw.add('leads-and-progression/leads.yaml', { ...raw.get('locate_red_dawn_member'), id: 'other_lead' }),
     );
+    let state = withAgents(newCampaign({ catalog }), 7, catalog);
+    const [a1, a2, a3, a4, a7, a6] = agentIds(state) as [string, string, string, string, string, string];
     const run = (s: CampaignState, name: string, args: Record<string, unknown>) =>
       act(s, name, args, 'player', catalog);
     state = run(state, 'startInvestigation', { lead: 'other_lead', agents: [a7] });

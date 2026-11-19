@@ -2241,7 +2241,12 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 .upgrade-card h4 {
-  margin: 0 0 2px;
+  margin: 2px 0 4px;
+}
+
+/* UVIEW, Upgrade cards: the value an Upgrade changes, on a line of its own above its change. */
+.upgrade-what {
+  margin: 0;
 }
 
 /* VIS, Buttons: a row of buttons that is a part of its own in a stacked card starts at its left content edge; VIS,
@@ -2259,8 +2264,8 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 .upgrade-change {
-  margin: 12px 0 4px;
-  font-size: 16px;
+  margin: 8px 0 4px;
+  font-size: 22px;
 }
 
 .search {

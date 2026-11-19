@@ -6,6 +6,7 @@ import { must, seedRng } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import { createAgent } from '../mechanics/agents/agents.ts';
 import { createFaction } from '../mechanics/factions/factions.ts';
+import { discoverLeads } from '../mechanics/leads/leads.ts';
 import { seededRandom } from '../random.ts';
 import { newInstanceId } from '../turn/advance.ts';
 import { summarize } from './summary.ts';
@@ -43,7 +44,8 @@ export function createCampaignState(
     missionSites: {},
     missions: {},
     enemies: {},
-    // LEAD, Lead progression: an empty set of Recorded wins for every Lead.
+    // LEAD, Lead discovery: filled below, once the Factions exist.
+    discoveredLeads: [],
   };
   const agency = { ...world.agency, id: newInstanceId(world, 'agency') };
   world.agency = agency;
@@ -74,6 +76,10 @@ export function createCampaignState(
     );
     world.factions[faction.id] = faction;
   }
+
+  // LEAD, Lead discovery: `discovered_when` is evaluated for every Lead in the initial Campaign state; a Lead without it
+  // is in the set from campaign creation.
+  discoverLeads(world, gdrs.leads);
 
   return {
     configuration: {

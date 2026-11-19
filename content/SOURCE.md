@@ -34,6 +34,9 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   and `economy-and-upgrades/upgrades.yaml`: patched unchanged from specification commit
   `9f17570197ece7aad7cfed35c432f25f581d8a2b` on 2026-11-19, renaming the Base health Upgrade to the Max health Upgrade
   (`max_health`, effect `agent_max_health`) and its article to `max_health_article`, and rewording health comments.
+- `leads-and-progression/leads.yaml`: patched unchanged from specification commit
+  `ef44fdc642094f1b969d5e7ea048ccf6019bee60` on 2026-11-19, replacing each Lead's `requires` with the Condition
+  `discovered_when`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

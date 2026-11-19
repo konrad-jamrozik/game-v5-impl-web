@@ -33,7 +33,7 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
     const state = ok(engine.player.queries.getCurrentState());
     expect(state.ending).toMatchObject({ ending: 'Victory', reasons: ['EveryFactionEliminated'] });
     expect(state.factions.every((faction) => faction.eliminated)).toBe(true);
-    expect(state.leads.every((lead) => !lead.conditions.noMissionWon)).toBe(true);
+    expect(state.leads.every((lead) => lead.status === 'Archived' && lead.completionCount >= 1)).toBe(true);
     expect(ok(engine.session.getStatus())).toMatchObject({ devMode: false, campaignEnded: true });
     // After a Campaign ending every Player action is rejected and every query keeps answering.
     expect(errorCode(await engine.player.actions.advanceTurn())).toBe('campaign_ended');
