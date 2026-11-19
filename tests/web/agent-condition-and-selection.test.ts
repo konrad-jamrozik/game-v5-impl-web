@@ -3,7 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { currentStateView } from '../../src/engine/views/views.ts';
 import { blockedBy, isSelectable, type Selectability } from '../../src/web/agent-selection.ts';
 import { exhaustionTone, healthColor } from '../../src/web/condition-scale.ts';
-import { agentIds, gdrs, newCampaign, setAssignment, tweak, withAgents } from '../helpers/game.ts';
+import {
+  agentIds,
+  gdrs,
+  newCampaign,
+  setAssignment,
+  tweak,
+  withAgents,
+  setCurrentHealth,
+} from '../helpers/game.ts';
 
 describe('VIS: Agent condition', () => {
   const levels = { warning: 30, high: 50, danger: 70 };
@@ -15,7 +23,7 @@ describe('VIS: Agent condition', () => {
     expect(exhaustionTone(70, levels)).toEqual({ tone: 'tone-bad', triangle: true });
   });
 
-  it('colours current health on a smooth scale over its share of base health', () => {
+  it('colours current health on a smooth scale over its share of effective max health', () => {
     expect(healthColor(30, 30)).toBe('currentColor');
     expect(healthColor(15, 30)).toBe('var(--accent-text)');
     expect(healthColor(0, 30)).toBe('var(--danger-deep)');
@@ -33,7 +41,7 @@ describe('AVIEW: Assignment filters and Blocked by', () => {
     world.agents[a3]!.state.exactExhaustionHundredths = 5200;
     world.agents[a5]!.state.assignment = { kind: 'Recovery' };
     world.agents[a5]!.state.status = 'Recovering';
-    world.agents[a5]!.state.currentHealthHundredths = 1000;
+    setCurrentHealth(world.agents[a5]!.state, 1000);
   });
   const agents = currentStateView(state, gdrs).agents;
   const view = (id: string) => agents.find((agent) => agent.id === id)!;

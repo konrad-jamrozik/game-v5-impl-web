@@ -2,7 +2,17 @@
 import { produce } from 'immer';
 import { expect } from 'vitest';
 import { advanceTurnOf, applyActionTo } from '../../src/engine/game-rules.ts';
-import { exhaustionOf } from '../../src/engine/mechanics/agents/agents.ts';
+import {
+  agentCombatantValues,
+  agentCurrentHealthHundredths,
+  effectiveMaxHealth,
+  effectiveWeaponDamage,
+  exhaustionOf,
+  setAgentCurrentHealth,
+  type AgentUpgradeBonus,
+  type CombatantValues,
+} from '../../src/engine/mechanics/agents/agents.ts';
+import { agentUpgradeBonus } from '../../src/engine/mechanics/economy/economy.ts';
 import { damageBounds, type Combatant } from '../../src/engine/mechanics/combat/combat.ts';
 import { createMissionSite } from '../../src/engine/mechanics/missions/missions.ts';
 import { injectedRandom, seededRandom, type Random } from '../../src/engine/random.ts';
@@ -311,8 +321,13 @@ export function allMiss(ids: readonly string[], attacks = 400): Injected {
 function hitHardest(state: CampaignState, ids: readonly string[]): Injected {
   const world = state.world.current;
   const injected: Injected = {};
+  const bonus = agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
   for (const id of ids) {
-    const weaponDamage = (world.agents[id] ?? world.enemies[id])?.state.weaponDamage ?? 1;
+    const agent = world.agents[id];
+    const weaponDamage =
+      agent !== undefined
+        ? effectiveWeaponDamage(agent.state, bonus)
+        : (world.enemies[id]?.state.baseWeaponDamage ?? 1);
     Object.assign(injected, allHit([id], damageBounds(weaponDamage, gdrs.combatParameters).hi));
   }
   return injected;
@@ -332,18 +347,58 @@ export function losing(state: CampaignState, site: string): Injected {
   return { ...allMiss(Object.keys(world.agents)), ...hitHardest(state, enemies) };
 }
 
+/** The Upgrade bonus of a Campaign without any Max health or Weapon damage Upgrade, or with the given ones. */
+export function bonusOf(maxHealth = 0, weaponDamage = 0): AgentUpgradeBonus {
+  return { maxHealth, weaponDamage };
+}
+
+/** An Agent's effective weapon damage and effective max health in a Campaign state, with its Upgrade bonus. */
+export function effectiveValuesOf(
+  state: CampaignState,
+  id: string,
+): { weaponDamage: number; maxHealth: number; currentHealth: number } {
+  const world = state.world.current;
+  const bonus = agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
+  const found = agent(state, id).state;
+  return {
+    weaponDamage: effectiveWeaponDamage(found, bonus),
+    maxHealth: effectiveMaxHealth(found, bonus),
+    currentHealth: agentCurrentHealthHundredths(found, bonus) / 100,
+  };
+}
+
+/** An Agent's current health in hundredths: its effective max health less its health lost. */
+export function currentHealthOf(agent: AgentState, maxHealthBonus = 0): number {
+  return agentCurrentHealthHundredths(agent, bonusOf(maxHealthBonus));
+}
+
+/** Sets an Agent's current health, in hundredths, by storing the health lost it leaves. */
+export function setCurrentHealth(agent: AgentState, hundredths: number, maxHealthBonus = 0): void {
+  setAgentCurrentHealth(agent, hundredths, bonusOf(maxHealthBonus));
+}
+
+/** An Agent's values as effective skill and Training growth read them; see AGENT, Effective skill. */
+export function valuesOf(agent: AgentState, maxHealthBonus = 0): CombatantValues {
+  return agentCombatantValues(agent, bonusOf(maxHealthBonus));
+}
+
 /**
  * An Agent's or a Combat's Combatant state with its base skill, current health, and exhaustion also in units, e.g.
  * `skill: 101.1` for 10110 hundredths and the whole `exhaustion` its Exact exhaustion rounds up to, for comparing with
- * the values the specifications write.
+ * the values the specifications write. An Agent's current health, also in hundredths, is derived from its health lost
+ * with the given Upgrade bonus of max health.
  */
-export function units<
-  S extends { skillHundredths: number; currentHealthHundredths: number; exactExhaustionHundredths: number },
->(state: S): S & { skill: number; currentHealth: number; exhaustion: number } {
+export function units<S extends { skillHundredths: number; exactExhaustionHundredths: number }>(
+  state: S & ({ currentHealthHundredths: number } | AgentState),
+  maxHealthBonus = 0,
+): S & { currentHealthHundredths: number; skill: number; currentHealth: number; exhaustion: number } {
+  const currentHealthHundredths =
+    'healthLostHundredths' in state ? currentHealthOf(state, maxHealthBonus) : state.currentHealthHundredths;
   return {
     ...state,
+    currentHealthHundredths,
     skill: state.skillHundredths / 100,
-    currentHealth: state.currentHealthHundredths / 100,
+    currentHealth: currentHealthHundredths / 100,
     exhaustion: exhaustionOf(state),
   };
 }
@@ -362,7 +417,7 @@ export function combatAgent(
     state: {
       skillHundredths: Math.round(v.skill * 100),
       currentHealthHundredths: Math.round(v.currentHealth * 100),
-      baseHealth: 30,
+      maxHealth: 30,
       exactExhaustionHundredths: Math.round(v.exhaustion * 100),
       weaponDamage: v.weaponDamage,
     },
@@ -381,7 +436,7 @@ export function combatEnemy(id: string, archetypeId: string, catalog: GdrCatalog
     state: {
       skillHundredths: archetype.skill * 100,
       currentHealthHundredths: archetype.baseHealth * 100,
-      baseHealth: archetype.baseHealth,
+      maxHealth: archetype.baseHealth,
       exactExhaustionHundredths: 0,
       weaponDamage: weapon.damage,
     },

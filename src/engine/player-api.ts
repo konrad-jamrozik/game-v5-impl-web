@@ -47,16 +47,22 @@ export interface AgentView {
   /** AGENT, Mission growth: the base skill gained from Missions, a whole number. */
   readonly experience: number;
   readonly effectiveSkill: number;
-  /** Current health, a Decimal quantity held in hundredths. */
+  /** Current health, a Decimal quantity held in hundredths: effective max health less health lost. A Derived value. */
   readonly currentHealthHundredths: number;
+  /** AGENT, Effective max health and current health: health lost, a Decimal quantity held in hundredths. */
+  readonly healthLostHundredths: number;
   readonly baseHealth: number;
+  /** AGENT, Effective max health and current health: a Derived value; the Final max health for a Terminated Agent. */
+  readonly effectiveMaxHealth: number;
   /** AGENT, Exhaustion and Exact exhaustion: the whole exhaustion every rule reads. */
   readonly exhaustion: number;
   /** The Exact exhaustion behind it, in hundredths. */
   readonly exactExhaustionHundredths: number;
   readonly weapon: string;
   readonly weaponName: string;
-  readonly weaponDamage: number;
+  readonly baseWeaponDamage: number;
+  /** AGENT, Effective weapon damage: a Derived value; the Final weapon damage for a Terminated Agent. */
+  readonly effectiveWeaponDamage: number;
   /** Absent for a Killed or Dismissed Agent. */
   readonly assignment: Assignment | null;
   readonly canBeAssigned: boolean;
@@ -75,6 +81,10 @@ export interface AgentView {
   readonly turnTerminated: number | null;
   /** AGENT, Service record: the Enemy and Mission site, by Instance ID; absent unless the Agent is Killed. */
   readonly killedBy: { readonly enemy: string; readonly missionSite: string } | null;
+  /** AGENT, Service record: absent for a Serving Agent. */
+  readonly finalMaxHealth: number | null;
+  /** AGENT, Service record: absent for a Serving Agent. */
+  readonly finalWeaponDamage: number | null;
   /** Reported for every Serving Agent, a Decimal quantity in hundredths. */
   readonly healthRecoveryRateHundredths: number | null;
   /** Absent unless the Current assignment is Recovery. */
@@ -88,11 +98,14 @@ export interface EnemyView {
   readonly missionSite: string;
   readonly skill: number;
   readonly effectiveSkill: number;
+  /** A Derived value: base health less health lost. */
   readonly currentHealth: number;
+  readonly healthLost: number;
   readonly baseHealth: number;
   readonly exhaustion: number;
   readonly weapon: string;
   readonly weaponName: string;
+  /** The base weapon damage, which is also the effective weapon damage of an Enemy. */
   readonly weaponDamage: number;
 }
 

@@ -7,9 +7,12 @@ import { deepFreeze, detach, must, q } from '../../kernel/index.ts';
 import { GAME_BUILD, type GdrCatalog, type MissionSiteArchetypeGdr } from '../../gdr/index.ts';
 import { applyGameAction } from '../actions/actions.ts';
 import {
+  agentCombatantValues,
   canBeAssigned,
   effectiveSkill,
+  effectiveWeaponDamage,
   enemyCombatantValues,
+  type AgentUpgradeBonus,
   exhaustionOf,
   isAway,
   isFitForWork,
@@ -18,6 +21,7 @@ import {
 import { combatRating, isAbleToFight, type CombatantState } from '../mechanics/combat/combat.ts';
 import {
   agencyCaps,
+  agentUpgradeBonus,
   contractingAtAssignment,
   countDeployed,
   countServing,
@@ -87,12 +91,28 @@ function ratesOf(world: CurrentWorldState, gdrs: GdrCatalog): UpgradedRates {
 
 /** An Enemy's values in the hundredths form that effective skill and a Combat read; see DEC-056. */
 function enemyCombatant(enemy: Enemy['state']): CombatantState {
-  return { ...enemyCombatantValues(enemy), weaponDamage: enemy.weaponDamage };
+  return { ...enemyCombatantValues(enemy), weaponDamage: enemy.baseWeaponDamage };
 }
 
-function agentView(agent: Agent, gdrs: GdrCatalog, healthRecoveryPctHundredths: number): AgentView {
+/** ECON, Upgrade bonus: what the Upgrades of this World state add to every Serving Agent's effective values. */
+function bonusOf(world: CurrentWorldState, gdrs: GdrCatalog): AgentUpgradeBonus {
+  return agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
+}
+
+/** An Agent's values, with its effective max health and current health, as effective skill and a Combat read them. */
+function agentCombatant(agent: Agent['state'], bonus: AgentUpgradeBonus): CombatantState {
+  return { ...agentCombatantValues(agent, bonus), weaponDamage: effectiveWeaponDamage(agent, bonus) };
+}
+
+function agentView(
+  agent: Agent,
+  gdrs: GdrCatalog,
+  healthRecoveryPctHundredths: number,
+  bonus: AgentUpgradeBonus,
+): AgentView {
   const s = agent.state;
   const serving = isServing(s);
+  const values = agentCombatant(s, bonus);
   return {
     id: agent.id,
     archetype: agent.archetype,
@@ -102,30 +122,35 @@ function agentView(agent: Agent, gdrs: GdrCatalog, healthRecoveryPctHundredths: 
     agentStatus: s.status,
     skillHundredths: s.skillHundredths,
     experience: s.experience,
-    effectiveSkill: effectiveSkill(s, gdrs.agentParameters),
-    currentHealthHundredths: s.currentHealthHundredths,
+    effectiveSkill: effectiveSkill(values, gdrs.agentParameters),
+    currentHealthHundredths: values.currentHealthHundredths,
+    healthLostHundredths: s.healthLostHundredths,
     baseHealth: s.baseHealth,
+    effectiveMaxHealth: values.maxHealth,
     exhaustion: exhaustionOf(s),
     exactExhaustionHundredths: s.exactExhaustionHundredths,
     weapon: s.weapon,
     weaponName: gdrs.weapons.get(s.weapon)?.name ?? s.weapon,
-    weaponDamage: s.weaponDamage,
+    baseWeaponDamage: s.baseWeaponDamage,
+    effectiveWeaponDamage: values.weaponDamage,
     assignment: s.assignment === null ? null : { ...s.assignment },
     canBeAssigned: canBeAssigned(s),
     fitForWork: isFitForWork(s, gdrs.agentParameters),
     inBase: isInBase(s),
     away: isAway(s),
-    ableToFight: serving && isAbleToFight(s, gdrs.combatParameters, gdrs.agentParameters),
+    ableToFight: serving && isAbleToFight(values, gdrs.combatParameters, gdrs.agentParameters),
     participationHistory: s.participationHistory.map((item) => ({ ...item })),
     enemiesKilled: s.enemiesKilled,
     turnTerminated: s.turnTerminated,
     killedBy: s.killedBy === null ? null : { ...s.killedBy },
+    finalMaxHealth: s.finalMaxHealth,
+    finalWeaponDamage: s.finalWeaponDamage,
     healthRecoveryRateHundredths: serving
-      ? healthRecoveryRateHundredths(s.baseHealth, healthRecoveryPctHundredths)
+      ? healthRecoveryRateHundredths(values.maxHealth, healthRecoveryPctHundredths)
       : null,
     recoveryTurnsRemaining:
       serving && s.assignment?.kind === 'Recovery'
-        ? recoveryTurnsRemaining(s, healthRecoveryPctHundredths)
+        ? recoveryTurnsRemaining(values, healthRecoveryPctHundredths)
         : null,
   };
 }
@@ -139,12 +164,13 @@ function enemyView(enemy: Enemy, gdrs: GdrCatalog): EnemyView {
     missionSite: enemy.constants.missionSite,
     skill: s.skill,
     effectiveSkill: effectiveSkill(enemyCombatantValues(s), gdrs.agentParameters),
-    currentHealth: s.currentHealth,
+    currentHealth: s.baseHealth - s.healthLost,
+    healthLost: s.healthLost,
     baseHealth: s.baseHealth,
     exhaustion: s.exhaustion,
     weapon: s.weapon,
     weaponName: gdrs.weapons.get(s.weapon)?.name ?? s.weapon,
-    weaponDamage: s.weaponDamage,
+    weaponDamage: s.baseWeaponDamage,
   };
 }
 
@@ -226,7 +252,11 @@ function investigationView(
     investigation.state.lifecycle === 'Active'
       ? progressGain(
           working.length,
-          working.reduce((sum, agent) => sum + effectiveSkill(agent.state, gdrs.agentParameters), 0),
+          working.reduce(
+            (sum, agent) =>
+              sum + effectiveSkill(agentCombatant(agent.state, bonusOf(world, gdrs)), gdrs.agentParameters),
+            0,
+          ),
           gdrs.investigationParameters,
         )
       : null;
@@ -333,7 +363,9 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
     // ECON, Projected income and upkeep.
     projectedIncome: income(
       world.agency.state.funding,
-      contractingAtAssignment(agents).map((agent) => effectiveSkill(agent, gdrs.agentParameters)),
+      contractingAtAssignment(agents).map((agent) =>
+        effectiveSkill(agentCombatant(agent, bonusOf(world, gdrs)), gdrs.agentParameters),
+      ),
       gdrs.economy,
     ),
     projectedUpkeep: upkeep(serving, gdrs.economy),
@@ -367,7 +399,9 @@ export function currentStateView(state: CampaignState, gdrs: GdrCatalog): Curren
     agency: agencyView(world, gdrs),
     agents: Object.values(world.agents)
       .filter((agent) => isServing(agent.state))
-      .map((agent) => agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths)),
+      .map((agent) =>
+        agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths, bonusOf(world, gdrs)),
+      ),
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle === 'Active')
       .map((investigation) => investigationView(investigation, world, gdrs)),
@@ -406,7 +440,9 @@ export function historyView(state: CampaignState, gdrs: GdrCatalog): HistoryView
     retained: {
       agents: Object.values(world.agents)
         .filter((agent) => !isServing(agent.state))
-        .map((agent) => agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths)),
+        .map((agent) =>
+          agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths, bonusOf(world, gdrs)),
+        ),
       investigations: Object.values(world.investigations)
         .filter((investigation) => investigation.state.lifecycle !== 'Active')
         .map((investigation) => investigationView(investigation, world, gdrs)),
@@ -579,7 +615,12 @@ export function estimateTeamProgressGain(
     );
   }
   const skillSum = ids.reduce(
-    (sum, id) => sum + effectiveSkill(must(world.agents[id], `Agent ${id}`).state, gdrs.agentParameters),
+    (sum, id) =>
+      sum +
+      effectiveSkill(
+        agentCombatant(must(world.agents[id], `Agent ${id}`).state, bonusOf(world, gdrs)),
+        gdrs.agentParameters,
+      ),
     0,
   );
   return progressGain(ids.length, skillSum, gdrs.investigationParameters);
@@ -596,7 +637,7 @@ export function previewDeployment(
   const ids = Array.isArray(agentIds) ? agentIds.filter((id): id is string => typeof id === 'string') : [];
   const team = [...new Set(ids)].flatMap((id) => {
     const agent = world.agents[id];
-    return agent === undefined ? [] : [agent.state];
+    return agent === undefined ? [] : [agentCombatant(agent.state, bonusOf(world, gdrs))];
   });
   const site = typeof missionSite === 'string' ? world.missionSites[missionSite] : undefined;
   const rejection =

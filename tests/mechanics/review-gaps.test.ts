@@ -33,6 +33,8 @@ import {
   winning,
   withAgents,
   units,
+  setCurrentHealth,
+  effectiveValuesOf,
 } from '../helpers/game.ts';
 
 const invalid = (state: CampaignState, change: Parameters<typeof tweak>[1]) =>
@@ -80,7 +82,7 @@ describe('AGENT: gaps', () => {
     invalid(state, (world) => (world.agents[a2]!.state.status = 'InTransit'));
     invalid(state, (world) => {
       world.agents[a2]!.state.status = 'Killed';
-      world.agents[a2]!.state.currentHealthHundredths = 0;
+      setCurrentHealth(world.agents[a2]!.state, 0);
     });
   });
 });
@@ -257,7 +259,7 @@ describe('ECON and MISSION: gaps', () => {
     let state = withAgents(newCampaign({ money: 5000 }), 20);
     const ids = agentIds(state);
     state = tweak(state, (world) => {
-      world.agents[ids[0]!]!.state.currentHealthHundredths = 1000;
+      setCurrentHealth(world.agents[ids[0]!]!.state, 1000);
       world.agents[ids[0]!]!.state.assignment = { kind: 'Recovery' };
       world.agents[ids[0]!]!.state.status = 'Recovering';
     });
@@ -266,12 +268,36 @@ describe('ECON and MISSION: gaps', () => {
     expectRejected(state, 'hireAgent', {}, 'agent_cap');
   });
 
+  it('COMBAT, Combat inputs: a Combat reads the effective weapon damage and effective max health of an Agent', () => {
+    let state = newCampaign({ money: 5000 });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'max_health' });
+    const [a1] = agentIds(state) as [string];
+    const site = addMissionSite(state, 'apprehend_member');
+    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a1] });
+    state = advance(state, winning(state, site.site));
+    const participant = state.world.history.turnReport!.combatReports[0]!.participants.find(
+      (item) => item.id === a1,
+    )!;
+    expect(participant.start).toMatchObject({
+      weaponDamage: 11,
+      maxHealth: 31,
+      currentHealthHundredths: 3100,
+    });
+    // The hardest hit of an effective weapon damage of 11 is above the highest that 10 allows.
+    const hits = state.world.history.turnReport!.combatReports[0]!.log.filter((item) => item.attacker === a1);
+    expect(hits[0]!.damage).toBe(damageBounds(11, gdrs.combatParameters).hi);
+  });
+
   it('Weapon damage Upgrade: a later purchase also raises Agents created after an earlier one', () => {
     let state = newCampaign({ money: 5000 });
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
     state = act(state, 'hireAgent');
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    expect(agents(state).map((a) => a.state.weaponDamage)).toEqual([12, 12, 12, 12, 12]);
+    expect(agentIds(state).map((id) => effectiveValuesOf(state, id).weaponDamage)).toEqual([
+      12, 12, 12, 12, 12,
+    ]);
+    expect(agents(state).map((a) => a.state.baseWeaponDamage)).toEqual([10, 10, 10, 10, 10]);
   });
 
   it('Structure of a Deployed Mission site: an Expired Mission site with Turns until expiration 1 is invalid', () => {
@@ -358,7 +384,7 @@ describe('INVSTG and LEAD: gaps', () => {
     const i11 = Object.keys(state.world.current.investigations)[0]!;
     state = tweak(state, (world) => {
       world.agents[a7]!.state.status = 'AtAssignment';
-      world.agents[a3]!.state.currentHealthHundredths = 500;
+      setCurrentHealth(world.agents[a3]!.state, 500);
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
       world.agents[a3]!.state.status = 'Recovering';
     });

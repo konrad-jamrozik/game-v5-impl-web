@@ -30,6 +30,10 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `missions/mission_site_archetypes.yaml`: patched unchanged from specification commit
   `1d687e0d80958e13831a8689e2db9c14ceb66143` on 2026-11-19, writing `on_win`, `on_ignored_or_lost`, and
   `on_completion` as Effect lists.
+- `agent-recovery/recovery_parameters.yaml`, `agents/agent_archetypes.yaml`, `compendium/encyclopedia_articles.yaml`,
+  and `economy-and-upgrades/upgrades.yaml`: patched unchanged from specification commit
+  `9f17570197ece7aad7cfed35c432f25f581d8a2b` on 2026-11-19, renaming the Base health Upgrade to the Max health Upgrade
+  (`max_health`, effect `agent_max_health`) and its article to `max_health_article`, and rewording health comments.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

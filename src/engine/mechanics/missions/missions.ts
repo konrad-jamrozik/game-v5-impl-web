@@ -34,11 +34,11 @@ export function createEnemy(
     constants: { missionSite: missionSiteId },
     state: {
       skill: archetype.skill,
-      currentHealth: archetype.baseHealth,
+      healthLost: 0,
       baseHealth: archetype.baseHealth,
       exhaustion: 0,
       weapon: weapon.id,
-      weaponDamage: weapon.damage,
+      baseWeaponDamage: weapon.damage,
     },
   };
 }

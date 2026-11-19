@@ -23,16 +23,19 @@ import type {
 import { clampExhaustion, effectiveSkill, exhaustionOf } from '../agents/agents.ts';
 
 /**
- * The values of a Combatant that a Combat reads and changes, in the stored form of an Agent: base skill, current
- * health, and Exact exhaustion in hundredths, under NUMBERS, Decimal quantities. An Agent's state is one as it is; an
+ * The values of a Combatant that a Combat reads and changes, in the form of an Agent: base skill, current
+ * health, and Exact exhaustion in hundredths, under NUMBERS, Decimal quantities, with the effective values. An Agent's
+ * current health and Exact exhaustion are written back to its health lost and Exact exhaustion after the Combat; an
  * Enemy's whole values are multiplied by 100 before the Combat and divided back after it, which is exact because
  * every change a Combat makes is a whole number of points; see DEC-056.
  */
 export interface CombatantState {
   readonly skillHundredths: number;
   currentHealthHundredths: number;
-  readonly baseHealth: number;
+  /** The effective max health. */
+  readonly maxHealth: number;
   exactExhaustionHundredths: number;
+  /** The effective weapon damage. */
   readonly weaponDamage: number;
 }
 
@@ -146,7 +149,7 @@ export function fightCombat(input: {
         start: {
           skillHundredths: combatant.state.skillHundredths,
           currentHealthHundredths: combatant.state.currentHealthHundredths,
-          baseHealth: combatant.state.baseHealth,
+          maxHealth: combatant.state.maxHealth,
           exhaustion: exhaustionOf(combatant.state),
           weaponDamage: combatant.state.weaponDamage,
           effectiveSkill: effective,

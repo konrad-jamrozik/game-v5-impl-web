@@ -9,16 +9,28 @@ import { byInstanceId, formatInstanceId, must } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import {
   addExhaustion,
+  agentCombatantValues,
+  agentCurrentHealthHundredths,
   applyMissionGrowth,
   applyWorkExhaustion,
   effectiveSkill,
+  effectiveWeaponDamage,
   enemyCombatantValues,
   exhaustionOf,
   recordParticipation,
+  setAgentCurrentHealth,
+  terminateAgent,
   trainingGainProbability,
+  type CombatantValues,
 } from '../mechanics/agents/agents.ts';
 import { fightCombat } from '../mechanics/combat/combat.ts';
-import { fundingAfter, income, upgradedRates, upkeep } from '../mechanics/economy/economy.ts';
+import {
+  agentUpgradeBonus,
+  fundingAfter,
+  income,
+  upgradedRates,
+  upkeep,
+} from '../mechanics/economy/economy.ts';
 import { applyPendingPanicChange, checkEnding } from '../mechanics/endings/endings.ts';
 import {
   applyFactionActivity,
@@ -43,6 +55,7 @@ import type { Random } from '../random.ts';
 import { summarize } from '../state/summary.ts';
 import {
   isServing,
+  type AgentState,
   type AgentStatus,
   type CampaignState,
   type CombatReport,
@@ -93,6 +106,11 @@ export function applyAdvanceTurn(
     gdrs.upgrades,
     before.agency.state.acquisitions,
   );
+  // ECON, Weapon damage Upgrade and Max health Upgrade: no Upgrade is purchased in an Advance turn, so the effective
+  // values of every Serving Agent read one Upgrade bonus throughout.
+  const bonus = agentUpgradeBonus(gdrs.upgrades, before.agency.state.acquisitions);
+  const valuesOf = (agent: { readonly state: AgentState }): CombatantValues =>
+    agentCombatantValues(agent.state, bonus);
 
   /** Serving and not In transit, that is At assignment or Recovering. */
   const atItsAssignment = (
@@ -128,7 +146,7 @@ export function applyAdvanceTurn(
   );
   const incomeAmount = income(
     world.agency.state.funding,
-    contracting.map((agent) => effectiveSkill(agent.state, agentParameters)),
+    contracting.map((agent) => effectiveSkill(valuesOf(agent), agentParameters)),
     gdrs.economy,
   );
   world.agency.state.money += incomeAmount;
@@ -166,7 +184,7 @@ export function applyAdvanceTurn(
     if (agent.state.assignment?.kind === 'Training' && worksNow(agent.id)) {
       const gained = random.chance(
         `agent.trainingGain.${agent.id}`,
-        trainingGainProbability(agent.state, agentParameters),
+        trainingGainProbability(valuesOf(agent), agentParameters),
       );
       if (gained) {
         // AGENT, Training growth: no rounding occurs, as the sum of two Decimal quantities is one.
@@ -214,7 +232,7 @@ export function applyAdvanceTurn(
     const skillOf = new Map(
       workingMembers.map((member) => [
         member,
-        effectiveSkill(must(world.agents[member], `Agent ${member}`).state, agentParameters),
+        effectiveSkill(valuesOf(must(world.agents[member], `Agent ${member}`)), agentParameters),
       ]),
     );
     const skillSum = [...skillOf.values()].reduce((sum, skill) => sum + skill, 0);
@@ -358,11 +376,17 @@ export function applyAdvanceTurn(
     const siteEnemies = site.state.enemies.map((id) => must(world.enemies[id], `Enemy ${id}`));
     const enemyStates = siteEnemies.map((enemy) => ({
       ...enemyCombatantValues(enemy.state),
-      weaponDamage: enemy.state.weaponDamage,
+      weaponDamage: enemy.state.baseWeaponDamage,
+    }));
+    // An Agent fights with its effective max health, current health, and effective weapon damage; its current health
+    // and Exact exhaustion are written back after the Combat, current health as the health lost it leaves.
+    const agentStates = team.map((agent) => ({
+      ...agentCombatantValues(agent.state, bonus),
+      weaponDamage: effectiveWeaponDamage(agent.state, bonus),
     }));
     const report = fightCombat({
       missionId: mission.id,
-      agents: team.map((agent) => ({ id: agent.id, state: agent.state })),
+      agents: team.map((agent, index) => ({ id: agent.id, state: must(agentStates[index], 'Agent') })),
       enemies: siteEnemies.map((enemy, index) => ({
         id: enemy.id,
         state: must(enemyStates[index], 'Enemy'),
@@ -373,9 +397,16 @@ export function applyAdvanceTurn(
     });
     siteEnemies.forEach((enemy, index) => {
       const fought = must(enemyStates[index], 'Enemy');
-      enemy.state.currentHealth = fought.currentHealthHundredths / 100;
+      enemy.state.healthLost = enemy.state.baseHealth - fought.currentHealthHundredths / 100;
       enemy.state.exhaustion = fought.exactExhaustionHundredths / 100;
     });
+    team.forEach((agent, index) => {
+      const fought = must(agentStates[index], 'Agent');
+      setAgentCurrentHealth(agent.state, fought.currentHealthHundredths, bonus);
+      agent.state.exactExhaustionHundredths = fought.exactExhaustionHundredths;
+    });
+    const currentHealthOf = (agent: (typeof team)[number]): number =>
+      agentCurrentHealthHundredths(agent.state, bonus);
     combatReports.set(mission.id, report);
     // AGENT, Service record, and COMBAT, Killed and Incapacitated: each attack that leaves its defender dead raises
     // the attacking Agent's Enemies killed, or records the attacking Enemy and its Mission site as the Killed by of
@@ -403,18 +434,17 @@ export function applyAdvanceTurn(
     const toRecovery: string[] = [];
     const toStandby: string[] = [];
     // MISSION, Mission exhaustion: every survivor gains the same amount, from K Killed of the D sent.
-    const killedCount = team.filter((agent) => agent.state.currentHealthHundredths === 0).length;
+    const killedCount = team.filter((agent) => currentHealthOf(agent) === 0).length;
     const survivorExhaustion = missionExhaustion(killedCount, team.length, agentParameters);
     for (const agent of team) {
       recordParticipation(agent.state, 'Mission', mission.id);
-      if (agent.state.currentHealthHundredths === 0) {
-        agent.state.status = 'Killed';
-        agent.state.assignment = null;
-        // AGENT, Service record: the Turn that this Advance turn ends.
-        agent.state.turnTerminated = turn;
+      if (currentHealthOf(agent) === 0) {
+        // AGENT, Service record: the Turn that this Advance turn ends, and the Final max health and Final weapon
+        // damage.
+        terminateAgent(agent.state, 'Killed', turn, bonus);
         killed.push(agent.id);
       } else {
-        if (agent.state.currentHealthHundredths < agent.state.baseHealth * 100) {
+        if (agent.state.healthLostHundredths > 0) {
           agent.state.assignment = { kind: 'Recovery' };
           toRecovery.push(agent.id);
         } else {
@@ -631,18 +661,18 @@ export function applyAdvanceTurn(
   for (const agent of order(Object.values(world.agents))) {
     const kind = agent.state.assignment?.kind;
     if ((kind === 'Recovery' || kind === 'Standby') && worksNow(agent.id)) {
-      const health = agent.state.currentHealthHundredths;
+      const healthLost = agent.state.healthLostHundredths;
       const exactExhaustion = agent.state.exactExhaustionHundredths;
-      recoverAgent(agent.state, rates);
+      recoverAgent(agent.state, rates, bonus);
       const kindAfter: string | undefined = agent.state.assignment?.kind;
       if (
-        agent.state.currentHealthHundredths !== health ||
+        agent.state.healthLostHundredths !== healthLost ||
         agent.state.exactExhaustionHundredths !== exactExhaustion ||
         kind === 'Recovery'
       ) {
         recovery.push({
           agent: agent.id,
-          healthAfterHundredths: agent.state.currentHealthHundredths,
+          healthAfterHundredths: agentCurrentHealthHundredths(agent.state, bonus),
           exactExhaustionAfterHundredths: agent.state.exactExhaustionHundredths,
           exhaustionAfter: exhaustionOf(agent.state),
           recovered: kind === 'Recovery' && kindAfter === 'Standby',

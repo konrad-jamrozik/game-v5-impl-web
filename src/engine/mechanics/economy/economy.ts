@@ -11,6 +11,7 @@ import type {
   UpgradeGdr,
 } from '../../../gdr/index.ts';
 import { isServing, type AgentState } from '../../state/types.ts';
+import type { AgentUpgradeBonus } from '../agents/agents.ts';
 
 type Acquisitions = Readonly<Record<string, number>>;
 
@@ -48,6 +49,20 @@ export function wholeBonus(
   acquisitions: Acquisitions,
 ): number {
   return effectTotalHundredths(effect, upgrades, acquisitions) / 100;
+}
+
+/**
+ * ECON, Weapon damage Upgrade and Max health Upgrade: the Upgrade bonus of agent_weapon_damage and of agent_max_health,
+ * which the effective weapon damage and the effective max health of every Serving Agent add.
+ */
+export function agentUpgradeBonus(
+  upgrades: readonly UpgradeGdr[],
+  acquisitions: Acquisitions,
+): AgentUpgradeBonus {
+  return {
+    maxHealth: wholeBonus('agent_max_health', upgrades, acquisitions),
+    weaponDamage: wholeBonus('agent_weapon_damage', upgrades, acquisitions),
+  };
 }
 
 /** ECON, Agency caps: cap = base + Σ increment × acquisitions over the Upgrades of the cap's effect. */

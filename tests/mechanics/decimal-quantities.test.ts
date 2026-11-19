@@ -31,7 +31,7 @@ function values(skill: number, currentHealth: number, exhaustion: number) {
   return {
     skillHundredths: Math.round(skill * 100),
     currentHealthHundredths: Math.round(currentHealth * 100),
-    baseHealth: 30,
+    maxHealth: 30,
     exactExhaustionHundredths: Math.round(exhaustion * 100),
   };
 }

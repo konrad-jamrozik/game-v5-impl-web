@@ -1127,6 +1127,10 @@
 - **Why:** A field whose unit changed silently would be misread by any code not updated with it; the new names made
   every reader fail to compile until it was updated. One unit per Combat report field keeps the report uniform, and
   an Enemy's value in hundredths is still exactly its whole value.
+- **Update:** Specification revision 9f17570197ece7aad7cfed35c432f25f581d8a2b made current health a Derived value:
+  an Agent now stores `healthLostHundredths` and an Enemy `healthLost`, and a Combat holds an Agent, like an Enemy, in
+  a copy with its current health, effective max health, and effective weapon damage, whose current health and Exact
+  exhaustion are written back after it; see DEC-059.
 - **Links:** Specification revision 349ab4a4b2d9527ce37d2261cc36cfb26bd3b724.
 
 ## DEC-057: Undo and redo are checked against the Current world state, not complete Campaign state
@@ -1164,3 +1168,29 @@
 - **Why:** MISSION, Turn report, lists the gains with the rest of what resolving the Mission did, and the Combat
   report already holds the combat skill gain, so nothing is held twice.
 - **Links:** Specification revision 7985a451a43f4fcaba960b80ca50d8d888cc9cd0.
+
+## DEC-059: How the effective max health, current health, and effective weapon damage are held and reported
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** AGENT, Effective max health and current health, Effective weapon damage, Agent
+  properties, and Service record; COMBAT, Enemy properties and Combat report; ECON, Weapon damage Upgrade and Max
+  health Upgrade; ENG, Derived value consistency, which leaves how a Derived value is computed to the implementer.
+- **Description:** An Agent stores `healthLostHundredths`, `baseHealth`, `baseWeaponDamage`, and, once Terminated,
+  `finalMaxHealth` and `finalWeaponDamage`; an Enemy stores `healthLost` and `baseWeaponDamage`. No Upgrade purchase
+  changes an Agent: the effective max health, current health, and effective weapon damage are computed from the
+  Upgrade bonus of the World state each time a rule or a view reads them, by `effectiveMaxHealth`,
+  `agentCurrentHealthHundredths`, and `effectiveWeaponDamage`. A rule that changes current health, i.e. a Combat or
+  Agent recovery, changes the health lost by the opposite amount. The Agent view reports `currentHealthHundredths`,
+  `healthLostHundredths`, `baseHealth`, `effectiveMaxHealth`, `baseWeaponDamage`, `effectiveWeaponDamage`,
+  `finalMaxHealth`, and `finalWeaponDamage`; a Combat report participant's starting values hold `maxHealth`, the
+  effective max health, and `weaponDamage`, the effective weapon damage. The Agents View shows the effective max
+  health under current health and in the Memorial, and the effective weapon damage in the Damage column and the
+  Agent details. The Save format number moved from 9 to 10, because a Save of the earlier format holds current
+  health and upgraded base values instead of health lost.
+- **Options considered:** Keeping current health stored and moving it with each purchase; storing health lost and
+  deriving the rest. Naming the Agent view fields for the effective values; reusing the old field names with the
+  new meaning.
+- **Option chosen:** Storing health lost and deriving the rest, with fields named for the effective values.
+- **Why:** The specifications make health lost the stored value and require that buying an Upgrade rewrites no
+  Agent value; a field whose meaning changed under an old name would be misread by code not updated with it.
+- **Links:** Specification revision 9f17570197ece7aad7cfed35c432f25f581d8a2b.

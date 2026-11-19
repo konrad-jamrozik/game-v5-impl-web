@@ -8,6 +8,8 @@ import {
   reachesActualRequiredProgress,
   requiredProgressRange,
 } from '../mechanics/investigations/investigations.ts';
+import { effectiveMaxHealth } from '../mechanics/agents/agents.ts';
+import { agentUpgradeBonus } from '../mechanics/economy/economy.ts';
 import { isServing, type CampaignState } from './types.ts';
 
 export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[] {
@@ -77,29 +79,39 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
   }
 
   // AGENT, Agent status, Attribute ranges and Orders.
+  const bonus = agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
   for (const agent of Object.values(world.agents)) {
     const s = agent.state;
     const where = `AGENT ${agent.id}`;
     if (agent.archetype !== gdrs.agentArchetype.id || agent.constants.agency !== world.agency.id) {
       fail(`${where}: Archetype or Agency does not resolve`);
     }
-    if (!gdrs.weapons.has(s.weapon) || s.weaponDamage < 1) {
-      fail(`${where}: Weapon does not resolve or weapon damage is below 1`);
+    if (!gdrs.weapons.has(s.weapon) || s.baseWeaponDamage < 1) {
+      fail(`${where}: Weapon does not resolve or base weapon damage is below 1`);
     }
+    // AGENT, Service record: Final max health and Final weapon damage are present exactly when Terminated.
+    if (
+      isServing(s) !== (s.finalMaxHealth === null) ||
+      isServing(s) !== (s.finalWeaponDamage === null) ||
+      (s.finalMaxHealth !== null && s.finalMaxHealth < s.baseHealth) ||
+      (s.finalWeaponDamage !== null && s.finalWeaponDamage < s.baseWeaponDamage)
+    ) {
+      fail(
+        `${where}: Final max health or Final weapon damage is not present exactly when the Agent is Terminated`,
+      );
+    }
+    const maxHealth = effectiveMaxHealth(s, bonus);
+    const currentHealthHundredths = maxHealth * 100 - s.healthLostHundredths;
     if (
       s.skillHundredths < 0 ||
       s.baseHealth < 1 ||
-      s.currentHealthHundredths < 0 ||
-      s.currentHealthHundredths > s.baseHealth * 100
+      s.healthLostHundredths < 0 ||
+      s.healthLostHundredths > maxHealth * 100
     ) {
       fail(`${where}: skill or health is outside its range`);
     }
-    if (
-      isServing(s) &&
-      s.assignment?.kind !== 'Recovery' &&
-      s.currentHealthHundredths !== s.baseHealth * 100
-    ) {
-      fail(`${where}: Serving and not on Recovery with current health below its base health`);
+    if (isServing(s) && s.assignment?.kind !== 'Recovery' && s.healthLostHundredths !== 0) {
+      fail(`${where}: Serving and not on Recovery with current health below its effective max health`);
     }
     if (s.exactExhaustionHundredths < 0) {
       fail(`${where}: exhaustion is outside its range`);
@@ -110,7 +122,7 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     if ((s.status === 'Recovering') !== (s.assignment?.kind === 'Recovery' && s.status !== 'InTransit')) {
       fail(`${where}: Recovering does not agree with a Recovery assignment that is not In transit`);
     }
-    if ((s.status === 'Killed') !== (s.currentHealthHundredths === 0)) {
+    if ((s.status === 'Killed') !== (currentHealthHundredths === 0)) {
       fail(`${where}: current health does not agree with the Agent status`);
     }
     // AGENT, Agent properties: Turn terminated is present exactly when Terminated, Killed by exactly when Killed.
@@ -277,10 +289,10 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
       !gdrs.weapons.has(s.weapon) ||
       s.skill < 0 ||
       s.baseHealth < 1 ||
-      s.currentHealth < 0 ||
-      s.currentHealth > s.baseHealth ||
+      s.healthLost < 0 ||
+      s.healthLost > s.baseHealth ||
       s.exhaustion < 0 ||
-      s.weaponDamage < 1
+      s.baseWeaponDamage < 1
     ) {
       fail(`COMBAT ${enemy.id}: a value is outside its range or a reference does not resolve`);
     }

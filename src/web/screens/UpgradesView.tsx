@@ -46,10 +46,12 @@ function change(upgrade: UpgradeView, state: CurrentStateView): { kind: string; 
       text: `${rate.name} ${decimalText(now)}${rate.unit} → ${decimalText(now + upgrade.incrementHundredths)}${rate.unit}`,
     };
   }
-  if (upgrade.effect === 'agent_base_health') {
-    return { kind: 'Base health Upgrade', text: `+${upgrade.incrementHundredths / 100} base health` };
+  // UVIEW, Upgrade cards: the Increment added to the effective max health or the effective weapon damage of every
+  // Serving Agent, e.g. "+1 max health".
+  if (upgrade.effect === 'agent_max_health') {
+    return { kind: 'Max health Upgrade', text: `+${upgrade.incrementHundredths / 100} max health` };
   }
-  return { kind: 'Weapon damage Upgrade', text: `+${upgrade.incrementHundredths / 100} base weapon damage` };
+  return { kind: 'Weapon damage Upgrade', text: `+${upgrade.incrementHundredths / 100} weapon damage` };
 }
 
 export function UpgradesView(props: {

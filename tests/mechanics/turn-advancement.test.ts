@@ -27,6 +27,8 @@ import {
   winning,
   withAgents,
   units,
+  setCurrentHealth,
+  currentHealthOf,
 } from '../helpers/game.ts';
 
 const set = (
@@ -139,7 +141,7 @@ describe('TURN: examples', () => {
     const report = state.world.history.turnReport!;
     expect(report.missions[0]).toMatchObject({ result: 'Won', consequence: { money: 5, panicReduction: 1 } });
     expect(report.upkeep.servingAgents).toBe(4);
-    const wounded = [a1, a2].find((id) => agent(state, id).state.currentHealthHundredths / 100 < 30)!;
+    const wounded = [a1, a2].find((id) => currentHealthOf(agent(state, id).state) / 100 < 30)!;
     const unharmed = [a1, a2].find((id) => id !== wounded)!;
     expect(units(agent(state, wounded).state)).toMatchObject({
       currentHealth: 18,
@@ -531,11 +533,11 @@ describe('TURN: Values a step uses, as a property', () => {
       const tired = world.agents[ids[19]!]!.state;
       tired.exactExhaustionHundredths = 4000;
       const hurt = world.agents[ids[18]!]!.state;
-      hurt.currentHealthHundredths = 2900;
+      setCurrentHealth(hurt, 2900);
       hurt.assignment = { kind: 'Recovery' };
       hurt.status = 'Recovering';
       const hurt2 = world.agents[ids[17]!]!.state;
-      hurt2.currentHealthHundredths = 1200;
+      setCurrentHealth(hurt2, 1200);
       hurt2.exactExhaustionHundredths = 3000;
       hurt2.assignment = { kind: 'Recovery' };
       hurt2.status = 'Recovering';

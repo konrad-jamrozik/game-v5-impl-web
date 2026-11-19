@@ -39,6 +39,9 @@ import {
   units,
   winning,
   withAgents,
+  setCurrentHealth,
+  valuesOf,
+  currentHealthOf,
 } from '../helpers/game.ts';
 
 /** A Combatant's values in units, e.g. current health 28.67, held in hundredths as an Agent holds them. */
@@ -46,7 +49,7 @@ function values(skill: number, currentHealth: number, baseHealth: number, exhaus
   return {
     skillHundredths: Math.round(skill * 100),
     currentHealthHundredths: Math.round(currentHealth * 100),
-    baseHealth,
+    maxHealth: baseHealth,
     exactExhaustionHundredths: Math.round(exhaustion * 100),
   };
 }
@@ -62,7 +65,7 @@ describe('AGENT: Agent status', () => {
         tweak(state, (world) => {
           // Only an Agent on Recovery may be below its base health.
           if (kind === 'Recovery') {
-            world.agents[a1]!.state.currentHealthHundredths = 2000;
+            setCurrentHealth(world.agents[a1]!.state, 2000);
           }
           world.agents[a1]!.state.assignment = { kind };
           world.agents[a1]!.state.status = status;
@@ -80,7 +83,7 @@ describe('AGENT: Agent status', () => {
     let state = newCampaign();
     const [a1] = agentIds(state) as [string];
     state = setAssignment(state, [a1], 'Recovery', 'InTransit');
-    state = tweak(state, (world) => (world.agents[a1]!.state.currentHealthHundredths = 2000));
+    state = tweak(state, (world) => setCurrentHealth(world.agents[a1]!.state, 2000));
     state = advance(state);
     expect(units(agent(state, a1).state)).toMatchObject({
       currentHealth: 20,
@@ -138,19 +141,22 @@ describe('AGENT: examples', () => {
       expect(a.state).toEqual({
         skillHundredths: 10000,
         experience: 0,
-        currentHealthHundredths: 3000,
+        healthLostHundredths: 0,
         baseHealth: 30,
         exactExhaustionHundredths: 0,
         weapon: 'sidearm',
-        weaponDamage: 10,
+        baseWeaponDamage: 10,
         assignment: { kind: 'Standby' },
         status: 'AtAssignment',
         participationHistory: [],
         enemiesKilled: 0,
         turnTerminated: null,
         killedBy: null,
+        finalMaxHealth: null,
+        finalWeaponDamage: null,
       });
-      expect(effectiveSkill(a.state, p)).toBe(100);
+      expect(currentHealthOf(a.state)).toBe(3000);
+      expect(effectiveSkill(valuesOf(a.state), p)).toBe(100);
       expect(canBeAssigned(a.state)).toBe(true);
     }
     const view = currentStateView(state, gdrs);
@@ -200,7 +206,7 @@ describe('AGENT: examples', () => {
       currentHealth: 30,
       exhaustion: 0,
       weapon: 'sidearm',
-      weaponDamage: 10,
+      baseWeaponDamage: 10,
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
@@ -278,7 +284,7 @@ describe('AGENT: examples', () => {
       status: 'AtAssignment',
     });
     // At exhaustion of at most 30 and full health the Training gain Probability is 1: no injected outcome is needed.
-    expect(trainingGainProbability(agent(state, a1).state, p).eq(1)).toBe(true);
+    expect(trainingGainProbability(valuesOf(agent(state, a1).state), p).eq(1)).toBe(true);
     state = advance(state);
     expect([
       agent(state, a1).state.skillHundredths / 100,
@@ -287,7 +293,7 @@ describe('AGENT: examples', () => {
     expect(agent(state, a1).state.exactExhaustionHundredths / 100).toBe(1);
     state = advance(state);
     expect(units(agent(state, a1).state)).toMatchObject({ skill: 102, exhaustion: 2 });
-    expect(effectiveSkill(agent(state, a1).state, p)).toBe(102);
+    expect(effectiveSkill(valuesOf(agent(state, a1).state), p)).toBe(102);
     // Recalled to Standby at once, without transit; it recovers its exhaustion of 2.
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
     expect(units(agent(state, a1).state)).toMatchObject({
@@ -309,7 +315,7 @@ describe('AGENT: examples', () => {
     const [a2] = agentIds(state) as [string];
     state = setAssignment(state, [a2], 'Training');
     state = tweak(state, (world) => (world.agents[a2]!.state.exactExhaustionHundredths = 5000));
-    expect(trainingGainProbability(agent(state, a2).state, p).eq(ratio(80, 100))).toBe(true);
+    expect(trainingGainProbability(valuesOf(agent(state, a2).state), p).eq(ratio(80, 100))).toBe(true);
     const outcome = `agent.trainingGain.${a2}`;
     const without = advance(state, { [outcome]: [false] });
     expect(units(agent(without, a2).state)).toMatchObject({ skill: 100, exhaustion: 51 });
@@ -429,13 +435,15 @@ describe('AGENT: examples', () => {
     state = setAssignment(state, [a5], 'Training');
     state = setAssignment(state, [a2], 'Standby', 'InTransit');
     state = tweak(state, (world) => {
-      world.agents[a3]!.state.currentHealthHundredths = 2000;
+      setCurrentHealth(world.agents[a3]!.state, 2000);
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
       world.agents[a3]!.state.status = 'Recovering';
       world.agents[a6]!.state.status = 'Killed';
       world.agents[a6]!.state.turnTerminated = 1;
+      world.agents[a6]!.state.finalMaxHealth = world.agents[a6]!.state.baseHealth;
+      world.agents[a6]!.state.finalWeaponDamage = world.agents[a6]!.state.baseWeaponDamage;
       world.agents[a6]!.state.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      world.agents[a6]!.state.currentHealthHundredths = 0;
+      setCurrentHealth(world.agents[a6]!.state, 0);
       world.agents[a6]!.state.assignment = null;
     });
     state = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [a7, a8] });
@@ -514,7 +522,7 @@ describe('AGENT: examples', () => {
       expect(units(a.state)).toMatchObject({
         skill: 100,
         currentHealth: 30,
-        weaponDamage: 10,
+        baseWeaponDamage: 10,
         assignment: { kind: 'Standby' },
         status: 'InTransit',
       });
@@ -531,7 +539,7 @@ describe('AGENT: examples', () => {
     const invalid = (change: Parameters<typeof tweak>[1]) =>
       expect(checkInvariants(tweak(state, change), gdrs).length).toBeGreaterThan(0);
     invalid((world) => (world.agents[a1]!.state.status = 'Killed'));
-    invalid((world) => (world.agents[a1]!.state.currentHealthHundredths = 0));
+    invalid((world) => setCurrentHealth(world.agents[a1]!.state, 0));
     invalid((world) => (world.agents[a1]!.state.exactExhaustionHundredths = -100));
     invalid((world) => (world.agents[a1]!.state.assignment = null));
     invalid((world) => (world.agents[a1]!.state.assignment = { kind: 'Deployed', mission: 'nowhere' }));
@@ -578,11 +586,11 @@ describe('AGENT: examples', () => {
     state = tweak(state, (world) => {
       world.agents[a1]!.state.skillHundredths = 10110;
       world.agents[a2]!.state.skillHundredths = 100_000;
-      world.agents[a2]!.state.currentHealthHundredths = 500;
+      setCurrentHealth(world.agents[a2]!.state, 500);
       // Every other Enemy is dead at Combat start, so it never attacks and is never a target.
-      world.enemies[soldier]!.state.currentHealth = 20;
+      world.enemies[soldier]!.state.healthLost = world.enemies[soldier]!.state.baseHealth - 20;
       for (const id of enemies.filter((item) => item !== soldier)) {
-        world.enemies[id]!.state.currentHealth = 0;
+        world.enemies[id]!.state.healthLost = world.enemies[id]!.state.baseHealth;
       }
     });
     const m1 = missionAt(state, created.site);
@@ -723,7 +731,7 @@ describe('AGENT: examples', () => {
     state = tweak(state, (world) => {
       // a1 on Standby, At assignment, but too exhausted to start work and hurt: still In base.
       world.agents[a1]!.state.exactExhaustionHundredths = 9000;
-      world.agents[a1]!.state.currentHealthHundredths = 100;
+      setCurrentHealth(world.agents[a1]!.state, 100);
       world.agents[a5]!.state.assignment = { kind: 'Recovery' };
       world.agents[a5]!.state.status = 'Recovering';
       world.agents[a6]!.state.assignment = { kind: 'Deployed', mission: 'mission-1' };

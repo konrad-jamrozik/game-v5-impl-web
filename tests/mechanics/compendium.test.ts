@@ -100,7 +100,7 @@ describe('COMP: examples', () => {
       'transport_cap_article',
       'training_cap_article',
       'weapon_damage_article',
-      'base_health_article',
+      'max_health_article',
       'training_skill_gain_article',
       'exhaustion_recovery_article',
       'health_recovery_article',

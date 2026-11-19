@@ -24,6 +24,8 @@ import {
   winning,
   withAgents,
   units,
+  setCurrentHealth,
+  effectiveValuesOf,
 } from '../helpers/game.ts';
 
 const agency = (state: CampaignState) => currentStateView(state, gdrs).agency;
@@ -59,14 +61,14 @@ describe('ECON: examples', () => {
       ['transport_cap', 0],
       ['training_cap', 0],
       ['weapon_damage', 0],
-      ['base_health', 0],
+      ['max_health', 0],
       ['training_skill_gain', 0],
       ['exhaustion_recovery', 0],
       ['health_recovery', 0],
     ]);
     expect(series(state)).toEqual({ start: [500], end: [] });
     expect(state.configuration).toEqual({ startingMoney: 500, startingFunding: 20 });
-    expect(agents(state).every((a) => a.state.weaponDamage === 10)).toBe(true);
+    expect(agents(state).every((a) => a.state.baseWeaponDamage === 10)).toBe(true);
     const rules = createGameRules(gdrs);
     const starting = rules.configurationValues.find((value) => value.key === 'startingMoney')!;
     expect(starting.adjustable).toBe(false);
@@ -161,13 +163,15 @@ describe('ECON: examples', () => {
     state = setAssignment(state, [a5], 'Contracting');
     state = setAssignment(state, [a6], 'Standby', 'InTransit');
     state = tweak(state, (world) => {
-      world.agents[a4]!.state.currentHealthHundredths = 2000;
+      setCurrentHealth(world.agents[a4]!.state, 2000);
       world.agents[a4]!.state.assignment = { kind: 'Recovery' };
       world.agents[a4]!.state.status = 'Recovering';
       world.agents[a7]!.state.status = 'Killed';
       world.agents[a7]!.state.turnTerminated = 1;
+      world.agents[a7]!.state.finalMaxHealth = world.agents[a7]!.state.baseHealth;
+      world.agents[a7]!.state.finalWeaponDamage = world.agents[a7]!.state.baseWeaponDamage;
       world.agents[a7]!.state.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      world.agents[a7]!.state.currentHealthHundredths = 0;
+      setCurrentHealth(world.agents[a7]!.state, 0);
       world.agents[a7]!.state.assignment = null;
     });
     state = act(state, 'dismissAgents', { agents: [a8] });
@@ -232,8 +236,10 @@ describe('ECON: examples', () => {
       const dead = world.agents[ids[20]!]!.state;
       dead.status = 'Killed';
       dead.turnTerminated = 1;
+      dead.finalMaxHealth = dead.baseHealth;
+      dead.finalWeaponDamage = dead.baseWeaponDamage;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      dead.currentHealthHundredths = 0;
+      setCurrentHealth(dead, 0);
       dead.assignment = null;
       world.agents[ids[0]!]!.state.status = 'InTransit';
     });
@@ -264,8 +270,10 @@ describe('ECON: examples', () => {
       const dead = world.agents[a6]!.state;
       dead.status = 'Killed';
       dead.turnTerminated = 1;
+      dead.finalMaxHealth = dead.baseHealth;
+      dead.finalWeaponDamage = dead.baseWeaponDamage;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      dead.currentHealthHundredths = 0;
+      setCurrentHealth(dead, 0);
       dead.assignment = null;
     });
     const site = addMissionSite(state, 'apprehend_member');
@@ -345,24 +353,32 @@ describe('ECON: examples', () => {
     state = setAssignment(state, [a4], 'Standby', 'InTransit');
     state = act(state, 'dismissAgents', { agents: [a6] });
     state = tweak(state, (world) => {
-      world.agents[a3]!.state.currentHealthHundredths = 1000;
+      setCurrentHealth(world.agents[a3]!.state, 1000);
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
       world.agents[a3]!.state.status = 'InTransit';
       const dead = world.agents[a5]!.state;
       dead.status = 'Killed';
       dead.turnTerminated = 1;
+      dead.finalMaxHealth = dead.baseHealth;
+      dead.finalWeaponDamage = dead.baseWeaponDamage;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      dead.currentHealthHundredths = 0;
+      setCurrentHealth(dead, 0);
       dead.assignment = null;
     });
     const site = addMissionSite(state, 'apprehend_member');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a2] });
     const damages = (s: CampaignState) =>
-      [a1, a2, a3, a4, a5, a6].map((id) => agent(s, id).state.weaponDamage);
+      [a1, a2, a3, a4, a5, a6].map((id) => effectiveValuesOf(s, id).weaponDamage);
+    const before = state;
 
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
     expect(money(state)).toBe(100);
     expect(damages(state)).toEqual([11, 11, 11, 11, 10, 10]);
+    // AGENT, Modifiable values: buying the Upgrade rewrites no Agent value, and a Terminated Agent keeps its Final
+    // weapon damage.
+    expect(agents(state)).toEqual(agents(before));
+    expect(agents(state).every((a) => a.state.baseWeaponDamage === 10)).toBe(true);
+    expect(agent(state, a5).state.finalWeaponDamage).toBe(10);
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' }, 'not_enough_money');
     state = act(state, 'addMoney', { amount: 900 }, 'developer');
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
@@ -372,39 +388,50 @@ describe('ECON: examples', () => {
     state = act(state, 'addAgents', { count: 1 }, 'developer');
     expect(money(state)).toBe(450);
     expect(
-      agents(state)
+      agentIds(state)
         .slice(6)
-        .map((a) => a.state.weaponDamage),
+        .map((id) => effectiveValuesOf(state, id).weaponDamage),
     ).toEqual([12, 12]);
-    expect(Object.values(state.world.current.enemies).every((e) => e.state.weaponDamage === 10)).toBe(true);
+    expect(Object.values(state.world.current.enemies).every((e) => e.state.baseWeaponDamage === 10)).toBe(
+      true,
+    );
+    // An Agent dismissed after the purchases records the effective weapon damage it had as its Final weapon damage.
+    state = act(setAssignment(state, [a4], 'Standby'), 'dismissAgents', { agents: [a4] });
+    expect(agent(state, a4).state.finalWeaponDamage).toBe(12);
+    state = act(state, 'addMoney', { amount: 500 }, 'developer');
+    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
+    expect(damages(state)).toEqual([13, 13, 13, 12, 10, 10]);
     expect(gdrs.weapons.get('sidearm')!.damage).toBe(10);
   });
 
-  it('Base health and Rate Upgrades', () => {
+  it('Max health and Rate Upgrades', () => {
     let state = withAgents(setMoney(newCampaign(), 2050), 4);
     const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
     state = setAssignment(state, [a3], 'Training');
     state = tweak(state, (world) => {
       world.agents[a1]!.state.exactExhaustionHundredths = 1200;
       const recovering = world.agents[a2]!.state;
-      recovering.currentHealthHundredths = 2000;
+      setCurrentHealth(recovering, 2000);
       recovering.exactExhaustionHundredths = 800;
       recovering.assignment = { kind: 'Recovery' };
       recovering.status = 'Recovering';
       const dead = world.agents[a4]!.state;
       dead.status = 'Killed';
       dead.turnTerminated = 1;
+      dead.finalMaxHealth = dead.baseHealth;
+      dead.finalWeaponDamage = dead.baseWeaponDamage;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      dead.currentHealthHundredths = 0;
+      setCurrentHealth(dead, 0);
       dead.exactExhaustionHundredths = 4000;
       dead.assignment = null;
     });
     const health = (s: CampaignState, id: string) => {
-      const { currentHealthHundredths, baseHealth } = agent(s, id).state;
-      return [currentHealthHundredths / 100, baseHealth];
+      const { currentHealth, maxHealth } = effectiveValuesOf(s, id);
+      return [currentHealth, maxHealth];
     };
+    const beforePurchase = state;
 
-    state = act(state, 'purchaseUpgrade', { upgrade: 'base_health' });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'max_health' });
     expect(money(state)).toBe(1550);
     expect([a1, a2, a3, a4].map((id) => health(state, id))).toEqual([
       [31, 31],
@@ -412,14 +439,17 @@ describe('ECON: examples', () => {
       [31, 31],
       [0, 30],
     ]);
+    // AGENT, Effective max health and current health: the purchase rewrites no Agent value.
+    expect(agents(state)).toEqual(agents(beforePurchase));
     state = act(state, 'hireAgent');
     expect(money(state)).toBe(1500);
     const a5 = agentIds(state).at(-1)!;
-    expect(units(agent(state, a5).state)).toMatchObject({
+    expect(agent(state, a5).state).toMatchObject({
       status: 'InTransit',
-      currentHealthHundredths: 3100,
-      baseHealth: 31,
+      healthLostHundredths: 0,
+      baseHealth: 30,
     });
+    expect(health(state, a5)).toEqual([31, 31]);
     const before = state;
     state = act(state, 'purchaseUpgrade', { upgrade: 'exhaustion_recovery' });
     // ECON, Rate Upgrades: 5 + 0.5 × 1 = 5.50, 2 + 0.2 × 1 = 2.20, and 1 + 0.1 × 1 = 1.10, held in hundredths.
@@ -438,15 +468,26 @@ describe('ECON: examples', () => {
     expect(agent(state, a3).state.skillHundredths).toBe(10110);
     expect(agent(state, a1).state.exactExhaustionHundredths).toBe(650);
     expect(exhaustionOf(agent(state, a1).state)).toBe(7);
-    expect(units(agent(state, a2).state)).toMatchObject({
+    expect(units(agent(state, a2).state, 1)).toMatchObject({
       exactExhaustionHundredths: 250,
       currentHealthHundredths: 2169,
-      baseHealth: 31,
+      baseHealth: 30,
     });
+    expect(health(state, a2)).toEqual([21.69, 31]);
     expect(exhaustionOf(agent(state, a2).state)).toBe(3);
     state = advance(state);
     // In the next Advance turn a1 falls to Exact exhaustion 1, where without the Upgrade it would be 2.
     expect(agent(state, a1).state.exactExhaustionHundredths).toBe(100);
+    // AGENT, Service record: an Agent dismissed now keeps its effective max health as its Final max health, and a
+    // later purchase changes it no more.
+    state = act(state, 'dismissAgents', { agents: [a1] });
+    expect(agent(state, a1).state.finalMaxHealth).toBe(31);
+    state = act(state, 'addMoney', { amount: 500 }, 'developer');
+    state = act(state, 'purchaseUpgrade', { upgrade: 'max_health' });
+    expect([a1, a3].map((id) => health(state, id))).toEqual([
+      [31, 31],
+      [32, 32],
+    ]);
   });
 
   it('Purchase rejections and exact affordability', () => {

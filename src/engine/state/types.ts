@@ -62,14 +62,19 @@ export interface AgentState {
   skillHundredths: number;
   /** AGENT, Agent properties: Experience, the base skill gained from Missions; only Mission growth changes it. */
   experience: number;
-  /** Current health, a Decimal quantity held in hundredths. */
-  currentHealthHundredths: number;
+  /**
+   * AGENT, Effective max health and current health: health lost, a Decimal quantity held in hundredths. Current health
+   * is a Derived value, effective max health less health lost.
+   */
+  healthLostHundredths: number;
+  /** AGENT, Agent properties: base health; no rule changes it after creation. */
   baseHealth: number;
   /** AGENT, Exhaustion and Exact exhaustion: the stored Exact exhaustion, held in hundredths. */
   exactExhaustionHundredths: number;
   /** A reference to the Weapon GDR. */
   weapon: string;
-  weaponDamage: number;
+  /** AGENT, Agent properties: base weapon damage; no rule changes it after creation. */
+  baseWeaponDamage: number;
   /** Present exactly when the Agent is Serving. */
   assignment: Assignment | null;
   participationHistory: Participation[];
@@ -79,6 +84,12 @@ export interface AgentState {
   turnTerminated: number | null;
   /** AGENT, Service record: present exactly when the Agent is Killed. */
   killedBy: KilledBy | null;
+  /** AGENT, Service record: the effective max health the Agent had when it became Terminated; present exactly then. */
+  finalMaxHealth: number | null;
+  /**
+   * AGENT, Service record: the effective weapon damage the Agent had when it became Terminated; present exactly then.
+   */
+  finalWeaponDamage: number | null;
 }
 /** AGENT, Agent properties: the Enemy whose attack made a Killed Agent dead, and that Enemy's Mission site. */
 export interface KilledBy {
@@ -173,11 +184,12 @@ export interface EnemyConstants {
 
 export interface EnemyState {
   skill: number;
-  currentHealth: number;
+  /** AGENT, Effective max health and current health: an Enemy's current health is its base health less this. */
+  healthLost: number;
   baseHealth: number;
   exhaustion: number;
   weapon: string;
-  weaponDamage: number;
+  baseWeaponDamage: number;
 }
 export type Enemy = Instance<EnemyConstants, EnemyState>;
 
@@ -196,8 +208,10 @@ export interface CombatParticipantReport {
   readonly start: {
     readonly skillHundredths: number;
     readonly currentHealthHundredths: number;
-    readonly baseHealth: number;
+    /** The effective max health. */
+    readonly maxHealth: number;
     readonly exhaustion: number;
+    /** The effective weapon damage. */
     readonly weaponDamage: number;
     readonly effectiveSkill: number;
     readonly incapacitated: boolean;
@@ -451,9 +465,9 @@ export interface HistoryEntry {
       readonly combatOutcome: CombatOutcome;
       readonly combatRounds: number;
       readonly killed: readonly string[];
-      /** Agents that survived with current health below base health. */
+      /** Agents that survived with current health below effective max health. */
       readonly wounded: readonly string[];
-      /** Agents that survived with current health equal to base health. */
+      /** Agents that survived with current health equal to effective max health. */
       readonly unharmed: readonly string[];
     }[];
     /** INVSTG, Turn report: the same list as the Turn report, unreduced. */

@@ -46,7 +46,7 @@ describe('COMBAT: examples', () => {
       expect(enemy).toEqual({
         skillHundredths: skill * 100,
         currentHealthHundredths: health * 100,
-        baseHealth: health,
+        maxHealth: health,
         exactExhaustionHundredths: 0,
         weaponDamage: damage,
       });
@@ -86,7 +86,7 @@ describe('COMBAT: examples', () => {
             state: {
               skillHundredths: d * 100,
               currentHealthHundredths: 3000,
-              baseHealth: 30,
+              maxHealth: 30,
               exactExhaustionHundredths: 0,
               weaponDamage: 10,
             },
@@ -298,7 +298,7 @@ describe('COMBAT: examples', () => {
       state: {
         skillHundredths: 0,
         currentHealthHundredths: 2000,
-        baseHealth: 20,
+        maxHealth: 20,
         exactExhaustionHundredths: 0,
         weaponDamage: 10,
       },

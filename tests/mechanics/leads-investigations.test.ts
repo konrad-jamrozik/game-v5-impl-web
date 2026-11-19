@@ -39,6 +39,8 @@ import {
   winning,
   withAgents,
   units,
+  setCurrentHealth,
+  valuesOf,
 } from '../helpers/game.ts';
 
 const leads = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
@@ -109,7 +111,7 @@ function winLead(state: CampaignState, lead: string): CampaignState {
       if (isServing(item.state)) {
         item.state.skillHundredths = 10000;
         item.state.experience = 0;
-        item.state.currentHealthHundredths = item.state.baseHealth * 100;
+        setCurrentHealth(item.state, item.state.baseHealth * 100);
         item.state.exactExhaustionHundredths = 0;
         item.state.assignment = { kind: 'Standby' };
       }
@@ -234,7 +236,7 @@ describe('LEAD: examples', () => {
     state = tweak(arrive(state), (world) => {
       for (const item of Object.values(world.agents)) {
         if (isServing(item.state)) {
-          item.state.currentHealthHundredths = item.state.baseHealth * 100;
+          setCurrentHealth(item.state, item.state.baseHealth * 100);
           item.state.assignment = { kind: 'Standby' };
         }
       }
@@ -553,7 +555,7 @@ describe('INVSTG: examples', () => {
       exhaustion: 4,
       participationHistory: [{ kind: 'Investigation', id: i1.id }],
     });
-    expect(effectiveSkill(agent(state, a1).state, gdrs.agentParameters)).toBe(100);
+    expect(effectiveSkill(valuesOf(agent(state, a1).state), gdrs.agentParameters)).toBe(100);
     expect(historyView(state, gdrs).retained.investigations[0]).toMatchObject({
       id: i1.id,
       projectedProgressGain: null,
@@ -1048,7 +1050,7 @@ describe('INVSTG: examples', () => {
     state = setAssignment(state, [a1], 'Contracting');
     state = setAssignment(state, [a2], 'Standby', 'InTransit');
     state = tweak(state, (world) => {
-      world.agents[a3]!.state.currentHealthHundredths = 500;
+      setCurrentHealth(world.agents[a3]!.state, 500);
       world.agents[a3]!.state.assignment = { kind: 'Recovery' };
       world.agents[a3]!.state.status = 'Recovering';
     });

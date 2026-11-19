@@ -8,28 +8,110 @@ import type { AgentArchetypeGdr, AgentParametersGdr, WeaponGdr } from '../../../
 import type { Agent, AgentState, Assignment } from '../../state/types.ts';
 
 /**
- * The values of a Combatant that effective skill reads, in the stored form of an Agent: base skill, current health,
- * and Exact exhaustion in hundredths, under NUMBERS, Decimal quantities. An Enemy's whole values are read through
- * enemyCombatantValues.
+ * The values of a Combatant that effective skill reads, in the form of an Agent: base skill, current health, and Exact
+ * exhaustion in hundredths, under NUMBERS, Decimal quantities, and the effective max health. An Agent's are read
+ * through agentCombatantValues and an Enemy's through enemyCombatantValues.
  */
 export interface CombatantValues {
   readonly skillHundredths: number;
   readonly currentHealthHundredths: number;
-  readonly baseHealth: number;
+  /** AGENT, Effective max health and current health: the effective max health, a whole number of at least 1. */
+  readonly maxHealth: number;
   readonly exactExhaustionHundredths: number;
 }
 
-/** The values of an Enemy, whose base skill, current health, and exhaustion are whole numbers, as CombatantValues. */
+/**
+ * ECON, Upgrade bonus: what the Agency's acquired Upgrades add to the max health and to the weapon damage of every
+ * Serving Agent; see AGENT, Effective max health and current health, and Effective weapon damage.
+ */
+export interface AgentUpgradeBonus {
+  readonly maxHealth: number;
+  readonly weaponDamage: number;
+}
+
+/**
+ * AGENT, Effective max health and current health: an Agent's effective max health is its Final max health when it is
+ * Terminated, and otherwise its base health plus the Upgrade bonus of agent_max_health.
+ */
+export function effectiveMaxHealth(
+  agent: Pick<AgentState, 'baseHealth' | 'finalMaxHealth'>,
+  bonus: AgentUpgradeBonus,
+): number {
+  return agent.finalMaxHealth ?? agent.baseHealth + bonus.maxHealth;
+}
+
+/** AGENT, Effective max health and current health: current health = effective max health − health lost, in hundredths. */
+export function agentCurrentHealthHundredths(
+  agent: Pick<AgentState, 'baseHealth' | 'finalMaxHealth' | 'healthLostHundredths'>,
+  bonus: AgentUpgradeBonus,
+): number {
+  return effectiveMaxHealth(agent, bonus) * 100 - agent.healthLostHundredths;
+}
+
+/**
+ * AGENT, Effective weapon damage: an Agent's is its Final weapon damage when it is Terminated, and otherwise its base
+ * weapon damage plus the Upgrade bonus of agent_weapon_damage.
+ */
+export function effectiveWeaponDamage(
+  agent: Pick<AgentState, 'baseWeaponDamage' | 'finalWeaponDamage'>,
+  bonus: AgentUpgradeBonus,
+): number {
+  return agent.finalWeaponDamage ?? agent.baseWeaponDamage + bonus.weaponDamage;
+}
+
+/** The values of an Agent as CombatantValues. */
+export function agentCombatantValues(agent: AgentState, bonus: AgentUpgradeBonus): CombatantValues {
+  return {
+    skillHundredths: agent.skillHundredths,
+    currentHealthHundredths: agentCurrentHealthHundredths(agent, bonus),
+    maxHealth: effectiveMaxHealth(agent, bonus),
+    exactExhaustionHundredths: agent.exactExhaustionHundredths,
+  };
+}
+
+/**
+ * AGENT, Effective max health and current health: a rule that changes current health changes health lost by the
+ * opposite amount, so setting current health stores the health lost it leaves.
+ */
+export function setAgentCurrentHealth(
+  agent: AgentState,
+  currentHealthHundredths: number,
+  bonus: AgentUpgradeBonus,
+): void {
+  agent.healthLostHundredths = effectiveMaxHealth(agent, bonus) * 100 - currentHealthHundredths;
+}
+
+/**
+ * AGENT, Service record: an Agent that becomes Terminated loses its Assignment and records Turn terminated, and its
+ * Final max health and Final weapon damage from the World state before it became Terminated.
+ */
+export function terminateAgent(
+  agent: AgentState,
+  status: 'Killed' | 'Dismissed',
+  turn: number,
+  bonus: AgentUpgradeBonus,
+): void {
+  agent.finalMaxHealth = effectiveMaxHealth(agent, bonus);
+  agent.finalWeaponDamage = effectiveWeaponDamage(agent, bonus);
+  agent.status = status;
+  agent.assignment = null;
+  agent.turnTerminated = turn;
+}
+
+/**
+ * The values of an Enemy, whose base skill, current health, and exhaustion are whole numbers, as CombatantValues. An
+ * Enemy's effective max health is its base health.
+ */
 export function enemyCombatantValues(enemy: {
   readonly skill: number;
-  readonly currentHealth: number;
+  readonly healthLost: number;
   readonly baseHealth: number;
   readonly exhaustion: number;
 }): CombatantValues {
   return {
     skillHundredths: enemy.skill * 100,
-    currentHealthHundredths: enemy.currentHealth * 100,
-    baseHealth: enemy.baseHealth,
+    currentHealthHundredths: (enemy.baseHealth - enemy.healthLost) * 100,
+    maxHealth: enemy.baseHealth,
     exactExhaustionHundredths: enemy.exhaustion * 100,
   };
 }
@@ -42,14 +124,14 @@ export function exhaustionOf(combatant: Pick<CombatantValues, 'exactExhaustionHu
 /**
  * AGENT, Effective skill:
  * penalty factor = max(0, 100 − p × max(0, exhaustion − f))
- * effective skill = round down( skill × current health × penalty factor / (base health × 100) )
+ * effective skill = round down( skill × current health × penalty factor / (effective max health × 100) )
  */
 export function effectiveSkill(combatant: CombatantValues, parameters: AgentParametersGdr): number {
   return roundDown(
     fromHundredths(combatant.skillHundredths)
       .mul(fromHundredths(combatant.currentHealthHundredths))
       .mul(penaltyFactor(exhaustionOf(combatant), parameters))
-      .div(combatant.baseHealth * 100),
+      .div(combatant.maxHealth * 100),
   );
 }
 
@@ -87,15 +169,15 @@ export function isWorkAssignment(kind: Assignment['kind']): boolean {
 
 /**
  * AGENT, Training growth: the Probability of the Training gain outcome,
- * current health × penalty factor / (base health × 100), exact and never rounded.
+ * current health × penalty factor / (effective max health × 100), exact and never rounded.
  */
 export function trainingGainProbability(
-  agent: Pick<CombatantValues, 'currentHealthHundredths' | 'baseHealth' | 'exactExhaustionHundredths'>,
+  agent: Pick<CombatantValues, 'currentHealthHundredths' | 'maxHealth' | 'exactExhaustionHundredths'>,
   parameters: AgentParametersGdr,
 ): Rational {
   return fromHundredths(agent.currentHealthHundredths)
     .mul(penaltyFactor(exhaustionOf(agent), parameters))
-    .div(agent.baseHealth * 100);
+    .div(agent.maxHealth * 100);
 }
 
 /**
@@ -149,9 +231,9 @@ export function applyMissionGrowth(
   return { survivalSkillGain: survival, missionSkillGain };
 }
 
-/** AGENT, Attribute ranges: current health stays from 0 to base health. */
-export function clampHealth(value: number, baseHealth: number): number {
-  return Math.min(baseHealth, Math.max(0, value));
+/** AGENT, Attribute ranges: current health stays from 0 to effective max health. */
+export function clampHealth(value: number, maxHealth: number): number {
+  return Math.min(maxHealth, Math.max(0, value));
 }
 
 /** AGENT, Agents that can be assigned. */
@@ -202,12 +284,9 @@ export function createAgent(input: {
   initialRoster: boolean;
   archetype: AgentArchetypeGdr;
   weapon: WeaponGdr;
-  /** The weapon damage increments of the Upgrades acquired so far; see ECON, Weapon damage effect. */
-  weaponDamageBonus: number;
-  /** The base health increments of the Upgrades acquired so far; see ECON, Base health Upgrade. */
-  baseHealthBonus: number;
 }): Agent {
-  const baseHealth = input.archetype.baseHealth + input.baseHealthBonus;
+  // No Upgrade changes an initial value: a new Agent has no health lost, and its effective values follow the Upgrade
+  // bonus like every other Serving Agent's.
   return {
     id: input.id,
     archetype: input.archetype.id,
@@ -215,17 +294,19 @@ export function createAgent(input: {
     state: {
       skillHundredths: input.archetype.skill * 100,
       experience: 0,
-      currentHealthHundredths: baseHealth * 100,
-      baseHealth,
+      healthLostHundredths: 0,
+      baseHealth: input.archetype.baseHealth,
       exactExhaustionHundredths: 0,
       weapon: input.weapon.id,
-      weaponDamage: input.weapon.damage + input.weaponDamageBonus,
+      baseWeaponDamage: input.weapon.damage,
       assignment: { kind: 'Standby' },
       status: input.initialRoster ? 'AtAssignment' : 'InTransit',
       participationHistory: [],
       enemiesKilled: 0,
       turnTerminated: null,
       killedBy: null,
+      finalMaxHealth: null,
+      finalWeaponDamage: null,
     },
   };
 }

@@ -419,7 +419,7 @@ function CombatReportDetails(props: {
                       {who.side === 'agent' ? (
                         <span
                           style={{
-                            color: healthColor(who.final.currentHealthHundredths / 100, who.start.baseHealth),
+                            color: healthColor(who.final.currentHealthHundredths / 100, who.start.maxHealth),
                           }}
                         >
                           {combatantValueText(who.final.currentHealthHundredths, who.side)}
@@ -427,7 +427,7 @@ function CombatReportDetails(props: {
                       ) : (
                         combatantValueText(who.final.currentHealthHundredths, who.side)
                       )}
-                      /{who.start.baseHealth}
+                      /{who.start.maxHealth}
                     </td>
                     <td className="num">
                       {who.start.exhaustion} →{' '}

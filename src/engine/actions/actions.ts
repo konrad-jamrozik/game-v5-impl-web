@@ -4,22 +4,26 @@
  * Player action.
  */
 import { must } from '../../kernel/index.ts';
-import type { GdrCatalog, UpgradeEffect } from '../../gdr/index.ts';
+import type { GdrCatalog } from '../../gdr/index.ts';
 import {
+  agentCombatantValues,
   canBeAssigned,
   createAgent,
   effectiveSkill,
+  effectiveWeaponDamage,
   isBaseAssignment,
   isFitForWork,
   recordParticipation,
+  terminateAgent,
+  type AgentUpgradeBonus,
 } from '../mechanics/agents/agents.ts';
 import { damageBounds } from '../mechanics/combat/combat.ts';
 import {
   agencyCaps,
+  agentUpgradeBonus,
   countDeployed,
   countServing,
   countTraining,
-  wholeBonus,
 } from '../mechanics/economy/economy.ts';
 import {
   progressAfterLoss,
@@ -147,7 +151,10 @@ function leaveCurrentTeam(world: CurrentWorldState, agent: Agent, left: Leaving,
           investigation.state.currentTeam
             .map((id) => must(world.agents[id], `Agent ${id}`))
             .filter((member) => member.state.status === 'AtAssignment')
-            .map((member) => [member.id, effectiveSkill(member.state, gdrs.agentParameters)]),
+            .map((member) => [
+              member.id,
+              effectiveSkill(agentCombatantValues(member.state, bonusOf(world, gdrs)), gdrs.agentParameters),
+            ]),
         ),
       );
     }
@@ -181,8 +188,9 @@ function settleLeftInvestigations(world: CurrentWorldState, left: Leaving): void
   }
 }
 
-function upgradeBonus(effect: UpgradeEffect, world: CurrentWorldState, gdrs: GdrCatalog): number {
-  return wholeBonus(effect, gdrs.upgrades, world.agency.state.acquisitions);
+/** ECON, Upgrade bonus: what the Upgrades acquired in this World state add to every Serving Agent's effective values. */
+function bonusOf(world: CurrentWorldState, gdrs: GdrCatalog): AgentUpgradeBonus {
+  return agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
 }
 
 function addAgent(world: CurrentWorldState, gdrs: GdrCatalog): void {
@@ -193,8 +201,6 @@ function addAgent(world: CurrentWorldState, gdrs: GdrCatalog): void {
     initialRoster: false,
     archetype: gdrs.agentArchetype,
     weapon: must(gdrs.weapons.get(gdrs.agentArchetype.weapon), 'Weapon of the AgentArchetype'),
-    weaponDamageBonus: upgradeBonus('agent_weapon_damage', world, gdrs),
-    baseHealthBonus: upgradeBonus('agent_base_health', world, gdrs),
   });
   world.agents[agent.id] = agent;
 }
@@ -270,7 +276,7 @@ function hireAgent(world: CurrentWorldState, _args: Args, gdrs: GdrCatalog): Rej
 }
 
 /** ECON, Dismissing Agents. */
-function dismissAgents(world: CurrentWorldState, args: Args): Rejection | null {
+function dismissAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
   const agents = resolveAgents(world, args['agents']);
   if (isRejected(agents)) {
     return agents;
@@ -293,11 +299,11 @@ function dismissAgents(world: CurrentWorldState, args: Args): Rejection | null {
       `These Agents are not on Standby: ${list(busy.map((a) => a.id))}.`,
     );
   }
+  const bonus = bonusOf(world, gdrs);
   for (const agent of agents) {
-    agent.state.status = 'Dismissed';
-    agent.state.assignment = null;
-    // AGENT, Service record: Turn terminated is the Turn in which dismissAgents dismissed it.
-    agent.state.turnTerminated = world.turn;
+    // AGENT, Service record: Turn terminated is the Turn in which dismissAgents dismissed it, and the Final max health
+    // and Final weapon damage are its effective values before it.
+    terminateAgent(agent.state, 'Dismissed', world.turn, bonus);
   }
   return null;
 }
@@ -316,19 +322,8 @@ function purchaseUpgrade(world: CurrentWorldState, args: Args, gdrs: GdrCatalog)
   }
   world.agency.state.money -= upgrade.price;
   world.agency.state.acquisitions[upgrade.id] = (world.agency.state.acquisitions[upgrade.id] ?? 0) + 1;
-  // Rate Upgrades change no stored value beyond the Acquisitions; see ECON, Rate Upgrades.
-  for (const agent of Object.values(world.agents)) {
-    if (!isServing(agent.state)) {
-      continue;
-    }
-    if (upgrade.effect === 'agent_weapon_damage') {
-      agent.state.weaponDamage += upgrade.incrementHundredths / 100;
-    } else if (upgrade.effect === 'agent_base_health') {
-      // ECON, Base health Upgrade: base health and current health rise together, so the health lost stays the same.
-      agent.state.baseHealth += upgrade.incrementHundredths / 100;
-      agent.state.currentHealthHundredths += upgrade.incrementHundredths;
-    }
-  }
+  // No Upgrade changes a stored value beyond the Acquisitions: the Weapon damage and Max health Upgrades raise the
+  // Derived effective values of every Serving Agent; see ECON, Upgrade effects, and AGENT, Modifiable values.
   return null;
 }
 
@@ -585,9 +580,14 @@ function overrideRandomOutcome(world: CurrentWorldState, args: Args, gdrs: GdrCa
       return reject('invalid_value', 'That is not a possible value of this random outcome.', 'invalid_input');
     }
     // COMBAT, Damage outcome: a supplied damage outcome is one of the whole numbers from lo to hi.
-    const combatant = world.agents[instanceId] ?? world.enemies[instanceId];
-    if (outcome.startsWith('combat.damage.') && combatant !== undefined && isWhole(value)) {
-      const bounds = damageBounds(combatant.state.weaponDamage, gdrs.combatParameters);
+    const agent = world.agents[instanceId];
+    const enemy = world.enemies[instanceId];
+    const weaponDamage =
+      agent !== undefined
+        ? effectiveWeaponDamage(agent.state, bonusOf(world, gdrs))
+        : enemy?.state.baseWeaponDamage;
+    if (outcome.startsWith('combat.damage.') && weaponDamage !== undefined && isWhole(value)) {
+      const bounds = damageBounds(weaponDamage, gdrs.combatParameters);
       if (value < bounds.lo || value > bounds.hi) {
         return reject(
           'damage_out_of_range',
@@ -625,7 +625,7 @@ export function applyGameAction(
       case 'hireAgent':
         return hireAgent(world, args, gdrs);
       case 'dismissAgents':
-        return dismissAgents(world, args);
+        return dismissAgents(world, args, gdrs);
       case 'purchaseUpgrade':
         return purchaseUpgrade(world, args, gdrs);
       case 'startInvestigation':

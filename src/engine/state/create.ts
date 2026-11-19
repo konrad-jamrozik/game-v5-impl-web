@@ -58,8 +58,6 @@ export function createCampaignState(
       initialRoster: true,
       archetype: gdrs.agentArchetype,
       weapon,
-      weaponDamageBonus: 0,
-      baseHealthBonus: 0,
     });
     world.agents[agent.id] = agent;
   }

@@ -31,7 +31,7 @@ export function Exhaustion(props: { value: number; levels: ExhaustionLevels }) {
 }
 
 /**
- * An Agent's current health, a Decimal quantity in hundredths, against its base health, coloured under VIS, Agent
+ * An Agent's current health, a Decimal quantity in hundredths, against its effective max health, coloured under VIS, Agent
  * condition from the exact share and shown with two decimals under GUI, Decimal quantities shown, e.g. "29.40/30".
  */
 export function Health(props: { currentHundredths: number; base: number }) {

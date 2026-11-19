@@ -42,7 +42,7 @@ const NUMERIC = new Set([
   'experience',
   'currentHealthHundredths',
   'exhaustion',
-  'weaponDamage',
+  'effectiveWeaponDamage',
 ]);
 
 /** VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. */
@@ -310,13 +310,16 @@ export function AgentsView(props: {
       helper.accessor('experience', { header: 'Exp.' }),
       helper.accessor('currentHealthHundredths', {
         header: 'Health',
-        cell: (cell) => <Health currentHundredths={cell.getValue()} base={cell.row.original.baseHealth} />,
+        cell: (cell) => (
+          <Health currentHundredths={cell.getValue()} base={cell.row.original.effectiveMaxHealth} />
+        ),
       }),
       helper.accessor('exhaustion', {
         header: 'Exhaustion',
         cell: (cell) => <Exhaustion value={cell.getValue()} levels={levels} />,
       }),
-      helper.accessor('weaponDamage', { header: 'Damage' }),
+      // AVIEW, Agent table: the effective weapon damage.
+      helper.accessor('effectiveWeaponDamage', { header: 'Damage' }),
       helper.accessor((agent) => assignmentText(agent, state, snapshot.history), {
         id: 'assignment',
         header: 'Assignment',
@@ -619,7 +622,7 @@ type MemorialKey =
   | 'id'
   | 'skill'
   | 'experience'
-  | 'baseHealth'
+  | 'maxHealth'
   | 'turnTerminated'
   | 'cause'
   | 'missions'
@@ -650,8 +653,8 @@ function Memorial(props: {
         return row.agent.skillHundredths;
       case 'experience':
         return row.agent.experience;
-      case 'baseHealth':
-        return row.agent.baseHealth;
+      case 'maxHealth':
+        return row.agent.effectiveMaxHealth;
       case 'turnTerminated':
         return row.agent.turnTerminated ?? 0;
       case 'cause':
@@ -689,7 +692,7 @@ function Memorial(props: {
             {header('id', 'Agent', false)}
             {header('skill', 'Skill', true)}
             {header('experience', 'Exp.', true, 'Experience')}
-            {header('baseHealth', 'Health', true)}
+            {header('maxHealth', 'Health', true, 'Effective max health')}
             {header('turnTerminated', 'Terminated', true)}
             {header('cause', 'Cause', false)}
             {header('missions', 'Missions', true)}
@@ -715,7 +718,7 @@ function Memorial(props: {
               </td>
               <td className="num">{decimalText(row.agent.skillHundredths)}</td>
               <td className="num">{row.agent.experience}</td>
-              <td className="num">{row.agent.baseHealth}</td>
+              <td className="num">{row.agent.effectiveMaxHealth}</td>
               <td className="num">T{row.agent.turnTerminated ?? '-'}</td>
               <td className={row.agent.agentStatus === 'Killed' ? 'tone-bad' : 'muted'}>
                 {row.agent.agentStatus}
@@ -768,7 +771,7 @@ function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: Curr
         <dd className="figure">{agent.turnHired}</dd>
         <dt>Weapon</dt>
         <dd>
-          {agent.weaponName} <span className="figure secondary">· damage {agent.weaponDamage}</span>
+          {agent.weaponName} <span className="figure secondary">· damage {agent.effectiveWeaponDamage}</span>
         </dd>
         <dt>Assignment</dt>
         <dd>{assignmentText(agent, state, snapshot.history)}</dd>

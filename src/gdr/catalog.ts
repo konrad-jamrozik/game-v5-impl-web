@@ -242,7 +242,7 @@ const schemas = {
         'transport_cap',
         'training_cap',
         'agent_weapon_damage',
-        'agent_base_health',
+        'agent_max_health',
         'training_skill_gain',
         'exhaustion_recovery',
         'health_recovery',

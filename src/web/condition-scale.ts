@@ -49,7 +49,7 @@ const HEALTH_STOPS: readonly (readonly [number, string])[] = [
 ];
 
 /**
- * The colour of a current health value: a smooth scale over the share of base health, mixing the two neighbouring
+ * The colour of a current health value: a smooth scale over the share of effective max health, mixing the two neighbouring
  * stops in sRGB in proportion, e.g. 15 of 30 is Accent text.
  */
 export function healthColor(current: number, base: number): string {
