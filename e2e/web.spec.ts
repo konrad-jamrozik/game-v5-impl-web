@@ -495,6 +495,14 @@ test('the Compendium View shows resolved articles, follows Article links, and ke
   await expect(next).toBeEnabled();
   await next.click();
   await expect(shown).toHaveAttribute('data-article', target);
+  // COMPV, Article history: the Q and W keys press Previous article and Next article.
+  await page.keyboard.press('q');
+  await expect(shown).toHaveAttribute('data-article', 'mechanics_exhaustion');
+  await page.keyboard.press('w');
+  await expect(shown).toHaveAttribute('data-article', target);
+  // SOUNDS, Select click: selecting a category or an article of the panes is a Select click.
+  await expect(id(page, 'compendium-category-Mechanics')).toHaveAttribute('data-sound', 'select');
+  await expect(id(page, `article-${target}`)).toHaveAttribute('data-sound', 'select');
 
   // COMPV, Subject data sheets: a Subject article is shown under the name of its subject, with its Data sheet.
   await id(page, 'compendium-category-Enemies').click();

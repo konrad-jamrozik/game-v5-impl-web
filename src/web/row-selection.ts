@@ -6,6 +6,8 @@
  * took. A row whose checkbox is disabled is skipped by each of these, and pressing or dragging never selects text.
  */
 import { useEffect, useRef, type MouseEvent } from 'react';
+import { playSound } from './sound-player.ts';
+import { SOUND } from './sounds.ts';
 
 /** The selection after giving `value` to `id`, keeping the order in which rows were selected. */
 export function setRow(selected: readonly string[], id: string, value: boolean): string[] {
@@ -80,6 +82,8 @@ export function useRowSelection(options: {
     }
     // VIS, Tables: pressing or dragging over the rows never selects their text.
     event.preventDefault();
+    // SOUNDS, Select click: a click, a Shift-click, or a whole drag plays `select-click` once, on the press.
+    playSound(SOUND.select);
     const anchorId = anchor.current;
     if (event.shiftKey && anchorId !== null && order.includes(anchorId)) {
       onChange(setRange(selected, order, anchorId, id, selected.includes(anchorId), selectable));
@@ -122,6 +126,7 @@ export function useRowSelection(options: {
       onClick: (event: MouseEvent) => {
         if (event.detail === 0) {
           const { selected, onChange } = latest.current;
+          playSound(SOUND.select);
           anchor.current = id;
           onChange(setRow(selected, id, !selected.includes(id)));
         }

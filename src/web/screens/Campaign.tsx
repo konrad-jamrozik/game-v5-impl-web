@@ -69,6 +69,7 @@ const SHORTCUTS: readonly {
   { keys: ['H'], what: 'Hire an Agent' },
   { keys: ['S', 'C', 'T'], what: 'Assign the selected Agents to Standby, Contracting, or Training' },
   { keys: ['A'], what: 'Select every Agent that can be assigned' },
+  { keys: ['Q', 'W'], what: 'Show the previous or next article of the Compendium Article history' },
   { keys: ['`'], what: 'Developer tools' },
   { keys: ['?'], what: 'Keyboard shortcuts' },
 ];
@@ -361,6 +362,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           }
         }
       } else if (key === 'a') {
+        // SOUNDS, Select click: the key selects as Select all does, so it plays `select-click`.
+        playSound(SOUND.select);
         setPicked(new Set(actions?.assignableAgents ?? []));
       } else if (autopilotActive) {
         return;

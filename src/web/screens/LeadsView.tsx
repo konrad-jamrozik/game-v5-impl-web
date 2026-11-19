@@ -141,7 +141,7 @@ export function LeadsView(props: {
                         type="button"
                         className={`list-row${selected?.id === item.lead.id ? ' list-row-on' : ''}`}
                         data-testid={`lead-${item.lead.id}`}
-                        data-sound="none"
+                        data-sound="select"
                         onClick={() => {
                           setPicked(item.lead.id);
                         }}

@@ -20,9 +20,10 @@ describe('SOUNDS: Sound set', () => {
 });
 
 describe('SOUNDS: When Sounds play', () => {
-  it('makes a button a Main click unless it is marked a Go back or silent', () => {
+  it('makes a button a Main click unless it is marked a Select click, a Go back, or silent', () => {
     expect(buttonSound(null)).toBe('main-click');
     expect(buttonSound('main')).toBe('main-click');
+    expect(buttonSound('select')).toBe('select-click');
     expect(buttonSound('back')).toBe('go-back-click');
     expect(buttonSound('none')).toBeNull();
   });

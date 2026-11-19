@@ -6,6 +6,7 @@
 /** SOUNDS, Sound set: the Sounds the GUI plays; a file whose Sound name is not here is never played. */
 export const SOUND = {
   main: 'main-click',
+  select: 'select-click',
   back: 'go-back-click',
   turnSummary: 'interesting-turn-summary',
 } as const;
@@ -36,14 +37,21 @@ export function soundSettings(
 }
 
 /**
- * How a button answers a click, from its `data-sound` attribute: `back` marks a Go back, `none` an input that only
- * selects, toggles, filters, sorts, or changes a tab, and any other enabled button is a Main click.
+ * How a button answers a click, from its `data-sound` attribute: `back` marks a Go back, `select` a Select click,
+ * e.g. an item of a list in a pane of a Detail view, `none` an input that only toggles, filters, sorts, or changes a
+ * tab, and any other enabled button is a Main click.
  */
-export type ButtonSound = 'main' | 'back' | 'none';
+export type ButtonSound = 'main' | 'select' | 'back' | 'none';
 
 export function buttonSound(attribute: string | null): SoundName | null {
-  if (attribute === 'none') {
-    return null;
+  switch (attribute) {
+    case 'none':
+      return null;
+    case 'back':
+      return SOUND.back;
+    case 'select':
+      return SOUND.select;
+    default:
+      return SOUND.main;
   }
-  return attribute === 'back' ? SOUND.back : SOUND.main;
 }

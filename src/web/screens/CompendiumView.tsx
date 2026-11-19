@@ -4,7 +4,7 @@
  * the Article history to return by. The engine returns only the Player-visible articles, each in its resolved form
  * (COMP); this view shows the segments as reported and adds the Data sheet of a Subject article.
  */
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import type { ArticleSegmentView, CompendiumArticleView, CurrentStateView } from '../../engine/index.ts';
 import {
   articlesOf,
@@ -26,7 +26,37 @@ import {
 } from '../compendium.ts';
 import { usePlaceState } from '../place.tsx';
 import { theEngine, type Snapshot } from '../store.ts';
+import { typingIn } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
+
+/**
+ * COMPV, Article history: while the Compendium View is open, the Q key presses the Previous article button and the W
+ * key the Next article button. Pressing the button itself plays its Sound and keeps a disabled button inert; a key
+ * typed into the search field, or pressed while a dialog covers the view, presses nothing.
+ */
+function useArticleHistoryKeys(): void {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (typingIn(event.target) || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      const testId = key === 'q' ? 'article-previous' : key === 'w' ? 'article-next' : null;
+      if (testId === null || document.querySelector('.scrim') !== null) {
+        return;
+      }
+      const button = document.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`);
+      if (button !== null && !button.disabled) {
+        button.click();
+      }
+      event.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+}
 
 /**
  * COMPV, Following links: an Article link, drawn as the text around it with an underline. SOUNDS, Main click:
@@ -95,6 +125,7 @@ function SheetParts(props: { parts: readonly SheetPart[]; onOpen: (article: stri
 export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateView; onClose: () => void }) {
   const { snapshot, state } = props;
   const all: readonly CompendiumArticleView[] = snapshot.articles ?? [];
+  useArticleHistoryKeys();
   // CSCR, View trail: the search text and the Article history are part of the place of the Compendium View.
   const [search, setSearch] = usePlaceState('search', '');
   const [stored, setHistory] = usePlaceState<ArticleHistory>('history', openHistory(firstArticle(all)));
@@ -171,7 +202,7 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
               type="button"
               className={`list-row${category.name === shownCategory ? ' list-row-on' : ''}`}
               data-testid={`compendium-category-${category.name}`}
-              data-sound="main"
+              data-sound="select"
               onClick={() => {
                 // Selecting a category shows the first article of that category.
                 const first = articlesOf(matching, category.name)[0];
@@ -192,7 +223,7 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
               type="button"
               className={`list-row${item.id === article?.id ? ' list-row-on' : ''}`}
               data-testid={`article-${item.id}`}
-              data-sound="main"
+              data-sound="select"
               onClick={() => {
                 show(item.id);
               }}

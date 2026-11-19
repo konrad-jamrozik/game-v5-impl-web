@@ -22,7 +22,8 @@ import { enemyLabels } from '../enemy-labels.ts';
 import { fillColour } from '../progress-bar.ts';
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import { useRowSelection } from '../row-selection.ts';
-import { confirmOrGoBack } from '../sound-player.ts';
+import { confirmOrGoBack, playSound } from '../sound-player.ts';
+import { SOUND } from '../sounds.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import {
   compareValues,
@@ -557,6 +558,8 @@ export function AgentsView(props: {
                       checked={selectAll}
                       disabled={selectableIds.length === 0 && !selectAll}
                       onChange={() => {
+                        // SOUNDS, Select click: checking or unchecking Select all.
+                        playSound(SOUND.select);
                         if (selectAll) {
                           setSelectAll(false);
                           onSelect([]);

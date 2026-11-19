@@ -21,6 +21,8 @@ import { TIRED_DEPLOYMENT_EXHAUSTION, confirmTiredDeployment } from '../tired-de
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
 import { DEPLOY_NUMERIC, deployRows, type DeployKey } from '../deploy-table.ts';
 import { useRowSelection } from '../row-selection.ts';
+import { playSound } from '../sound-player.ts';
+import { SOUND } from '../sounds.ts';
 import { pressHeader, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -134,7 +136,7 @@ export function MissionsView(props: {
             key={`${testId}-${item.site.id}`}
             type="button"
             className={`list-row${selected?.id === item.site.id ? ' list-row-on' : ''}`}
-            data-sound="none"
+            data-sound="select"
             data-testid={`site-${item.site.id}`}
             onClick={() => {
               setPicked(item.site.id);
@@ -535,6 +537,8 @@ function Deployment(props: {
                   data-testid="deploy-select-all"
                   checked={selectAll}
                   onChange={() => {
+                    // SOUNDS, Select click: checking or unchecking Select all.
+                    playSound(SOUND.select);
                     if (selectAll) {
                       setSelectAll(false);
                       onCheck([]);
