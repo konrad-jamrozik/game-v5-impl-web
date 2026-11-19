@@ -374,6 +374,10 @@ test('the Agents View shows free places and splits Agents In base and Away; Esca
   await expect(id(page, 'view-back')).toHaveCount(0);
   await id(page, 'agent-details-agent-1').click();
   await expect(id(page, 'agent-details-view-agent-1')).toBeVisible();
+  // GUI, Decimal quantities shown: the Agent details are the one place with base skill, health, and exhaustion exact.
+  await expect(id(page, 'details-skill')).toHaveText(/^\d+\.\d\d$/);
+  await expect(id(page, 'details-health')).toHaveText(/^\d+\.\d\d\/\d+$/);
+  await expect(id(page, 'details-exhaustion')).toHaveText(/^\d+\.\d\d$/);
   await expect(id(page, 'view-back')).toHaveText('‹ Agents');
   // VIS, Detail view: the Back control is the last button of the title row, before the close control.
   const back = await id(page, 'view-back').boundingBox();
@@ -410,10 +414,14 @@ test('a table column holds every value listed for it without cutting it short', 
   await page.goto('/');
   await id(page, 'seed-input').fill('widths');
   await id(page, 'new-campaign').click();
-  // VIS, Tables: each column is wide enough to hold on one line every value listed for it, e.g. base skill "100.00".
+  // VIS, Tables: each column is wide enough to hold on one line every value listed for it, e.g. base skill "100".
   await id(page, 'nav-leads').click();
   await expect(id(page, 'agents-to-add')).toBeVisible();
   expect(await cutShortCells(page, 'agents-to-add')).toEqual([]);
+  // GUI, Decimal quantities shown: base skill, a Decimal quantity, is a whole number outside the Agent details.
+  for (const skill of await id(page, 'agents-to-add').locator('tbody tr td:nth-child(5)').allTextContents()) {
+    expect(skill).toMatch(/^\d+$/);
+  }
   // HVIEW, Turn by Turn table: the current Turn's Turn cell holds its number followed by "now".
   await id(page, 'nav-history').click();
   await expect(id(page, 'history-turn-now')).toBeVisible();

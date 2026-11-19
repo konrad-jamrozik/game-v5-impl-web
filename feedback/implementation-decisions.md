@@ -873,7 +873,7 @@
   the Implementation writes under the bar, overlaps it, because the Turn summary row already gives the range.
   Specification revision 91fc82bff04323b75d171653db7f0f63f7449f73 adopted the clamping and states which value of the
   range the final Investigation progress displaces, which the Implementation follows. The Required progress and the greatest value
-  of the range are written as whole progress points, e.g. "3" and "4", and Investigation progress and its gains with
+  of the range are written as whole progress points, e.g. "3" and "4", Investigation progress as whole progress points rounded down, and its gains with
   two decimals. The number of Turns of a Completed Investigation is the Turn the Advance turn ended minus its Turn
   started, as in the Situation panel.
 - **Options considered:** Clamping to the bar's end; widening the scale to the progress; leaving the overflow
@@ -1124,7 +1124,7 @@
   skill, current health, and exhaustion are multiplied by 100 before the Combat and divided back into its stored
   whole values after it, which is exact because a Combat changes them only by whole numbers. The Combat report
   therefore holds base skill, current health, health removed, damage dealt, and damage taken in hundredths for both
-  sides, and the whole exhaustion; the GUI shows an Agent's with two decimals and an Enemy's without. The Save format
+  sides, and the whole exhaustion; the GUI shows each as a whole number, an Agent's rounded down, under GUI, Decimal quantities shown. The Save format
   number moved from 7 to 8, so a Save of the earlier format, which held these values in units, is rejected rather
   than misread.
 - **Options considered:** Keeping the field names and changing their unit; fields named for hundredths. One Combat

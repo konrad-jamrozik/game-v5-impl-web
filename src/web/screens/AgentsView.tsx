@@ -15,7 +15,7 @@ import {
 import { useEffect, useMemo, useRef } from 'react';
 import type { AgentView, CurrentStateView, HistoryView } from '../../engine/index.ts';
 import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
-import { decimalText } from '../format.ts';
+import { decimalText, wholeText } from '../format.ts';
 import { ASSIGNMENTS, blockedBy, type OrderAssignment, type Selectability } from '../agent-selection.ts';
 import { capBar, type CapBarModel } from '../cap-bar.ts';
 import { enemyLabels } from '../enemy-labels.ts';
@@ -305,7 +305,7 @@ export function AgentsView(props: {
       }),
       helper.accessor('effectiveSkill', { header: 'Effective' }),
       // GUI, Decimal quantities shown: base skill and current health with two decimals, e.g. "101.10", "29.40/30".
-      helper.accessor('skillHundredths', { header: 'Skill', cell: (cell) => decimalText(cell.getValue()) }),
+      helper.accessor('skillHundredths', { header: 'Skill', cell: (cell) => wholeText(cell.getValue()) }),
       // AVIEW, Agent table: Experience, a whole number, headed Exp.
       helper.accessor('experience', { header: 'Exp.' }),
       helper.accessor('currentHealthHundredths', {
@@ -716,7 +716,7 @@ function Memorial(props: {
                   {row.agent.id}
                 </button>
               </td>
-              <td className="num">{decimalText(row.agent.skillHundredths)}</td>
+              <td className="num">{wholeText(row.agent.skillHundredths)}</td>
               <td className="num">{row.agent.experience}</td>
               <td className="num">{row.agent.effectiveMaxHealth}</td>
               <td className="num">T{row.agent.turnTerminated ?? '-'}</td>
@@ -739,6 +739,8 @@ function Memorial(props: {
 function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: CurrentStateView }) {
   const { agent, snapshot, state } = props;
   const retained = snapshot.history?.retained;
+  /** AVIEW, Agent details: a Terminated Agent shows its Final max health and no exhaustion. */
+  const terminated = agent.agentStatus === 'Killed' || agent.agentStatus === 'Dismissed';
   const participation = agent.participationHistory.map((item) => {
     if (item.kind === 'Investigation') {
       const investigation =
@@ -773,6 +775,25 @@ function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: Curr
         <dd>
           {agent.weaponName} <span className="figure secondary">· damage {agent.effectiveWeaponDamage}</span>
         </dd>
+        {/* GUI, Decimal quantities shown: the one place that shows these values with two decimals. */}
+        <dt>Skill</dt>
+        <dd className="figure" data-testid="details-skill">
+          {decimalText(agent.skillHundredths)}
+        </dd>
+        <dt>Health</dt>
+        <dd className="figure" data-testid="details-health">
+          {terminated
+            ? agent.effectiveMaxHealth
+            : `${decimalText(agent.currentHealthHundredths)}/${agent.effectiveMaxHealth}`}
+        </dd>
+        {terminated ? null : (
+          <>
+            <dt>Exhaustion</dt>
+            <dd className="figure" data-testid="details-exhaustion">
+              {decimalText(agent.exactExhaustionHundredths)}
+            </dd>
+          </>
+        )}
         <dt>Assignment</dt>
         <dd>{assignmentText(agent, state, snapshot.history)}</dd>
       </dl>

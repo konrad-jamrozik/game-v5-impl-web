@@ -13,7 +13,7 @@ import type {
 import { combatLogRow } from '../combat-log.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
-import { combatantValueText, progressPoints } from '../format.ts';
+import { progressGain, progressPoints, wholeText } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
@@ -283,7 +283,7 @@ function Sections(props: {
             >
               <span className="list-name">{leadName(lead)}</span>
               <span className="list-value figure">
-                <span className="tone-good">+{progressPoints(item.gain)}</span> →{' '}
+                <span className="tone-good">+{progressGain(item.gain)}</span> →{' '}
                 {progressPoints(step?.progressAfter ?? 0)}
               </span>
             </button>
@@ -439,12 +439,12 @@ function CombatReportDetails(props: {
                 return (
                   <tr key={who.id} data-testid={`participant-${who.id}`}>
                     <th scope="row">{props.nameOf(who.id)}</th>
-                    <td className="num">{combatantValueText(who.start.skillHundredths, who.side)}</td>
+                    <td className="num">{wholeText(who.start.skillHundredths)}</td>
                     <td className="num">
                       {who.start.effectiveSkill} → {who.final.effectiveSkill}
                     </td>
                     <td className="num">
-                      {combatantValueText(who.start.currentHealthHundredths, who.side)} →{' '}
+                      {wholeText(who.start.currentHealthHundredths)} →{' '}
                       {/* VIS, Agent condition: an Agent's values take their condition colours; an Enemy's do not. */}
                       {who.side === 'agent' ? (
                         <span
@@ -452,10 +452,10 @@ function CombatReportDetails(props: {
                             color: healthColor(who.final.currentHealthHundredths / 100, who.start.maxHealth),
                           }}
                         >
-                          {combatantValueText(who.final.currentHealthHundredths, who.side)}
+                          {wholeText(who.final.currentHealthHundredths)}
                         </span>
                       ) : (
-                        combatantValueText(who.final.currentHealthHundredths, who.side)
+                        wholeText(who.final.currentHealthHundredths)
                       )}
                       /{who.start.maxHealth}
                     </td>
@@ -470,14 +470,9 @@ function CombatReportDetails(props: {
                     {/* COMBAT, Combat report, Starting values: the Incapacitated value when the Combat began. */}
                     <td>{who.start.incapacitated ? 'yes' : 'no'}</td>
                     <td className="num">{who.start.weaponDamage}</td>
-                    {/* COMBAT, Combat report: health removed from an Agent is a Decimal quantity; from an Enemy, whole. */}
-                    <td className="num">
-                      {combatantValueText(
-                        who.damageDealtHundredths,
-                        who.side === 'agent' ? 'enemy' : 'agent',
-                      )}
-                    </td>
-                    <td className="num">{combatantValueText(who.damageTakenHundredths, who.side)}</td>
+                    {/* GUI, Decimal quantities shown: health removed from an Agent, a Decimal quantity, rounds down. */}
+                    <td className="num">{wholeText(who.damageDealtHundredths)}</td>
+                    <td className="num">{wholeText(who.damageTakenHundredths)}</td>
                     <td className="num" data-testid={`skill-gained-${who.id}`}>
                       <SkillGained who={who} growth={props.growth} />
                     </td>

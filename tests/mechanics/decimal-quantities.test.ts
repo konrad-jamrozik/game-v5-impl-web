@@ -12,7 +12,7 @@ import {
   roundUp,
   roundUpToHundredths,
 } from '../../src/kernel/index.ts';
-import { combatantValueText, decimalText } from '../../src/web/format.ts';
+import { decimalText, progressGain, progressPoints, wholeText } from '../../src/web/format.ts';
 import {
   advance,
   agent,
@@ -100,7 +100,15 @@ describe('ECON: Decimal increments', () => {
 });
 
 describe('GUI: Decimal quantities shown', () => {
-  it('shows a Decimal quantity with two decimals, never rounded', () => {
+  it('shows a Decimal quantity as a whole number by default, rounded down so it never reads as a threshold reached', () => {
+    // E.g. base skill 101.90 reads 101, current health 29.40 and 29.99 read 29, Investigation progress 702 reads 7.
+    expect([10190, 2940, 2999, 702, 3000, 0].map(wholeText)).toEqual(['101', '29', '29', '7', '30', '0']);
+    expect(progressPoints(702)).toBe('7');
+    // A Combat report holds an Enemy's whole values in hundredths too; they are shown as they are.
+    expect(wholeText(3000)).toBe('30');
+  });
+
+  it('shows Investigation progress gains, Upgrade effects, and Agent details with two decimals, never rounded', () => {
     expect([2940, 10110, 100, 220, 702, 3000].map(decimalText)).toEqual([
       '29.40',
       '101.10',
@@ -109,7 +117,7 @@ describe('GUI: Decimal quantities shown', () => {
       '7.02',
       '30.00',
     ]);
-    // A Combat report holds an Enemy's whole values in hundredths too; they are shown without decimals.
-    expect([combatantValueText(560, 'agent'), combatantValueText(3000, 'enemy')]).toEqual(['5.60', '30']);
+    // A gain below one progress point shows, rather than reading "+0".
+    expect([progressGain(104), progressGain(60)]).toEqual(['1.04', '0.60']);
   });
 });

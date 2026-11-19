@@ -1,6 +1,6 @@
 /** GUI, Progress bar, styled under VIS, Progress bars. The geometry comes from `progress-bar.ts`. */
 import type { CSSProperties } from 'react';
-import { progressPoints } from '../format.ts';
+import { progressGain, progressPoints } from '../format.ts';
 import { fillColour, rangeLabels, type ProgressBarModel } from '../progress-bar.ts';
 
 /** The Required progress and its range are whole progress points, e.g. 6. */
@@ -43,7 +43,7 @@ export function ProgressBar(props: {
       {model.kind === 'completed' ? (
         <div className="pbar-above">
           <span className="pbar-gain-label" style={{ left: pct((model.beforeShare + model.finalShare) / 2) }}>
-            +{progressPoints(model.gain)}
+            +{progressGain(model.gain)}
           </span>
         </div>
       ) : null}
@@ -106,7 +106,7 @@ function Caption(props: { text: string; accent: boolean; gain: number | null }) 
       <span className={props.accent ? 'tone-accent' : 'muted'}>{props.text}</span>
       {props.gain === null ? null : (
         <span>
-          <span className="figure tone-good">+{progressPoints(props.gain)}</span>
+          <span className="figure tone-good">+{progressGain(props.gain)}</span>
           <span className="muted"> / turn</span>
         </span>
       )}

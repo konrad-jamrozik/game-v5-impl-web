@@ -2,9 +2,9 @@
 import type { ConsequenceRecord } from '../engine/index.ts';
 
 /**
- * GUI, Decimal quantities shown: a Decimal quantity, held in hundredths, shown exactly with two decimals and never
- * rounded, e.g. 2940 as 29.40 and 10110 as 101.10. The text is built from the whole number of hundredths, never
- * through a binary float.
+ * GUI, Decimal quantities shown: one of the few Decimal quantities shown with two decimals, held in hundredths, shown
+ * exactly and never rounded, e.g. 2940 as 29.40 and 10110 as 101.10. The text is built from the whole number of
+ * hundredths, never through a binary float.
  */
 export function decimalText(hundredths: number): string {
   const sign = hundredths < 0 ? '-' : '';
@@ -13,17 +13,23 @@ export function decimalText(hundredths: number): string {
   return `${sign}${whole}.${String(magnitude - whole * 100).padStart(2, '0')}`;
 }
 
-/** Investigation progress, counted in hundredths, shown in progress points with two decimals, e.g. 449 as 4.49. */
-export function progressPoints(hundredths: number): string {
-  return decimalText(hundredths);
+/**
+ * GUI, Decimal quantities shown: by default a Decimal quantity, held in hundredths, is shown as a whole number,
+ * rounded down so that it never reads as having reached a threshold it has not, e.g. 10190 as 101 and 2940 as 29. A
+ * whole number held in hundredths, e.g. an Enemy's health in a Combat report (DEC-056), is shown as it is.
+ */
+export function wholeText(hundredths: number): string {
+  return String(Math.floor(hundredths / 100));
 }
 
-/**
- * A Combatant's value from a Combat report, which holds it in hundredths for both sides (DEC-056): an Agent's is a
- * Decimal quantity, shown with two decimals; an Enemy's is a whole number, shown without decimals.
- */
-export function combatantValueText(hundredths: number, side: 'agent' | 'enemy'): string {
-  return side === 'agent' ? decimalText(hundredths) : String(hundredths / 100);
+/** Investigation progress, counted in hundredths, shown as whole progress points rounded down, e.g. 449 as 4. */
+export function progressPoints(hundredths: number): string {
+  return wholeText(hundredths);
+}
+
+/** A gain of Investigation progress, shown with two decimals so that a gain below one point shows, e.g. 104 as 1.04. */
+export function progressGain(hundredths: number): string {
+  return decimalText(hundredths);
 }
 
 function signedNumber(value: number): string {

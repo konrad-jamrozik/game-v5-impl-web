@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import type { AgentView, CurrentStateView, InvestigationView, LeadView } from '../../engine/index.ts';
 import { agentsToAddOrder, isInBase } from '../agents-to-add.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
-import { decimalText, progressPoints } from '../format.ts';
+import { progressGain, progressPoints, wholeText } from '../format.ts';
 import { progressBar } from '../progress-bar.ts';
 import { activeInvestigationRows, leadsToInvestigate, rangeText } from '../situation.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
@@ -243,7 +243,7 @@ function LeadDetails(props: {
             <dd className="figure">
               {investigation.projectedProgressGain === null
                 ? '-'
-                : `+${progressPoints(investigation.projectedProgressGain)}`}
+                : `+${progressGain(investigation.projectedProgressGain)}`}
             </dd>
             <dt>Turns</dt>
             <dd className="figure">{state.turn - investigation.turnStarted}</dd>
@@ -387,7 +387,7 @@ function Team(props: {
                   <td className="figure">{agent.id}</td>
                   <td className="secondary">{assignmentText(agent, state)}</td>
                   <td className="num">{agent.effectiveSkill}</td>
-                  <td className="num">{decimalText(agent.skillHundredths)}</td>
+                  <td className="num">{wholeText(agent.skillHundredths)}</td>
                   <td className="num">
                     <Exhaustion value={agent.exhaustion} levels={levels} />
                   </td>
@@ -404,7 +404,7 @@ function Team(props: {
             data-testid="team-estimate"
             title="An estimate: it takes every Agent's effective skill as it is now and counts no Advance turn In transit."
           >
-            Est. +{progressPoints(estimate)} / turn
+            Est. +{progressGain(estimate)} / turn
           </span>
         )}
         {investigation === undefined ? (

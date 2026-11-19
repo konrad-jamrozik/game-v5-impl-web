@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { ConsequenceView, CurrentStateView, HistoryEntry, MissionSiteView } from '../../engine/index.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
-import { combatantValueText } from '../format.ts';
+import { wholeText } from '../format.ts';
 import {
   appliedConsequence,
   conditionText,
@@ -377,8 +377,8 @@ function Participants(props: { site: MissionSiteView; record: HistoryMission }) 
                   {participant.startEffectiveSkill} → {participant.endEffectiveSkill}
                 </td>
                 <td className="num">
-                  {combatantValueText(participant.startHealthHundredths, which)} →{' '}
-                  {combatantValueText(participant.endHealthHundredths, which)}
+                  {wholeText(participant.startHealthHundredths)} →{' '}
+                  {wholeText(participant.endHealthHundredths)}
                 </td>
                 <td>{conditionText(participant)}</td>
               </tr>
