@@ -458,6 +458,18 @@ export interface ActionRecordItem {
   readonly moneyChange: number;
 }
 
+/** COMBAT, Combat report: what a History entry keeps of one participant of a Combat. */
+export interface HistoryParticipant {
+  readonly id: string;
+  readonly side: 'agent' | 'enemy';
+  /** Current health in hundredths, as in the Combat report. */
+  readonly startHealthHundredths: number;
+  readonly startEffectiveSkill: number;
+  readonly endHealthHundredths: number;
+  readonly endEffectiveSkill: number;
+  readonly condition: CombatantCondition;
+}
+
 /** One ended Turn in reduced form; see DEC-016. */
 export interface HistoryEntry {
   readonly turn: number;
@@ -482,6 +494,16 @@ export interface HistoryEntry {
       readonly wounded: readonly string[];
       /** Agents that survived with current health equal to effective max health. */
       readonly unharmed: readonly string[];
+      /**
+       * COMBAT, Combat report: each participant, Agents' side then Enemies' side in their fixed orders, with its
+       * current health and effective skill at Combat start and at Combat end and its final condition.
+       */
+      readonly participants: readonly HistoryParticipant[];
+      /** COMBAT, Combat report: the Combat rating of each side at Combat start and at Combat end. */
+      readonly ratingsStart: { readonly agents: number; readonly enemies: number };
+      readonly ratingsEnd: { readonly agents: number; readonly enemies: number };
+      /** MISSION, Turn report: the Consequences that applied. */
+      readonly consequence: ConsequenceRecord;
     }[];
     /** INVSTG, Turn report: the same list as the Turn report, unreduced. */
     readonly investigationsCompleted: readonly InvestigationCompletedRecord[];
@@ -492,6 +514,11 @@ export interface HistoryEntry {
     /** MISSION, Turn report: the same three lists as the Turn report, unreduced, by Instance ID. */
     readonly createdMissionSites: readonly string[];
     readonly expiredMissionSites: readonly string[];
+    /** MISSION, Turn report: the Consequences that applied to each Mission site Expired, in the same order. */
+    readonly expiredConsequences: readonly {
+      readonly missionSite: string;
+      readonly consequence: ConsequenceRecord;
+    }[];
     readonly cancelledMissionSites: readonly string[];
     readonly escalatedFactions: readonly string[];
     readonly panicAfter: number;

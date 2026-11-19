@@ -2,8 +2,20 @@
  * MVIEW: the Missions View. Three panes read left to right as the Player decides: which Mission site, what is there,
  * and who goes.
  */
-import { useEffect, useState } from 'react';
-import type { ConsequenceView, CurrentStateView, MissionSiteView } from '../../engine/index.ts';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { ConsequenceView, CurrentStateView, HistoryEntry, MissionSiteView } from '../../engine/index.ts';
+import { Consequences } from '../consequences.tsx';
+import { enemyLabels } from '../enemy-labels.ts';
+import { combatantValueText } from '../format.ts';
+import {
+  appliedConsequence,
+  conditionText,
+  finalState,
+  historyMission,
+  participantRowClass,
+  toneClass,
+  type HistoryMission,
+} from '../mission-outcome.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { TIRED_DEPLOYMENT_EXHAUSTION, confirmTiredDeployment } from '../tired-deployment.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
@@ -35,13 +47,14 @@ export function consequenceParts(c: ConsequenceView, factionName: string): strin
   return parts;
 }
 
-type ListItem = { readonly site: MissionSiteView; readonly detail: string; readonly tone?: string };
+type ListItem = { readonly site: MissionSiteView; readonly detail: ReactNode; readonly tone?: string };
 
 /**
- * MVIEW, Combat ratings: the one style the three Combat ratings share, so that each stands out from the figures around
- * it: the Label "Combat rating" followed by the value in the Figure style and Accent text.
+ * MVIEW, Combat ratings: the one style the Combat ratings share, so that each stands out from the figures around it:
+ * the Label "Combat rating" followed by the value in the Figure style and Accent text; a Concluded Mission site's at
+ * Combat start and at Combat end, e.g. "240 → 0".
  */
-function CombatRating(props: { value: number; testId: string }) {
+function CombatRating(props: { value: number | string; testId: string }) {
   return (
     <span className="combat-rating" data-testid={props.testId}>
       <span className="label">Combat rating</span>
@@ -65,6 +78,7 @@ export function MissionsView(props: {
 
   const factionName = (id: string) => state.factions.find((faction) => faction.id === id)?.name ?? id;
   const retained = snapshot.history?.retained;
+  const entries = snapshot.history?.entries ?? [];
   const active = state.missionSites
     .filter((site) => site.lifecycle === 'Active')
     .sort((a, b) => a.turnsUntilExpiration - b.turnsUntilExpiration);
@@ -72,18 +86,30 @@ export function MissionsView(props: {
     .filter((mission) => mission.lifecycle === 'Deployed')
     .flatMap((mission) => {
       const site = state.missionSites.find((item) => item.id === mission.missionSite);
-      return site === undefined ? [] : [{ site, detail: `${mission.teamSent.length} Agents` }];
+      return site === undefined
+        ? []
+        : [
+            {
+              site,
+              detail: `${factionName(site.targetFaction)} · ${mission.teamSent.length} Agents`,
+              tone: 'secondary',
+            },
+          ];
     });
+  // MVIEW, Mission site list: each finished Mission site with its target Faction and the final state it reached.
   const finished: ListItem[] = [...(retained?.missionSites ?? [])].reverse().map((site) => {
-    const mission = retained?.missions.find((item) => item.id === site.mission);
-    if (site.lifecycle === 'Concluded' && mission !== undefined) {
-      return {
-        site,
-        detail: `Concluded · ${mission.lifecycle}`,
-        tone: mission.lifecycle === 'Won' ? 'tone-good' : 'tone-bad',
-      };
-    }
-    return { site, detail: site.lifecycle, tone: site.lifecycle === 'Expired' ? 'tone-accent' : 'muted' };
+    const reached = finalState(site.lifecycle, historyMission(entries, site.id));
+    return {
+      site,
+      detail: (
+        <>
+          <span className="secondary">{factionName(site.targetFaction)} · </span>
+          <span className={reached === null ? '' : toneClass(reached.tone)}>
+            {reached?.text ?? site.lifecycle}
+          </span>
+        </>
+      ),
+    };
   });
 
   const everySite = [...state.missionSites, ...(retained?.missionSites ?? [])];
@@ -109,7 +135,11 @@ export function MissionsView(props: {
               setChecked([]);
             }}
           >
-            <span className="list-name">{item.site.name}</span>
+            {/* MVIEW, Mission site list: the Instance ID after the name, in Text muted. */}
+            <span className="list-name">
+              {item.site.name}
+              <span className="list-id figure muted small">{item.site.id}</span>
+            </span>
             <span className={`list-value ${item.tone ?? ''}`}>{item.detail}</span>
           </button>
         ))}
@@ -137,7 +167,7 @@ export function MissionsView(props: {
       }
       onClose={props.onClose}
     >
-      <div className="panes">
+      <div className={selected?.lifecycle === 'Active' ? 'panes' : 'panes panes-two'}>
         <div className="pane pane-list">
           {showFinished ? (
             finished.length === 0 ? (
@@ -166,7 +196,13 @@ export function MissionsView(props: {
           )}
         </div>
         {selected === null ? null : (
-          <SiteDetails site={selected} snapshot={snapshot} state={state} factionName={factionName} />
+          <SiteDetails
+            site={selected}
+            snapshot={snapshot}
+            state={state}
+            entries={entries}
+            factionName={factionName}
+          />
         )}
         {selected?.lifecycle === 'Active' ? (
           <Deployment
@@ -194,23 +230,27 @@ function SiteDetails(props: {
   site: MissionSiteView;
   snapshot: Snapshot;
   state: CurrentStateView;
+  entries: readonly HistoryEntry[];
   factionName: (id: string) => string;
 }) {
   const { player } = theEngine();
-  const { site, snapshot, state, factionName } = props;
+  const { site, state, entries, factionName } = props;
   const target = factionName(site.targetFaction);
   const origin =
     site.origin.kind === 'Investigation'
       ? `Lead: ${state.leads.find((lead) => lead.id === site.lead)?.name ?? site.lead ?? '-'}`
       : `Faction operation: ${site.operationLevel?.name ?? '-'}`;
-  const mission =
-    state.missions.find((item) => item.id === site.mission) ??
-    snapshot.history?.retained.missions.find((item) => item.id === site.mission);
+  const mission = state.missions.find((item) => item.id === site.mission);
+  const record = historyMission(entries, site.id);
+  const reached = finalState(site.lifecycle, record);
   const won = consequenceParts(site.rewards, target);
   const lost = consequenceParts(site.penalties, target);
+  const applied = reached === null ? null : appliedConsequence(entries, site.id, record);
   return (
     <div className="pane" data-testid={`site-details-${site.id}`}>
-      <h4 className="pane-title">{site.name}</h4>
+      <h4 className="pane-title">
+        {site.name} <span className="figure muted small">{site.id}</span>
+      </h4>
       <dl className="pairs">
         <dt>Kind</dt>
         <dd>{site.kind}</dd>
@@ -225,51 +265,134 @@ function SiteDetails(props: {
             <dt>Expires in</dt>
             <dd className="figure">{site.turnsUntilExpiration} T</dd>
           </>
-        ) : (
-          <>
-            <dt>State</dt>
-            <dd>{site.lifecycle}</dd>
-          </>
-        )}
+        ) : null}
+        {/* MVIEW, Final state: a Concluded Mission site shows its Mission's outcome instead of "Concluded". */}
+        <dt>State</dt>
+        <dd className={reached === null ? '' : toneClass(reached.tone)} data-testid="site-state">
+          {reached?.text ?? site.lifecycle}
+        </dd>
       </dl>
-      {/* MVIEW, Combat ratings: the Enemies' Combat rating sits on the line of the Enemies heading and ends at the
-          right edge of the Enemies table. */}
-      <div className="enemies-block">
-        <div className="sit-group-head pane-sub">
-          <span className="label">Enemies</span>
-          <CombatRating value={site.enemiesCombatRating} testId="enemies-combat-rating" />
+      {site.lifecycle === 'Concluded' && record !== null ? (
+        <Participants site={site} record={record} />
+      ) : (
+        /* MVIEW, Combat ratings: the Enemies' Combat rating sits on the line of the Enemies heading and ends at the
+           right edge of the Enemies table. */
+        <div className="enemies-block">
+          <div className="sit-group-head pane-sub">
+            <span className="label">Enemies</span>
+            <CombatRating value={site.enemiesCombatRating} testId="enemies-combat-rating" />
+          </div>
+          <EnemiesTable site={site} />
         </div>
-        <EnemiesTable site={site} />
-      </div>
+      )}
       <div className="label pane-sub">Consequences</div>
-      <dl className="pairs">
-        <dt>If won</dt>
-        <dd className="tone-good">{won.length === 0 ? 'nothing' : won.join(', ')}</dd>
-        <dt>If lost or expired</dt>
-        <dd className="tone-bad">{lost.length === 0 ? 'nothing' : lost.join(', ')}</dd>
-      </dl>
-      {site.lifecycle !== 'Active' && mission !== undefined ? (
+      {reached === null ? (
+        <dl className="pairs">
+          <dt>If won</dt>
+          <dd className="tone-good">{won.length === 0 ? 'nothing' : won.join(', ')}</dd>
+          <dt>If lost or expired</dt>
+          <dd className="tone-bad">{lost.length === 0 ? 'nothing' : lost.join(', ')}</dd>
+        </dl>
+      ) : (
+        /* MVIEW, Selected Mission site: once in a final state, only the Consequences that applied. */
+        <div data-testid="applied-consequences">
+          {applied === null || appliedNothing(applied) ? (
+            <span className="muted">Applied: none</span>
+          ) : (
+            <Consequences consequence={applied} label="Applied" />
+          )}
+        </div>
+      )}
+      {site.lifecycle === 'Deployed' && mission !== undefined ? (
         <>
           <div className="label pane-sub">Mission</div>
           <dl className="pairs">
             <dt>Team sent</dt>
             <dd className="figure">{mission.teamSent.join(' · ')}</dd>
-            <dt>State</dt>
-            <dd>{mission.lifecycle}</dd>
           </dl>
-          {/* MVIEW, Selected Mission site: while the Mission is Deployed, the Combat rating of its Current team; once
-              it is Won or Lost, its Combat report holds the ratings its Combat had. */}
-          {mission.lifecycle === 'Deployed' ? (
-            <div className="combat-rating-row">
-              <CombatRating
-                value={teamCombatRating(player, mission.currentTeam)}
-                testId="current-team-combat-rating"
-              />
-            </div>
-          ) : null}
+          {/* MVIEW, Selected Mission site: the Combat rating of a Deployed Mission's Current team. */}
+          <div className="combat-rating-row">
+            <CombatRating
+              value={teamCombatRating(player, mission.currentTeam)}
+              testId="current-team-combat-rating"
+            />
+          </div>
         </>
       ) : null}
     </div>
+  );
+}
+
+/** Whether a Consequence record changed nothing, e.g. a Lost Initiative Mission's. */
+function appliedNothing(c: HistoryMission['consequence']): boolean {
+  return (
+    c.money === 0 &&
+    c.fundingChange === 0 &&
+    c.panicIncrease === 0 &&
+    c.panicReduction === 0 &&
+    c.eliminatedFaction === null
+  );
+}
+
+/**
+ * MVIEW, Concluded Mission site: the Enemies and then the Agents of the Team sent, each participant's effective skill
+ * and current health at Combat start and at Combat end and its final condition, from the History entry; each side's
+ * Combat rating at Combat start and at Combat end on the line of its heading.
+ */
+function Participants(props: { site: MissionSiteView; record: HistoryMission }) {
+  const { site, record } = props;
+  const labels = enemyLabels(site.enemies);
+  const side = (which: 'enemy' | 'agent') => {
+    const rows = record.participants.filter((participant) => participant.side === which);
+    const key = which === 'enemy' ? 'enemies' : 'agents';
+    return (
+      <div className="enemies-block" data-testid={`concluded-${key}`}>
+        <div className="sit-group-head pane-sub">
+          <span className="label">{which === 'enemy' ? 'Enemies' : 'Agents'}</span>
+          <CombatRating
+            value={`${record.ratingsStart[key]} → ${record.ratingsEnd[key]}`}
+            testId={`concluded-${key}-combat-rating`}
+          />
+        </div>
+        <Grid widths={['150px', '112px', '150px', '136px']} className="compact">
+          <thead>
+            <tr>
+              <th>{which === 'enemy' ? 'Enemy' : 'Agent'}</th>
+              <th className="num">Skill</th>
+              <th className="num">Health</th>
+              <th>Condition</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((participant) => (
+              <tr
+                key={participant.id}
+                className={participantRowClass(participant)}
+                data-testid={`concluded-row-${participant.id}`}
+              >
+                <td className={which === 'agent' ? 'figure' : ''}>
+                  {which === 'enemy' ? (labels.get(participant.id) ?? participant.id) : participant.id}
+                </td>
+                <td className="num">
+                  {participant.startEffectiveSkill} → {participant.endEffectiveSkill}
+                </td>
+                <td className="num">
+                  {combatantValueText(participant.startHealthHundredths, which)} →{' '}
+                  {combatantValueText(participant.endHealthHundredths, which)}
+                </td>
+                <td>{conditionText(participant)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Grid>
+      </div>
+    );
+  };
+  return (
+    <>
+      {side('enemy')}
+      {side('agent')}
+    </>
   );
 }
 

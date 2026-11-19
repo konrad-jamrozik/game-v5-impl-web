@@ -343,7 +343,11 @@
   cc4d6a246a64d200440eec6f09cf4d953e0724c9 adopted this decision's contents as the Turn report sections of the
   mechanics, and made the Turn report list every Forced return in Agent order rather than step by step. The copies
   of each Mission site's MissionSiteArchetype and kind that the Turn report and the History entry keep go beyond what
-  the specifications require.
+  the specifications require. Specification commit 6c57a15eed3fde76cf1ce32c2e1a95516926fbb9 made a History entry keep,
+  for each Mission, each participant's current health and effective skill at Combat start and at Combat end and its
+  final condition, each side's Combat rating at Combat start and at Combat end, and the Consequences that applied, and
+  for each Expired Mission site the Consequences that applied; the History entry holds them as `participants`,
+  `ratingsStart`, `ratingsEnd`, `consequence`, and `expiredConsequences`, and the Campaign save format moved to 12.
 - **Options considered:** A History entry that repeats the whole Turn report; a reduced History entry.
 - **Option chosen:** A reduced History entry without the Combat log.
 - **Why:** The Combat log is the large part of a Turn report, and WHIST requires a History entry to bound what is

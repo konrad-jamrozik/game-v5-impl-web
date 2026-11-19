@@ -484,6 +484,8 @@ No files.
 
 - src/web/screens/MissionsView.tsx
 - src/web/deploy-table.ts
+- src/web/mission-outcome.ts
+- tests/web/mission-outcome.test.ts
 - tests/web/deploy-table.test.ts
 - src/web/table-sort.ts
 - src/web/tired-deployment.ts

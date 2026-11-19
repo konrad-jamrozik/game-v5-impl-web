@@ -828,6 +828,12 @@ function siteIndex(world: CurrentWorldState, id: string): number {
   return Object.keys(world.missionSites).indexOf(id);
 }
 
+/** COMBAT, Combat report: the Combat rating of each side at the given entry, Combat start being entry 0. */
+function ratingAt(combat: CombatReport, index: number): { agents: number; enemies: number } {
+  const rating = must(combat.ratings[index], 'Combat rating');
+  return { agents: rating.agents, enemies: rating.enemies };
+}
+
 /** The reduced form of a Turn report that its History entry keeps; see DEC-016. */
 function reduceReport(
   report: TurnReport,
@@ -856,6 +862,18 @@ function reduceReport(
           killed: mission.killed,
           wounded: mission.toRecovery,
           unharmed: mission.toStandby,
+          participants: combat.participants.map((participant) => ({
+            id: participant.id,
+            side: participant.side,
+            startHealthHundredths: participant.start.currentHealthHundredths,
+            startEffectiveSkill: participant.start.effectiveSkill,
+            endHealthHundredths: participant.final.currentHealthHundredths,
+            endEffectiveSkill: participant.final.effectiveSkill,
+            condition: participant.final.condition,
+          })),
+          ratingsStart: ratingAt(combat, 0),
+          ratingsEnd: ratingAt(combat, combat.ratings.length - 1),
+          consequence: { ...mission.consequence },
         };
       }),
       investigationsCompleted: report.investigationsCompleted.map((item) => ({ ...item })),
@@ -863,6 +881,10 @@ function reduceReport(
       investigationsInterrupted: report.investigationsInterrupted.map((item) => ({ ...item })),
       createdMissionSites: [...report.createdMissionSites],
       expiredMissionSites: report.expiredMissionSites.map((item) => item.missionSite),
+      expiredConsequences: report.expiredMissionSites.map((item) => ({
+        missionSite: item.missionSite,
+        consequence: { ...item.consequence },
+      })),
       cancelledMissionSites: report.cancelledMissionSites,
       escalatedFactions: report.factionActivity
         .filter((item) => item.escalatedTo !== null)

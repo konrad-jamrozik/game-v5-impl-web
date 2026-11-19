@@ -166,6 +166,8 @@ function Sections(props: {
   const archetypeName = (archetype: string) =>
     snapshot.gameData?.missionSiteArchetypes.find((item) => item.id === archetype)?.name ?? archetype;
   const leadName = (lead: string) => state.leads.find((item) => item.id === lead)?.name ?? lead;
+  const factionName = (faction: string) =>
+    state.factions.find((item) => item.id === faction)?.name ?? faction;
   const siteRow = (id: string, what: ReactNode) => (
     <button
       key={id}
@@ -175,7 +177,11 @@ function Sections(props: {
         onOpen({ kind: 'missionSite', missionSite: id });
       }}
     >
-      <span className="list-name">{site(id)?.name ?? id}</span>
+      {/* TRVIEW, Sections, Mission sites: the name, the Instance ID in Text muted, and the target Faction. */}
+      <span className="list-name">
+        {site(id)?.name ?? id} <span className="figure muted small">{id}</span>{' '}
+        <span className="secondary small">· {factionName(site(id)?.targetFaction ?? '')}</span>
+      </span>
       <span className="list-value">{what}</span>
     </button>
   );

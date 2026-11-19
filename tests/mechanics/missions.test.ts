@@ -150,6 +150,28 @@ describe('MISSION: examples', () => {
     expect(report.upkeep.moneyAfter).toBe(380);
     expect(report.combatReports[0]).toMatchObject({ mission: m1, outcome: 'Prevailed', rounds: 2 });
     expect(report.combatReports[0]!.log).toHaveLength(8);
+    // COMBAT, Combat report and MISSION, Turn report: the History entry keeps each participant's current health and
+    // effective skill at Combat start and at Combat end, its final condition, each side's Combat rating at Combat
+    // start and at Combat end, and the Consequences that applied.
+    const kept = state.world.history.historyEntries.at(-1)!.report.missions[0]!;
+    const combat = report.combatReports[0]!;
+    expect(kept.participants).toEqual(
+      combat.participants.map((p) => ({
+        id: p.id,
+        side: p.side,
+        startHealthHundredths: p.start.currentHealthHundredths,
+        startEffectiveSkill: p.start.effectiveSkill,
+        endHealthHundredths: p.final.currentHealthHundredths,
+        endEffectiveSkill: p.final.effectiveSkill,
+        condition: p.final.condition,
+      })),
+    );
+    expect(kept.ratingsStart).toEqual({
+      agents: combat.ratings[0]!.agents,
+      enemies: combat.ratings[0]!.enemies,
+    });
+    expect(kept.ratingsEnd).toEqual({ agents: combat.ratings.at(-1)!.agents, enemies: 0 });
+    expect(kept.consequence).toEqual(report.missions[0]!.consequence);
     // The Combat leaves 4, 2, 1, and 1; no Agent was Killed, so Mission exhaustion adds 5 to each.
     expect(report.combatReports[0]!.participants.slice(0, 4).map((p) => p.final.exhaustion)).toEqual([
       4, 2, 1, 1,

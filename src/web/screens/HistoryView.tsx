@@ -33,7 +33,7 @@ function Events(props: { entry: HistoryEntry; missionSiteName: (archetype: strin
         </Label>
       ))}
       {report.investigationsCompleted.length > 0 ? (
-        <Label tone="tone-accent">
+        <Label tone="tone-good">
           {count(report.investigationsCompleted.length, 'Investigation')} completed
         </Label>
       ) : null}
@@ -44,7 +44,7 @@ function Events(props: { entry: HistoryEntry; missionSiteName: (archetype: strin
         <Label tone="tone-accent">{count(report.expiredMissionSites.length, 'Mission site')} expired</Label>
       ) : null}
       {report.escalatedFactions.length > 0 ? (
-        <Label tone="tone-warning">{count(report.escalatedFactions.length, 'Faction')} escalated</Label>
+        <Label tone="tone-bad">{count(report.escalatedFactions.length, 'Faction')} escalated</Label>
       ) : null}
       {report.ending === null ? null : (
         <Label tone={report.ending === 'Victory' ? 'tone-good' : 'tone-bad'}>{report.ending}</Label>

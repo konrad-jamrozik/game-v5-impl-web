@@ -2375,3 +2375,15 @@ label:has(> input[type='checkbox']:disabled) {
 .detail-view {
   z-index: 1;
 }
+
+/* MVIEW: with no deployment pane, the selected Mission site takes its width, so that its tables fit. */
+.panes-two {
+  grid-template-columns: minmax(260px, 1.1fr) minmax(0, 2.5fr);
+}
+
+/* MVIEW, Mission site list: the Instance ID under the name, in Text muted. */
+.list-name > .list-id {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
