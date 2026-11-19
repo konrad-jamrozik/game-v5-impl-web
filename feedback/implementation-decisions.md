@@ -423,7 +423,7 @@
   floor is five turns of half the projected upkeep. A team needs a Combat rating above 120% of the Enemies' Combat
   rating and one Agent for every three Enemies. Agents investigating Leads number 1 plus 1 for every 10 Agents. The
   target roster is 8 plus 4 for each Upgrade bought whose effect improves Agents, not for the cap Upgrades. The
-  Transport cap and the Training cap are each kept at 50% of the roster. The Basic Autopilot AI decides one Player
+  Transport cap and the Training cap are kept at 25% and 30% of the roster, the game-ts values. The Basic Autopilot AI decides one Player
   action at a time: after every Player action it reads the current state and starts its Turn routine again, so that
   it plays the same whatever its Autopilot limit is. A team is formed in the order of preference BASICAI states and,
   when that order gives no winning team, with the most capable Rested Agents first. Among equally good choices it
@@ -432,17 +432,25 @@
   is below projected upkeep, and it hires before it buys Agent cap. Otherwise it rotates among the Upgrades other than
   the Cap Upgrades: it buys the one bought least often, the cheaper first among equals, and buys nothing while that
   one costs more than its budget. A Player action that was rejected is not tried again in that Turn. With these
-  thresholds it won 200 of 200 Campaigns of different Campaign seeds, in a median of 214 Turns (minimum 151, maximum
-  292), after the Base health and Rate Upgrades of specification commit a7dfd0a94b474cdea154c0d2b4935ccce9a795d4. Before
-  them, when the only Upgrade improving Agents was the one with the effect `agent_weapon_damage`, the median was 192
-  Turns, after the Investigation rework of
+  thresholds it won 200 of 200 Campaigns of different Campaign seeds, in a median of 233 Turns (minimum 197, maximum
+  281), at specification revision e3bd230499aa61d126f94320c17f8d3347f54be3. With the Transport cap and Training cap at 50% it had won 200 of 200 in a
+  median of 214 Turns after the Base health and Rate Upgrades of specification commit
+  a7dfd0a94b474cdea154c0d2b4935ccce9a795d4. Before them, when the only Upgrade improving Agents was the one with the
+  effect `agent_weapon_damage`, the median was 192 Turns, after the Investigation rework of
   specification commit 438b909e6ef6bf0cd581856d790a318ac8879628, i.e. a rolled Actual required progress, team efficiency,
   and Progress loss; after the exhaustion rework of specification commit e10913ff6cb326b4834eaa45c02d71ce5cbebf92 the
   median was 172 Turns, and before it 91 Turns.
 - **Options considered:** The game-ts starting values unchanged; values tuned against whole Campaigns.
 - **Option chosen:** Tuned values.
 - **Why:** With a roster target that counts every Upgrade, each Agent cap purchase called for the next and the
-  roster grew without bound, and with a Transport cap of 25% of the roster no team could win `raid_hq`.
+  roster grew without bound. The Transport cap and Training cap compare as follows over the same 100 Campaign seeds at
+  specification revision e3bd230499aa61d126f94320c17f8d3347f54be3: at 25% and 30% the Basic Autopilot AI won 100 of 100, in a median of 232 Turns,
+  with a median final roster of 44; at 50% each it won 94 of 100 and lost 6 at the Panic limit, in a median of 267
+  Turns. When the only Upgrade improving Agents was the Weapon damage Upgrade, the roster stayed small, 25% of it gave
+  no team large enough to win `raid_hq`, and 50% was kept instead; the roster now grows with five such Upgrades, so
+  the game-ts values win again.
+- **Update:** The Transport cap and Training cap were 50% each until the comparison above at specification revision
+  e3bd230499aa61d126f94320c17f8d3347f54be3.
 - **Links:** None.
 
 ## DEC-022: Properties and name of a Campaign configuration preset

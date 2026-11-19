@@ -56,8 +56,8 @@ export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
   investigatorsPerRoster: 10,
   baseRoster: 8,
   rosterPerUpgrade: 4,
-  transportCapPct: 50,
-  trainingCapPct: 50,
+  transportCapPct: 25,
+  trainingCapPct: 30,
 };
 
 /** Thrown inside a step when the Autopilot engagement has ended, so that the step makes no further call. */
