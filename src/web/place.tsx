@@ -19,8 +19,13 @@ export interface PlaceContextValue {
    * something one step away in place of its content.
    */
   readonly follow: () => void;
-  /** CSCR, View trail: the Back control, present only while the View trail is not empty. */
-  readonly back: { readonly label: string; readonly go: () => void } | null;
+  /**
+   * CSCR, View trail: the Back control, present only while the View trail is not empty. `toSummary` says it shows the
+   * Turn summary again, which SOUNDS, Turn summary makes a Main click rather than a Go back.
+   */
+  readonly back: { readonly label: string; readonly go: () => void; readonly toSummary: boolean } | null;
+  /** CSCR, View trail, Close: closing the Detail view shows the Turn summary again, a Main click under SOUNDS. */
+  readonly closeShowsSummary: boolean;
 }
 
 const NO_PLACE: PlaceContextValue = {
@@ -29,6 +34,7 @@ const NO_PLACE: PlaceContextValue = {
   live: { current: {} },
   follow: () => undefined,
   back: null,
+  closeShowsSummary: false,
 };
 
 export const PlaceContext = createContext<PlaceContextValue>(NO_PLACE);

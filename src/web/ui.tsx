@@ -12,14 +12,20 @@ import { tallySquares } from './tally.ts';
  * is the control's containing block. A Detail view places it in its title row's flow instead, among the row's
  * controls. Closing is a Go back, under SOUNDS, Go back.
  */
-export function CloseControl(props: { onClose: () => void; title?: string; testId?: string }) {
+export function CloseControl(props: {
+  onClose: () => void;
+  title?: string;
+  testId?: string;
+  /** SOUNDS, Turn summary: `main` when closing shows the Turn summary again; a Go back otherwise. */
+  sound?: 'main' | 'back';
+}) {
   return (
     <button
       type="button"
       className="btn btn-plain close-control"
       aria-label="Close"
       title={props.title ?? 'Close (Esc)'}
-      data-sound="back"
+      data-sound={props.sound ?? 'back'}
       data-testid={props.testId}
       onClick={props.onClose}
     >

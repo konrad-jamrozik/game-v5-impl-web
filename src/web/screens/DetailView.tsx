@@ -94,12 +94,16 @@ export function DetailView(props: {
           {props.actions}
           {/* VIS, Detail view: the Back control is the last button of the row, 8 px before the close control. */}
           {place.back === null ? null : (
-            <Button testId="view-back" sound="back" onClick={place.back.go}>
+            <Button testId="view-back" sound={place.back.toSummary ? 'main' : 'back'} onClick={place.back.go}>
               {place.back.label}
             </Button>
           )}
         </div>
-        <CloseControl testId="close-view" onClose={props.onClose} />
+        <CloseControl
+          testId="close-view"
+          sound={place.closeShowsSummary ? 'main' : 'back'}
+          onClose={props.onClose}
+        />
       </header>
       <div className="detail-body" ref={body}>
         {props.children}

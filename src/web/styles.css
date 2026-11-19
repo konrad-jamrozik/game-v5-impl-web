@@ -2298,7 +2298,7 @@ label:has(> input[type='checkbox']:disabled) {
   border-top: 1px solid var(--divider);
 }
 
-/* VIS, Alignment, Cards side by side: each card spans six rows of the shared grid, so each part takes the height of
+/* VIS, Alignment, Cards side by side: each card spans seven rows of the shared grid, one per part, so each part takes the height of
    its tallest instance in the row and starts at the same height on every card of the row. UVIEW: four to a row. */
 .upgrade-cards {
   display: grid;
@@ -2308,7 +2308,7 @@ label:has(> input[type='checkbox']:disabled) {
 
 .upgrade-card {
   display: grid;
-  grid-row: span 6;
+  grid-row: span 7;
   grid-template-rows: subgrid;
   align-content: start;
   margin-bottom: 16px;

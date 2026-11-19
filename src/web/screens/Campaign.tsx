@@ -281,7 +281,11 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     restoredScrollTop: open?.scrollTop ?? 0,
     live,
     follow: followFrom,
-    back: backLabel(trail) === null ? null : { label: backLabel(trail) ?? '', go: back },
+    back:
+      backLabel(trail) === null
+        ? null
+        : { label: backLabel(trail) ?? '', go: back, toSummary: goBack(trail)?.place.id === TURN_SUMMARY },
+    closeShowsSummary: closeReturnsTo(trail) !== null,
   };
 
   /** AVIEW, Header: a shortcut presses the Agents View button, which is enabled only when pressing it would succeed. */
@@ -353,8 +357,11 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           setHelp(false);
         } else if (open !== null) {
           // VIS, Close controls, and CSCR, View trail: in a Detail view that shows a Back control, Escape does what
-          // the Back control does; with an empty View trail it closes the Detail view.
-          playSound(SOUND.back);
+          // the Back control does; with an empty View trail it closes the Detail view. SOUNDS, Turn summary: showing
+          // the Turn summary again is a Main click.
+          const showsSummary =
+            trail.length > 0 ? goBack(trail)?.place.id === TURN_SUMMARY : closeReturnsTo(trail) !== null;
+          playSound(showsSummary ? SOUND.main : SOUND.back);
           if (trail.length > 0) {
             back();
           } else {

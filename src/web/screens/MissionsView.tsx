@@ -164,7 +164,7 @@ export function MissionsView(props: {
           type="button"
           className={showFinished ? 'chip chip-on' : 'chip'}
           data-testid="missions-finished"
-          data-sound="none"
+          data-sound="select"
           onClick={() => {
             setShowFinished((on) => !on);
             setPicked(null);

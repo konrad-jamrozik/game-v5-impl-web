@@ -246,7 +246,7 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
                     aria-label="Previous article"
                     title="Previous article"
                     data-testid="article-previous"
-                    data-sound="main"
+                    data-sound="select"
                     disabled={!hasPreviousArticle(history)}
                     onClick={() => {
                       setHistory(previousArticle(history));
@@ -260,7 +260,7 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
                     aria-label="Next article"
                     title="Next article"
                     data-testid="article-next"
-                    data-sound="main"
+                    data-sound="select"
                     disabled={!hasNextArticle(history)}
                     onClick={() => {
                       setHistory(nextArticle(history));

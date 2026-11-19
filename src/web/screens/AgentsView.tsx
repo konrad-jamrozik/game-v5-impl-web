@@ -415,7 +415,7 @@ export function AgentsView(props: {
       className={rowFilter === which ? 'chip chip-on' : 'chip'}
       aria-pressed={rowFilter === which}
       data-testid={`filter-${which}`}
-      data-sound="none"
+      data-sound="select"
       onClick={() => {
         setRowFilter(which);
       }}
@@ -501,7 +501,7 @@ export function AgentsView(props: {
                     aria-label={`Allow selecting only the Agents that can be assigned to ${assignment}`}
                     title={`Allow selecting only the Agents that can be assigned to ${assignment}`}
                     data-testid={`filter-to-${assignment.toLowerCase()}`}
-                    data-sound="none"
+                    data-sound="select"
                     onClick={() => {
                       // AVIEW, Agent table: turning one on locks the Blocked by tier above the Player's tiers;
                       // turning it off drops that tier and keeps the tiers the Player chose.

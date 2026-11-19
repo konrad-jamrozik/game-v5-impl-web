@@ -111,6 +111,9 @@ async function viaWeb(page: Page): Promise<unknown> {
   // UVIEW, Upgrade cards: a tally of the Acquisitions below the Buy button.
   await expect(id(page, 'tally-training_cap').locator('.tally-square')).toHaveCount(1);
   await expect(id(page, 'tally-agent_cap')).toHaveCount(0);
+  const buyBox = await id(page, 'buy-training_cap').boundingBox();
+  const tallyBox = await id(page, 'tally-training_cap').boundingBox();
+  expect(tallyBox?.y ?? 0).toBeGreaterThanOrEqual((buyBox?.y ?? 0) + (buyBox?.height ?? 0));
   await page.keyboard.press('h');
   await page.keyboard.press('u');
   await expect(id(page, 'redo')).toBeEnabled();
@@ -337,11 +340,11 @@ test('the Situation panel stays in view beside a Detail view and an item opens i
   await expect(id(page, 'view-leads')).toHaveCount(0);
   await id(page, 'nav-compendium').click();
   await expect(id(page, 'compendium-category-Guide')).toBeVisible();
-  // SOUNDS, Main click: selecting a category or an article of the Compendium View opens it to be read.
-  await expect(id(page, 'compendium-category-Guide')).toHaveAttribute('data-sound', 'main');
+  // SOUNDS, Select click: selecting a category or an article of the Compendium View is a List item.
+  await expect(id(page, 'compendium-category-Guide')).toHaveAttribute('data-sound', 'select');
   await expect(id(page, 'compendium-articles').locator('button').first()).toHaveAttribute(
     'data-sound',
-    'main',
+    'select',
   );
   await expect(id(page, 'article-locate_red_dawn_safehouse_article')).toHaveCount(0);
   await page.keyboard.press('Escape');
@@ -428,6 +431,27 @@ test('a table column holds every value listed for it without cutting it short', 
   expect(await cutShortCells(page, 'history-turn-now')).toEqual([]);
 });
 
+test('showing the Turn summary again from the Turn Report View is a Main click, not a Go back', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('summary-sound');
+  await id(page, 'new-campaign').click();
+  // Advance until a Turn summary appears.
+  for (let turn = 2; turn <= 40 && (await id(page, 'turn-summary').count()) === 0; turn++) {
+    await id(page, 'advance-turn').click();
+    await expect(id(page, 'turn')).toHaveText(String(turn));
+  }
+  await expect(id(page, 'turn-summary')).toBeVisible();
+  await id(page, 'turn-summary-report').click();
+  // SOUNDS, Turn summary: the Back control "‹ Turn summary" and the close control both show the Turn summary again.
+  await expect(id(page, 'view-back')).toHaveText('‹ Turn summary');
+  await expect(id(page, 'view-back')).toHaveAttribute('data-sound', 'main');
+  await expect(id(page, 'close-view')).toHaveAttribute('data-sound', 'main');
+  await id(page, 'view-back').click();
+  await expect(id(page, 'turn-summary')).toBeVisible();
+});
+
 test('the Compendium View shows resolved articles, follows Article links, and keeps an Article history', async ({
   page,
 }) => {
@@ -475,12 +499,13 @@ test('the Compendium View shows resolved articles, follows Article links, and ke
   await expect(previous).toBeEnabled();
 
   // COMPV, Following links: an Article link shows the article it links to and selects its category and article.
-  // SOUNDS, Main click: an Article link and a button of the Article history open an article to be read.
+  // SOUNDS, Main click: an Article link follows a reference; SOUNDS, Select click: a button of the Article history.
   const link = id(page, 'article-body').locator('.article-link').first();
   await expect(link).toHaveAttribute('data-sound', 'main');
   await expect(link).toHaveCSS('text-decoration-line', 'underline');
   await expect(link).toHaveCSS('cursor', 'pointer');
-  await expect(previous).toHaveAttribute('data-sound', 'main');
+  await expect(previous).toHaveAttribute('data-sound', 'select');
+  await expect(next).toHaveAttribute('data-sound', 'select');
   const target = (await link.getAttribute('data-article')) ?? '';
   expect(target).not.toBe('mechanics_exhaustion');
   await link.click();

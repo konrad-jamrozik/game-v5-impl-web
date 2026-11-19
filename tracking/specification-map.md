@@ -635,6 +635,7 @@ No files.
 - src/web/screens/SettingsPanel.tsx
 - src/web/tired-deployment.ts
 - src/web/row-selection.ts
+- src/web/place.tsx
 - src/engine/session/global-configuration.ts
 - tests/web/sounds.test.ts
 - e2e/web.spec.ts
