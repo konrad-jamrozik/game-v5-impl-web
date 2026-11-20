@@ -10,7 +10,7 @@ import { withCombatGdrValues, type GdrCatalog } from '../../../gdr/index.ts';
 import { seededRandom, type Random } from '../../random.ts';
 import { reject, type Rejection } from '../../result.ts';
 import { isServing, type CurrentWorldState } from '../../state/types.ts';
-import { agentUpgradeBonus } from '../economy/economy.ts';
+import { agentUpgradeBonus, ratingUpgrades } from '../economy/economy.ts';
 import { createEnemy, createMissionSite } from '../missions/missions.ts';
 import {
   agentCombatantState,
@@ -61,6 +61,11 @@ export interface DetachedCombatSetup {
    * EnemyArchetype entry for each Enemy a new Mission site of it would have, in their creation order.
    */
   readonly enemies: readonly DetachedEnemyEntry[] | { readonly missionSiteArchetype: string };
+  /**
+   * The Rating Upgrades of the Agents' side, a whole number of at least 0, under COMBAT, Combat rating; those of the
+   * Current world state when left out.
+   */
+  readonly ratingUpgrades?: number;
   /**
    * A value for any GDR value a Combat reads, by authored name, e.g. `{ "incapacitation_skill_fraction": 0.2 }`; every
    * other one is the Game build's. A decimal value may be given as a number or as its text.
@@ -310,6 +315,13 @@ export function buildDetachedCombat(
     }
   }
 
+  const givenRatingUpgrades = setup['ratingUpgrades'];
+  if (givenRatingUpgrades !== undefined && !isWhole(givenRatingUpgrades, 0)) {
+    return reject('invalid_rating_upgrades', 'ratingUpgrades must be a whole number of at least 0.');
+  }
+  const agentRatingUpgrades =
+    givenRatingUpgrades ?? ratingUpgrades(gdrs.upgrades, world.agency.state.acquisitions);
+
   const gdrValues = setup['gdrValues'] ?? {};
   if (!isRecord(gdrValues)) {
     return malformed('gdrValues must be an object of GDR values by authored name.');
@@ -329,7 +341,13 @@ export function buildDetachedCombat(
     );
   }
   return {
-    inputs: { agents, enemies, combat: values.combat, agentParameters: values.agent },
+    inputs: {
+      agents,
+      enemies,
+      ratingUpgrades: agentRatingUpgrades,
+      combat: values.combat,
+      agentParameters: values.agent,
+    },
     participants,
     seed,
   };

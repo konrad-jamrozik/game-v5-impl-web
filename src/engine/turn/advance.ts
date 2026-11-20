@@ -24,6 +24,7 @@ import {
 import { agentCombatantState, enemyCombatantState, fightCombat } from '../mechanics/combat/combat.ts';
 import {
   agentUpgradeBonus,
+  ratingUpgrades,
   fundingAfter,
   income,
   upgradedRates,
@@ -111,6 +112,8 @@ export function applyAdvanceTurn(
   // ECON, Weapon damage Upgrade and Max health Upgrade: no Upgrade is purchased in an Advance turn, so the effective
   // values of every Serving Agent read one Upgrade bonus throughout.
   const bonus = agentUpgradeBonus(gdrs.upgrades, before.agency.state.acquisitions);
+  // COMBAT, Combat rating: the Rating Upgrades of the Agents' side, read from the same Acquisitions.
+  const agentRatingUpgrades = ratingUpgrades(gdrs.upgrades, before.agency.state.acquisitions);
   const valuesOf = (agent: { readonly state: AgentState }): CombatantValues =>
     agentCombatantValues(agent.state, bonus);
 
@@ -398,6 +401,7 @@ export function applyAdvanceTurn(
       {
         agents: team.map((agent) => ({ id: agent.id, state: agentCombatantState(agent.state, bonus) })),
         enemies: siteEnemies.map((enemy) => ({ id: enemy.id, state: enemyCombatantState(enemy.state) })),
+        ratingUpgrades: agentRatingUpgrades,
         combat: gdrs.combatParameters,
         agentParameters,
       },

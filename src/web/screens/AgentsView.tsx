@@ -22,7 +22,7 @@ import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
 import { decimalText, wholeText } from '../format.ts';
 import { ASSIGNMENTS, blockedBy, type OrderAssignment, type Selectability } from '../agent-selection.ts';
 import { capBar, type CapBarModel } from '../cap-bar.ts';
-import { enemyLabels } from '../enemy-labels.ts';
+import { memorialDeath, type MemorialDeath } from '../memorial.ts';
 import { fillColour } from '../progress-bar.ts';
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import { useRowSelection } from '../row-selection.ts';
@@ -53,7 +53,24 @@ const NUMERIC = new Set([
 /** VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. */
 const SERVING_WIDTHS = ['36px', '104px', '116px', '84px', '64px', '96px', '132px', '104px', '280px', '220px'];
 /** VIS, Tables: the fixed widths of the Memorial table. */
-const MEMORIAL_WIDTHS = ['104px', '84px', '64px', '96px', '132px', '96px', '112px', '88px', '80px', '360px'];
+/**
+ * AVIEW, Memorial: Killed by holds the longest Enemy label of the GDRs with a two-digit number, e.g.
+ * "high-commander-12", and Where the longest MissionSiteArchetype `name` with a three-digit number, e.g. "Defend
+ * against city government assault #123", so that neither is ever cut short.
+ */
+const MEMORIAL_WIDTHS = [
+  '104px',
+  '84px',
+  '64px',
+  '96px',
+  '132px',
+  '96px',
+  '112px',
+  '88px',
+  '80px',
+  '200px',
+  '400px',
+];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
 type RowFilter = 'all' | 'inBase' | 'away' | 'memorial';
@@ -127,26 +144,16 @@ function assignmentTone(agent: AgentView): string {
   return 'tone-good';
 }
 
-/**
- * AVIEW, Memorial, Details: how a Terminated Agent's service ended, naming the Enemy its Killed by references by its
- * Enemy label, and the Mission site by Instance ID and Archetype `name`, e.g. "Killed by initiate-2 at
- * mission-site-5, Apprehend member".
- */
-export function memorialDetails(
+/** AVIEW, Memorial, Killed by and Where: the Enemy and Mission site of a Killed Agent; null for a Dismissed one. */
+function memorialDeathOf(
   agent: AgentView,
   state: CurrentLiveWorldStateView,
   retired: CurrentRetiredWorldStateView | null,
-): string {
-  const killedBy = agent.killedBy;
-  if (agent.agentStatus !== 'Killed' || killedBy === null) {
-    return agent.agentStatus;
-  }
-  const sites = [...state.missionSites, ...(retired?.missionSites ?? [])];
-  const site = sites.find((item) => item.id === killedBy.missionSite);
-  // GUI, Enemy labels: an Enemy label is unique only within its Mission site, so the Mission site is named with it.
-  const label = site === undefined ? undefined : enemyLabels(site.enemies).get(killedBy.enemy);
-  const siteText = site === undefined ? killedBy.missionSite : `${killedBy.missionSite}, ${site.name}`;
-  return `Killed by ${label ?? killedBy.enemy} at ${siteText}`;
+): MemorialDeath | null {
+  return memorialDeath(agent.agentStatus === 'Killed' ? agent.killedBy : null, [
+    ...state.missionSites,
+    ...(retired?.missionSites ?? []),
+  ]);
 }
 
 /** AVIEW, Memorial: the number columns of a Terminated Agent. */
@@ -658,7 +665,8 @@ type MemorialKey =
   | 'missions'
   | 'turns'
   | 'kills'
-  | 'details';
+  | 'killedBy'
+  | 'where';
 
 /** AVIEW, Memorial: one row per Terminated Agent, newest Turn terminated first, sorted by any column header. */
 function Memorial(props: {
@@ -671,7 +679,7 @@ function Memorial(props: {
   const [tiers, setTiers] = usePlaceState<SortTier<MemorialKey>[]>('memorialTiers', []);
   const unsorted = props.agents.map((agent) => ({
     agent,
-    details: memorialDetails(agent, props.state, props.retired),
+    death: memorialDeathOf(agent, props.state, props.retired),
     ...memorialNumbers(agent),
   }));
   type Row = (typeof unsorted)[number];
@@ -695,8 +703,10 @@ function Memorial(props: {
         return row.turns;
       case 'kills':
         return row.kills;
-      case 'details':
-        return row.details;
+      case 'killedBy':
+        return row.death?.killedBy ?? '';
+      case 'where':
+        return row.death === null ? '' : `${row.death.where.name} ${row.death.where.number}`;
     }
   };
   const rows = sortRows(unsorted, tiers, value);
@@ -728,7 +738,8 @@ function Memorial(props: {
             {header('missions', 'Missions', true)}
             {header('turns', 'Turns', true, 'Turns with the Agency')}
             {header('kills', 'Kills', true, 'Enemies killed')}
-            {header('details', 'Details', false)}
+            {header('killedBy', 'Killed by', false)}
+            {header('where', 'Where', false)}
           </tr>
         </thead>
         <tbody>
@@ -756,7 +767,16 @@ function Memorial(props: {
               <td className="num">{row.missions}</td>
               <td className="num">{row.turns}</td>
               <td className="num">{row.kills}</td>
-              <td>{row.details}</td>
+              <td className="figure" data-testid={`memorial-killed-by-${row.agent.id}`}>
+                {row.death?.killedBy}
+              </td>
+              <td data-testid={`memorial-where-${row.agent.id}`}>
+                {row.death === null ? null : (
+                  <>
+                    {row.death.where.name} <span className="figure muted">{row.death.where.number}</span>
+                  </>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -832,6 +852,16 @@ function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: Curr
         <dt>Assignment</dt>
         <dd>{assignmentText(agent, state, snapshot.retired)}</dd>
       </dl>
+      {/* AVIEW, Agent details: the one place that shows a base Combat rating, beside the Combat rating that the Weapon
+          damage and Armor Upgrades raise, in the shared Combat rating style, e.g. "COMBAT RATING 78 · base 76". A
+          Terminated Agent shows no Combat rating. */}
+      {terminated ? null : (
+        <span className="combat-rating" data-testid="details-combat-rating">
+          <span className="label">Combat rating</span>
+          <span className="figure tone-accent">{agent.combatRating}</span>
+          <span className="figure secondary">· base {agent.baseCombatRating}</span>
+        </span>
+      )}
       <div className="label">Participation history</div>
       {participation.length === 0 ? (
         <p className="muted">No Investigation or Mission yet.</p>

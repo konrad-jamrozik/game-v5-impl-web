@@ -76,6 +76,8 @@ export interface CombatParametersGdr {
   /** COMBAT, Target selection: the Selection weight at exactly the preferred hit Probability; a whole number. */
   readonly targetBaseWeight: number;
   readonly targetPreferredHitChance: Rational;
+  /** COMBAT, Combat rating: the fraction of its base Combat rating by which each Rating Upgrade raises a side's. */
+  readonly ratingBonusPerUpgrade: Rational;
 }
 
 export interface RecoveryParametersGdr {

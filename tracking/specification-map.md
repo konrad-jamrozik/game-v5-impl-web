@@ -52,6 +52,8 @@
 - src/web/place.tsx
 - src/web/enemy-labels.ts
 - tests/web/enemy-labels.test.ts
+- src/web/memorial.ts
+- tests/web/memorial.test.ts
 
 ## BASICAI: Basic Autopilot AI
 
@@ -379,6 +381,8 @@ No files.
 - src/web/place.tsx
 - src/web/enemy-labels.ts
 - tests/web/enemy-labels.test.ts
+- src/web/memorial.ts
+- tests/web/memorial.test.ts
 
 ## HEADLESS: Headless First
 

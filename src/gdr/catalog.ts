@@ -186,6 +186,7 @@ const combatParameterFields = {
   incapacitation_skill_fraction: decimal,
   target_base_weight: whole(1),
   target_preferred_hit_chance: decimal,
+  rating_bonus_per_upgrade: decimal,
 };
 
 /** COMBAT, Combat inputs and outputs, item 4: the values of AgentParameters that a Combat reads, by authored name. */
@@ -302,6 +303,7 @@ const schemas = {
       incapacitationSkillFraction: g.incapacitation_skill_fraction,
       targetBaseWeight: g.target_base_weight,
       targetPreferredHitChance: g.target_preferred_hit_chance,
+      ratingBonusPerUpgrade: g.rating_bonus_per_upgrade,
     })),
   RecoveryParameters: z
     .strictObject({
@@ -654,6 +656,10 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
   ) {
     problems.push('CombatParameters: the retreat thresholds must be at least 0');
   }
+  // COMBAT, Combat GDR validation, rule 5: the rating bonus is at least 0.
+  if (combatParameters.ratingBonusPerUpgrade.lt(0)) {
+    problems.push('CombatParameters: rating_bonus_per_upgrade must be at least 0');
+  }
   if (
     combatParameters.incapacitationSkillFraction.lt(0) ||
     combatParameters.incapacitationSkillFraction.gte(1)
@@ -699,6 +705,7 @@ const COMBAT_GDR_VALUE_PROPERTIES: Readonly<Record<string, readonly ['combat' | 
   incapacitation_skill_fraction: ['combat', 'incapacitationSkillFraction'],
   target_base_weight: ['combat', 'targetBaseWeight'],
   target_preferred_hit_chance: ['combat', 'targetPreferredHitChance'],
+  rating_bonus_per_upgrade: ['combat', 'ratingBonusPerUpgrade'],
   exhaustion_incapacitation: ['agent', 'exhaustionIncapacitation'],
   exhaustion_free_points: ['agent', 'exhaustionFreePoints'],
   skill_penalty_pct_per_exhaustion: ['agent', 'skillPenaltyPctPerExhaustion'],

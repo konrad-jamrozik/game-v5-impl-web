@@ -67,6 +67,20 @@ export function agentUpgradeBonus(
   };
 }
 
+/**
+ * ECON, Rating Upgrades: the Rating Upgrades of the Agents' side, Σ Acquisitions(U) over every Upgrade U whose effect is
+ * agent_weapon_damage or agent_armor; each acquisition counts once, whatever its Increment.
+ */
+export function ratingUpgrades(upgrades: readonly UpgradeGdr[], acquisitions: Acquisitions): number {
+  let total = 0;
+  for (const upgrade of upgrades) {
+    if (upgrade.effect === 'agent_weapon_damage' || upgrade.effect === 'agent_armor') {
+      total += acquisitions[upgrade.id] ?? 0;
+    }
+  }
+  return total;
+}
+
 /** ECON, Agency caps: cap = base + Σ increment × acquisitions over the Upgrades of the cap's effect. */
 export function agencyCaps(
   economy: EconomyParametersGdr,

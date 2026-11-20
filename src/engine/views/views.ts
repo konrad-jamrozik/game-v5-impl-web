@@ -19,6 +19,7 @@ import {
 import {
   agentCombatantState,
   combatRating,
+  raiseCombatRating,
   damageBounds,
   enemyCombatantState,
   isAbleToFight,
@@ -27,6 +28,7 @@ import {
 import {
   agencyCaps,
   agentUpgradeBonus,
+  ratingUpgrades,
   contractingAtAssignment,
   countDeployed,
   countServing,
@@ -113,6 +115,11 @@ function bonusOf(world: CurrentWorldState, gdrs: GdrCatalog): AgentUpgradeBonus 
   return agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
 }
 
+/** ECON, Rating Upgrades: the Rating Upgrades of the Agents' side in this World state. */
+function ratingUpgradesOf(world: CurrentWorldState, gdrs: GdrCatalog): number {
+  return ratingUpgrades(gdrs.upgrades, world.agency.state.acquisitions);
+}
+
 /** An Agent's values, with its effective max health and current health, as effective skill and a Combat read them. */
 function agentCombatant(agent: Agent['state'], bonus: AgentUpgradeBonus): CombatantState {
   return agentCombatantState(agent, bonus);
@@ -123,10 +130,13 @@ function agentView(
   gdrs: GdrCatalog,
   healthRecoveryPctHundredths: number,
   bonus: AgentUpgradeBonus,
+  agentRatingUpgrades: number,
 ): AgentView {
   const s = agent.state;
   const serving = isServing(s);
   const values = agentCombatant(s, bonus);
+  // COMBAT, Combat rating: one Agent's base Combat rating is its effective skill, even when it is not able to fight.
+  const base = effectiveSkill(values, gdrs.agentParameters);
   return {
     id: agent.id,
     archetype: agent.archetype,
@@ -157,6 +167,8 @@ function agentView(
     inBase: isInBase(s),
     away: isAway(s),
     ableToFight: serving && isAbleToFight(values, gdrs.combatParameters, gdrs.agentParameters),
+    baseCombatRating: serving ? base : null,
+    combatRating: serving ? raiseCombatRating(base, agentRatingUpgrades, gdrs.combatParameters) : null,
     participationHistory: s.participationHistory.map((item) => ({ ...item })),
     enemiesKilled: s.enemiesKilled,
     turnTerminated: s.turnTerminated,
@@ -239,6 +251,7 @@ function missionSiteView(site: MissionSite, world: CurrentWorldState, gdrs: GdrC
     enemies: enemies.map((enemy) => enemyView(enemy, gdrs)),
     enemiesCombatRating: combatRating(
       enemies.map((enemy) => enemyCombatant(enemy.state)),
+      0,
       gdrs.combatParameters,
       gdrs.agentParameters,
     ),
@@ -384,6 +397,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
     agentArmor:
       must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype').armor +
       bonusOf(world, gdrs).armor,
+    ratingUpgrades: ratingUpgradesOf(world, gdrs),
     servingAgents: serving,
     deployedAgents: countDeployed(agents),
     trainingAgents: countTraining(agents),
@@ -423,7 +437,13 @@ export function currentLiveWorldStateView(state: CampaignState, gdrs: GdrCatalog
     agents: Object.values(world.agents)
       .filter((agent) => isServing(agent.state))
       .map((agent) =>
-        agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths, bonusOf(world, gdrs)),
+        agentView(
+          agent,
+          gdrs,
+          ratesOf(world, gdrs).healthRecoveryPctHundredths,
+          bonusOf(world, gdrs),
+          ratingUpgradesOf(world, gdrs),
+        ),
       ),
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle === 'Active')
@@ -449,7 +469,13 @@ export function currentRetiredWorldStateView(
     agents: Object.values(world.agents)
       .filter((agent) => !isServing(agent.state))
       .map((agent) =>
-        agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths, bonusOf(world, gdrs)),
+        agentView(
+          agent,
+          gdrs,
+          ratesOf(world, gdrs).healthRecoveryPctHundredths,
+          bonusOf(world, gdrs),
+          ratingUpgradesOf(world, gdrs),
+        ),
       ),
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle !== 'Active')
@@ -636,12 +662,19 @@ export function previewDeployment(
   const rejection =
     site === undefined ? null : tryAction(world, gdrs, 'deployAgents', { missionSite: site.id, agents: ids });
   return {
-    teamCombatRating: combatRating(team, gdrs.combatParameters, gdrs.agentParameters),
+    // COMBAT, Combat rating: the team counts the Rating Upgrades of the Agents' side; the Enemies count none.
+    teamCombatRating: combatRating(
+      team,
+      ratingUpgradesOf(world, gdrs),
+      gdrs.combatParameters,
+      gdrs.agentParameters,
+    ),
     enemiesCombatRating:
       site === undefined
         ? null
         : combatRating(
             site.state.enemies.map((id) => enemyCombatant(must(world.enemies[id], `Enemy ${id}`).state)),
+            0,
             gdrs.combatParameters,
             gdrs.agentParameters,
           ),

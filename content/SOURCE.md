@@ -69,6 +69,10 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `target_base_weight` and `target_preferred_hit_chance` and the Combat article's Chance to hit and Agent target for
   the rounded hit chance and the Selection weight's usefulness. The copy is still identical to the specification's
   `content/` directory.
+- `combat/combat_parameters.yaml` and `compendium/compendium_articles/mechanics_combat.yaml`: patched unchanged from
+  specification commit `72506c1f3c3149990ca324e42fb14f8417c2416c` on 2026-11-20, adding `rating_bonus_per_upgrade`
+  and the Combat article's words on how Weapon damage and Armor Upgrades raise the Combat rating. The copy is still
+  identical to the specification's `content/` directory.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

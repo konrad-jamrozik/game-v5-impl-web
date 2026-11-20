@@ -86,6 +86,8 @@ export interface CombatInputs {
   readonly agents: readonly Combatant[];
   /** The Enemies' side, in its fixed order. */
   readonly enemies: readonly Combatant[];
+  /** COMBAT, Combat inputs and outputs, item 4: the Rating Upgrades of the Agents' side as the Combat begins. */
+  readonly ratingUpgrades: number;
   readonly combat: CombatParametersGdr;
   readonly agentParameters: AgentParametersGdr;
 }
@@ -142,8 +144,8 @@ export function isAbleToFight(
   );
 }
 
-/** COMBAT, Combat rating of a side: the sum of the effective skill of its Combatants able to fight. */
-export function combatRating(
+/** COMBAT, Combat rating: the base Combat rating of a side, the sum of the effective skill of its Combatants able to fight. */
+export function baseCombatRating(
   side: readonly CombatantState[],
   combat: CombatParametersGdr,
   agentParameters: AgentParametersGdr,
@@ -155,6 +157,27 @@ export function combatRating(
     }
   }
   return total;
+}
+
+/**
+ * COMBAT, Combat rating: ⌊base × (1 + rating_bonus_per_upgrade × Rating Upgrades)⌋, computed exactly and rounded down
+ * once. The Enemies' side has 0 Rating Upgrades, so its Combat rating equals its base Combat rating.
+ */
+export function raiseCombatRating(base: number, ratingUpgrades: number, combat: CombatParametersGdr): number {
+  if (ratingUpgrades === 0) {
+    return base;
+  }
+  return roundDown(q(base).mul(q(1).add(combat.ratingBonusPerUpgrade.mul(ratingUpgrades))));
+}
+
+/** COMBAT, Combat rating of a side: its base Combat rating raised by its Rating Upgrades. */
+export function combatRating(
+  side: readonly CombatantState[],
+  ratingUpgrades: number,
+  combat: CombatParametersGdr,
+  agentParameters: AgentParametersGdr,
+): number {
+  return raiseCombatRating(baseCombatRating(side, combat, agentParameters), ratingUpgrades, combat);
 }
 
 /** COMBAT, Damage outcome: the inclusive bounds of the damage of a hit by a Combatant with weapon damage w. */
@@ -284,8 +307,13 @@ function fight(
   const agents = input.agents.map((combatant) => enter(combatant, 'agent'));
   const enemies = input.enemies.map((combatant) => enter(combatant, 'enemy'));
 
+  // COMBAT, Combat rating: the Agents' side counts its Rating Upgrades; the Enemies' side has none.
   const rating = (side: readonly Fighter[]): number =>
-    side.reduce((sum, fighter) => (able(fighter) ? sum + eff(fighter) : sum), 0);
+    raiseCombatRating(
+      side.reduce((sum, fighter) => (able(fighter) ? sum + eff(fighter) : sum), 0),
+      side === agents ? input.ratingUpgrades : 0,
+      combat,
+    );
   const startRating = rating(agents);
   const ratings = recordReport ? [{ round: 0, agents: startRating, enemies: rating(enemies) }] : [];
   const log: AttackRecord[] = [];
