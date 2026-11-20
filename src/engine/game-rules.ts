@@ -27,6 +27,8 @@ import {
   inspectCampaignState,
   placeInPlay,
   previewDeployment,
+  revealedCompendiumView,
+  revealedLeadsView,
   turnReportView,
 } from './views/views.ts';
 
@@ -205,9 +207,15 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       }
       throw new Error(`There is no query ${query}`);
     },
-    extraDeveloperQuery(query) {
+    extraDeveloperQuery(state, query) {
       if (query === 'initiativeOperationLevels') {
         return initiativeOperationLevelsView(gdrs);
+      }
+      if (query === 'revealedCompendium') {
+        return revealedCompendiumView(state, gdrs);
+      }
+      if (query === 'revealedLeads') {
+        return revealedLeadsView(state, gdrs);
       }
       throw new Error(`There is no developer query ${query}`);
     },
@@ -216,8 +224,8 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
         return detachedCombat(state.world.current, gdrs, args);
       }
       if (tool === 'fightCombatBatch') {
-        const { setup, count } = (args ?? {}) as { setup?: unknown; count?: unknown };
-        return detachedCombatBatch(state.world.current, gdrs, setup, count);
+        const { setup, count, stop } = (args ?? {}) as { setup?: unknown; count?: unknown; stop?: unknown };
+        return detachedCombatBatch(state.world.current, gdrs, setup, count, stop);
       }
       throw new Error(`There is no developer tool ${tool}`);
     },

@@ -1,12 +1,12 @@
 /**
- * The Developer drawer: Dev mode, cheat operations, random outcome overrides, Artwork tuning, and full Campaign state
- * inspection.
+ * The Developer drawer: Dev mode, Reveal hidden content, cheat operations, random outcome overrides, Artwork tuning,
+ * and full Campaign state inspection.
  */
 import { useState, type CSSProperties } from 'react';
 import { detailViewName, fileName } from '../artwork-names.ts';
 import { IMAGE_PATHS, resetTuning, shownTuning, tune, useTunings } from '../artwork.ts';
 import { sliderFill } from '../slider.ts';
-import { act, theEngine, type Snapshot } from '../store.ts';
+import { act, setRevealHiddenContent, theEngine, type Snapshot } from '../store.ts';
 import { Button, CloseControl, Section } from '../ui.tsx';
 import { DETAIL_VIEWS } from './DetailView.tsx';
 
@@ -142,6 +142,19 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
         Dev mode gives access to cheats and to hidden values. It is off whenever a Session starts. Campaign
         seed: {devMode ? (snapshot.status.campaignSeed ?? '-') : 'hidden'}.
       </p>
+      {/* GUI, Reveal hidden content: disabled while Dev mode is disabled or Autopilot is engaged. */}
+      <label className="inline" title={off ?? undefined}>
+        <input
+          type="checkbox"
+          data-testid="dev-reveal"
+          checked={snapshot.revealHiddenContent}
+          disabled={off !== null}
+          onChange={(event) => {
+            setRevealHiddenContent(event.target.checked);
+          }}
+        />
+        Reveal hidden content
+      </label>
 
       <Section title="Cheats">
         <label className="inline">

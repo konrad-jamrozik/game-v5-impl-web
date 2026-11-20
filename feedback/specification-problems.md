@@ -727,3 +727,23 @@
   Autosave after the Disengagement Autosave. The spec does not say which comparison yields.
 - **Links:** DEC-077
 - **Resolution:** Open
+
+## PROB-052: No query reports the revealed Leads that Revealed presentation shows
+
+- **Category:** Implicit gap
+- **Severity:** Medium
+- **Affected specifications:** DEV, Revealed presentation: "e.g. an undiscovered Lead in the list of Leads" and "The
+  Mechanics specification owning a revealed value states the query that reports it when `getCampaignState()` alone
+  does not"; LEAD, Player-visible information: "Every discovered Lead" and "The `required_progress` of every
+  discovered Lead | Yes once an Investigation of the Lead has reached the threshold"; GUI, Reveal hidden content:
+  "every screen of the GUI presents the Current campaign under Revealed presentation".
+- **Description:** Revealed presentation names an undiscovered Lead as a revealed value, and the `required_progress`
+  of a Lead not yet Assessed is one too, but Leads and Progression states no `developer.queries` operation that reports
+  them, and `getCampaignState()` reports only the raw Campaign state, without the Lead GDRs or the values the Leads view
+  shows of a Lead, e.g. its Lead status. A user interface therefore cannot present them from Developer API as
+  specified. It is also unstated what an undiscovered Lead's Lead status and availability are when shown as revealed.
+  The only other reveal condition that hides values in the GUI is that of Compendium articles, which the Revealed
+  Compendium covers; the remaining values hidden from the Player, e.g. a Faction activity level or an Actual required
+  progress, are never Player-visible and stay hidden.
+- **Links:** DEC-080
+- **Resolution:** Open

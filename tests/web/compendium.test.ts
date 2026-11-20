@@ -9,6 +9,8 @@ import {
   currentLiveWorldStateView,
   currentRetiredWorldStateView,
   gameDataView,
+  revealedCompendiumView,
+  revealedLeadsView,
 } from '../../src/engine/views/views.ts';
 import { finalCondition } from '../../src/web/combat-log.ts';
 import {
@@ -71,6 +73,22 @@ function sheetOf(state: CampaignState, id: string): DataSheet | null {
     retired: currentRetiredWorldStateView(state, gdrs),
     articles,
     articleForTerm: (term) => articleForTermView(state, gdrs, term),
+  });
+}
+
+/**
+ * The Data sheet of the article about `id` under Reveal hidden content (COMPV): from the Revealed Compendium, its
+ * Article term lookup, and the revealed Leads, as the GUI reads them through `developer.queries`.
+ */
+function revealedSheetOf(state: CampaignState, id: string): DataSheet | null {
+  const revealed = revealedCompendiumView(state, gdrs);
+  const shown = revealed.articles.find((item) => item.subject === id)!;
+  return dataSheet(shown, {
+    gameData: gameDataView(gdrs),
+    state: currentLiveWorldStateView(state, gdrs),
+    retired: { ...currentRetiredWorldStateView(state, gdrs), leads: revealedLeadsView(state, gdrs) },
+    articles: revealed.articles,
+    articleForTerm: (term) => revealed.terms[term.toLowerCase()] ?? null,
   });
 }
 
@@ -234,12 +252,21 @@ describe('COMPV: Subject data sheets', () => {
   it('Enemy data sheet: lists only the Player-visible Mission sites it appears at', () => {
     const soldier = gdrs.enemyArchetypes.get('soldier')!;
     const weapon = gdrs.weapons.get(soldier.weapon)!;
-    // At campaign creation no Player-visible Mission site holds a Soldier, so the row is left out.
-    expect(rowsOf(sheetOf(newCampaign(), 'soldier'))).toEqual({
+    // At campaign creation no Player-visible Mission site holds a Soldier, so its article is not Player-visible (COMP,
+    // Met subjects).
+    expect(() => sheetOf(newCampaign(), 'soldier')).toThrow(/No Player-visible article about soldier/);
+    // Under Reveal hidden content every article counts as Player-visible, so the row names every MissionSiteArchetype
+    // that holds a Soldier.
+    const revealed = rowsOf(revealedSheetOf(newCampaign(), 'soldier'));
+    expect(revealed).toMatchObject({
       Skill: String(soldier.skill),
       Health: String(soldier.baseHealth),
       Weapon: `[${weapon.name}] · damage ${weapon.damage}`,
     });
+    const holding = gdrs.missionSiteArchetypes.filter((site) =>
+      site.enemies.some(([enemy]) => enemy === 'soldier'),
+    );
+    expect(revealed['Appears at']?.split(' · ')).toHaveLength(holding.length);
     const sheet = sheetOf(everythingVisible(), 'soldier');
     expect(sheet?.heading).toBe('Enemy');
     const appears = sheet?.rows.find((row) => row.label === 'Appears at');

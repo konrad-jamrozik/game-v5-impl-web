@@ -1493,7 +1493,8 @@ export class EngineCore<S extends ShellState> {
 
   /**
    * A `developer.queries` operation: `getCampaignState()` by default, otherwise the named one the rules supply, e.g.
-   * `initiativeOperationLevels`, which reads the Game build of the Current campaign and no Campaign state.
+   * `initiativeOperationLevels`, which reads the Game build of the Current campaign and no Campaign state, or
+   * `revealedCompendium`, which reads the Current world state.
    */
   developerQuery(principal: Principal, query = 'campaignState'): Result<unknown> {
     const denied = this.checkDeveloper(principal);
@@ -1505,7 +1506,7 @@ export class EngineCore<S extends ShellState> {
         if (this.rules.extraDeveloperQuery === undefined) {
           return fail('invalid_input', 'There is no such query.');
         }
-        return ok(this.rules.extraDeveloperQuery(query));
+        return ok(this.rules.extraDeveloperQuery(this.present(this.requireCampaign()), query));
       }
       const campaign = this.requireCampaign();
       return ok(

@@ -86,8 +86,13 @@ function fought(state: CampaignState, setup: unknown): DetachedCombatResult {
   return result;
 }
 
-function batch(state: CampaignState, setup: unknown, count: unknown): DetachedCombatBatchResult {
-  const result = detachedCombatBatch(state.world.current, gdrs, setup, count);
+function batch(
+  state: CampaignState,
+  setup: unknown,
+  count: unknown,
+  stop?: unknown,
+): DetachedCombatBatchResult {
+  const result = detachedCombatBatch(state.world.current, gdrs, setup, count, stop);
   if (isRejection(result)) {
     throw new Error(`Expected the batch to be accepted: ${result.message}`);
   }
@@ -328,6 +333,7 @@ describe('COMBAT: Combat summary and Batch of Detached Combats', () => {
     });
     const count = (outcome: string) => result.combats.filter((summary) => summary.outcome === outcome).length;
     expect(result.totals).toEqual({
+      fought: 12,
       prevailed: count('Prevailed'),
       retreated: count('Retreated'),
       wiped: count('Wiped'),
@@ -335,6 +341,48 @@ describe('COMBAT: Combat summary and Batch of Detached Combats', () => {
     });
     // Every Combat starts from the setup's values, so a batch's first Combats do not depend on its count.
     expect(batch(state, setup, 3).combats).toEqual(result.combats.slice(0, 3));
+  });
+
+  it('stops after the Combat at which enough Combats were, or were not, Prevailed', () => {
+    const all = batch(state, setup, 40).combats;
+    const ended = (prevailed: number, notPrevailed: number): number => {
+      let won = 0;
+      let lost = 0;
+      for (const [index, summary] of all.entries()) {
+        if (summary.outcome === 'Prevailed') {
+          won += 1;
+        } else {
+          lost += 1;
+        }
+        if (won >= prevailed || lost >= notPrevailed) {
+          return index + 1;
+        }
+      }
+      return all.length;
+    };
+    for (const stop of [
+      { prevailed: 1 },
+      { notPrevailed: 1 },
+      { prevailed: 5, notPrevailed: 3 },
+      { prevailed: 36, notPrevailed: 5 },
+    ]) {
+      const limits = { prevailed: Infinity, notPrevailed: Infinity, ...stop };
+      const stopped = batch(state, setup, 40, stop);
+      const fought = ended(limits.prevailed, limits.notPrevailed);
+      expect(stopped.combats).toEqual(all.slice(0, fought));
+      expect(stopped.totals.fought).toBe(fought);
+    }
+    // A stop the count cannot reach fights every Combat.
+    expect(batch(state, setup, 40, { prevailed: 41, notPrevailed: 41 }).combats).toEqual(all);
+    const reason = (stop: unknown): string => {
+      const result = detachedCombatBatch(state.world.current, gdrs, setup, 3, stop);
+      return isRejection(result) ? result.reason : 'accepted';
+    };
+    expect(reason({ prevailed: 0 })).toBe('invalid_stop');
+    expect(reason({ prevailed: 1.5 })).toBe('invalid_stop');
+    expect(reason({ wins: 2 })).toBe('invalid_stop');
+    expect(reason([1])).toBe('invalid_stop');
+    expect(reason({})).toBe('accepted');
   });
 
   it('rejects a bad count, a too long last Detached seed, and a bad setup, and fights nothing', () => {

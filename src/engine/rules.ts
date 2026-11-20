@@ -99,9 +99,10 @@ export interface GameRules<S extends ShellState> {
   extraPlayerQuery?(state: S, query: string, args: unknown): unknown;
   /**
    * A further `developer.queries` operation other than `getCampaignState()`, by name, e.g. the Initiative operation
-   * levels of the Game build (LEAD); it reads values derived from the Game build only.
+   * levels of the Game build (LEAD), or the Revealed Compendium (COMP), which reads the Current world state `state`.
+   * It changes nothing.
    */
-  extraDeveloperQuery?(query: string): unknown;
+  extraDeveloperQuery?(state: S, query: string): unknown;
   /**
    * DEV, Developer tools: a `developer.tools` operation, by name, e.g. `fightCombat` (COMBAT, Detached Combat). It
    * reads the World state only for what its arguments name, changes nothing, and returns its result or a rejection.

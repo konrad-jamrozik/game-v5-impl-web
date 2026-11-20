@@ -2,12 +2,17 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
   articleForTerm,
+  metSubjects,
   resolveArticles,
   visibleArticles,
 } from '../../src/engine/mechanics/compendium/compendium.ts';
 import type { CompendiumArticleView } from '../../src/engine/player-api.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { articleForTermView, compendiumArticlesView } from '../../src/engine/views/views.ts';
+import {
+  articleForTermView,
+  compendiumArticlesView,
+  revealedCompendiumView,
+} from '../../src/engine/views/views.ts';
 import { formatPlaceholderValue, parseTemplate } from '../../src/gdr/compendium-articles.ts';
 import { bootstrapGdrCatalog, type CatalogCompendiumArticle, type GdrCatalog } from '../../src/gdr/index.ts';
 import { ok, startEngine } from '../helpers/engine.ts';
@@ -243,7 +248,8 @@ describe('COMP: Placeholders', () => {
       addArticle(raw, 'test_subject', {
         category: 'subject',
         title: undefined,
-        subject: 'soldier',
+        // The initiate is a Met subject from the start: the discovered first Lead creates Apprehend member.
+        subject: 'initiate',
         body: 'Skill {subject.base_skill}, with a {subject.weapon}.',
       });
     });
@@ -255,11 +261,11 @@ describe('COMP: Placeholders', () => {
       `Hire for <${economy}>, armed with a <${weapon}>; a hit deals <0.5> either way, and survival ` +
         `<${catalog.agentParameters.experiencePerMissionSurvived[1]}>.`,
     );
-    const soldier = catalog.enemyArchetypes.get('soldier')!;
+    const initiate = catalog.enemyArchetypes.get('initiate')!;
     const subject = view.find((article) => article.id === 'test_subject')!;
-    expect(subject.title).toBe(soldier.name);
+    expect(subject.title).toBe(initiate.name);
     expect(shown(subject.body).join('')).toBe(
-      `Skill <${soldier.skill}>, with a <${catalog.weapons.get(soldier.weapon)!.name}>.`,
+      `Skill <${initiate.skill}>, with a <${catalog.weapons.get(initiate.weapon)!.name}>.`,
     );
   });
 
@@ -683,7 +689,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
     for (const id of [
       'guide_missions',
       'mechanics_combat',
-      'soldier_article',
+      'initiate_article',
       'transport_cap_article',
       'locate_red_dawn_member_article',
       'apprehend_member_article',
@@ -694,23 +700,28 @@ describe('COMP: Article visibility and Player-visible information', () => {
       'locate_red_dawn_safehouse_article',
       'raid_safehouse_article',
       'foil_sabotage_article',
+      // COMP, Met subjects: no Player-visible MissionSiteArchetype lists the soldier yet.
+      'soldier_article',
     ]) {
       expect(ids).not.toContain(id);
     }
-    // Every Guide article and Mechanics article, and every Agent, Enemy, Weapon, Upgrade, and initial Faction
-    // article, in Game build order.
+    // Every Guide article and Mechanics article, and every Agent and Upgrade article, in Game build order, with the
+    // articles about the Met subjects: the Enemies of Apprehend member, which the discovered first Lead creates,
+    // their Weapons, and the Agents' sidearm.
     const all = gdrs.compendiumArticles;
     const always = all.filter(
       (article) =>
-        article.category !== 'subject' ||
-        ['AgentArchetype', 'EnemyArchetype', 'Weapon', 'Upgrade'].includes(article.subjectType ?? ''),
+        article.category !== 'subject' || ['AgentArchetype', 'Upgrade'].includes(article.subjectType ?? ''),
     );
-    expect(always).toHaveLength(6 + 26 + 1 + 9 + 8 + 8);
+    expect(always).toHaveLength(6 + 26 + 1 + 8);
+    const operative = gdrs.enemyArchetypes.get('operative')!;
+    const met = new Set(['initiate', 'operative', 'pistol', operative.weapon, 'sidearm']);
     expect(ids).toEqual(
       all
         .filter(
           (article) =>
             always.includes(article) ||
+            (article.subject !== null && met.has(article.subject)) ||
             [
               'criminal_organizations_article',
               'locate_red_dawn_member_article',
@@ -735,14 +746,14 @@ describe('COMP: Article visibility and Player-visible information', () => {
       expect(links).not.toContain(article.id);
     }
     // An article is reported in its resolved form, never as authored.
-    const soldier = articles(state).find((article) => article.id === 'soldier_article')!;
-    expect(Object.keys(soldier).sort()).toEqual(
+    const initiate = articles(state).find((article) => article.id === 'initiate_article')!;
+    expect(Object.keys(initiate).sort()).toEqual(
       ['body', 'category', 'formulas', 'id', 'seeAlso', 'subject', 'subjectType', 'title'].sort(),
     );
-    expect(soldier).toMatchObject({
+    expect(initiate).toMatchObject({
       category: 'subject',
-      title: 'Soldier',
-      subject: 'soldier',
+      title: 'Initiate',
+      subject: 'initiate',
       subjectType: 'EnemyArchetype',
       formulas: [],
     });
@@ -856,7 +867,8 @@ describe('COMP: Article visibility and Player-visible information', () => {
       withoutArticles = advance(withoutArticles, {}, none);
     }
     expect(withoutArticles).toEqual(withArticles);
-    expect(visibleArticles(withArticles.world.current, gdrs)).toHaveLength(61);
+    // COMP, Met subjects: 13 of the 17 Enemy and Weapon articles still wait for their subjects to be met.
+    expect(visibleArticles(withArticles.world.current, gdrs)).toHaveLength(48);
   });
 
   it('every Bootstrap article lies in the directory of one file per GDR', () => {
@@ -908,5 +920,147 @@ describe('COMP: Player API', () => {
     expect(has('locate_red_dawn_safehouse_article')).toBe(false);
     expect(has('raid_safehouse_article')).toBe(false);
     expect(ok(engine.player.queries.getArticleForTerm('Raid safehouse'))).toBeNull();
+  });
+});
+
+describe('COMP: Met subjects', () => {
+  const discover = (state: CampaignState, lead: string) =>
+    tweak(state, (world) => {
+      world.discoveredLeads.push(lead);
+    });
+
+  it('BOOT: the first World state shows, of the Subject articles, only field_agent, sidearm, the Upgrades, and criminal_organizations', () => {
+    const catalog = bootstrapGdrCatalog();
+    const state = newCampaign({ catalog, firstLead: false });
+    const subjects = visibleArticles(state.world.current, catalog)
+      .filter((article) => article.category === 'subject')
+      .map((article) => article.subject);
+    const upgrades = catalog.upgrades.map((upgrade) => upgrade.id);
+    expect(upgrades).toHaveLength(8);
+    expect([...subjects].sort()).toEqual(
+      ['field_agent', 'sidearm', ...upgrades, 'criminal_organizations'].sort(),
+    );
+    expect([...metSubjects(state.world.current, catalog)]).toEqual(['sidearm']);
+  });
+
+  it('an Enemy is met once a Player-visible MissionSiteArchetype lists it, and its Weapon with it', () => {
+    let state = newCampaign({ firstLead: false });
+    expect(visible(state)).not.toContain('initiate_article');
+    expect(visible(state)).not.toContain('pistol_article');
+    expect(visible(state)).toContain('sidearm_article');
+
+    // Discovering the Lead that creates Apprehend member, before any Mission site exists.
+    state = discover(state, 'locate_red_dawn_member');
+    const met = metSubjects(state.world.current, gdrs);
+    expect(met.has('initiate')).toBe(true);
+    expect(met.has('operative')).toBe(true);
+    expect(met.has('pistol')).toBe(true);
+    expect(met.has('soldier')).toBe(false);
+    expect(visible(state)).toContain('initiate_article');
+    expect(visible(state)).toContain('pistol_article');
+
+    // Every Weapon a met Enemy carries is met, and no other.
+    const raid = gdrs.missionSiteArchetypes.find((item) => item.id === 'raid_safehouse')!;
+    state = discover(state, 'locate_red_dawn_safehouse');
+    const after = metSubjects(state.world.current, gdrs);
+    for (const [enemy] of raid.enemies) {
+      expect(after.has(enemy)).toBe(true);
+      expect(after.has(gdrs.enemyArchetypes.get(enemy)!.weapon)).toBe(true);
+    }
+    const carried = new Set([
+      gdrs.agentArchetype.weapon,
+      ...[...gdrs.enemyArchetypes.values()]
+        .filter((enemy) => after.has(enemy.id))
+        .map((enemy) => enemy.weapon),
+    ]);
+    for (const weapon of gdrs.weapons.keys()) {
+      expect(after.has(weapon)).toBe(carried.has(weapon));
+    }
+  });
+
+  it('Enemy seen at a Mission site, then the site expires: its article stays Player-visible', () => {
+    let state = tweak(newCampaign({ firstLead: false }), (world) => {
+      Object.values(world.factions)[0]!.state.turnsUntilNextOperation = 1;
+    });
+    const f = onlyFaction(state).id;
+    state = advance(state, {
+      [`faction.${f}.operationLevel`]: [2],
+      [`faction.${f}.operationInterval`]: [20],
+      [`mission.archetypeSelection.${f}`]: ['foil_sabotage'],
+    });
+    const foil = gdrs.missionSiteArchetypes.find((item) => item.id === 'foil_sabotage')!;
+    const enemy = foil.enemies[0]![0];
+    expect(visible(state)).toContain(`${enemy}_article`);
+    const expired = tweak(state, (world) => {
+      for (const site of Object.values(world.missionSites)) {
+        site.state.lifecycle = 'Expired';
+      }
+    });
+    expect(visible(expired)).toContain(`${enemy}_article`);
+  });
+});
+
+describe('COMP: Revealed Compendium', () => {
+  it('reports every article resolved as though every article were Player-visible, and which are', () => {
+    const state = newCampaign({ firstLead: false });
+    const revealed = revealedCompendiumView(state, gdrs);
+    const all = gdrs.compendiumArticles;
+    expect(revealed.articles.map((article) => article.id)).toEqual(all.map((article) => article.id));
+    const shownIds = visible(state);
+    for (const article of revealed.articles) {
+      expect(article.playerVisible).toBe(shownIds.includes(article.id));
+    }
+    // V is every article: each article resolves as it does in a World state in which every article is visible.
+    const resolved = resolveArticles(all);
+    expect(revealed.articles.map((article) => article.body)).toEqual(resolved.map((article) => article.body));
+    // Every See also entry is kept, and Article links reach articles that are not Player-visible.
+    for (const [index, article] of all.entries()) {
+      expect(revealed.articles[index]!.seeAlso.map((link) => link.article)).toEqual(article.seeAlso);
+    }
+    const links = revealed.articles.flatMap((article) =>
+      [...article.body, ...article.formulas.flatMap((row) => [...row.label, ...row.text])].flatMap(
+        (segment) => (segment.kind === 'link' ? [segment.article] : []),
+      ),
+    );
+    expect(links.some((id) => !shownIds.includes(id))).toBe(true);
+    // The Article term lookup reports the article of any Article term.
+    expect(revealed.terms['raid safehouse']).toBe('raid_safehouse_article');
+    expect(revealed.terms['combat rating']).toBe('mechanics_combat');
+    for (const article of all) {
+      for (const term of article.terms) {
+        expect(revealed.terms[term.toLowerCase()]).toBe(articleForTerm(term, all)!.id);
+      }
+    }
+  });
+
+  it('is a Developer API query: only under Dev mode, and it changes nothing', async () => {
+    const { engine } = await startEngine({ gdrFiles: RED_DAWN_ONLY_FILES });
+    ok(await engine.session.campaign.create({ seed: 'revealed' }));
+    expect(engine.developer.queries.getRevealedCompendium().ok).toBe(false);
+    expect(engine.developer.queries.getRevealedLeads().ok).toBe(false);
+    ok(engine.session.developer.enable());
+    const before = ok(engine.session.timeline.getStatus());
+    const revision = engine.getRevision();
+    const revealed = ok(engine.developer.queries.getRevealedCompendium());
+    expect(revealed.articles).toHaveLength(gdrs.compendiumArticles.length);
+    expect(revealed.articles.filter((article) => article.playerVisible).map((article) => article.id)).toEqual(
+      ok(engine.player.queries.getCompendiumArticles()).map((article) => article.id),
+    );
+    // DEC-080: every Lead, as though discovered and Assessed; investigating an undiscovered one stays impossible.
+    const leads = ok(engine.developer.queries.getRevealedLeads());
+    expect(leads.map((lead) => lead.id)).toEqual(gdrs.leads.map((lead) => lead.id));
+    const hq = leads.find((lead) => lead.id === 'locate_red_dawn_hq')!;
+    expect(hq.requiredProgress).toBe(
+      gdrs.leads.find((lead) => lead.id === 'locate_red_dawn_hq')!.requiredProgress,
+    );
+    expect(hq.canBeInvestigatedNow).toBe(false);
+    expect(ok(engine.player.queries.getAvailableActions()).startInvestigation).not.toContain(
+      'locate_red_dawn_hq',
+    );
+    expect(
+      ok(engine.player.queries.getCurrentRetiredWorldState()).leads.map((lead) => lead.id),
+    ).not.toContain('locate_red_dawn_hq');
+    expect(engine.getRevision()).toBe(revision);
+    expect(ok(engine.session.timeline.getStatus())).toEqual(before);
   });
 });

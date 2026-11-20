@@ -2,7 +2,9 @@
  * COMPV: the Compendium View. Three panes narrow the Player-visible Compendium articles from a category to one
  * article, a search field filters them by displayed title, and Article links lead from one article to the next, with
  * the Article history to return by. The engine returns only the Player-visible articles, each in its resolved form
- * (COMP); this view shows the segments as reported and adds the Data sheet of a Subject article.
+ * (COMP); this view shows the segments as reported and adds the Data sheet of a Subject article. While Reveal hidden
+ * content is on, the snapshot holds the Revealed Compendium instead, so every article counts as Player-visible here,
+ * and turning it off removes each article that is not, as No longer Player-visible does.
  */
 import { Fragment, useEffect, useRef, type RefObject } from 'react';
 import type {
@@ -189,7 +191,11 @@ export function CompendiumView(props: {
           state,
           retired: snapshot.retired,
           articles: all,
+          // COMPV: under Revealed presentation, the Article term lookup of the Revealed Compendium.
           articleForTerm: (text) => {
+            if (snapshot.revealedTerms !== null) {
+              return snapshot.revealedTerms[text.toLowerCase()] ?? null;
+            }
             const found = theEngine().player.queries.getArticleForTerm(text);
             return found.ok ? found.value : null;
           },

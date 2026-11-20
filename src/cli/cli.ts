@@ -4,7 +4,13 @@
  * the CLI. Each result is printed in one of the two Output forms of CLI, readable text or one line of JSON, and both
  * carry the whole value the operation returned; see DEC-027.
  */
-import type { AutopilotLimit, DetachedCombatSetup, Engine, Result } from '../engine/index.ts';
+import type {
+  AutopilotLimit,
+  DetachedCombatBatchStop,
+  DetachedCombatSetup,
+  Engine,
+  Result,
+} from '../engine/index.ts';
 
 export interface CliOutput {
   /** Whether to print each result as one line of JSON, for scripts and LLM players. */
@@ -95,8 +101,8 @@ const HELP = `Commands
   Autopilot  ais | auto <ai> <limit> | engage <ai> <limit> | autostatus <engagement> | disengage <engagement>
              wait <engagement>; <limit> is single (one action), turn (this Turn's actions), or turns <count>;
              auto engages and waits
-  Developer  dev on | dev off | inspect | levels | addmoney <amount> | addagents <count>
-             override <outcome> <value> | fight <setup JSON> | fightbatch <count> <setup JSON>
+  Developer  dev on | dev off | inspect | levels | revealed | revealedleads | addmoney <amount> | addagents <count>
+             override <outcome> <value> | fight <setup JSON> | fightbatch <count> <setup JSON or [setup, stop]>
   Other      help | quit
 Each command prints the whole result of its operation; --json prints it as one line of JSON. The commands agents,
 investigations, sites, missions, factions, and upgrades print that part of the Live world state; leads that part of the
@@ -354,6 +360,10 @@ export function createCli(engine: Engine, out: CliOutput) {
         return print(command, developer.queries.getCampaignState());
       case 'levels':
         return print(command, developer.queries.getInitiativeOperationLevels());
+      case 'revealed':
+        return print(command, developer.queries.getRevealedCompendium());
+      case 'revealedleads':
+        return print(command, developer.queries.getRevealedLeads());
       case 'addmoney':
         return print(command, await developer.actions.addMoney(Number(first)));
       case 'addagents':
@@ -379,25 +389,33 @@ export function createCli(engine: Engine, out: CliOutput) {
         return print(command, developer.tools.fightCombat(setup as DetachedCombatSetup));
       }
       case 'fightbatch': {
-        // `fightbatch <count> <setup JSON>`: developer.tools.fightCombatBatch, e.g.
+        // `fightbatch <count> <setup JSON>`: developer.tools.fightCombatBatch; with a stop, the rest of the line is one JSON
+        // array [setup, stop], e.g.
         // fightbatch 100 {"agents":[{"kind":"agent","id":"agent-1"}],"enemies":{"missionSiteArchetype":"raid_outpost"},"seed":"1"}
         const text = line.trim().slice(command.length).trim();
         const space = text.indexOf(' ');
         let setup: unknown;
+        let stop: unknown;
         try {
-          setup = JSON.parse(text.slice(space + 1));
+          const parsed: unknown = JSON.parse(text.slice(space + 1));
+          const items: readonly unknown[] | null = Array.isArray(parsed) ? parsed : null;
+          [setup, stop] = items === null ? [parsed, undefined] : [items[0], items[1]];
         } catch {
           setup = undefined;
         }
         if (space < 0 || setup === undefined) {
           return usage(
             command,
-            'usage: fightbatch <count> <setup JSON>, e.g. fightbatch 100 {"agents":[...],"enemies":[...],"seed":"1"}',
+            'usage: fightbatch <count> <setup JSON> or <count> [<setup JSON>, <stop JSON>], e.g. fightbatch 100 {"agents":[...],"enemies":[...],"seed":"1"}',
           );
         }
         return print(
           command,
-          developer.tools.fightCombatBatch(setup as DetachedCombatSetup, Number(text.slice(0, space))),
+          developer.tools.fightCombatBatch(
+            setup as DetachedCombatSetup,
+            Number(text.slice(0, space)),
+            stop as DetachedCombatBatchStop | undefined,
+          ),
         );
       }
       default:

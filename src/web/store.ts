@@ -22,6 +22,7 @@ import {
   type TimelineStatus,
   type TurnReport,
 } from '../engine/index.ts';
+import { canReveal, revealInEffect, revealSettingAfter } from './reveal.ts';
 
 export interface Notice {
   readonly id: number;
@@ -41,8 +42,23 @@ export interface Snapshot {
   readonly report: TurnReport | null;
   readonly history: HistoryView | null;
   readonly gameData: GameDataView | null;
-  /** COMP: the Player-visible Compendium articles, in their resolved form. */
+  /**
+   * COMP: the Player-visible Compendium articles, in their resolved form; under Revealed presentation, the Revealed
+   * Compendium (COMPV).
+   */
   readonly articles: readonly CompendiumArticleView[] | null;
+  /**
+   * GUI, Reveal hidden content: whether its checkbox is checked. `revealed` says whether the GUI presents the Current
+   * campaign under Revealed presentation now, which it does not while Autopilot is engaged; `retired.leads` and
+   * `articles` then hold the revealed values, read through `developer.queries`.
+   */
+  readonly revealHiddenContent: boolean;
+  readonly revealed: boolean;
+  /**
+   * COMP, Revealed Compendium: the Article term lookup over every article, by Article term in lower case, while
+   * `revealed`; otherwise null, and the Article term lookup is Player API's.
+   */
+  readonly revealedTerms: Readonly<Record<string, string>> | null;
   readonly timeline: TimelineStatus | null;
   readonly autopilot: AutopilotStatus | null;
   readonly notices: readonly Notice[];
@@ -65,7 +81,28 @@ let nextNoticeId = 1;
 let pending = 0;
 let lastEngagementId: string | null = null;
 let leftCampaign: string | null = null;
+/** GUI, Reveal hidden content: the Session setting; it starts off and no Campaign save holds it. */
+let revealHiddenContent = false;
 const listeners = new Set<() => void>();
+
+/**
+ * GUI, Reveal hidden content: checks or clears the checkbox. It can be checked only while Dev mode is enabled and
+ * Autopilot is not engaged; it changes no Campaign state and adds no Timeline entry.
+ */
+export function setRevealHiddenContent(on: boolean): void {
+  const status = engine === null ? null : valueOf(engine.session.getStatus());
+  const next = on && status !== null && canReveal(status);
+  if (next !== revealHiddenContent) {
+    revealHiddenContent = next;
+    changed();
+  }
+}
+
+/** DEV, Revealed presentation, Dev mode only: clears the setting once Dev mode is disabled. */
+function syncReveal(): void {
+  const status = engine === null ? null : valueOf(engine.session.getStatus());
+  revealHiddenContent = status !== null && revealSettingAfter(revealHiddenContent, status);
+}
 
 /** MENU, Layout: leaves the Current campaign for the Main menu from the Campaign screen, which then offers to close. */
 export async function leaveCampaign(): Promise<void> {
@@ -136,7 +173,12 @@ export async function boot(storage: GameStorage): Promise<void> {
     },
     { autopilotAis: [...AUTOPILOT_AIS] },
   );
-  engine.subscribe(changed);
+  // DEV, Revealed presentation, Session setting: a new Session starts with Reveal hidden content off.
+  revealHiddenContent = false;
+  engine.subscribe(() => {
+    syncReveal();
+    changed();
+  });
   let resume: string | null = null;
   try {
     resume = sessionStorage.getItem(RESUME_KEY);
@@ -174,17 +216,31 @@ export function snapshot(): Snapshot {
   if (status.autopilot !== null) {
     lastEngagementId = status.autopilot.engagementId;
   }
+  revealHiddenContent = revealSettingAfter(revealHiddenContent, status);
+  // DEV, Revealed presentation, Read through Developer API: every revealed value comes from `developer.queries`.
+  const revealed = revealInEffect(revealHiddenContent, status);
+  const compendium = revealed ? valueOf(game.developer.queries.getRevealedCompendium()) : null;
+  const revealedLeads = revealed ? valueOf(game.developer.queries.getRevealedLeads()) : null;
+  const retired = has ? valueOf(game.player.queries.getCurrentRetiredWorldState()) : null;
   cached = {
     key,
     status,
     configuration,
     state: has ? valueOf(game.player.queries.getCurrentLiveWorldState()) : null,
-    retired: has ? valueOf(game.player.queries.getCurrentRetiredWorldState()) : null,
+    retired: retired === null || revealedLeads === null ? retired : { ...retired, leads: revealedLeads },
     actions: has ? valueOf(game.player.queries.getAvailableActions()) : null,
     report: has ? valueOf(game.player.queries.getTurnReport()) : null,
     history: has ? valueOf(game.player.queries.getHistory()) : null,
     gameData: has ? valueOf(game.player.queries.getGameData()) : null,
-    articles: has ? valueOf(game.player.queries.getCompendiumArticles()) : null,
+    articles:
+      compendium !== null
+        ? compendium.articles
+        : has
+          ? valueOf(game.player.queries.getCompendiumArticles())
+          : null,
+    revealHiddenContent,
+    revealed,
+    revealedTerms: compendium?.terms ?? null,
     timeline: has ? valueOf(game.session.timeline.getStatus()) : null,
     autopilot:
       has && lastEngagementId !== null ? valueOf(game.session.autopilot.getStatus(lastEngagementId)) : null,

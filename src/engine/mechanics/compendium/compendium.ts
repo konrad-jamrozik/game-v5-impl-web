@@ -7,14 +7,52 @@ import { conditionHolds } from '../conditions/conditions.ts';
 import { leadDiscovered, type LeadWorld } from '../leads/leads.ts';
 
 /**
+ * MISSION, Player-visible information, as COMP, Article visibility, restates it: a MissionSiteArchetype is
+ * Player-visible while a Mission site whose Archetype it is exists, in any lifecycle state, or a discovered Lead
+ * creates a Mission site from it.
+ */
+function missionSiteArchetypeVisible(archetype: string, world: LeadWorld, gdrs: GdrCatalog): boolean {
+  return (
+    Object.values(world.missionSites).some((site) => site.archetype === archetype) ||
+    gdrs.leads.some(
+      (lead) => lead.onCompletion.createMissionSite === archetype && leadDiscovered(lead, world),
+    )
+  );
+}
+
+/**
+ * COMP, Met subjects: the identifiers of the EnemyArchetypes listed in the `enemies` of a Player-visible
+ * MissionSiteArchetype, and of the Weapons that the AgentArchetype or such an EnemyArchetype carries. A Derived value
+ * of the World state, never stored.
+ */
+export function metSubjects(world: LeadWorld, gdrs: GdrCatalog): ReadonlySet<string> {
+  const met = new Set<string>([gdrs.agentArchetype.weapon]);
+  for (const archetype of gdrs.missionSiteArchetypes) {
+    if (!missionSiteArchetypeVisible(archetype.id, world, gdrs)) {
+      continue;
+    }
+    for (const [enemy] of archetype.enemies) {
+      met.add(enemy);
+      const weapon = gdrs.enemyArchetypes.get(enemy)?.weapon;
+      if (weapon !== undefined) {
+        met.add(weapon);
+      }
+    }
+  }
+  return met;
+}
+
+/**
  * COMP, Article visibility: an article whose `visible_when` does not hold is not Player-visible. Otherwise a Guide
  * article or a Mechanics article is always Player-visible, and a Subject article exactly when its subject is
- * Player-visible, as the specification that owns the subject's Type declares it.
+ * Player-visible, as the specification that owns the subject's Type declares it, and, for an EnemyArchetype or a
+ * Weapon, a Met subject. `met` is `metSubjects(world, gdrs)`, passed in when the caller already has it.
  */
 export function articleVisible(
   article: CatalogCompendiumArticle,
   world: LeadWorld,
   gdrs: GdrCatalog,
+  met?: ReadonlySet<string>,
 ): boolean {
   // `visible_when` uses only `lead_completed` Conditions, which read no supplied Faction.
   if (article.visibleWhen !== null && !conditionHolds(article.visibleWhen, world, { faction: null })) {
@@ -29,12 +67,15 @@ export function articleVisible(
     return lead !== undefined && leadDiscovered(lead, world);
   };
   switch (article.subjectType) {
-    // AGENT, COMBAT, ECON, Player-visible information: in every World state.
+    // AGENT, ECON, Player-visible information: in every World state.
     case 'AgentArchetype':
-    case 'EnemyArchetype':
-    case 'Weapon':
     case 'Upgrade':
       return true;
+    // COMBAT, Player-visible information: in every World state; COMP, Met subjects: the article also needs its
+    // subject to be a Met subject.
+    case 'EnemyArchetype':
+    case 'Weapon':
+      return (met ?? metSubjects(world, gdrs)).has(subject);
     // FACTION, Player-visible information: while a Faction whose Archetype it is exists.
     case 'FactionArchetype':
       return Object.values(world.factions).some((faction) => faction.archetype === subject);
@@ -44,10 +85,7 @@ export function articleVisible(
     // MISSION, Player-visible information: while a Mission site whose Archetype it is exists, in any lifecycle
     // state, or a discovered Lead creates a Mission site from it.
     case 'MissionSiteArchetype':
-      return (
-        Object.values(world.missionSites).some((site) => site.archetype === subject) ||
-        gdrs.leads.some((lead) => lead.onCompletion.createMissionSite === subject && discovered(lead.id))
-      );
+      return missionSiteArchetypeVisible(subject, world, gdrs);
     // Player API reports these GDRs in every World state: `getGameData()`, with every BackgroundArtwork, and the
     // Agency, Investigation, and Mission names. A parameter GDR has no `name`, so none can be a subject.
     case 'AgentParameters':
@@ -75,7 +113,8 @@ export function articleVisible(
 
 /** COMP, Player-visible information: the Player-visible Compendium articles, in Game build order. */
 export function visibleArticles(world: LeadWorld, gdrs: GdrCatalog): CatalogCompendiumArticle[] {
-  return gdrs.compendiumArticles.filter((article) => articleVisible(article, world, gdrs));
+  const met = metSubjects(world, gdrs);
+  return gdrs.compendiumArticles.filter((article) => articleVisible(article, world, gdrs, met));
 }
 
 /**

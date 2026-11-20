@@ -53,7 +53,12 @@ import {
 } from '../mechanics/leads/leads.ts';
 import { consequencesOf, type ConsequenceAmounts } from '../mechanics/missions/missions.ts';
 import { healthRecoveryRateHundredths, recoveryTurnsRemaining } from '../mechanics/recovery/recovery.ts';
-import { articleForTerm, resolveArticles, visibleArticles } from '../mechanics/compendium/compendium.ts';
+import {
+  articleForTerm,
+  resolveArticles,
+  visibleArticles,
+  type ResolvedArticle,
+} from '../mechanics/compendium/compendium.ts';
 import type {
   ActionAvailability,
   AgencyView,
@@ -287,16 +292,31 @@ function investigationView(
   };
 }
 
-/** LEAD, Player-visible information: only discovered Leads; an undiscovered Lead is left out of every result. */
-function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
+/**
+ * LEAD, Player-visible information: only discovered Leads; an undiscovered Lead is left out of every result. With
+ * `reveal`, DEV, Revealed presentation: every Lead, each as though discovered and Assessed (DEC-080), while
+ * `canBeInvestigatedNow` still follows the Lead as it is, because every Player action is validated as without it.
+ */
+function leadViews(world: CurrentWorldState, gdrs: GdrCatalog, reveal = false): LeadView[] {
   return gdrs.leads.flatMap((lead) => {
-    const availability = leadAvailability(lead, world, gdrs.missionSiteArchetypes);
-    if (!availability.discovered) {
+    const actual = leadAvailability(lead, world, gdrs.missionSiteArchetypes);
+    if (!actual.discovered && !reveal) {
       return [];
     }
+    const availability = reveal
+      ? {
+          ...actual,
+          discovered: true,
+          available:
+            actual.mayBeInvestigatedAgain &&
+            actual.noUnfinishedMissionSite &&
+            actual.missionSiteCanExist &&
+            actual.factionNotEliminated,
+        }
+      : actual;
     const active = activeInvestigationOf(lead.id, world.investigations);
     // INVSTG, Player-visible information: the Required progress and its range only for an Assessed Lead.
-    const assessed = isAssessedLead(lead.id, world.investigations);
+    const assessed = reveal || isAssessedLead(lead.id, world.investigations);
     return {
       id: lead.id,
       name: lead.name,
@@ -316,7 +336,7 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
       initiativeOperationLevel: leadInitiativeOperationLevel(lead.id, gdrs),
       available: availability.available,
       status: leadStatus(availability),
-      canBeInvestigatedNow: availability.available && active === null,
+      canBeInvestigatedNow: actual.available && active === null,
       activeInvestigation: active?.id ?? null,
     } satisfies LeadView;
   });
@@ -679,23 +699,76 @@ export function compendiumArticlesView(
   if (cached?.key === key) {
     return cached.view;
   }
-  const view = deepFreeze<CompendiumArticleView[]>(
-    resolveArticles(visible).map(({ article, body, formulas, seeAlso }) => ({
-      id: article.id,
-      category: article.category,
-      title: article.title,
-      subject: article.subject,
-      subjectType: article.subjectType,
-      body: body.map((segment) => ({ ...segment })),
-      formulas: formulas.map((row) => ({
-        label: row.label.map((segment) => ({ ...segment })),
-        text: row.text.map((segment) => ({ ...segment })),
-      })),
-      seeAlso: seeAlso.map((segment) => ({ ...segment })),
-    })),
-  );
+  const view = deepFreeze<CompendiumArticleView[]>(resolveArticles(visible).map(articleView));
   articlesCache.set(gdrs, { key, view });
   return view;
+}
+
+/** The reported form of one resolved article, detached from the catalog. */
+function articleView({ article, body, formulas, seeAlso }: ResolvedArticle): CompendiumArticleView {
+  return {
+    id: article.id,
+    category: article.category,
+    title: article.title,
+    subject: article.subject,
+    subjectType: article.subjectType,
+    body: body.map((segment) => ({ ...segment })),
+    formulas: formulas.map((row) => ({
+      label: row.label.map((segment) => ({ ...segment })),
+      text: row.text.map((segment) => ({ ...segment })),
+    })),
+    seeAlso: seeAlso.map((segment) => ({ ...segment })),
+  };
+}
+
+/** One article of the Revealed Compendium, with whether it is Player-visible in the Current world state. */
+export interface RevealedArticleView extends CompendiumArticleView {
+  readonly playerVisible: boolean;
+}
+
+/**
+ * `developer.queries.getRevealedCompendium()`: COMP, Revealed Compendium. Every Compendium article of the Game build
+ * in Game build order, each resolved with every article taking part in Article links, and `terms`, the Article term
+ * lookup over every article: the identifier of the article each Article term in lower case names (DEC-081).
+ */
+export interface RevealedCompendiumView {
+  readonly articles: readonly RevealedArticleView[];
+  readonly terms: Readonly<Record<string, string>>;
+}
+
+/** The resolved Revealed Compendium of each catalog; it depends on the Game build only, so it is built once. */
+const revealedCache = new WeakMap<
+  GdrCatalog,
+  { readonly articles: readonly CompendiumArticleView[]; readonly terms: Readonly<Record<string, string>> }
+>();
+
+/** `developer.queries.getRevealedCompendium()`: reads the Current world state only for each article's visibility. */
+export function revealedCompendiumView(state: CampaignState, gdrs: GdrCatalog): RevealedCompendiumView {
+  let revealed = revealedCache.get(gdrs);
+  if (revealed === undefined) {
+    const terms: Record<string, string> = {};
+    for (const article of gdrs.compendiumArticles) {
+      for (const term of article.terms) {
+        // COMP, Article term lookup: the first article in Game build order, as `articleForTerm` finds it.
+        terms[term.toLowerCase()] ??= article.id;
+      }
+    }
+    revealed = deepFreeze({ articles: resolveArticles(gdrs.compendiumArticles).map(articleView), terms });
+    revealedCache.set(gdrs, revealed);
+  }
+  const visible = new Set(visibleArticles(state.world.current, gdrs).map((article) => article.id));
+  return {
+    articles: revealed.articles.map((article) => ({ ...article, playerVisible: visible.has(article.id) })),
+    terms: revealed.terms,
+  };
+}
+
+/**
+ * `developer.queries.getRevealedLeads()`: DEV, Revealed presentation of the Leads (DEC-080). Every Lead of the Game
+ * build, in Game build order, as `getCurrentRetiredWorldState()` would report it if it were discovered and Assessed.
+ */
+export function revealedLeadsView(state: CampaignState, gdrs: GdrCatalog): readonly LeadView[] {
+  return leadViews(state.world.current, gdrs, true);
 }
 
 /**

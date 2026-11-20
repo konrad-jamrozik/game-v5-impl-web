@@ -14,6 +14,7 @@ import type {
   DeploymentPreview,
   GameDataView,
   HistoryView,
+  LeadView,
   PlayerApi,
 } from './player-api.ts';
 import type { Result } from './result.ts';
@@ -37,9 +38,10 @@ import {
 } from './session/core.ts';
 import type { GlobalConfigurationReport, SettingValue } from './session/global-configuration.ts';
 import type { CampaignState, TurnReport } from './state/types.ts';
-import type { InitiativeOperationLevelsView } from './views/views.ts';
+import type { InitiativeOperationLevelsView, RevealedCompendiumView } from './views/views.ts';
 import type {
   DetachedCombatBatchResult,
+  DetachedCombatBatchStop,
   DetachedCombatResult,
   DetachedCombatSetup,
 } from './mechanics/combat/detached-combat.ts';
@@ -48,6 +50,7 @@ export type * from './player-api.ts';
 export type {
   DetachedAgentEntry,
   DetachedCombatBatchResult,
+  DetachedCombatBatchStop,
   DetachedCombatParticipant,
   DetachedCombatResult,
   DetachedCombatSetup,
@@ -55,7 +58,12 @@ export type {
   DetachedExplicitEntry,
 } from './mechanics/combat/detached-combat.ts';
 export type { FoughtCombatReport } from './mechanics/combat/combat.ts';
-export type { InitiativeOperationLevelEntry, InitiativeOperationLevelsView } from './views/views.ts';
+export type {
+  InitiativeOperationLevelEntry,
+  InitiativeOperationLevelsView,
+  RevealedArticleView,
+  RevealedCompendiumView,
+} from './views/views.ts';
 export type {
   AutopilotLimit,
   AutopilotProgress,
@@ -160,6 +168,16 @@ export interface Engine {
        * initiative of the Game build of the Current campaign, discovered or not; reads no Campaign state.
        */
       getInitiativeOperationLevels(): Result<InitiativeOperationLevelsView>;
+      /**
+       * COMP, Revealed Compendium: every Compendium article resolved as though every article were Player-visible,
+       * with whether each is Player-visible in the Current world state, and the Article term lookup over every article.
+       */
+      getRevealedCompendium(): Result<RevealedCompendiumView>;
+      /**
+       * DEV, Revealed presentation (DEC-080): every Lead of the Game build, each as though discovered and Assessed;
+       * whether it can be investigated now still follows the Current world state.
+       */
+      getRevealedLeads(): Result<readonly LeadView[]>;
     };
     readonly actions: {
       addMoney(amount: number): Promise<Result<CommitOutcome>>;
@@ -181,9 +199,14 @@ export interface Engine {
       /**
        * COMBAT, Batch of Detached Combats: fights `count` Detached Combats on one setup, Combat `i` with the Detached
        * seed `<seed>#<i>`, each with the Combat report turned off, and returns each Combat's summary in order and the
-       * totals over the batch. `fightCombat` with the Detached seed `<seed>#<i>` shows Combat `i` in full. It changes no Campaign state.
+       * totals over the batch. `fightCombat` with the Detached seed `<seed>#<i>` shows Combat `i` in full. With `stop`, the batch ends after the Combat at which the number Prevailed reaches `stop.prevailed` or
+       * the number not Prevailed reaches `stop.notPrevailed`. It changes no Campaign state.
        */
-      fightCombatBatch(setup: DetachedCombatSetup, count: number): Result<DetachedCombatBatchResult>;
+      fightCombatBatch(
+        setup: DetachedCombatSetup,
+        count: number,
+        stop?: DetachedCombatBatchStop,
+      ): Result<DetachedCombatBatchResult>;
     };
   };
   /** Calls the listener after anything a query could report has changed. Returns a function that stops it. */
@@ -328,6 +351,10 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
             CONTROLLER,
             'initiativeOperationLevels',
           ) as Result<InitiativeOperationLevelsView>,
+        getRevealedCompendium: () =>
+          core.developerQuery(CONTROLLER, 'revealedCompendium') as Result<RevealedCompendiumView>,
+        getRevealedLeads: () =>
+          core.developerQuery(CONTROLLER, 'revealedLeads') as Result<readonly LeadView[]>,
       },
       actions: {
         addMoney: (amount) => developerAction('addMoney', { amount }),
@@ -338,10 +365,11 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
       tools: {
         fightCombat: (setup) =>
           core.developerTool(CONTROLLER, 'fightCombat', setup) as Result<DetachedCombatResult>,
-        fightCombatBatch: (setup, count) =>
+        fightCombatBatch: (setup, count, stop) =>
           core.developerTool(CONTROLLER, 'fightCombatBatch', {
             setup,
             count,
+            stop,
           }) as Result<DetachedCombatBatchResult>,
       },
     },

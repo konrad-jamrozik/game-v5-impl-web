@@ -129,6 +129,8 @@
 - src/web/styles.css
 - src/engine/views/views.ts
 - src/engine/player-api.ts
+- src/web/reveal.ts
+- tests/web/reveal.test.ts
 
 ## COND: Conditions
 
@@ -240,6 +242,11 @@ No files.
 - src/cli/cli.ts
 - src/engine/rules.ts
 - src/engine/game-rules.ts
+- src/web/reveal.ts
+- src/web/store.ts
+- tests/web/reveal.test.ts
+- tests/mechanics/compendium.test.ts
+- src/engine/mechanics/compendium/compendium.ts
 
 ## DOM: Domain Model
 

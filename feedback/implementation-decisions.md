@@ -1570,3 +1570,60 @@
   full with `fightCombat` and the Detached seed `<seed>#<i>`; a separate operation keeps the result of `fightCombat`
   the full one, as the specification requires.
 - **Links:** None
+
+## DEC-079: The `stop` of `developer.tools.fightCombatBatch`
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** COMBAT, Batch of Detached Combats.
+- **Description:** `fightCombatBatch(setup, count, stop)` takes `stop` as an optional object
+  `{ prevailed?, notPrevailed? }`; an empty object, `null`, or no `stop` fights every Combat, and any other key or a
+  value that is not a whole number of at least 1 is rejected with the reason `invalid_stop`. The totals gain `fought`,
+  the number of Combats fought, which is fewer than `count` when `stop` ended the batch early. The CLI command
+  `fightbatch <count> <setup JSON>` takes a stop as `fightbatch <count> [<setup JSON>, <stop JSON>]`, so that the rest
+  of the line stays one JSON value.
+- **Options considered:** `fought` in the totals; leaving the reader to count the summaries.
+- **Option chosen:** `fought` in the totals.
+- **Why:** A balancing tool that reads only the totals needs the number of Combats behind them to turn a count into a
+  rate.
+- **Links:** None
+
+## DEC-080: `developer.queries.getRevealedLeads()` reports every Lead for Revealed presentation
+
+- **Category:** Gap resolution
+- **Affected specifications:** DEV, Revealed presentation; LEAD, Player-visible information; GUI, Reveal hidden
+  content.
+- **Description:** `developer.queries.getRevealedLeads()` reports every Lead of the Game build, in Game build order, in
+  the form `getCurrentRetiredWorldState()` reports a discovered Lead, each as though discovered and Assessed: its
+  Required progress and range are shown, its availability is that of Lead availability with condition 1, discovered,
+  taken to hold, and its Lead status follows from that. `canBeInvestigatedNow` alone keeps the Lead's actual
+  availability, because every Player action is validated as without Reveal hidden content. Like every
+  `developer.queries` operation it needs Dev mode, changes nothing, and is not a Player action. While Reveal hidden
+  content is on, the GUI puts these Leads in place of the Player-visible ones in every screen that lists Leads, e.g.
+  the Leads view and the Situation panel, while its controls stay those of Player API's available actions, so
+  starting an Investigation of an undiscovered Lead is disabled. The CLI command `revealedleads` calls it, and
+  `revealed` calls `getRevealedCompendium()`.
+- **Options considered:** A new developer query reporting the Leads in their Player API form; deriving them in the GUI
+  from `getCampaignState()`; leaving Leads unrevealed until the specifications name a query.
+- **Option chosen:** A new developer query reporting the Leads in their Player API form.
+- **Why:** `getCampaignState()` does not hold the Lead GDRs or their derived values, and the Graphical User Interface
+  implements no game rule, so only the engine can report them; reporting them in Player API's form lets every screen
+  show a revealed Lead exactly as it shows one once revealed.
+- **Links:** PROB-052
+
+## DEC-081: The form of `developer.queries.getRevealedCompendium()`
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** COMP, Revealed Compendium.
+- **Description:** `getRevealedCompendium()` returns `{ articles, terms }`. `articles` holds every Compendium article in
+  Game build order, each in the form `getCompendiumArticles()` reports, resolved with V being every article, and
+  `playerVisible`, whether it is Player-visible in the Current world state. `terms` is the Article term lookup over
+  every article, as an object from each Article term in lower case to the identifier of the first article in Game
+  build order that has it, which is the article `getArticleForTerm` would report if every article were Player-visible.
+  The resolved articles are built once per Game build, because with V being every article they do not depend on the
+  World state. The GUI keeps Reveal hidden content as a Session setting of its own store, outside the engine, cleared
+  whenever the Session status shows Dev mode disabled and set to off when the Session starts.
+- **Options considered:** The lookup as an object in the result; a second query taking the text.
+- **Option chosen:** The lookup as an object in the result.
+- **Why:** One query reports all that the Compendium View needs for one World state, and the Data sheets look up many
+  terms per article.
+- **Links:** None
