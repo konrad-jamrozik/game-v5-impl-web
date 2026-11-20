@@ -52,6 +52,10 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 - `configuration/campaign_configurations.yaml`: patched unchanged from specification commit
   `890f1d38103fc5c1936772264d6dfc49d4948d88` on 2026-11-19, adding the preset's `name`. The copy is still identical
   to the specification's `content/` directory.
+- `combat/combat_parameters.yaml` and `compendium/compendium_articles/mechanics_combat.yaml`: patched unchanged from
+  specification commit `d1eb150c8977830c5e4db88871701f2a847b22fc` on 2026-11-19, adding `target_base_weight` and
+  `target_preferred_hit_chance` and rewording the Combat article. The copy is still identical to the specification's
+  `content/` directory.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

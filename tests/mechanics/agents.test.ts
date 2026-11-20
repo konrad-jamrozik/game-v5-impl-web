@@ -597,6 +597,7 @@ describe('AGENT: examples', () => {
       [`combat.damage.${a1}`]: [5, 5, 5],
       [`combat.hit.${a2}`]: [true],
       [`combat.damage.${a2}`]: [5],
+      [`combat.target.${soldier}`]: [a2],
       [`combat.hit.${soldier}`]: [true, false, true],
       [`combat.damage.${soldier}`]: [7, 7],
     });
@@ -675,9 +676,14 @@ describe('AGENT: examples', () => {
       killedBy: null,
     });
 
-    // A lost Combat: a2 is Killed, and its Killed by names the attacking Enemy and its Mission site.
+    // A lost Combat: a2 is Killed, and its Killed by names the attacking Enemy and its Mission site. With base health
+    // and current health 5, the first hit makes it dead rather than Incapacitated.
     const lost = addMissionSite(state, 'apprehend_member');
-    state = act(lost.state, 'deployAgents', { missionSite: lost.site, agents: [a2] });
+    const weak = tweak(lost.state, (world) => {
+      world.agents[a2]!.state.baseHealth = 5;
+      setCurrentHealth(world.agents[a2]!.state, 500);
+    });
+    state = act(weak, 'deployAgents', { missionSite: lost.site, agents: [a2] });
     const fightTurn = state.world.current.turn;
     state = advance(state, losing(state, lost.site));
     const fatal = turnReportView(state)!.combatReports[0]!.log.find(

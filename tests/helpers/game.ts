@@ -352,9 +352,20 @@ export function expectRejected(
   expect(isRejection(result) ? result.reason : 'accepted').toBe(reason);
 }
 
-/** A random source that takes each named outcome from `injected` and every other outcome from the seed. */
+/**
+ * A random source that takes each named outcome from `injected` and every other outcome from the seed, except that a
+ * Combat target outcome the test does not fix takes the first candidate, i.e. the earliest in the fixed order, so
+ * that a scripted Combat does not depend on the order in which an Advance turn processes its Missions.
+ */
 export function randomFor(state: CampaignState, injected: Injected = {}): Random & { used: string[] } {
-  return injectedRandom(injected, seededRandom(seedRng(`fallback ${state.world.current.turn}`), []));
+  const seeded = seededRandom(seedRng(`fallback ${state.world.current.turn}`), []);
+  return injectedRandom(injected, {
+    ...seeded,
+    weighted(outcome, entries) {
+      const first = entries.find(([, weight]) => weight > 0);
+      return outcome.startsWith('combat.target.') && first ? first[0] : seeded.weighted(outcome, entries);
+    },
+  });
 }
 
 /** Commits Advance turn with injected named random outcomes and checks every invariant of the result. */

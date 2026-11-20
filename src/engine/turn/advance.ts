@@ -382,8 +382,14 @@ export function applyAdvanceTurn(
       gdrs.missionSiteArchetypes.find((item) => item.id === site.archetype),
       `MissionSiteArchetype ${site.archetype}`,
     );
-    const team = mission.state.currentTeam.map((id) => must(world.agents[id], `Agent ${id}`));
-    const siteEnemies = site.state.enemies.map((id) => must(world.enemies[id], `Enemy ${id}`));
+    // MISSIONS, Resolving one Mission, step 1: each side in ascending order of the number of its Instance IDs, which
+    // becomes its fixed order in the Combat.
+    const team = mission.state.currentTeam
+      .map((id) => must(world.agents[id], `Agent ${id}`))
+      .sort(byInstanceId);
+    const siteEnemies = site.state.enemies
+      .map((id) => must(world.enemies[id], `Enemy ${id}`))
+      .sort(byInstanceId);
     // COMBAT, Fighting a Combat: the inputs come from the World state, the Combat is fought by the one shared
     // implementation, and this step applies its outputs. An Agent fights with its effective max health, current
     // health, and effective weapon damage; an Enemy in the hundredths form of an Agent; see DEC-056.

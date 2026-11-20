@@ -240,20 +240,45 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
     return false;
   };
 
-  /** Target selection: the opponent able to fight with the highest effective skill; ties go to the earliest. */
-  const selectTarget = (opponents: readonly Fighter[]): Fighter | null => {
-    let target: Fighter | null = null;
-    let best = -1;
-    for (const opponent of opponents) {
-      if (able(opponent)) {
-        const value = eff(opponent);
-        if (value > best) {
-          target = opponent;
-          best = value;
-        }
-      }
+  /**
+   * Target selection: the target outcome draws one candidate, i.e. an opponent able to fight, with the Probability of
+   * its Selection weight over the sum of the Selection weights of all candidates. The Combat end checks after every
+   * attack guarantee at least one candidate. With a single candidate the target is certain, so no value is drawn.
+   */
+  const selectTarget = (attacker: Fighter, opponents: readonly Fighter[]): Fighter => {
+    const candidates = opponents.filter(able);
+    const [only] = candidates;
+    if (only === undefined) {
+      throw new EngineDefect(`${attacker.id} has no opponent able to fight on its Combat turn`);
+    }
+    if (candidates.length === 1) {
+      return only;
+    }
+    const entries = candidates.map(
+      (candidate) => [candidate.id, selectionWeight(attacker, candidate)] as const,
+    );
+    const chosen = random.weighted(`combat.target.${attacker.id}`, entries);
+    const target = candidates.find((candidate) => candidate.id === chosen);
+    if (target === undefined) {
+      throw new EngineDefect(`The target outcome of ${attacker.id} named no candidate`);
     }
     return target;
+  };
+
+  /**
+   * COMBAT, Target selection: 1 for every candidate of an attacking Enemy; for an attacking Agent,
+   * target_base_weight − round down(|100 × target_preferred_hit_chance − 100 × A² / (A² + D²)|), evaluated exactly.
+   */
+  const selectionWeight = (attacker: Fighter, candidate: Fighter): number => {
+    if (attacker.side === 'enemy') {
+      return 1;
+    }
+    const a = BigInt(eff(attacker));
+    const d = BigInt(eff(candidate));
+    const hitPct = ratio(100n * a * a, a * a + d * d);
+    const difference = combat.targetPreferredHitChance.mul(100).sub(hitPct);
+    const distance = difference.lt(0) ? difference.neg() : difference;
+    return combat.targetBaseWeight - roundDown(distance);
   };
 
   const attack = (round: number, attacker: Fighter, defender: Fighter): void => {
@@ -320,14 +345,36 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
 
   const anyAble = (side: readonly Fighter[]): boolean => side.some(able);
 
+  /** COMBAT, Combat end checks 1 and 2, made at Combat start and after every attack. */
+  const sideOut = (): CombatOutcome | null =>
+    !anyAble(enemies) ? 'Prevailed' : !anyAble(agents) ? 'Wiped' : null;
+
+  /**
+   * One phase: the side's Combatants take their Combat turns in Phase order, i.e. from the highest to the lowest
+   * effective skill at the start of the phase, ties in the fixed order (the sort is stable). The Combat ends at once
+   * when the checks after an attack hold, even in the middle of the phase.
+   */
+  const phase = (
+    round: number,
+    side: readonly Fighter[],
+    opponents: readonly Fighter[],
+  ): CombatOutcome | null => {
+    const order = [...side].sort((x, y) => eff(y) - eff(x));
+    for (const fighter of order) {
+      if (able(fighter)) {
+        attack(round, fighter, selectTarget(fighter, opponents));
+        const ended = sideOut();
+        if (ended !== null) {
+          return ended;
+        }
+      }
+    }
+    return null;
+  };
+
   // Combat start, step 3.
-  let outcome: CombatOutcome | null = null;
+  let outcome: CombatOutcome | null = sideOut();
   let rounds = 0;
-  if (!anyAble(enemies)) {
-    outcome = 'Prevailed';
-  } else if (!anyAble(agents)) {
-    outcome = 'Wiped';
-  }
 
   const bound = (agents.length + enemies.length) * Math.max(1, agentParameters.exhaustionIncapacitation) + 1;
   while (outcome === null) {
@@ -335,31 +382,13 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
     if (rounds > bound) {
       throw new EngineDefect('A Combat did not end within its bound of Combat rounds');
     }
-    for (const agent of agents) {
-      if (able(agent)) {
-        const target = selectTarget(enemies);
-        if (target !== null) {
-          attack(rounds, agent, target);
-        }
-      }
-    }
-    for (const enemy of enemies) {
-      if (able(enemy)) {
-        const target = selectTarget(agents);
-        if (target !== null) {
-          attack(rounds, enemy, target);
-        }
-      }
-    }
-    // End-of-Combat-round checks, in order.
+    outcome = phase(rounds, agents, enemies) ?? phase(rounds, enemies, agents);
+    // The Combat round ends here, also when the Combat ended within it; then the Retreated check.
     const agentsRating = rating(agents);
     const enemiesRating = rating(enemies);
     ratings.push({ round: rounds, agents: agentsRating, enemies: enemiesRating });
-    if (!anyAble(enemies)) {
-      outcome = 'Prevailed';
-    } else if (!anyAble(agents)) {
-      outcome = 'Wiped';
-    } else if (
+    if (
+      outcome === null &&
       q(agentsRating).lt(combat.retreatBelowAgentRatingFraction.mul(startRating)) &&
       q(enemiesRating).gte(combat.retreatAtEnemyToAgentRating.mul(agentsRating))
     ) {

@@ -732,6 +732,8 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         retreatBelowAgentRatingFraction: decimalText(gdrs.combatParameters.retreatBelowAgentRatingFraction),
         retreatAtEnemyToAgentRating: decimalText(gdrs.combatParameters.retreatAtEnemyToAgentRating),
         incapacitationSkillFraction: decimalText(gdrs.combatParameters.incapacitationSkillFraction),
+        targetBaseWeight: String(gdrs.combatParameters.targetBaseWeight),
+        targetPreferredHitChance: decimalText(gdrs.combatParameters.targetPreferredHitChance),
       },
       recoveryParameters: numbers(gdrs.recoveryParameters),
       investigationParameters: {

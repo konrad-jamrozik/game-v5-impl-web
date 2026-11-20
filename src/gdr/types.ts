@@ -61,6 +61,9 @@ export interface CombatParametersGdr {
   readonly retreatBelowAgentRatingFraction: Rational;
   readonly retreatAtEnemyToAgentRating: Rational;
   readonly incapacitationSkillFraction: Rational;
+  /** COMBAT, Target selection: the Selection weight at exactly the preferred hit Probability; a whole number. */
+  readonly targetBaseWeight: number;
+  readonly targetPreferredHitChance: Rational;
 }
 
 export interface RecoveryParametersGdr {

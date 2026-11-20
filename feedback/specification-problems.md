@@ -695,3 +695,22 @@
   without a level.
 - **Links:** DEC-074
 - **Resolution:** Open
+
+## PROB-050: The Bootstrap GDRs are no longer winnable under the new target selection
+
+- **Category:** Conflict
+- **Severity:** High
+- **Affected specifications:** COMBAT, Target selection: "Enemy attacker: every candidate has Selection weight 1";
+  "Agent attacker: the Selection weight of a candidate Enemy is target_base_weight − round down(...)"; BOOT, Victory
+  path: "The Campaign is won by working through the Leads of all three Factions and then completing
+  `peace_on_earth`."
+- **Description:** Under the target selection of specification commit `d1eb150c8977830c5e4db88871701f2a847b22fc`,
+  the Basic Autopilot AI no longer wins a Campaign of the Bootstrap GDRs. Of 10 Campaigns of seeds `simulation-0` to
+  `simulation-9` (`node scripts/simulate.ts 10 400`), 9 have no ending after 400 Turns and 1 ends in Defeat by
+  Existential operation not stopped; under the earlier rule, which targeted the opponent with the highest effective
+  skill, all 10 reached Victory, at a median Turn of 326 (318 to 347). The Victory path the Bootstrap GDRs describe
+  is therefore out of reach in practice. No specification requires a Campaign to be winnable, so the Implementation
+  follows the rule, and its tests no longer require the Basic Autopilot AI to reach an ending: the Campaign test
+  checks that it plays 400 Turns without an engine defect, and Victory is checked on a scripted Campaign.
+- **Links:** DEC-076
+- **Resolution:** Open

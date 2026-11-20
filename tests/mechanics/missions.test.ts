@@ -144,8 +144,11 @@ describe('MISSION: examples', () => {
     });
     const [a1, a2, a3, a4] = ids as [string, string, string, string];
     const [e1, e2, e3] = enemies as [string, string, string];
-    void e1;
     state = advance(state, {
+      [`combat.target.${a1}`]: [e1, e2],
+      [`combat.target.${a2}`]: [e2],
+      [`combat.target.${a3}`]: [e3],
+      [`combat.target.${a4}`]: [e1],
       [`combat.hit.${a1}`]: [true, true],
       [`combat.damage.${a1}`]: [15, 5],
       [`combat.hit.${a2}`]: [true, true],
@@ -353,6 +356,11 @@ describe('MISSION: examples', () => {
     const hits = (count: number, damage: number[]) => ({ hit: new Array<boolean>(count).fill(true), damage });
     const agentScript = hits(3, [15, 15, 5]);
     won = advance(won, {
+      // The Agents strike the soldiers first, then one initiate each.
+      [`combat.target.${a1}`]: [e5, e1, e1],
+      [`combat.target.${a2}`]: [e6, e2, e2],
+      [`combat.target.${a3}`]: [e5, e3, e3],
+      [`combat.target.${a4}`]: [e6, e4],
       ...Object.fromEntries(
         [a1, a2, a3, a4].flatMap((id) => [
           [`combat.hit.${id}`, agentScript.hit],
@@ -366,7 +374,7 @@ describe('MISSION: examples', () => {
     const round2Enemies = wonReport.combatReports[0]!.log.filter(
       (x) => x.round === 2 && x.attacker.startsWith('enemy'),
     );
-    // Every Agent's exhaustion is at most 30, so every Agent has effective skill 100 and a1, the earliest, is targeted.
+    // Each Enemy's target outcome is left to the test's random source, which takes the earliest candidate, a1.
     expect(round2Enemies.every((x) => x.defender === a1)).toBe(true);
     expect(mission(won, missionAt(won, s2)).state.lifecycle).toBe('Won');
     expect([money(won), funding(won), won.world.current.panicHundredths]).toEqual([330, 25, 1000]);
@@ -869,7 +877,7 @@ describe('MISSION: Mission exhaustion', () => {
     const created = addMissionSite(newCampaign(), 'apprehend_member');
     let state = created.state;
     const [a1, a2] = agentIds(state) as [string, string];
-    // a2 has the highest effective skill, so the first Enemy attack targets it, and 5 health is all it has.
+    // The first Enemy attack targets a2, and 5 health is all it has.
     state = tweak(state, (world) => {
       world.agents[a2]!.state.skillHundredths = 100000;
       // Base health 5 too: a Serving Agent that is not on Recovery has full current health.
@@ -882,6 +890,7 @@ describe('MISSION: Mission exhaustion', () => {
     const after = advance(state, {
       [`combat.hit.${a1}`]: new Array<boolean>(200).fill(false),
       [`combat.hit.${a2}`]: [false],
+      [`combat.target.${enemies[0]}`]: [a2],
       [`combat.hit.${enemies[0]}`]: [true, ...new Array<boolean>(200).fill(false)],
       [`combat.damage.${enemies[0]}`]: [5],
       ...Object.fromEntries(

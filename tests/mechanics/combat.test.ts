@@ -7,7 +7,7 @@ import {
   fightCombat,
   type Combatant,
 } from '../../src/engine/mechanics/combat/combat.ts';
-import { injectedRandom } from '../../src/engine/random.ts';
+import { injectedRandom, type Random } from '../../src/engine/random.ts';
 import type { CombatReport } from '../../src/engine/state/types.ts';
 import {
   catalogWith,
@@ -108,31 +108,173 @@ describe('COMBAT: examples', () => {
     }
   });
 
-  it('Target selection with ties', () => {
-    // Effective skill 39 is above 13, but exhaustion 100 meets the exhaustion clause.
+  it('Target selection: Selection weights of an Agent and of an Enemy', () => {
+    // Effective skill 39 is above 13, but exhaustion 100 meets the exhaustion clause, so a4 is never a candidate.
     const a4 = combatAgent('a4', { skill: 130, exhaustion: 100 });
     expect(effectiveSkill(a4.state, gdrs.agentParameters)).toBe(39);
+    const draws: [string, (readonly [string, number])[]][] = [];
+    const base = injectedRandom({
+      'combat.target.a1': ['e2'],
+      'combat.hit.a1': [false],
+      'combat.target.a2': ['e3'],
+      'combat.hit.a2': [false],
+      'combat.target.e1': ['a2'],
+      'combat.hit.e1': [false],
+      'combat.target.e2': ['a1'],
+      'combat.hit.e2': [false],
+      'combat.target.e3': ['a1'],
+      'combat.hit.e3': [false],
+    });
+    const random: Random = {
+      ...base,
+      weighted(outcome, entries) {
+        if (draws.length === 5) {
+          // Stop the Combat after the five target selections of Combat round 1.
+          throw new Error('round 1 done');
+        }
+        draws.push([outcome, [...entries]]);
+        return base.weighted(outcome, entries);
+      },
+    };
+    // Enemies of effective skill 40, 50, and 100: an Agent of effective skill 100 hits them with 86.2%, 80%, and 50%.
+    expect(() =>
+      fightCombat(
+        {
+          agents: [combatAgent('a1'), combatAgent('a2'), a4],
+          enemies: [combatEnemy('e1', 'initiate'), combatAgent('e2', { skill: 50 }), combatAgent('e3')],
+          combat: gdrs.combatParameters,
+          agentParameters: gdrs.agentParameters,
+        },
+        random,
+      ),
+    ).toThrow('round 1 done');
+    // The Enemies' phase runs from e3 (100) through e2 (50) to e1 (40).
+    expect(draws.map(([outcome]) => outcome)).toEqual([
+      'combat.target.a1',
+      'combat.target.a2',
+      'combat.target.e3',
+      'combat.target.e2',
+      'combat.target.e1',
+    ]);
+    expect(draws[0]).toEqual([
+      'combat.target.a1',
+      [
+        ['e1', 94],
+        ['e2', 100],
+        ['e3', 70],
+      ],
+    ]);
+    // An Enemy weighs every Agent able to fight alike, whatever its effective skill or health.
+    const enemyDraws = draws.filter(([outcome]) => outcome.startsWith('combat.target.e'));
+    expect(enemyDraws[0]![1]).toEqual([
+      ['a1', 1],
+      ['a2', 1],
+    ]);
+  });
+
+  it('Selection weights at the examples of the specification', () => {
+    // An Agent of effective skill 200 against an Enemy of 100 hits with exactly 80%: weight 100; against 50, 94.1%:
+    // 100 − 14 = 86; against 400, 20%: 100 − 60 = 40.
+    const draws: (readonly [string, number])[][] = [];
+    const base = injectedRandom({});
+    const fightOnce = (): void => {
+      fightCombat(
+        {
+          agents: [combatAgent('a1', { skill: 200 })],
+          enemies: [combatAgent('e1'), combatAgent('e2', { skill: 50 }), combatAgent('e3', { skill: 400 })],
+          combat: gdrs.combatParameters,
+          agentParameters: gdrs.agentParameters,
+        },
+        {
+          ...base,
+          weighted(outcome, entries) {
+            draws.push([...entries]);
+            // Stop the Combat at its first target selection.
+            throw new Error(outcome);
+          },
+        },
+      );
+    };
+    expect(fightOnce).toThrow('combat.target.a1');
+    expect(draws[0]).toEqual([
+      ['e1', 100],
+      ['e2', 86],
+      ['e3', 40],
+    ]);
+  });
+
+  it('Selection weights are determined anew at every target selection, within one phase too', () => {
+    // a1's hit lowers e1 from 100 to 50, so for a2, attacking next in the same phase, e1 weighs 100 instead of 70.
+    const draws: (readonly [string, number])[][] = [];
+    const base = injectedRandom({ 'combat.hit.a1': [true], 'combat.damage.a1': [15] });
+    const fightOnce = (): void => {
+      fightCombat(
+        {
+          agents: [combatAgent('a1'), combatAgent('a2')],
+          enemies: [combatAgent('e1'), combatEnemy('e2', 'initiate')],
+          combat: gdrs.combatParameters,
+          agentParameters: gdrs.agentParameters,
+        },
+        {
+          ...base,
+          weighted(_outcome, entries) {
+            draws.push([...entries]);
+            if (draws.length === 2) {
+              throw new Error('second target selection');
+            }
+            return 'e1';
+          },
+        },
+      );
+    };
+    expect(fightOnce).toThrow('second target selection');
+    expect(draws).toEqual([
+      [
+        ['e1', 70],
+        ['e2', 94],
+      ],
+      [
+        ['e1', 100],
+        ['e2', 94],
+      ],
+    ]);
+  });
+
+  it('Phase order: from the highest to the lowest effective skill, ties in the fixed order', () => {
+    // a2 (120) acts first, then a1 and a3 (90 each) in the fixed order; a3's hit kills the soldier.
     const report = fight(
-      [combatAgent('a1', { currentHealth: 29 }), combatAgent('a2'), combatAgent('a3'), a4],
-      [combatEnemy('e1', 'initiate'), combatEnemy('e2', 'soldier'), combatEnemy('e3', 'soldier')],
+      [
+        combatAgent('a1', { skill: 90 }),
+        combatAgent('a2', { skill: 120 }),
+        combatAgent('a3', { skill: 90, weaponDamage: 30 }),
+      ],
+      [combatEnemy('e1', 'soldier')],
       {
-        'combat.hit.a1': [true, ...misses(200)],
-        'combat.damage.a1': [15],
-        'combat.hit.a2': misses(200),
-        'combat.hit.a3': misses(200),
-        'combat.hit.e1': misses(200),
-        'combat.hit.e2': misses(200),
-        'combat.hit.e3': misses(200),
+        'combat.hit.a1': [false],
+        'combat.hit.a2': [false],
+        'combat.hit.a3': [true],
+        'combat.damage.a3': [30],
       },
     );
-    const round1 = report.log.filter((attack) => attack.round === 1);
-    expect(round1[0]).toMatchObject({ attacker: 'a1', defender: 'e2', a: 96, d: 120 });
-    expect(round1[0]!.defenderAfter).toEqual({ currentHealthHundredths: 1500, exhaustion: 1 });
-    expect(round1[1]).toMatchObject({ attacker: 'a2', defender: 'e3' });
-    expect(round1.some((attack) => attack.attacker === 'a4' || attack.defender === 'a4')).toBe(false);
-    // In the Enemies' phase a2 and a3 share the highest effective skill, and a2 is earlier.
-    expect(round1.find((attack) => attack.attacker === 'e1')!.defender).toBe('a2');
-    expect(participant(report, 'a4').start.incapacitated).toBe(true);
+    expect(report.log.map((attack) => attack.attacker)).toEqual(['a2', 'a1', 'a3']);
+    expect(report.agents).toEqual(['a1', 'a2', 'a3']);
+    expect([report.outcome, report.rounds]).toEqual(['Prevailed', 1]);
+  });
+
+  it('A Combat ends at once when a side has no Combatant able to fight', () => {
+    // a1 kills the only Enemy: the Combat is Prevailed after one attack, a2 takes no Combat turn and no Enemies'
+    // phase follows.
+    const a2 = combatAgent('a2');
+    const report = fight([combatAgent('a1', { weaponDamage: 20 }), a2], [combatEnemy('e1', 'initiate')], {
+      'combat.hit.a1': [true],
+      'combat.damage.a1': [20],
+    });
+    expect([report.outcome, report.rounds, report.log.length]).toEqual(['Prevailed', 1, 1]);
+    expect(report.ratings).toEqual([
+      { round: 0, agents: 200, enemies: 40 },
+      { round: 1, agents: 200, enemies: 0 },
+    ]);
+    expect(participant(report, 'a2').final.exhaustion).toBe(0);
   });
 
   it('Complete Combat: two Agents against two initiates', () => {
@@ -140,11 +282,15 @@ describe('COMBAT: examples', () => {
       [combatAgent('a1'), combatAgent('a2')],
       [combatEnemy('e1', 'initiate'), combatEnemy('e2', 'initiate')],
       {
-        'combat.hit.a1': [true, true, true],
-        'combat.damage.a1': [12, 9, 5],
-        'combat.hit.a2': [true, false],
-        'combat.damage.a2': [15],
+        'combat.target.a1': ['e1', 'e1'],
+        'combat.hit.a1': [true, true],
+        'combat.damage.a1': [12, 9],
+        'combat.target.a2': ['e2', 'e2'],
+        'combat.hit.a2': [true, false, true],
+        'combat.damage.a2': [15, 5],
+        'combat.target.e1': ['a1'],
         'combat.hit.e1': [false],
+        'combat.target.e2': ['a1', 'a2'],
         'combat.hit.e2': [true, false],
         'combat.damage.e2': [7],
       },
@@ -153,6 +299,8 @@ describe('COMBAT: examples', () => {
     expect(report.rounds).toBe(3);
     expect(report.agents).toEqual(['a1', 'a2']);
     expect(report.enemies).toEqual(['e1', 'e2']);
+    // From Combat round 2, a2 (100) acts before the wounded a1 (76); a2's hit in Combat round 3 ends the Combat at
+    // once, so a1 does not attack in it.
     expect(
       report.log.map((x) => [
         x.round,
@@ -168,14 +316,14 @@ describe('COMBAT: examples', () => {
       [1, 'a2', 'e2', 100, 40, 10000, 11600],
       [1, 'e1', 'a1', 16, 100, 256, 10256],
       [1, 'e2', 'a1', 10, 100, 100, 10100],
-      [2, 'a1', 'e1', 76, 16, 5776, 6032],
       [2, 'a2', 'e2', 100, 10, 10000, 10100],
+      [2, 'a1', 'e1', 76, 16, 5776, 6032],
       [2, 'e2', 'a2', 10, 100, 100, 10100],
-      [3, 'a1', 'e2', 76, 10, 5776, 5876],
+      [3, 'a2', 'e2', 100, 10, 10000, 10100],
     ]);
-    expect(report.log.map((x) => x.healthRemovedHundredths)).toEqual([1200, 1500, 0, 700, 800, 0, 0, 500]);
-    expect(report.log.map((x) => x.damage)).toEqual([12, 15, null, 7, 9, null, null, 5]);
-    expect(report.log[4]).toMatchObject({
+    expect(report.log.map((x) => x.healthRemovedHundredths)).toEqual([1200, 1500, 0, 700, 0, 800, 0, 500]);
+    expect(report.log.map((x) => x.damage)).toEqual([12, 15, null, 7, null, 9, null, 5]);
+    expect(report.log[5]).toMatchObject({
       defenderDead: true,
       defenderAfter: { currentHealthHundredths: 0, exhaustion: 3 },
     });
@@ -187,13 +335,13 @@ describe('COMBAT: examples', () => {
     ]);
     expect(participant(report, 'a1').final).toEqual({
       currentHealthHundredths: 2300,
-      exhaustion: 5,
+      exhaustion: 4,
       effectiveSkill: 76,
       condition: 'ableToFight',
     });
     expect(participant(report, 'a2').final).toMatchObject({
       currentHealthHundredths: 3000,
-      exhaustion: 3,
+      exhaustion: 4,
       effectiveSkill: 100,
     });
     expect(participant(report, 'e1').final).toMatchObject({
@@ -206,11 +354,11 @@ describe('COMBAT: examples', () => {
       exhaustion: 5,
       condition: 'dead',
     });
-    expect(report.participants.map((p) => p.damageDealtHundredths)).toEqual([2500, 1500, 0, 700]);
+    expect(report.participants.map((p) => p.damageDealtHundredths)).toEqual([2000, 2000, 0, 700]);
     expect(report.participants.map((p) => p.damageTakenHundredths)).toEqual([700, 0, 2000, 2000]);
-    // Combat skill gain: a1 4 + 2 + 1 + 4 + 4 = 15 from its three hits, the miss and the hit it took; a2 4 + 2 + 2 = 8
-    // from its hit, its miss, and the miss it took. An Enemy has none, and a Combat changes no base skill.
-    expect(report.participants.map((p) => p.combatExperience)).toEqual([15, 8, null, null]);
+    // Combat skill gain: a1 4 + 4 + 2 + 1 = 11 from its two hits, the miss and the hit it took; a2 4 + 2 + 4 + 2 = 12
+    // from its two hits, its miss, and the miss it took. An Enemy has none, and a Combat changes no base skill.
+    expect(report.participants.map((p) => p.combatExperience)).toEqual([11, 12, null, null]);
     expect(report.participants.map((p) => p.start.skillHundredths)).toEqual([10000, 10000, 4000, 4000]);
   });
 
@@ -263,11 +411,13 @@ describe('COMBAT: examples', () => {
       'combat.hit.e1': [false],
     });
     expect(report.ratings[0]!.agents).toBe(131);
-    expect(report.log[0]).toMatchObject({
+    // a2 (100) acts before a1 (31); a1 then attacks the wounded initiate and its own attack Incapacitates it.
+    expect(report.log[0]).toMatchObject({ attacker: 'a2', defender: 'e1', healthRemovedHundredths: 1000 });
+    expect(report.log[1]).toMatchObject({
       attacker: 'a1',
       a: 31,
-      d: 40,
-      hitProbability: { n: 961, d: 2561 },
+      d: 20,
+      hitProbability: { n: 961, d: 1361 },
       attackerIncapacitated: true,
     });
     expect(report.log[2]).toMatchObject({ attacker: 'e1', defender: 'a2' });

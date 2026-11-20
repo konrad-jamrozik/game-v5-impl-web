@@ -184,6 +184,8 @@ const combatParameterFields = {
   retreat_below_agent_rating_fraction: decimal,
   retreat_at_enemy_to_agent_rating: decimal,
   incapacitation_skill_fraction: decimal,
+  target_base_weight: whole(1),
+  target_preferred_hit_chance: decimal,
 };
 
 /** COMBAT, Combat inputs and outputs, item 4: the values of AgentParameters that a Combat reads, by authored name. */
@@ -290,6 +292,8 @@ const schemas = {
       retreatBelowAgentRatingFraction: g.retreat_below_agent_rating_fraction,
       retreatAtEnemyToAgentRating: g.retreat_at_enemy_to_agent_rating,
       incapacitationSkillFraction: g.incapacitation_skill_fraction,
+      targetBaseWeight: g.target_base_weight,
+      targetPreferredHitChance: g.target_preferred_hit_chance,
     })),
   RecoveryParameters: z
     .strictObject({
@@ -647,6 +651,18 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
   ) {
     problems.push('CombatParameters: incapacitation_skill_fraction must be at least 0 and less than 1');
   }
+  // Rule 9: every Selection weight is at least 1.
+  const preferred = combatParameters.targetPreferredHitChance;
+  if (preferred.lt(0) || preferred.gt(1)) {
+    problems.push('CombatParameters: target_preferred_hit_chance must be from 0 to 1');
+  } else if (
+    q(combatParameters.targetBaseWeight).lt(preferred.mul(100)) ||
+    q(combatParameters.targetBaseWeight).lt(q(1).sub(preferred).mul(100))
+  ) {
+    problems.push(
+      'CombatParameters: target_base_weight must be at least 100 × target_preferred_hit_chance and at least 100 × (1 − target_preferred_hit_chance)',
+    );
+  }
   return problems;
 }
 
@@ -672,6 +688,8 @@ const COMBAT_GDR_VALUE_PROPERTIES: Readonly<Record<string, readonly ['combat' | 
   retreat_below_agent_rating_fraction: ['combat', 'retreatBelowAgentRatingFraction'],
   retreat_at_enemy_to_agent_rating: ['combat', 'retreatAtEnemyToAgentRating'],
   incapacitation_skill_fraction: ['combat', 'incapacitationSkillFraction'],
+  target_base_weight: ['combat', 'targetBaseWeight'],
+  target_preferred_hit_chance: ['combat', 'targetPreferredHitChance'],
   exhaustion_incapacitation: ['agent', 'exhaustionIncapacitation'],
   exhaustion_free_points: ['agent', 'exhaustionFreePoints'],
   skill_penalty_pct_per_exhaustion: ['agent', 'skillPenaltyPctPerExhaustion'],

@@ -1474,7 +1474,7 @@
   decimals; an explicit Enemy has whole numbers. Effective weapon damage, which Attribute ranges does not cover, is a
   whole number of at least 1, as a Weapon GDR requires. The duplicate rule covers only Agents and Enemies of the
   Current campaign, so one EnemyArchetype may appear any number of times. GDR values are given by their authored
-  names, limited to the 13 values the Combat reads, and must still pass the whole GDR validation together with the
+  names, limited to the 15 values the Combat reads, and must still pass the whole GDR validation together with the
   values not overridden. An Agent named by Instance ID fights with the Upgrade bonus of the Current world state. The
   random source is derived from the Detached seed as a Campaign seed is, so a Detached seed equal to the Campaign
   seed repeats the Campaign's first draws; the Agreement test relies on that to supply equal random outcomes. The
@@ -1498,3 +1498,35 @@
 - **Why:** A balancing tool reads one level by identifier, and the lists name the ones without a level, as the
   spec asks, without a scan.
 - **Links:** PROB-049
+
+## DEC-075: The name of a target outcome, and no draw for a single candidate
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** COMBAT, Target selection: "Each target selection has one named random outcome, its
+  target outcome, whose possible values are the candidates"; DEV, Random outcome overrides.
+- **Description:** A target outcome is named `combat.target.<attacker Instance ID>`, beside `combat.hit.<id>` and
+  `combat.damage.<id>`, and its value is the target's Instance ID, so a random outcome override fixes it by naming the
+  target. When the attacker has exactly one candidate, the target is certain and no value is drawn from the Campaign
+  seed's generator, so an override of that outcome stays pending until a target selection with several candidates.
+- **Options considered:** Drawing a value for every target selection; drawing only when there are several candidates.
+- **Option chosen:** Drawing only when there are several candidates.
+- **Why:** An outcome with one possible value has nothing to decide, and skipping it keeps the generator's sequence,
+  and every scripted Combat with one opponent, as it was before target outcomes existed.
+- **Links:** None
+
+## DEC-076: Follow the new target selection although the Bootstrap GDRs are no longer winnable
+
+- **Category:** Conflict resolution
+- **Affected specifications:** COMBAT, Target selection; BOOT, Victory path.
+- **Description:** The Implementation follows the target selection as specified, although under it the Basic
+  Autopilot AI no longer wins a Campaign of the Bootstrap GDRs. The autopilot Campaign tests check that the Basic
+  Autopilot AI plays 400 Turns, or 1000 in the Campaign runs, without an engine defect, whether or not the Campaign
+  ends, and no longer check a share of Victories. Victory is checked on a scripted Campaign in
+  `tests/mechanics/endings.test.ts`, and the Player API after a Campaign ending on the scripted Defeat by Money below
+  zero.
+- **Options considered:** Follow the rule and relax the autopilot tests; keep the earlier rule until the Bootstrap GDRs
+  are rebalanced.
+- **Option chosen:** Follow the rule and relax the autopilot tests, as the Engine designer directed.
+- **Why:** The rule is specified, and no specification requires a Campaign to be winnable; the rebalancing is the
+  Engine designer's to make.
+- **Links:** PROB-050
