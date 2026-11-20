@@ -158,7 +158,14 @@ export interface SaveListEntry {
   readonly saveId: string;
   readonly campaignId: string;
   readonly isAutosave: boolean;
-  readonly autosaveKind: 'current' | 'turnEnd' | 'engagement' | 'disengagement' | 'furthestProgress' | null;
+  readonly autosaveKind:
+    | 'current'
+    | 'turnEnd'
+    | 'autopilot'
+    | 'engagement'
+    | 'disengagement'
+    | 'furthestProgress'
+    | null;
   readonly turn: number;
   /**
    * SAVES, Listing Campaign saves: the number of Player actions that lead from the start of that Turn to the saved
@@ -178,11 +185,11 @@ export interface TimelineStatus {
 
 export interface AutosaveTarget {
   readonly saveId: string;
-  readonly autosaveKind: 'turnEnd' | 'engagement' | 'disengagement' | 'furthestProgress';
+  readonly autosaveKind: 'turnEnd' | 'autopilot' | 'engagement' | 'disengagement' | 'furthestProgress';
   readonly turn: number;
   /**
-   * TIMELINE, Autosave navigation, Crossing an Autopilot engagement: whether the call undoes or redoes every Player
-   * action of an Autopilot engagement at once.
+   * TIMELINE, Autosave navigation, Crossing an Autopilot engagement: whether the call undoes or redoes at once the
+   * Player actions of an Autopilot engagement between its start and its earliest Autopilot Autosave.
    */
   readonly crossesAutopilotEngagement: boolean;
 }
@@ -235,6 +242,8 @@ function autosaveKindOf(kind: SaveKind): SaveListEntry['autosaveKind'] {
       return 'current';
     case 'turnEndAutosave':
       return 'turnEnd';
+    case 'autopilotAutosave':
+      return 'autopilot';
     case 'engagementAutosave':
       return 'engagement';
     case 'disengagementAutosave':
@@ -246,12 +255,21 @@ function autosaveKindOf(kind: SaveKind): SaveListEntry['autosaveKind'] {
   }
 }
 
+/** SAVES, Limits: the Global configuration setting that bounds the Autosaves of one Turn-end kind. */
+function limitSettingOf(
+  kind: 'turnEndAutosave' | 'autopilotAutosave',
+): 'autosaveLimit' | 'autopilotAutosaveLimit' {
+  return kind === 'turnEndAutosave' ? 'autosaveLimit' : 'autopilotAutosaveLimit';
+}
+
 function describeSave(header: Pick<SaveHeader, 'kind' | 'turn' | 'saveId'>): string {
   switch (header.kind) {
     case 'currentAutosave':
       return `the Current Autosave (Turn ${header.turn})`;
     case 'turnEndAutosave':
       return `the Turn-end Autosave of Turn ${header.turn}`;
+    case 'autopilotAutosave':
+      return `the Autopilot Autosave of Turn ${header.turn}`;
     case 'engagementAutosave':
       return `the Engagement Autosave (Turn ${header.turn})`;
     case 'disengagementAutosave':
@@ -520,8 +538,9 @@ export class EngineCore<S extends ShellState> {
     return ok(null);
   }
 
-  private autosaveLimit(): number {
-    const value = this.globalConfiguration.effective('autosaveLimit');
+  /** SAVES, Limits: the Autosave limit counts Turn-end Autosaves, the Autopilot Autosave limit Autopilot Autosaves. */
+  private autosaveLimit(setting: 'autosaveLimit' | 'autopilotAutosaveLimit'): number {
+    const value = this.globalConfiguration.effective(setting);
     return typeof value === 'number' ? value : 5;
   }
 
@@ -945,7 +964,10 @@ export class EngineCore<S extends ShellState> {
     switch (kind) {
       case 'currentAutosave':
         return `${campaignId}.current`;
+      // SAVES, Autosaves, One Autosave for each Turn end: a Turn-end Autosave and an Autopilot Autosave of one Turn
+      // share one Campaign save ID, so writing either replaces the other.
       case 'turnEndAutosave':
+      case 'autopilotAutosave':
         return `${campaignId}.turn-end.${turn}`;
       case 'engagementAutosave':
         return `${campaignId}.engagement`;
@@ -961,7 +983,12 @@ export class EngineCore<S extends ShellState> {
    * is reported in the result of the operation that caused it; see SAVES, Edge cases and failure behavior.
    */
   private async writeAutosave(
-    kind: 'currentAutosave' | 'turnEndAutosave' | 'engagementAutosave' | 'disengagementAutosave',
+    kind:
+      | 'currentAutosave'
+      | 'turnEndAutosave'
+      | 'autopilotAutosave'
+      | 'engagementAutosave'
+      | 'disengagementAutosave',
     header: SaveHeader,
     saved: SavedCampaign<S>,
     failures: AutosaveFailure[],
@@ -1618,24 +1645,25 @@ export class EngineCore<S extends ShellState> {
       }
       await this.removeAbandonedAutosaves(campaign);
       const endedTurn = state.world.current.turn;
+      // SAVES, Autosaves, Autopilot engagements: a Turn an Autopilot AI ends gets an Autopilot Autosave instead of a
+      // Turn-end Autosave, so the Turns it plays never displace those the player played.
+      const kind = this.activeEngagement() === null ? 'turnEndAutosave' : 'autopilotAutosave';
       const turnEndHeader = this.headerFor(
         campaign,
-        this.autosaveId(campaign.campaignId, 'turnEndAutosave', endedTurn),
-        'turnEndAutosave',
+        this.autosaveId(campaign.campaignId, kind, endedTurn),
+        kind,
       );
-      // The Turn-end Autosave holds the Timeline as it is at the Turn-end state, including its Undone actions.
+      // The Autosave holds the Timeline as it is at the Turn-end state, including its Undone actions.
       const turnEnd = toSaved(campaign);
       campaign.entries.length = campaign.position;
       campaign.states.length = campaign.position + 1;
       campaign.stamps.length = campaign.position + 1;
       commitAdvanceTurn(campaign, next, this.env.newId());
       const failures: AutosaveFailure[] = [];
-      if (this.activeEngagement() === null) {
-        if (this.autosaveLimit() > 0) {
-          await this.writeAutosave('turnEndAutosave', turnEndHeader, turnEnd, failures);
-        }
-        await this.pruneTurnEndAutosaves(campaign.campaignId);
+      if (this.autosaveLimit(limitSettingOf(kind)) > 0) {
+        await this.writeAutosave(kind, turnEndHeader, turnEnd, failures);
       }
+      await this.pruneTurnEndAutosaves(campaign.campaignId, kind);
       await this.writeCurrentAutosave(failures);
       await this.afterCommit(principal, true, failures);
       this.changed();
@@ -1643,11 +1671,18 @@ export class EngineCore<S extends ShellState> {
     });
   }
 
-  private async pruneTurnEndAutosaves(campaignId: string): Promise<void> {
+  /**
+   * SAVES, Autosaves: removes the Autosaves of one kind, earliest Turn first, until no more remain than its limit; the
+   * Autosave limit counts only Turn-end Autosaves and the Autopilot Autosave limit only Autopilot Autosaves.
+   */
+  private async pruneTurnEndAutosaves(
+    campaignId: string,
+    kind: 'turnEndAutosave' | 'autopilotAutosave',
+  ): Promise<void> {
     const turnEnds = [...this.headers.values()]
-      .filter((header) => header.campaignId === campaignId && header.kind === 'turnEndAutosave')
+      .filter((header) => header.campaignId === campaignId && header.kind === kind)
       .sort((a, b) => a.turn - b.turn);
-    const limit = this.autosaveLimit();
+    const limit = this.autosaveLimit(limitSettingOf(kind));
     while (turnEnds.length > limit) {
       const earliest = turnEnds.shift();
       if (earliest) {

@@ -29,6 +29,7 @@
 - tests/foundation/final-review.test.ts
 - tests/engine/campaign.test.ts
 - tests/helpers/test-rules.ts
+- tests/foundation/autopilot-autosaves.test.ts
 
 ## AVIEW: Agents View
 
@@ -486,6 +487,8 @@ No files.
 - src/web/store.ts
 - src/web/ui.tsx
 - tests/web/leave-campaign.test.ts
+- src/web/save-rows.ts
+- tests/web/save-rows.test.ts
 
 ## MISSION: Missions
 
@@ -633,6 +636,7 @@ No files.
 - tests/foundation/timeline.test.ts
 - src/engine/saves/storage.ts
 - src/engine/saves/encoding.ts
+- tests/foundation/autopilot-autosaves.test.ts
 
 ## SCHEMA: Storage Schema
 
@@ -694,6 +698,7 @@ No files.
 - tests/foundation/final-review.test.ts
 - src/engine/saves/
 - src/web/screens/MainMenu.tsx
+- tests/foundation/autopilot-autosaves.test.ts
 
 ## TODOS: Outstanding Work Items
 

@@ -1,6 +1,7 @@
 /** The Main menu: new-Campaign setup, Campaign saves, and the Global configuration. */
 import { useEffect, useState } from 'react';
 import { GAME_BUILD, type SaveListEntry } from '../../engine/index.ts';
+import { orderSaveRows } from '../save-rows.ts';
 import { confirmOrGoBack, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
@@ -10,6 +11,7 @@ import { MenuSettingsPanel } from './SettingsPanel.tsx';
 const KIND_NAMES: Record<string, string> = {
   current: 'Current Autosave',
   turnEnd: 'Turn-end Autosave',
+  autopilot: 'Autopilot Autosave',
   engagement: 'Engagement Autosave',
   disengagement: 'Disengagement Autosave',
   furthestProgress: 'Furthest progress Autosave',
@@ -24,7 +26,7 @@ interface CampaignGroup {
   readonly saves: readonly SaveListEntry[];
 }
 
-/** The Campaign saves of each Campaign, in the order the engine lists them. */
+/** The Campaign saves of each Campaign, its rows ordered under MENU, Layout. */
 function groupByCampaign(saves: readonly SaveListEntry[]): CampaignGroup[] {
   const groups = new Map<string, SaveListEntry[]>();
   for (const save of saves) {
@@ -36,7 +38,7 @@ function groupByCampaign(saves: readonly SaveListEntry[]): CampaignGroup[] {
     campaignId,
     turn: Math.max(...list.map((save) => save.turn)),
     writtenAt: list.reduce((latest, save) => (save.writtenAt > latest ? save.writtenAt : latest), ''),
-    saves: list,
+    saves: orderSaveRows(list),
   }));
 }
 

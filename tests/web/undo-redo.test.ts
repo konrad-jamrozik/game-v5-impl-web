@@ -19,6 +19,19 @@ describe('CSCR: Undo and redo', () => {
     expect(
       undoRedoStep('redo', false, { ...target, autosaveKind: 'furthestProgress', turn: 14 })?.tooltip,
     ).toBe('Forward to the furthest progress, in Turn 14');
+    // A step to an Autopilot Autosave that crosses no Autopilot engagement is a Turn step.
+    expect(undoRedoStep('undo', false, { ...target, autosaveKind: 'autopilot', turn: 104 })).toEqual({
+      form: 'turn',
+      tooltip: 'Back to the end of Turn 104, played by Autopilot',
+    });
+    expect(
+      undoRedoStep('redo', false, {
+        ...target,
+        autosaveKind: 'autopilot',
+        turn: 100,
+        crossesAutopilotEngagement: true,
+      })?.form,
+    ).toBe('autopilot');
   });
 
   it('takes an Autopilot step when Autosave navigation crosses an Autopilot engagement', () => {

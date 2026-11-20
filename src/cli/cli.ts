@@ -96,7 +96,7 @@ const HELP = `Commands
              wait <engagement>; <limit> is single (one action), turn (this Turn's actions), or turns <count>;
              auto engages and waits
   Developer  dev on | dev off | inspect | levels | addmoney <amount> | addagents <count>
-             override <outcome> <value> | fight <setup JSON>
+             override <outcome> <value> | fight <setup JSON> | fightbatch <count> <setup JSON>
   Other      help | quit
 Each command prints the whole result of its operation; --json prints it as one line of JSON. The commands agents,
 investigations, sites, missions, factions, and upgrades print that part of the Live world state; leads that part of the
@@ -377,6 +377,28 @@ export function createCli(engine: Engine, out: CliOutput) {
           );
         }
         return print(command, developer.tools.fightCombat(setup as DetachedCombatSetup));
+      }
+      case 'fightbatch': {
+        // `fightbatch <count> <setup JSON>`: developer.tools.fightCombatBatch, e.g.
+        // fightbatch 100 {"agents":[{"kind":"agent","id":"agent-1"}],"enemies":{"missionSiteArchetype":"raid_outpost"},"seed":"1"}
+        const text = line.trim().slice(command.length).trim();
+        const space = text.indexOf(' ');
+        let setup: unknown;
+        try {
+          setup = JSON.parse(text.slice(space + 1));
+        } catch {
+          setup = undefined;
+        }
+        if (space < 0 || setup === undefined) {
+          return usage(
+            command,
+            'usage: fightbatch <count> <setup JSON>, e.g. fightbatch 100 {"agents":[...],"enemies":[...],"seed":"1"}',
+          );
+        }
+        return print(
+          command,
+          developer.tools.fightCombatBatch(setup as DetachedCombatSetup, Number(text.slice(0, space))),
+        );
       }
       default:
         return usage(command, `Unknown command "${command}". Type help.`);

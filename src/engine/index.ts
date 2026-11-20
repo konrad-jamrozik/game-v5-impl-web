@@ -38,11 +38,16 @@ import {
 import type { GlobalConfigurationReport, SettingValue } from './session/global-configuration.ts';
 import type { CampaignState, TurnReport } from './state/types.ts';
 import type { InitiativeOperationLevelsView } from './views/views.ts';
-import type { DetachedCombatResult, DetachedCombatSetup } from './mechanics/combat/detached-combat.ts';
+import type {
+  DetachedCombatBatchResult,
+  DetachedCombatResult,
+  DetachedCombatSetup,
+} from './mechanics/combat/detached-combat.ts';
 
 export type * from './player-api.ts';
 export type {
   DetachedAgentEntry,
+  DetachedCombatBatchResult,
   DetachedCombatParticipant,
   DetachedCombatResult,
   DetachedCombatSetup,
@@ -173,6 +178,12 @@ export interface Engine {
        * Combat report and each participant's final values. It changes no Campaign state.
        */
       fightCombat(setup: DetachedCombatSetup): Result<DetachedCombatResult>;
+      /**
+       * COMBAT, Batch of Detached Combats: fights `count` Detached Combats on one setup, Combat `i` with the Detached
+       * seed `<seed>#<i>`, each with the Combat report turned off, and returns each Combat's summary in order and the
+       * totals over the batch. `fightCombat` with the Detached seed `<seed>#<i>` shows Combat `i` in full. It changes no Campaign state.
+       */
+      fightCombatBatch(setup: DetachedCombatSetup, count: number): Result<DetachedCombatBatchResult>;
     };
   };
   /** Calls the listener after anything a query could report has changed. Returns a function that stops it. */
@@ -327,6 +338,11 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
       tools: {
         fightCombat: (setup) =>
           core.developerTool(CONTROLLER, 'fightCombat', setup) as Result<DetachedCombatResult>,
+        fightCombatBatch: (setup, count) =>
+          core.developerTool(CONTROLLER, 'fightCombatBatch', {
+            setup,
+            count,
+          }) as Result<DetachedCombatBatchResult>,
       },
     },
     subscribe: (listener) => core.subscribe(listener),

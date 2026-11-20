@@ -50,7 +50,7 @@ export interface EngineError {
 
 /** An Autosave that could not be written while the operation that caused it still completed. */
 export interface AutosaveFailure {
-  readonly autosave: 'current' | 'turnEnd' | 'engagement' | 'disengagement';
+  readonly autosave: 'current' | 'turnEnd' | 'autopilot' | 'engagement' | 'disengagement';
   readonly code: 'save_size_limit_exceeded' | 'unwritable_campaign_save';
   readonly message: string;
 }

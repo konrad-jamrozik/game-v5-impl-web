@@ -5,7 +5,7 @@ import { produce } from 'immer';
 import { detach } from '../kernel/values.ts';
 import { GAME_BUILD, type GdrCatalog } from '../gdr/index.ts';
 import { applyGameAction } from './actions/actions.ts';
-import { detachedCombat } from './mechanics/combat/detached-combat.ts';
+import { detachedCombat, detachedCombatBatch } from './mechanics/combat/detached-combat.ts';
 import { seededRandom, type Random } from './random.ts';
 import { reject, type Rejection } from './result.ts';
 import type { ActionRecord, ConfigurationValueDescriptor, GameRules } from './rules.ts';
@@ -214,6 +214,10 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
     developerTool(state, tool, args) {
       if (tool === 'fightCombat') {
         return detachedCombat(state.world.current, gdrs, args);
+      }
+      if (tool === 'fightCombatBatch') {
+        const { setup, count } = (args ?? {}) as { setup?: unknown; count?: unknown };
+        return detachedCombatBatch(state.world.current, gdrs, setup, count);
       }
       throw new Error(`There is no developer tool ${tool}`);
     },

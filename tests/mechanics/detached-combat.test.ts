@@ -1,9 +1,15 @@
-/** Tests of COMBAT, Detached Combat, and of REUSE, Agreement test, for `developer.tools.fightCombat(setup)`. */
+/**
+ * Tests of COMBAT, Detached Combat and Batch of Detached Combats, and of REUSE, Agreement test, for
+ * `developer.tools.fightCombat(setup)` and `developer.tools.fightCombatBatch(setup, count)`.
+ */
 import { describe, expect, it } from 'vite-plus/test';
 import { advanceTurnOf } from '../../src/engine/game-rules.ts';
 import type { FoughtCombatReport } from '../../src/engine/mechanics/combat/combat.ts';
 import {
+  BATCH_MAX_COUNT,
   detachedCombat,
+  detachedCombatBatch,
+  type DetachedCombatBatchResult,
   type DetachedCombatResult,
   type DetachedCombatSetup,
   type DetachedEnemyEntry,
@@ -76,6 +82,14 @@ function fought(state: CampaignState, setup: unknown): DetachedCombatResult {
   const result = detachedCombat(state.world.current, gdrs, setup);
   if (isRejection(result)) {
     throw new Error(`Expected the setup to be accepted: ${result.message}`);
+  }
+  return result;
+}
+
+function batch(state: CampaignState, setup: unknown, count: unknown): DetachedCombatBatchResult {
+  const result = detachedCombatBatch(state.world.current, gdrs, setup, count);
+  if (isRejection(result)) {
+    throw new Error(`Expected the batch to be accepted: ${result.message}`);
   }
   return result;
 }
@@ -286,6 +300,61 @@ describe('COMBAT: Detached Combat', () => {
   });
 });
 
+describe('COMBAT: Combat summary and Batch of Detached Combats', () => {
+  const state = withAgents(newCampaign(), 4);
+  const setup = {
+    agents: [explicitAgent, explicitAgent, explicitAgent, explicitAgent],
+    enemies: { missionSiteArchetype: 'raid_outpost' },
+    seed: 'raid_outpost|4',
+  };
+
+  it('returns the Combat summary with the Combat report, and the two agree', () => {
+    for (const seed of ['1', '2', '3', '4', '5', '6']) {
+      const full = fought(state, { ...setup, seed });
+      expect(full.summary).toEqual({
+        outcome: full.combatReport.outcome,
+        agentsDead: full.participants.filter((p) => p.side === 'agent' && p.dead).length,
+      });
+    }
+  });
+
+  it('fights Combat i with the Detached seed <seed>#<i> and totals the batch', () => {
+    const result = batch(state, setup, 12);
+    expect(result.combats).toHaveLength(12);
+    result.combats.forEach((summary, index) => {
+      const full = fought(state, { ...setup, seed: `raid_outpost|4#${index + 1}` });
+      expect(summary).toEqual(full.summary);
+      expect(summary.outcome).toBe(full.combatReport.outcome);
+    });
+    const count = (outcome: string) => result.combats.filter((summary) => summary.outcome === outcome).length;
+    expect(result.totals).toEqual({
+      prevailed: count('Prevailed'),
+      retreated: count('Retreated'),
+      wiped: count('Wiped'),
+      agentsDead: result.combats.reduce((sum, summary) => sum + summary.agentsDead, 0),
+    });
+    // Every Combat starts from the setup's values, so a batch's first Combats do not depend on its count.
+    expect(batch(state, setup, 3).combats).toEqual(result.combats.slice(0, 3));
+  });
+
+  it('rejects a bad count, a too long last Detached seed, and a bad setup, and fights nothing', () => {
+    const reason = (s: unknown, count: unknown): string => {
+      const result = detachedCombatBatch(state.world.current, gdrs, s, count);
+      return isRejection(result) ? result.reason : 'accepted';
+    };
+    expect(reason(setup, 0)).toBe('invalid_count');
+    expect(reason(setup, 1.5)).toBe('invalid_count');
+    expect(reason(setup, BATCH_MAX_COUNT + 1)).toBe('invalid_count');
+    expect(reason(setup, '3')).toBe('invalid_count');
+    expect(reason(setup, BATCH_MAX_COUNT)).toBe('accepted');
+    // 61 characters leave room for "#9" but not for "#10".
+    const long = { ...setup, seed: 'x'.repeat(62) };
+    expect(reason(long, 9)).toBe('accepted');
+    expect(reason(long, 10)).toBe('invalid_seed');
+    expect(reason({ ...setup, agents: [] }, 3)).toBe('empty_agents_side');
+  });
+});
+
 describe('DEV: developer.tools.fightCombat through the engine API', () => {
   async function campaign(): Promise<Engine> {
     const { engine } = await startEngine();
@@ -308,6 +377,12 @@ describe('DEV: developer.tools.fightCombat through the engine API', () => {
     expect(ok(engine.developer.tools.fightCombat(setupOf(engine))).combatReport.log.length).toBeGreaterThan(
       0,
     );
+    expect(errorCode(engine.developer.tools.fightCombatBatch(setupOf(engine), 0))).toBe('invalid_input');
+    const fromBatch = ok(engine.developer.tools.fightCombatBatch(setupOf(engine), 5));
+    expect(fromBatch.combats).toHaveLength(5);
+    expect(ok(engine.developer.tools.fightCombat({ ...setupOf(engine), seed: '1#5' })).summary).toEqual(
+      fromBatch.combats[4],
+    );
     const rejected = engine.developer.tools.fightCombat({ ...setupOf(engine), seed: '' });
     expect(rejected.ok ? null : rejected.error.reason).toBe('invalid_seed');
   });
@@ -323,6 +398,7 @@ describe('DEV: developer.tools.fightCombat through the engine API', () => {
     for (const seed of ['1', '2', '3']) {
       ok(used.developer.tools.fightCombat(setupOf(used, seed)));
     }
+    ok(used.developer.tools.fightCombatBatch(setupOf(used, '4'), 3));
     expect(ok(used.developer.queries.getCampaignState())).toEqual(before);
     expect(ok(used.session.timeline.getStatus())).toEqual(timeline);
     expect(ok(used.player.queries.getTurnReport())).toBeNull();

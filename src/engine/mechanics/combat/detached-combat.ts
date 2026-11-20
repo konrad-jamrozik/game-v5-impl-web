@@ -1,6 +1,7 @@
 /**
  * COMBAT, Detached Combat: `developer.tools.fightCombat(setup)` has one Combat fought on what its caller supplies and
- * changes nothing. Under REUSE, Shared implementation, it adds around the one implementation of Fighting a Combat,
+ * changes nothing; COMBAT, Batch of Detached Combats: `developer.tools.fightCombatBatch(setup, count)` has `count` of
+ * them fought, each with the Detached seed `<seed>#<i>`, and keeps only their Combat summaries. Under REUSE, Shared implementation, it adds around the one implementation of Fighting a Combat,
  * `fightCombat` in `combat.ts`, only the building of its inputs from the setup, the derivation of its random outcomes
  * from the Detached seed, and the return of its outputs instead of their application to a World state.
  */
@@ -15,7 +16,9 @@ import {
   agentCombatantState,
   enemyCombatantState,
   fightCombat,
+  fightCombatSummary,
   type CombatInputs,
+  type CombatSummary,
   type CombatantState,
   type FoughtCombatReport,
 } from './combat.ts';
@@ -79,11 +82,26 @@ export interface DetachedCombatParticipant {
   readonly dead: boolean;
 }
 
-/** COMBAT, Detached Combat, Outputs: the Combat report, which has no Mission, and each participant's final values. */
+/** COMBAT, Detached Combat, Outputs: the Combat summary, the Combat report, which has no Mission, and each participant's final values. */
 export interface DetachedCombatResult {
+  readonly summary: CombatSummary;
   readonly combatReport: FoughtCombatReport;
   readonly participants: readonly DetachedCombatParticipant[];
 }
+
+/** COMBAT, Batch of Detached Combats, Outputs: each Combat's summary in order of `i`, and the totals over the batch. */
+export interface DetachedCombatBatchResult {
+  readonly combats: readonly CombatSummary[];
+  readonly totals: {
+    readonly prevailed: number;
+    readonly retreated: number;
+    readonly wiped: number;
+    readonly agentsDead: number;
+  };
+}
+
+/** COMBAT, Batch of Detached Combats: the largest `count` of one batch. */
+export const BATCH_MAX_COUNT = 10_000;
 
 /** The inputs a valid setup builds, with the identification of each participant. */
 export interface DetachedCombat {
@@ -312,6 +330,7 @@ export function fightDetachedCombat(combat: DetachedCombat, random: Random): Det
   const outputs = fightCombat(combat.inputs, random);
   const finals = [...outputs.agents, ...outputs.enemies];
   return {
+    summary: outputs.summary,
     combatReport: outputs.report,
     participants: combat.participants.map((participant, index) => {
       const final = must(finals[index], 'final values of a participant');
@@ -334,4 +353,49 @@ export function detachedCombat(
 ): DetachedCombatResult | Rejection {
   const combat = buildDetachedCombat(world, gdrs, setup);
   return 'rejected' in combat ? combat : fightDetachedCombat(combat, detachedRandom(combat.seed));
+}
+
+/**
+ * `developer.tools.fightCombatBatch(setup, count)`: COMBAT, Batch of Detached Combats. Combat `i` is the Detached Combat
+ * that `fightCombat` fights on `setup` with the Detached seed `<seed>#<i>`, fought with the Combat report turned off (COMBAT, Fighting a Combat, Recording);
+ * every Combat starts from the values the setup names, because a Detached Combat applies its outputs to nothing.
+ */
+export function detachedCombatBatch(
+  world: CurrentWorldState,
+  gdrs: GdrCatalog,
+  setup: unknown,
+  count: unknown,
+): DetachedCombatBatchResult | Rejection {
+  const combat = buildDetachedCombat(world, gdrs, setup);
+  if ('rejected' in combat) {
+    return combat;
+  }
+  if (typeof count !== 'number' || !Number.isInteger(count) || count < 1 || count > BATCH_MAX_COUNT) {
+    return reject(
+      'invalid_count',
+      `count must be a whole number from 1 to ${BATCH_MAX_COUNT}.`,
+      'invalid_input',
+    );
+  }
+  if (!isPermittedSeed(`${combat.seed}#${count}`)) {
+    return reject(
+      'invalid_seed',
+      `The Detached seed of the batch's last Combat, ${combat.seed}#${count}, is not a permitted Campaign seed: it may hold at most 64 characters.`,
+    );
+  }
+  const combats: CombatSummary[] = [];
+  const totals = { prevailed: 0, retreated: 0, wiped: 0, agentsDead: 0 };
+  for (let i = 1; i <= count; i += 1) {
+    const summary = fightCombatSummary(combat.inputs, detachedRandom(`${combat.seed}#${i}`));
+    combats.push(summary);
+    totals.agentsDead += summary.agentsDead;
+    if (summary.outcome === 'Prevailed') {
+      totals.prevailed += 1;
+    } else if (summary.outcome === 'Retreated') {
+      totals.retreated += 1;
+    } else {
+      totals.wiped += 1;
+    }
+  }
+  return { combats, totals };
 }

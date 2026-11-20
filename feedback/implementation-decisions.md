@@ -219,8 +219,9 @@
 - **Affected specifications:** CONFIG, Global configuration: "Interface preferences belong to Global configuration,
   e.g. volume, language, and tutorial popups. So does a setting that governs the engine without being consulted by
   game behavior, e.g. the Autosave limit".
-- **Description:** This Game build has exactly five Global configuration settings: the Autosave limit, a whole
-  number of at least 0 with the Game build default 5; Music on and Music volume, under MUSIC, Music settings, since
+- **Description:** This Game build has exactly six Global configuration settings: the Autosave limit, a whole
+  number of at least 0 with the Game build default 5; the Autopilot Autosave limit, likewise, under SAVES, Limits,
+  since d1c38fa792dd3de1c15dab412f6454afdc4c6198; Music on and Music volume, under MUSIC, Music settings, since
   4594d57d7fd5629eb491f9749e7775a05395671a; and Sounds on and Sounds volume, under SOUNDS, Sound settings, since
   7d818a25333f1fbcd53aefd0a354dad88714d682. The interface theme setting was removed under
   741432de4c8152c73ac65baeda155412f847b01c, which makes any setting that switches themes out of scope, as DEC-034
@@ -1530,3 +1531,42 @@
 - **Why:** The rule is specified, and no specification requires a Campaign to be winnable; the rebalancing is the
   Engine designer's to make.
 - **Links:** PROB-050
+
+## DEC-077: The Current Autosave is ordered as if written no earlier than the Autosaves of its place
+
+- **Category:** Gap resolution
+- **Affected specifications:** MENU, Layout: "Rows equal in both are ordered by the time each was last written,
+  earliest first, except that the Current Autosave comes after every other Autosave equal to it in both".
+- **Description:** Among the rows of one Turn and number of Player actions, the Main menu orders by time last
+  written, taking for the Current Autosave the later of its own time and the latest time of the other Autosaves of
+  that place. At an equal time an Autosave comes first, then the Current Autosave, then a Campaign save written on
+  request. The order is implemented in `src/web/save-rows.ts`.
+- **Options considered:** Moving the Current Autosave's time up to the latest Autosave of its place; moving every
+  Autosave written after it down to its time; ordering by time and then moving the Current Autosave to the end of its
+  place.
+- **Option chosen:** Moving the Current Autosave's time up to the latest Autosave of its place.
+- **Why:** It keeps the order total and the exception absolute, and it changes nothing in the usual case, in which
+  the Current Autosave, rewritten at every change, is already the latest Autosave of its place.
+- **Links:** PROB-051
+
+## DEC-078: The arguments and result of `developer.tools.fightCombatBatch`, and the Combat summary
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** COMBAT, Fighting a Combat and Batch of Detached Combats; DEV, Developer tools; REUSE,
+  Shared implementation.
+- **Description:** `fightCombatBatch(setup, count)` takes the setup of `fightCombat` and `count`, and returns
+  `{ combats, totals }`: `combats` holds one `{ outcome, agentsDead }` for each Combat in order of `i`, and `totals`
+  holds `prevailed`, `retreated`, `wiped`, and `agentsDead`. A `count` that is not a whole number from 1 to 10,000 is
+  rejected with the reason `invalid_count`, and a last Detached seed `<seed>#<count>` that is too long with
+  `invalid_seed`. `fightCombat` also returns the Combat summary, as `summary`, beside the Combat report. The engine
+  passes the two arguments to the rules' `developerTool` as one object `{ setup, count }`. The CLI command
+  `fightbatch <count> <setup JSON>` calls it. Both Developer tools and the Mission resolution step call the one
+  implementation `fight` in `combat.ts`, which builds the Combat report only when asked; it keeps each Combatant's
+  effective skill until an attack changes it and computes each Selection weight once per pair of effective skills,
+  which changes no result and makes a Combat of 300 Agents about five times faster.
+- **Options considered:** Per-Combat summaries and totals; totals only; a mode of `fightCombat`.
+- **Option chosen:** Per-Combat summaries and totals, from a separate operation.
+- **Why:** The totals are what a balancing tool reads, and the per-Combat summaries let it find the Combat to look at in
+  full with `fightCombat` and the Detached seed `<seed>#<i>`; a separate operation keeps the result of `fightCombat`
+  the full one, as the specification requires.
+- **Links:** None

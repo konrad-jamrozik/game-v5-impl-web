@@ -6,6 +6,7 @@ export type SaveKind =
   | 'manual'
   | 'currentAutosave'
   | 'turnEndAutosave'
+  | 'autopilotAutosave'
   | 'engagementAutosave'
   | 'disengagementAutosave'
   | 'furthestProgressAutosave';

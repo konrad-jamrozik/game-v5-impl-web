@@ -24,6 +24,14 @@ export const SETTINGS: readonly SettingDescriptor[] = [
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 0,
   },
   {
+    setting: 'autopilotAutosaveLimit',
+    name: 'Autopilot Autosave limit',
+    gameBuildDefault: 5,
+    permitted: 'A whole number of at least 0',
+    isPermitted: (value): value is SettingValue =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 0,
+  },
+  {
     setting: 'musicOn',
     name: 'Music on',
     gameBuildDefault: true,

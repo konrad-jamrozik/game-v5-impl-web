@@ -42,6 +42,7 @@ export function undoRedoStep(
   const direction = which === 'undo' ? 'Back to' : 'Forward to';
   const where: Record<AutosaveTarget['autosaveKind'], string> = {
     turnEnd: `the end of Turn ${target.turn}`,
+    autopilot: `the end of Turn ${target.turn}, played by Autopilot`,
     engagement: `Turn ${target.turn}, before Autopilot was engaged`,
     disengagement: `where Autopilot disengaged, in Turn ${target.turn}`,
     furthestProgress: `the furthest progress, in Turn ${target.turn}`,

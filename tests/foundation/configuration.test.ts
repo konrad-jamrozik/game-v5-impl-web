@@ -98,6 +98,14 @@ describe('CONFIG: examples', () => {
   it('Unset setting follows the Game build', async () => {
     const h = await startHarness();
     expect(setting(h, 'autosaveLimit')).toMatchObject({ effectiveValue: 5, stored: false });
+    expect(setting(h, 'autopilotAutosaveLimit')).toMatchObject({
+      name: 'Autopilot Autosave limit',
+      effectiveValue: 5,
+      gameBuildDefault: 5,
+      stored: false,
+    });
+    const invalid = await h.core.setGlobalSetting(CONTROLLER, 'autopilotAutosaveLimit', 1.5);
+    expect(!invalid.ok && invalid.error.code).toBe('invalid_input');
     expect(await h.storage.readGlobalConfiguration()).toBeNull();
   });
 

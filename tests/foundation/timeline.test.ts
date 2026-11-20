@@ -263,7 +263,7 @@ describe('TIMELINE: examples', () => {
     expect(!sixth.ok && sixth.error.code).toBe('no_target');
   });
 
-  it('One call crosses an Autopilot engagement', async () => {
+  it('One call crosses an Autopilot engagement that has no Autopilot Autosave', async () => {
     let harness: Harness | null = null;
     const ai = scriptedAi('x', () => harness!.core, [
       async (api) => {
@@ -273,6 +273,8 @@ describe('TIMELINE: examples', () => {
     ]);
     const h = await startHarness({ ais: [ai] });
     harness = h;
+    // With an Autopilot Autosave limit of 0, one call crosses all the Player actions of the engagement.
+    expectOk(await h.core.setGlobalSetting(CONTROLLER, 'autopilotAutosaveLimit', 0));
     expectOk(await h.core.createCampaign(CONTROLLER));
     for (let i = 0; i < 4; i += 1) {
       expectOk(await h.core.advanceTurn(CONTROLLER));

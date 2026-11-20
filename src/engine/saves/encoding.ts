@@ -94,6 +94,7 @@ const KINDS: readonly string[] = [
   'manual',
   'currentAutosave',
   'turnEndAutosave',
+  'autopilotAutosave',
   'engagementAutosave',
   'disengagementAutosave',
   'furthestProgressAutosave',

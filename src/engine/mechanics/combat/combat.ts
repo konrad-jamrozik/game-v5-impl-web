@@ -2,15 +2,18 @@
  * COMBAT: how one Combat is fought. A Combat is a function of its two sides, their current values, the GDR values,
  * and its named random outcomes, and of nothing else; see COMBAT, Combat inputs and outputs.
  *
- * COMBAT, Fighting a Combat, and REUSE, Shared implementation: `fightCombat` is the one implementation of Fighting a
- * Combat. Exactly two callers have a Combat fought with it: the Mission resolution step (TURN, `applyAdvanceTurn`), which
- * builds its inputs from the World state and applies its outputs, and `developer.tools.fightCombat(setup)`
- * (`detached-combat.ts`), which builds its inputs from its setup, derives its random outcomes from the Detached seed,
- * and returns its outputs.
+ * COMBAT, Fighting a Combat, and REUSE, Shared implementation: `fight` is the one implementation of Fighting a Combat,
+ * and building the Combat report is an option of it (COMBAT, Fighting a Combat, Recording). `fightCombat` calls it with
+ * the option on and `fightCombatSummary` with it off; they differ in nothing else. Exactly three callers have a Combat
+ * fought: the Mission resolution step (TURN, `applyAdvanceTurn`), which builds its inputs from the World state and
+ * applies its outputs, and `developer.tools.fightCombat(setup)`, both with the Combat report; and
+ * `developer.tools.fightCombatBatch(setup, count)`, without it. The two Developer tools (`detached-combat.ts`) build
+ * their inputs from their setup, derive their random outcomes from the Detached seed, and return their outputs.
  */
 import {
   EngineDefect,
   fromHundredths,
+  must,
   q,
   ratio,
   roundDown,
@@ -92,8 +95,16 @@ export interface CombatInputs {
  */
 export type FoughtCombatReport = Omit<CombatReport, 'mission'>;
 
-/** COMBAT, Combat inputs and outputs: the outputs of a Combat. */
+/** COMBAT, Combat summary: how a Combat ended, which fighting it always produces. */
+export interface CombatSummary {
+  readonly outcome: CombatOutcome;
+  /** The number of Agents that are dead when the Combat ends. */
+  readonly agentsDead: number;
+}
+
+/** COMBAT, Combat inputs and outputs: the outputs of a Combat fought with its Combat report. */
 export interface CombatOutputs {
+  readonly summary: CombatSummary;
   readonly report: FoughtCombatReport;
   /** The final values of the Agents' side, in its fixed order: the changed current health and Exact exhaustion. */
   readonly agents: readonly CombatantState[];
@@ -157,6 +168,11 @@ interface Fighter {
   readonly id: string;
   readonly side: 'agent' | 'enemy';
   readonly state: CombatantState;
+  /**
+   * The effective skill of `state`, kept current: it is computed again whenever an attack changes `state`, which is
+   * the only thing that changes it in a Combat, so it always equals `effectiveSkill(state)`.
+   */
+  effective: number;
   /** The Combat-only property; see COMBAT, Combat-only properties. */
   incapacitated: boolean;
   damageDealtHundredths: number;
@@ -168,17 +184,42 @@ interface Fighter {
 
 /**
  * COMBAT, Fighting a Combat: fights one Combat to its end, from its inputs and the random source of its random
- * outcomes, and returns its outputs. It changes nothing it is given: applying the outputs belongs to the caller, e.g.
- * writing back the final current health and exhaustion, and recording an Agent whose final condition is dead as Killed.
+ * outcomes, and returns its outputs, with its Combat report. It changes nothing it is given: applying the outputs
+ * belongs to the caller, e.g. writing back the final current health and exhaustion, and recording an Agent whose final
+ * condition is dead as Killed.
  */
 export function fightCombat(input: CombatInputs, random: Random): CombatOutputs {
+  return must(fight(input, random, true).outputs, 'the outputs of a Combat fought with its Combat report');
+}
+
+/**
+ * COMBAT, Fighting a Combat, Recording: fights one Combat exactly as `fightCombat` does, with the Combat report turned
+ * off, and returns only its Combat summary.
+ */
+export function fightCombatSummary(input: CombatInputs, random: Random): CombatSummary {
+  return fight(input, random, false).summary;
+}
+
+/**
+ * The one implementation of Fighting a Combat. With `recordReport` off it builds neither the Combat log, the Combat
+ * ratings, nor the participants' reports; every target selection, attack, random outcome, and Combat end check is the
+ * same, because none of them reads what is recorded.
+ */
+function fight(
+  input: CombatInputs,
+  random: Random,
+  recordReport: boolean,
+): { summary: CombatSummary; outputs: CombatOutputs | null } {
   const { combat, agentParameters } = input;
   const ids = [...input.agents, ...input.enemies].map((combatant) => combatant.id);
   if (input.agents.length === 0 || new Set(ids).size !== ids.length) {
     throw new EngineDefect('A Combat needs at least one Agent and no Combatant twice');
   }
 
-  const eff = (fighter: Fighter): number => effectiveSkill(fighter.state, agentParameters);
+  const eff = (fighter: Fighter): number => fighter.effective;
+  const refresh = (fighter: Fighter): void => {
+    fighter.effective = effectiveSkill(fighter.state, agentParameters);
+  };
   const able = (fighter: Fighter): boolean =>
     fighter.state.currentHealthHundredths > 0 && !fighter.incapacitated;
 
@@ -190,6 +231,7 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
       id: combatant.id,
       side,
       state: { ...combatant.state },
+      effective,
       incapacitated,
       damageDealtHundredths: 0,
       damageTakenHundredths: 0,
@@ -223,8 +265,8 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
 
   const rating = (side: readonly Fighter[]): number =>
     side.reduce((sum, fighter) => (able(fighter) ? sum + eff(fighter) : sum), 0);
-  const ratings = [{ round: 0, agents: rating(agents), enemies: rating(enemies) }];
   const startRating = rating(agents);
+  const ratings = recordReport ? [{ round: 0, agents: startRating, enemies: rating(enemies) }] : [];
   const log: AttackRecord[] = [];
 
   /** Killed and Incapacitated: returns whether the evaluation made the Combatant Incapacitated. */
@@ -273,13 +315,22 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
     if (attacker.side === 'enemy') {
       return 1;
     }
+    // The weight is a function of the two effective skills alone, so each pair is evaluated once per Combat.
+    const key = `${eff(attacker)}:${eff(candidate)}`;
+    const known = weights.get(key);
+    if (known !== undefined) {
+      return known;
+    }
     const a = BigInt(eff(attacker));
     const d = BigInt(eff(candidate));
     const hitPct = ratio(100n * a * a, a * a + d * d);
     const difference = combat.targetPreferredHitChance.mul(100).sub(hitPct);
     const distance = difference.lt(0) ? difference.neg() : difference;
-    return combat.targetBaseWeight - roundDown(distance);
+    const weight = combat.targetBaseWeight - roundDown(distance);
+    weights.set(key, weight);
+    return weight;
   };
+  const weights = new Map<string, number>();
 
   const attack = (round: number, attacker: Fighter, defender: Fighter): void => {
     const a = eff(attacker);
@@ -304,6 +355,8 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
     defender.state.exactExhaustionHundredths = clampExhaustion(
       defender.state.exactExhaustionHundredths + agentParameters.exhaustionPerDefense * 100,
     );
+    refresh(attacker);
+    refresh(defender);
     attacker.damageDealtHundredths += healthRemovedHundredths;
     defender.damageTakenHundredths += healthRemovedHundredths;
     // COMBAT, Combat experience: every attack counts for an Agent attacker or defender, whatever it removed.
@@ -319,6 +372,9 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
     }
     const defenderIncapacitated = evaluate(defender);
     const attackerIncapacitated = evaluate(attacker);
+    if (!recordReport) {
+      return;
+    }
     log.push({
       round,
       attacker: attacker.id,
@@ -386,7 +442,9 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
     // The Combat round ends here, also when the Combat ended within it; then the Retreated check.
     const agentsRating = rating(agents);
     const enemiesRating = rating(enemies);
-    ratings.push({ round: rounds, agents: agentsRating, enemies: enemiesRating });
+    if (recordReport) {
+      ratings.push({ round: rounds, agents: agentsRating, enemies: enemiesRating });
+    }
     if (
       outcome === null &&
       q(agentsRating).lt(combat.retreatBelowAgentRatingFraction.mul(startRating)) &&
@@ -417,7 +475,15 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
     };
   };
 
-  return {
+  const summary: CombatSummary = {
+    outcome,
+    agentsDead: agents.filter((fighter) => fighter.state.currentHealthHundredths === 0).length,
+  };
+  if (!recordReport) {
+    return { summary, outputs: null };
+  }
+  const outputs: CombatOutputs = {
+    summary,
     report: {
       outcome,
       rounds,
@@ -430,4 +496,5 @@ export function fightCombat(input: CombatInputs, random: Random): CombatOutputs 
     agents: agents.map((fighter) => ({ ...fighter.state })),
     enemies: enemies.map((fighter) => ({ ...fighter.state })),
   };
+  return { summary, outputs };
 }

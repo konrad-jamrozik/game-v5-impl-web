@@ -245,6 +245,9 @@ describe('Terminal CLI', () => {
     });
     expect(parse(lines[4]).error.code).toBe('invalid_command');
     expect(parse(lines[5]).error.reason).toBe('empty_agents_side');
+    const batchLines = await run(engine, [fight.replace(/^fight /, 'fightbatch 3 '), 'fightbatch x']);
+    expect(parse(batchLines[0]).value.combats).toHaveLength(3);
+    expect(parse(batchLines[1]).error.code).toBe('invalid_command');
     // The readable form carries the whole result, its Combat log included.
     const readableLines = await run(engine, [fight], false);
     expect(readableLines[0]).toContain('combatReport:');

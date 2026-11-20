@@ -714,3 +714,16 @@
   checks that it plays 400 Turns without an engine defect, and Victory is checked on a scripted Campaign.
 - **Links:** DEC-076
 - **Resolution:** Open
+
+## PROB-051: The order of the rows of a Campaign card is not always a total order
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** MENU, Layout: "Rows equal in both are ordered by the time each was last written,
+  earliest first, except that the Current Autosave comes after every other Autosave equal to it in both".
+- **Description:** Among rows equal in Turn and actions, the rule can form a cycle: with the Current Autosave written
+  first, then a Campaign save on request, then another Autosave, e.g. a Disengagement Autosave, time puts the Current
+  Autosave before the Campaign save and that before the Disengagement Autosave, while the exception puts the Current
+  Autosave after the Disengagement Autosave. The spec does not say which comparison yields.
+- **Links:** DEC-077
+- **Resolution:** Open
