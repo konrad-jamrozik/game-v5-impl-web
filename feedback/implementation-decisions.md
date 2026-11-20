@@ -230,6 +230,7 @@
   and Sounds volume.
 - **Why:** These are the settings this Implementation reads; a setting nothing reads would mislead the player.
 - **Links:** PROB-002
+- **Update:** Adopted by Specification revision 890f1d38103fc5c1936772264d6dfc49d4948d88, whose CONFIG, Global configuration, lists these five settings.
 
 ## DEC-012: Execution budget of an Autopilot AI
 
@@ -510,6 +511,7 @@
 - **Why:** Every other GDR Type is validated for exact properties, and a preset supplies a value for every Campaign
   configuration value and nothing else.
 - **Links:** PROB-010
+- **Update:** Overridden in part by Specification revision 890f1d38103fc5c1936772264d6dfc49d4948d88: a preset also has a `name`, which `listPresets()` reports in place of its identifier; the exact properties are adopted.
 
 ## DEC-023: Physical layout of Game storage in files and in the browser
 
@@ -548,6 +550,7 @@
 - **Why:** The Glossary states what the Agent reserve is for, and a reserve that no Mission site may use would serve
   no purpose.
 - **Links:** PROB-011
+- **Update:** Adopted and extended by Specification revision e62a195798946a3cc8e054784a7c4255da548aa7, which redefines the Agent reserve, Rested Agents, and Fresh Agents under BASICAI.
 
 ## DEC-025: A Campaign always has its Current Autosave
 
@@ -747,6 +750,7 @@
 - **Why:** It is fixed by the Game build, so the list is the same on every replay, and it is the order in which every
   other view lists Leads.
 - **Links:** PROB-020
+- **Update:** Adopted by Specification revision 890f1d38103fc5c1936772264d6dfc49d4948d88: LEAD, Turn report, uses the authored order of the Lead GDRs.
 
 ## DEC-036: How the Basic Autopilot AI measures a Lead's place in its Faction's chain
 
@@ -976,6 +980,7 @@
   0558ca9bc3c3126195925e66217f6d6174f6b368 renamed the filter toggles Assignment filters; `previewAssignAgentsAlone()`
   still decides which Agents one of them lets the Player select.
 - **Links:** PROB-029
+- **Update:** Overridden by Specification revision e62a195798946a3cc8e054784a7c4255da548aa7, whose PAPI, Action preview, adds `previewAction(action)` in place of the two queries, which are removed.
 
 ## DEC-047: Re-routing an Agent In transit asks no confirmation
 
@@ -1241,6 +1246,7 @@
   which each Lead was discovered is; with the Bootstrap GDRs it orders each Faction's Leads exactly as the chain of
   prerequisites did.
 - **Links:** PROB-037, DEC-036
+- **Update:** Adopted by Specification revision e62a195798946a3cc8e054784a7c4255da548aa7 under BASICAI, Information.
 
 ## DEC-061: Stale mentions of Lead prerequisites are read as the Lead's `discovered_when`
 
@@ -1274,6 +1280,7 @@
 - **Why:** The set needs an order to be stored deterministically, and the discovery order adds nothing that History
   does not already show; Instance ID order is the order every other Investigation list of the Turn report uses.
 - **Links:** PROB-039, DEC-035, Specification revision ef44fdc642094f1b969d5e7ea048ccf6019bee60.
+- **Update:** Adopted by Specification revision 890f1d38103fc5c1936772264d6dfc49d4948d88 for the Investigations interrupted; LEAD, Lead discovery, leaves the order of the set of discovered Leads free.
 
 ## DEC-063: A Placeholder may not name the `id` or the `type` of a GDR
 

@@ -346,12 +346,14 @@ const schemas = {
     .strictObject({
       id,
       type: z.literal('CampaignConfiguration'),
+      name,
       starting_money: whole(0),
       starting_funding: whole(0),
     })
     .transform((g) => ({
       type: g.type,
       id: g.id,
+      name: g.name,
       startingMoney: g.starting_money,
       startingFunding: g.starting_funding,
     })),

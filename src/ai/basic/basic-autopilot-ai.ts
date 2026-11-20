@@ -16,13 +16,9 @@ import type {
 } from '../../engine/player-api.ts';
 
 export interface BasicAiThresholds {
-  /** The greatest exhaustion of a Rested Agent. */
-  readonly restedExhaustion: number;
-  /** The greatest exhaustion of an Agent ordered to Contracting for urgent income. */
-  readonly urgentExhaustion: number;
-  /** The Recall threshold: an Agent on Contracting or Training with more exhaustion is brought back to Standby. */
+  /** The Recall threshold: an Agent on Contracting with more exhaustion is brought back to Standby. */
   readonly recallExhaustion: number;
-  /** The Agent reserve, as a Percent value of the roster. */
+  /** The target size of the Agent reserve, as a Percent value of the roster. */
   readonly reservePct: number;
   /** The Expected income to keep, as a Percent value of projected upkeep. */
   readonly incomeTargetPct: number;
@@ -45,8 +41,6 @@ export interface BasicAiThresholds {
 
 /** The thresholds of this Game build, tuned against Campaigns of many Campaign seeds; see DEC-021. */
 export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
-  restedExhaustion: 5,
-  urgentExhaustion: 25,
   recallExhaustion: 30,
   reservePct: 20,
   incomeTargetPct: 120,
@@ -111,14 +105,37 @@ class Turn {
 
   // ---- What the goals measure ---------------------------------------------------------------------
 
-  /** A Rested Agent is always Fit for work, so that the engine's start-work gate never rejects its new work. */
-  private isRested(agent: AgentView, limit = this.t.restedExhaustion): boolean {
+  private param(name: string): number {
+    const value = this.data.agentParameters[name];
+    if (value === undefined) {
+      throw new Error(`AgentParameters has no ${name}.`);
+    }
+    return value;
+  }
+
+  private onStandbyOrTraining(agent: AgentView): boolean {
+    return agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training';
+  }
+
+  /**
+   * A Rested Agent: it can be assigned, is on Standby or Training, has its full health, has exhaustion at most
+   * `exhaustion_free_points`, so that exhaustion does not yet lower its effective skill, and is Fit for work, so
+   * that the engine's start-work gate never rejects its new work.
+   */
+  private isRested(agent: AgentView): boolean {
     return (
       agent.canBeAssigned &&
       agent.fitForWork &&
-      (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
-      agent.exhaustion <= limit
+      this.onStandbyOrTraining(agent) &&
+      // Current health is effective max health less health lost, so it equals effective max health when none is lost.
+      agent.healthLostHundredths === 0 &&
+      agent.exhaustion <= this.param('exhaustionFreePoints')
     );
+  }
+
+  /** A Fresh Agent: a Rested Agent whose exhaustion is 0. Only Fresh Agents receive routine work. */
+  private isFresh(agent: AgentView): boolean {
+    return this.isRested(agent) && agent.exhaustion === 0;
   }
 
   /** Most rested first, Standby before Training, then the more capable, then the order of the roster. */
@@ -154,20 +171,43 @@ class Turn {
     return ceilDiv(state.agency.projectedUpkeep * this.t.incomeTargetPct, 100);
   }
 
-  private reserve(state: CurrentStateView): number {
+  /** The target size of the Agent reserve. */
+  private reserveTarget(state: CurrentStateView): number {
     return Math.floor((state.agency.servingAgents * this.t.reservePct) / 100);
+  }
+
+  /**
+   * The Expected reserve: the Rested Agents, plus every other Agent whose Current assignment is Standby or Recovery,
+   * In transit or not.
+   */
+  private expectedReserve(state: CurrentStateView): number {
+    return state.agents.filter(
+      (agent) =>
+        this.isRested(agent) || agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Recovery',
+    ).length;
+  }
+
+  /** How many Rested Agents there are beyond the target size of the Agent reserve. */
+  private beyondReserve(state: CurrentStateView): number {
+    const rested = state.agents.filter((agent) => this.isRested(agent)).length;
+    return Math.max(0, rested - this.reserveTarget(state));
+  }
+
+  /**
+   * The Fresh Agents beyond the Agent reserve, in order of preference. The most rested are taken for work first,
+   * so the Rested Agents left over form the Agent reserve.
+   */
+  private freshBeyondReserve(state: CurrentStateView, standbyOnly = false): AgentView[] {
+    const fresh = this.byPreference(
+      state.agents.filter(
+        (agent) => this.isFresh(agent) && (!standbyOnly || agent.assignment?.kind === 'Standby'),
+      ),
+    );
+    return fresh.slice(0, this.beyondReserve(state));
   }
 
   private savingsFloor(state: CurrentStateView): number {
     return ceilDiv(state.agency.projectedUpkeep * this.t.savingsFloorTurns, 2);
-  }
-
-  /** The Rested Agents on Standby beyond the Agent reserve, in order of preference. */
-  private freeStandby(state: CurrentStateView): AgentView[] {
-    const standby = this.byPreference(
-      state.agents.filter((agent) => this.isRested(agent) && agent.assignment?.kind === 'Standby'),
-    );
-    return standby.slice(0, Math.max(0, standby.length - this.reserve(state)));
   }
 
   /**
@@ -216,22 +256,23 @@ class Turn {
   // routine starts again from its first step, so each Player action is decided from the current Player-visible
   // information alone, and the Basic Autopilot AI plays the same way whatever its Autopilot limit is.
 
-  private restedOnTraining(state: CurrentStateView): AgentView[] {
-    return this.byPreference(
-      state.agents.filter((agent) => this.isRested(agent) && agent.assignment?.kind === 'Training'),
-    );
-  }
-
-  /** Step 1: recall an Agent on Contracting or Training whose exhaustion is above the Recall threshold. */
+  /**
+   * Step 1: recall an Agent on Training that one more Advance turn of Training would bring above
+   * `exhaustion_free_points`, and an Agent on Contracting whose exhaustion is above the Recall threshold while
+   * Expected income still covers projected upkeep with the margin without it.
+   */
   private async recallTired(state: CurrentStateView): Promise<boolean> {
+    const trainingLimit = this.param('exhaustionFreePoints') - this.param('exhaustionPerTrainingTurn');
     for (const agent of state.agents) {
       const kind = agent.assignment?.kind;
-      if (!agent.canBeAssigned || agent.exhaustion <= this.t.recallExhaustion) {
+      if (!agent.canBeAssigned) {
         continue;
       }
       const recall =
-        kind === 'Training' ||
-        (kind === 'Contracting' && this.expectedIncome(state, agent.id) >= this.incomeTarget(state));
+        (kind === 'Training' && agent.exhaustion > trainingLimit) ||
+        (kind === 'Contracting' &&
+          agent.exhaustion > this.t.recallExhaustion &&
+          this.expectedIncome(state, agent.id) >= this.incomeTarget(state));
       if (
         recall &&
         (await this.act(`recall ${agent.id}`, () => this.player.actions.assignAgents([agent.id], 'Standby')))
@@ -242,7 +283,11 @@ class Turn {
     return false;
   }
 
-  /** Steps 2 and 4: order one more Agent to Contracting while Expected income is below the target. */
+  /**
+   * Steps 2 and 5: order one more Agent to Contracting while Expected income is below the target. For urgent income
+   * (step 2) every Agent on Standby or Training that is Fit for work may go, the Agent reserve too; otherwise
+   * (step 5) only Fresh Agents beyond the Agent reserve.
+   */
   private async restoreIncome(state: CurrentStateView, urgent: boolean): Promise<boolean> {
     const target = urgent ? state.agency.projectedUpkeep : this.incomeTarget(state);
     if (this.expectedIncome(state) >= target) {
@@ -251,14 +296,10 @@ class Turn {
     const candidates = urgent
       ? this.byPreference(
           state.agents.filter(
-            (agent) =>
-              agent.canBeAssigned &&
-              agent.fitForWork &&
-              (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
-              agent.exhaustion <= this.t.urgentExhaustion,
+            (agent) => agent.canBeAssigned && agent.fitForWork && this.onStandbyOrTraining(agent),
           ),
         )
-      : [...this.freeStandby(state), ...this.restedOnTraining(state)];
+      : this.freshBeyondReserve(state);
     for (const agent of candidates) {
       if (
         await this.act(`contract ${agent.id}`, () =>
@@ -296,12 +337,37 @@ class Turn {
     return false;
   }
 
-  /** Step 5: bring the number of Agents investigating Leads up to its target share. */
+  /**
+   * Step 4: while the Expected reserve is below its target size, recall the least exhausted Agent on Contracting to
+   * Standby, only while Expected income still covers projected upkeep with the margin without it. A recalled Agent
+   * counts toward the Expected reserve at once, so no more Agents are recalled than the shortfall.
+   */
+  private async refillReserve(state: CurrentStateView): Promise<boolean> {
+    if (this.expectedReserve(state) >= this.reserveTarget(state)) {
+      return false;
+    }
+    const contracting = state.agents
+      .map((agent, index) => ({ agent, index }))
+      .filter(({ agent }) => agent.canBeAssigned && agent.assignment?.kind === 'Contracting')
+      .sort((a, b) => a.agent.exhaustion - b.agent.exhaustion || a.index - b.index)
+      .map((item) => item.agent);
+    for (const agent of contracting) {
+      if (
+        this.expectedIncome(state, agent.id) >= this.incomeTarget(state) &&
+        (await this.act(`recall ${agent.id}`, () => this.player.actions.assignAgents([agent.id], 'Standby')))
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Step 6: bring the number of Agents investigating Leads up to its target share. */
   private async investigate(state: CurrentStateView): Promise<boolean> {
     const investigating = state.agents.filter((agent) => agent.assignment?.kind === 'Investigation').length;
     const target =
       this.t.baseInvestigators + Math.floor(state.agency.servingAgents / this.t.investigatorsPerRoster);
-    const candidates = [...this.freeStandby(state), ...this.restedOnTraining(state)];
+    const candidates = this.freshBeyondReserve(state);
     const count = Math.min(target - investigating, candidates.length);
     if (count <= 0) {
       return false;
@@ -339,8 +405,10 @@ class Turn {
     // A Lead whose completion wins the Campaign comes first, then one whose completion makes a Faction Eliminated,
     // directly or through a Won Mission at the Mission site it creates, then the one furthest along its Faction's
     // chain. What discovers a Lead is not Player-visible, so the chain behind a Lead is read from the Turns in which
-    // the Leads were discovered, which History reports: the discovered Leads of the same Faction discovered in an
-    // earlier Turn are behind it; see DEC-060.
+    // the Leads were discovered, which the Leads discovered of the History entries report: the discovered Leads of
+    // the same Faction discovered in an earlier Turn are behind it, and a Lead no History entry reports was
+    // discovered at campaign creation, before Turn 1. A Lead of no Faction has no chain. Equal Leads keep the order
+    // Player API lists them in.
     const eliminates = (lead: LeadView): boolean =>
       lead.eliminatesFaction ||
       this.data.missionSiteArchetypes.find((item) => item.id === lead.createsMissionSite)?.onWin
@@ -364,11 +432,13 @@ class Turn {
         .map((site) => site.lead),
     );
     const chainLength = (lead: LeadView): number =>
-      state.leads.filter(
-        (behind) =>
-          behind.factionArchetype === lead.factionArchetype &&
-          (discoveredIn.get(behind.id) ?? 0) < (discoveredIn.get(lead.id) ?? 0),
-      ).length;
+      lead.factionArchetype === null
+        ? 0
+        : state.leads.filter(
+            (behind) =>
+              behind.factionArchetype === lead.factionArchetype &&
+              (discoveredIn.get(behind.id) ?? 0) < (discoveredIn.get(lead.id) ?? 0),
+          ).length;
     const rank = (lead: LeadView): number => (lead.winsCampaign ? 2 : eliminates(lead) ? 1 : 0);
     const leads = [...state.leads].sort((a, b) => rank(b) - rank(a) || chainLength(b) - chainLength(a));
     // A Lead a Mission from which was already Won is investigated again only when no other Lead qualifies.
@@ -387,25 +457,31 @@ class Turn {
     return false;
   }
 
-  /** Step 6: order the remaining Rested Agents on Standby to Training, then to Contracting. */
+  /**
+   * Step 7: order the remaining Fresh Agents on Standby to Training while the Training cap allows, the Agent reserve
+   * too, then those beyond the Agent reserve to Contracting.
+   */
   private async employIdle(state: CurrentStateView): Promise<boolean> {
-    const idle = this.freeStandby(state);
     const places = Math.max(0, state.agency.trainingCap - state.agency.trainingAgents);
-    const toTraining = idle.slice(0, places).map((agent) => agent.id);
-    const toContracting = idle.slice(places).map((agent) => agent.id);
+    const toTraining = this.byPreference(
+      state.agents.filter((agent) => this.isFresh(agent) && agent.assignment?.kind === 'Standby'),
+    )
+      .slice(0, places)
+      .map((agent) => agent.id);
     if (
       toTraining.length > 0 &&
       (await this.act('train idle', () => this.player.actions.assignAgents(toTraining, 'Training')))
     ) {
       return true;
     }
+    const toContracting = this.freshBeyondReserve(state, true).map((agent) => agent.id);
     return (
       toContracting.length > 0 &&
       (await this.act('contract idle', () => this.player.actions.assignAgents(toContracting, 'Contracting')))
     );
   }
 
-  /** Step 7: while money stays above the Savings floor, make the most needed purchase. */
+  /** Step 8: while money stays above the Savings floor, make the most needed purchase. */
   private async purchase(state: CurrentStateView): Promise<boolean> {
     const agency = state.agency;
     // Stay solvent: while Expected income does not cover projected upkeep, nothing is bought.
@@ -459,6 +535,7 @@ class Turn {
       (await this.recallTired(state)) ||
       (await this.restoreIncome(state, true)) ||
       (await this.deploy(state)) ||
+      (await this.refillReserve(state)) ||
       (await this.restoreIncome(state, false)) ||
       (await this.investigate(state)) ||
       (await this.employIdle(state)) ||

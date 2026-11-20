@@ -764,7 +764,7 @@ export function applyAdvanceTurn(
   history.moneyAtStartOfTurn.push({ turn: world.turn, value: world.agency.state.money });
 
   // LEAD, Lead discovery: within an Advance turn only the World state it produces counts. The Turn report lists the
-  // Leads that joined the set of discovered Leads, in Game build order (DEC-035).
+  // Leads that joined the set of discovered Leads, in the authored order of the Lead GDRs (LEAD, Turn report).
   const discoveredLeads = discoverLeads(world, gdrs.leads);
 
   const report: TurnReport = {

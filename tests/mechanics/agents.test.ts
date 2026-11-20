@@ -13,13 +13,7 @@ import {
 } from '../../src/engine/mechanics/agents/agents.ts';
 import { ratio } from '../../src/kernel/index.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
-import {
-  currentStateView,
-  historyView,
-  previewAssignAgents,
-  previewAssignAgentsAlone,
-  turnReportView,
-} from '../../src/engine/views/views.ts';
+import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
 import {
   act,
   addMissionSite,
@@ -693,31 +687,6 @@ describe('AGENT: examples', () => {
       turnTerminated: fightTurn,
       killedBy: { enemy: fatal.attacker, missionSite: lost.site },
     });
-  });
-
-  it('DEC-046: previewAssignAgents and acceptedAlone agree with assignAgents and change nothing', () => {
-    let state = newCampaign();
-    const [a1, a2, a3] = agentIds(state) as [string, string, string];
-    state = setAssignment(state, [a1], 'Contracting');
-    state = tweak(state, (world) => {
-      world.agents[a3]!.state.exactExhaustionHundredths = 5000;
-    });
-    const before = JSON.stringify(state);
-    expect(previewAssignAgents(state, gdrs, [a2], 'Contracting')).toMatchObject({ available: true });
-    expect(previewAssignAgents(state, gdrs, [a1], 'Contracting')).toMatchObject({ available: false });
-    expect(previewAssignAgents(state, gdrs, [a1], 'Standby')).toMatchObject({ available: true });
-    expect(previewAssignAgents(state, gdrs, [a1, a2], 'Standby')).toMatchObject({ available: false });
-    expect(previewAssignAgents(state, gdrs, [a3], 'Training')).toMatchObject({ available: false });
-    expect(previewAssignAgents(state, gdrs, [], 'Training')).toMatchObject({ available: false });
-    expect(JSON.stringify(state)).toBe(before);
-    const alone = previewAssignAgentsAlone(state, gdrs);
-    expect(alone.Contracting).toContain(a2);
-    expect(alone.Contracting).not.toContain(a1);
-    expect(alone.Contracting).not.toContain(a3);
-    expect(alone.Standby).toContain(a1);
-    expect(alone.Standby).not.toContain(a3);
-    expect(alone.Training).not.toContain(a3);
-    expect(alone.Standby).not.toContain(a2);
   });
 
   it('Agent statuses: every Serving Agent is In base or Away, whatever its health and exhaustion', () => {

@@ -1458,6 +1458,48 @@ export class EngineCore<S extends ShellState> {
     }
   }
 
+  /**
+   * PAPI, Action preview: whether the engine would accept this `player.actions` operation from this Principal in the
+   * Current world state, and the rejection it would give otherwise. It tries the action on the present state, keeps
+   * nothing, and is not a Player action, so it agrees with making the action at once.
+   */
+  previewAction(
+    principal: Principal,
+    name: string,
+    args: Readonly<Record<string, unknown>>,
+  ): Result<{
+    readonly available: boolean;
+    readonly reason: string | null;
+    readonly message: string | null;
+  }> {
+    const queryDenied = this.checkPlayer(principal, false);
+    if (queryDenied) {
+      return queryDenied;
+    }
+    const denied = this.checkPlayer(principal, true);
+    if (denied && !denied.ok) {
+      return ok({
+        available: false,
+        reason: denied.error.reason ?? denied.error.code,
+        message: denied.error.message,
+      });
+    }
+    const state = this.present(this.requireCampaign());
+    try {
+      const next =
+        name === 'advanceTurn'
+          ? this.rules.advanceTurn(state)
+          : this.rules.applyAction(state, { surface: 'player', name, args: detach(args) });
+      return ok(
+        isRejection(next)
+          ? { available: false, reason: next.reason, message: next.message }
+          : { available: true, reason: null, message: null },
+      );
+    } catch (error) {
+      return this.defectResult(error);
+    }
+  }
+
   /** Commits one Player API or Developer API action other than Advance turn as one Timeline entry. */
   commitAction(principal: Principal, record: ActionRecord): Promise<Result<CommitOutcome>> {
     return this.runExclusive(async () => {

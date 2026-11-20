@@ -221,12 +221,28 @@ export function AgentsView(props: {
     [snapshot.history],
   );
 
-  // DEC-046: the Agents each button of Assign to would accept alone, asked again whenever the World state changes.
+  // AVIEW, Assignment filters: the Agents each button of Assign to would succeed with alone, as PAPI, Action preview
+  // reports it, asked again whenever the World state changes.
   const acceptedAlone = useMemo(() => {
-    const result = player.queries.previewAssignAgentsAlone();
-    return result.ok ? result.value : null;
+    const result: Record<OrderAssignment, string[]> = { Standby: [], Contracting: [], Training: [] };
+    for (const agent of state.agents) {
+      // An Agent that cannot be assigned is rejected by every Assignment, so it needs no preview.
+      if (!agent.canBeAssigned) {
+        continue;
+      }
+      for (const assignment of ASSIGNMENTS) {
+        const preview = player.queries.previewAction({
+          name: 'assignAgents',
+          args: { agents: [agent.id], assignment },
+        });
+        if (preview.ok && preview.value.available) {
+          result[assignment].push(agent.id);
+        }
+      }
+    }
+    return result;
     // The preview depends on the World state, which the snapshot key names.
-  }, [player, snapshot.key]);
+  }, [player, state.agents, snapshot.key]);
   const selectability: Selectability = useMemo(
     () => ({
       acceptedAlone: acceptedAlone ?? { Standby: [], Contracting: [], Training: [] },
@@ -252,10 +268,10 @@ export function AgentsView(props: {
       .map((agent) => ({
         ...agent,
         blockedBy: blockedBy(agent, selectability, () => {
-          const preview = player.queries.previewAssignAgents(
-            [agent.id],
-            selectability.assignmentFilter ?? 'Standby',
-          );
+          const preview = player.queries.previewAction({
+            name: 'assignAgents',
+            args: { agents: [agent.id], assignment: selectability.assignmentFilter ?? 'Standby' },
+          });
           return preview.ok ? (preview.value.message ?? 'Cannot be selected') : preview.error.message;
         }),
       }));
@@ -368,7 +384,10 @@ export function AgentsView(props: {
         result.set(assignment, 'Select Agents first.');
         continue;
       }
-      const preview = player.queries.previewAssignAgents(selected, assignment);
+      const preview = player.queries.previewAction({
+        name: 'assignAgents',
+        args: { agents: selected, assignment },
+      });
       result.set(
         assignment,
         !preview.ok
@@ -402,12 +421,19 @@ export function AgentsView(props: {
   // AVIEW, Header: a button is enabled only when pressing it would succeed with the current selection.
   const orderReason = (assignment: OrderAssignment): string | null =>
     locked ?? terminatedReason ?? none ?? previews.get(assignment) ?? null;
-  const dismissable = actions?.dismissableAgents ?? [];
-  const dismissReason =
-    locked ??
-    terminatedReason ??
-    none ??
-    (selected.every((id) => dismissable.includes(id)) ? null : 'A selected Agent cannot be dismissed now.');
+  // AVIEW, Header: Hire and Dismiss are enabled as PAPI, Action preview reports their Player actions.
+  const reasonOf = (preview: ReturnType<typeof player.queries.previewAction>): string | null =>
+    !preview.ok
+      ? preview.error.message
+      : preview.value.available
+        ? null
+        : (preview.value.message ?? 'Unavailable.');
+  const dismissPreview =
+    selected.length === 0
+      ? null
+      : reasonOf(player.queries.previewAction({ name: 'dismissAgents', args: { agents: selected } }));
+  const hirePreview = reasonOf(player.queries.previewAction({ name: 'hireAgent', args: {} }));
+  const dismissReason = locked ?? terminatedReason ?? none ?? dismissPreview;
 
   const rowFilterButton = (which: RowFilter, label: string, shown: number) => (
     <button
@@ -462,10 +488,7 @@ export function AgentsView(props: {
         <Button
           shortcut="H"
           testId="hire"
-          disabledReason={
-            locked ??
-            (actions?.hireAgent.available === true ? null : (actions?.hireAgent.message ?? 'Unavailable.'))
-          }
+          disabledReason={locked ?? hirePreview}
           onClick={() => {
             act(() => player.actions.hireAgent());
           }}

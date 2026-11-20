@@ -54,7 +54,6 @@ import { healthRecoveryRateHundredths, recoveryTurnsRemaining } from '../mechani
 import { articleForTerm, resolveArticles, visibleArticles } from '../mechanics/compendium/compendium.ts';
 import type {
   ActionAvailability,
-  SimpleAssignment,
   AgencyView,
   AgentView,
   AvailableActionsView,
@@ -460,52 +459,6 @@ function tryAction(
   args: Record<string, unknown>,
 ): Rejection | null {
   return applyGameAction(detach(world), { surface: 'player', name, args }, gdrs);
-}
-
-/**
- * `player.queries.previewAssignAgentsAlone()`: for each Assignment, the Agents that `assignAgents` would accept on their
- * own; see DEC-046. It is a query of its own, not part of `getAvailableActions()`, because it tries the action once per
- * Agent and Assignment.
- */
-export function previewAssignAgentsAlone(
-  state: CampaignState,
-  gdrs: GdrCatalog,
-): Record<SimpleAssignment, string[]> {
-  const world = state.world.current;
-  const ended = world.ending !== null;
-  const result: Record<SimpleAssignment, string[]> = { Standby: [], Contracting: [], Training: [] };
-  if (ended) {
-    return result;
-  }
-  for (const agent of Object.values(world.agents)) {
-    if (!canBeAssigned(agent.state)) {
-      continue;
-    }
-    for (const assignment of ['Standby', 'Contracting', 'Training'] as const) {
-      if (tryAction(world, gdrs, 'assignAgents', { agents: [agent.id], assignment }) === null) {
-        result[assignment].push(agent.id);
-      }
-    }
-  }
-  return result;
-}
-
-/** `player.queries.previewAssignAgents(agents, assignment)`: the outcome `assignAgents` would have; see DEC-046. */
-export function previewAssignAgents(
-  state: CampaignState,
-  gdrs: GdrCatalog,
-  agents: unknown,
-  assignment: unknown,
-): ActionAvailability {
-  const world = state.world.current;
-  if (world.ending !== null) {
-    return {
-      available: false,
-      reason: 'campaign_ended',
-      message: `The Campaign has ended in ${world.ending}.`,
-    };
-  }
-  return availability(tryAction(world, gdrs, 'assignAgents', { agents, assignment }));
 }
 
 /** `player.queries.getAvailableActions()`. */

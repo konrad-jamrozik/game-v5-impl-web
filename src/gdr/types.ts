@@ -115,6 +115,8 @@ export interface AgencyArchetypeGdr {
 export interface CampaignConfigurationGdr {
   readonly type: 'CampaignConfiguration';
   readonly id: string;
+  /** CONFIG, CampaignConfiguration: the display name of the preset. */
+  readonly name: string;
   readonly startingMoney: number;
   readonly startingFunding: number;
 }

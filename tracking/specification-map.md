@@ -556,7 +556,9 @@ No files.
 - src/engine/actions/actions.ts
 - tests/engine/campaign.test.ts
 - tests/foundation/autopilot.test.ts
+- tests/foundation/action-preview.test.ts
 - src/engine/game-rules.ts
+- src/web/screens/AgentsView.tsx
 
 ## PLACE: Implementation Placement
 

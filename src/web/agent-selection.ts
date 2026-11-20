@@ -9,7 +9,7 @@ export type OrderAssignment = (typeof ASSIGNMENTS)[number];
 
 /** The inputs that decide which Agents can be selected, under AVIEW, Assignment filters. */
 export interface Selectability {
-  /** For each Assignment, the Agents `assignAgents` would accept alone; see DEC-046. */
+  /** For each Assignment, the Agents `assignAgents` would accept alone, as PAPI, Action preview reports it. */
   readonly acceptedAlone: Readonly<Record<OrderAssignment, readonly string[]>>;
   readonly trainingPlacesLeft: number;
   /** The Assignment filter that is on, if any. */

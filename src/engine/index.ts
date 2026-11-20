@@ -5,7 +5,6 @@
 import { bootstrapGdrCatalog, buildGdrCatalog, GAME_BUILD, type RawGdrFile } from '../gdr/index.ts';
 import { createGameRules } from './game-rules.ts';
 import type {
-  ActionAvailability,
   AutopilotAi,
   AvailableActionsView,
   CompendiumArticleView,
@@ -14,7 +13,6 @@ import type {
   GameDataView,
   HistoryView,
   PlayerApi,
-  SimpleAssignment,
 } from './player-api.ts';
 import type { Result } from './result.ts';
 import {
@@ -177,15 +175,7 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
         }) as Result<DeploymentPreview>,
       estimateTeamProgressGain: (agents) =>
         core.playerQuery(principal, 'estimateTeamProgressGain', { agents: [...agents] }) as Result<number>,
-      previewAssignAgentsAlone: () =>
-        core.playerQuery(principal, 'previewAssignAgentsAlone') as Result<
-          Readonly<Record<SimpleAssignment, readonly string[]>>
-        >,
-      previewAssignAgents: (agents, assignment) =>
-        core.playerQuery(principal, 'previewAssignAgents', {
-          agents: [...agents],
-          assignment,
-        }) as Result<ActionAvailability>,
+      previewAction: (action) => core.previewAction(principal, action.name, action.args),
     },
     actions: {
       assignAgents: (agents, assignment) => act('assignAgents', { agents: [...agents], assignment }),

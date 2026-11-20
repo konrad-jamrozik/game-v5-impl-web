@@ -23,8 +23,6 @@ import {
   inspectCampaignState,
   placeInPlay,
   previewDeployment,
-  previewAssignAgents,
-  previewAssignAgentsAlone,
   turnReportView,
 } from './views/views.ts';
 
@@ -120,7 +118,7 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
     gameBuild: GAME_BUILD,
     presets: gdrs.campaignConfigurations.map((preset) => ({
       id: preset.id,
-      name: preset.id,
+      name: preset.name,
       values: { startingMoney: preset.startingMoney, startingFunding: preset.startingFunding },
     })),
     defaultPresetId: gdrs.configurationParameters.defaultPreset,
@@ -198,12 +196,6 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       }
       if (query === 'estimateTeamProgressGain' && isRecord(args)) {
         return estimateTeamProgressGain(state, gdrs, args['agents']);
-      }
-      if (query === 'previewAssignAgentsAlone') {
-        return previewAssignAgentsAlone(state, gdrs);
-      }
-      if (query === 'previewAssignAgents' && isRecord(args)) {
-        return previewAssignAgents(state, gdrs, args['agents'], args['assignment']);
       }
       throw new Error(`There is no query ${query}`);
     },

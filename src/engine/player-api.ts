@@ -479,6 +479,16 @@ export interface DeploymentPreview {
   readonly message: string | null;
 }
 
+/**
+ * One `player.actions` operation with its arguments, for PAPI, Action preview; e.g.
+ * `{ name: 'assignAgents', args: { agents: ['agent-1'], assignment: 'Contracting' } }`. `args` names each argument as
+ * the operation's parameter is named.
+ */
+export interface PlayerActionRequest {
+  readonly name: keyof PlayerApi['actions'];
+  readonly args: Readonly<Record<string, unknown>>;
+}
+
 /** Player API: ordinary gameplay queries and actions. */
 export interface PlayerApi {
   readonly queries: {
@@ -501,10 +511,11 @@ export interface PlayerApi {
      * exactly these Serving Agents once they all work; 0 for an empty list.
      */
     estimateTeamProgressGain(agents: readonly string[]): Result<number>;
-    /** Whether `assignAgents` would accept these Agents and Assignment now, changing nothing; see DEC-046. */
-    previewAssignAgents(agents: readonly string[], assignment: SimpleAssignment): Result<ActionAvailability>;
-    /** For each Assignment, the Agents that `assignAgents` would accept on their own; see DEC-046. */
-    previewAssignAgentsAlone(): Result<Readonly<Record<SimpleAssignment, readonly string[]>>>;
+    /**
+     * PAPI, Action preview: whether the engine would accept `action` from this Principal in the Current world state,
+     * and the rejection it would give otherwise. It changes nothing and is not a Player action.
+     */
+    previewAction(action: PlayerActionRequest): Result<ActionAvailability>;
   };
   readonly actions: {
     assignAgents(agents: readonly string[], assignment: SimpleAssignment): Promise<Result<CommitOutcome>>;

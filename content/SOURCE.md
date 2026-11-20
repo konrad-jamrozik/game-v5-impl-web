@@ -49,6 +49,9 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   (among them `dormant`, without operations), four Faction operation levels, 47 Leads, 19 MissionSiteArchetypes, and
   78 CompendiumArticle files, and rewrites many others. The copy is now identical to the specification's `content/`
   directory, and has 163 YAML files holding 279 GDRs.
+- `configuration/campaign_configurations.yaml`: patched unchanged from specification commit
+  `890f1d38103fc5c1936772264d6dfc49d4948d88` on 2026-11-19, adding the preset's `name`. The copy is still identical
+  to the specification's `content/` directory.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

@@ -24,9 +24,7 @@
   specification lists the settings a Game build has, their permitted values, or their Game build defaults, other than
   the Autosave limit.
 - **Links:** DEC-011
-- **Resolution:** Open. Resolved in part in 4594d57d7fd5629eb491f9749e7775a05395671a: MUSIC, Music settings now states
-  Music on and Music volume with their permitted values and Game build defaults. No specification states the
-  complete inventory, e.g. the theme.
+- **Resolution:** Resolved in 890f1d38103fc5c1936772264d6dfc49d4948d88, which the Implementation follows since this update: CONFIG, Global configuration, lists every setting, as DEC-011 chose.
 
 ## PROB-003: Execution budget of an Autopilot AI is a TODO
 
@@ -138,7 +136,7 @@
   GDR Types have, or a display name for a preset, so it is open whether a property other than `starting_money` and
   `starting_funding` is valid and what an interface shows as the name of a preset.
 - **Links:** DEC-022
-- **Resolution:** Open
+- **Resolution:** Resolved in 890f1d38103fc5c1936772264d6dfc49d4948d88, which the Implementation follows since this update: CONFIG, CampaignConfiguration, states exact properties and a `name`, which presets now show.
 
 ## PROB-011: Whether the Agent reserve may be deployed
 
@@ -151,7 +149,7 @@
   that only urgent income may touch it. Both cannot hold when a team for an urgent Mission site needs Agents of the
   Agent reserve.
 - **Links:** DEC-024
-- **Resolution:** Open
+- **Resolution:** Resolved in e62a195798946a3cc8e054784a7c4255da548aa7, which the Implementation follows since this update: BASICAI lets a deployment to any Mission site draw on the Agent reserve.
 
 ## PROB-012: A new or closed Campaign has no Campaign save, yet always has a Current Autosave
 
@@ -276,7 +274,7 @@
 - **Description:** The list is Player-visible information and one Advance turn can discover several Leads, but no
   order is stated, so two Implementations can report the same Turn differently.
 - **Links:** DEC-035
-- **Resolution:** Open
+- **Resolution:** Resolved in 890f1d38103fc5c1936772264d6dfc49d4948d88, which the Implementation follows since this update: LEAD, Turn report, lists the Leads discovered in the authored order of the Lead GDRs.
 
 ## PROB-021: How far along its Faction's chain a Lead is, is not exactly defined
 
@@ -288,7 +286,7 @@
 - **Description:** It is open whether the chain counts the Lead itself, whether Leads of other Factions count, how a
   Lead with several prerequisites is measured, and how equal Leads are ordered.
 - **Links:** DEC-036
-- **Resolution:** Open
+- **Resolution:** Resolved in e62a195798946a3cc8e054784a7c4255da548aa7, which the Implementation follows since this update: BASICAI, Information, measures the chain by the Leads discovered in an earlier Turn.
 
 ## PROB-022: Two Acceptance examples still put an Agent assigned from Standby to Training In transit
 
@@ -426,7 +424,7 @@
   `assignAgents` with the selected Agents, and with each Agent alone, but no query is specified that reports it. An
   interface can only repeat the preconditions of Assigning Agents itself.
 - **Links:** DEC-046
-- **Resolution:** Open
+- **Resolution:** Resolved in e62a195798946a3cc8e054784a7c4255da548aa7, which the Implementation follows since this update: PAPI, Action preview, adds `player.queries.previewAction(action)`.
 
 ## PROB-030: Whether re-routing an Agent In transit needs the confirmation of interrupted Assignments
 
@@ -540,10 +538,7 @@
   replaces them is not Player-visible, while an Autopilot AI sees only Player API. The chain the Basic Autopilot AI
   sorts by can therefore not be read as stated.
 - **Links:** DEC-060, PROB-021
-- **Resolution:** Resolved in acf5e1365fc4039ddd861339ac47f4abbfcc4526: BASICAI, Keep Mission sites coming, now reads
-  "the one furthest along its Faction's chain, i.e. the one with the longest chain of discovered Leads behind it" and
-  no longer measures the chain by prerequisites. What "behind it" means stays open under PROB-021, and DEC-060 stays
-  in force.
+- **Resolution:** Resolved in e62a195798946a3cc8e054784a7c4255da548aa7, which the Implementation follows since this update: BASICAI, Information, measures the chain from the Turns of discovery.
 
 ## PROB-038: Bootstrap GDRs, About Mechanics, and Domain Model still speak of Lead prerequisites
 
@@ -556,9 +551,7 @@
 - **Description:** Leads and Progression replaced Lead prerequisites with the Condition `discovered_when`, which
   discovers a Lead rather than gating its availability, but these passages still name prerequisites.
 - **Links:** DEC-061
-- **Resolution:** Open. Resolved in part in acf5e1365fc4039ddd861339ac47f4abbfcc4526: BOOT, Leads and Progression
-  GDRs, no longer says "it has no prerequisites", but still says "every Lead names its prerequisite Leads"; MECH and
-  DOM are unchanged.
+- **Resolution:** Resolved in e62a195798946a3cc8e054784a7c4255da548aa7, which the Implementation follows since this update: BOOT, MECH, and DOM speak of Lead discovery instead of prerequisites.
 
 ## PROB-039: The order of the Investigations interrupted in an Advance turn is unstated
 
@@ -571,7 +564,7 @@
   but no order is stated, so two Implementations can report the same Turn differently. The set of discovered Leads
   that LEAD, Lead discovery, stores likewise has no stated order for an Implementation that stores it as a list.
 - **Links:** DEC-062
-- **Resolution:** Open
+- **Resolution:** Resolved in 890f1d38103fc5c1936772264d6dfc49d4948d88, which the Implementation follows since this update: INVSTG, Turn report, lists the Investigations interrupted by Instance ID, and LEAD, Lead discovery, says the set of discovered Leads has no order.
 
 ## PROB-040: Whether a Placeholder may name the `id` or the `type` of a GDR is unstated
 
