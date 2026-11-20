@@ -52,8 +52,9 @@ export function wholeBonus(
 }
 
 /**
- * ECON, Weapon damage Upgrade and Max health Upgrade: the Upgrade bonus of agent_weapon_damage and of agent_max_health,
- * which the effective weapon damage and the effective max health of every Serving Agent add.
+ * ECON, Weapon damage Upgrade, Max health Upgrade, and Armor Upgrade: the Upgrade bonus of agent_weapon_damage, of
+ * agent_max_health, and of agent_armor, which the effective weapon damage, the effective max health, and the effective
+ * armor of every Serving Agent add.
  */
 export function agentUpgradeBonus(
   upgrades: readonly UpgradeGdr[],
@@ -62,6 +63,7 @@ export function agentUpgradeBonus(
   return {
     maxHealth: wholeBonus('agent_max_health', upgrades, acquisitions),
     weaponDamage: wholeBonus('agent_weapon_damage', upgrades, acquisitions),
+    armor: wholeBonus('agent_armor', upgrades, acquisitions),
   };
 }
 

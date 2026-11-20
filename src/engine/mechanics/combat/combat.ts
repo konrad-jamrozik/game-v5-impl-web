@@ -34,6 +34,7 @@ import type {
 import {
   agentCombatantValues,
   clampExhaustion,
+  effectiveArmor,
   effectiveSkill,
   effectiveWeaponDamage,
   enemyCombatantValues,
@@ -56,6 +57,11 @@ export interface CombatantState {
   exactExhaustionHundredths: number;
   /** The effective weapon damage. */
   readonly weaponDamage: number;
+  /**
+   * The effective armor: the current armor the Combatant starts the Combat with. The current armor itself is a
+   * Combat-only property, kept by the Combat and never written back; see COMBAT, Combat-only properties.
+   */
+  readonly armor: number;
 }
 
 export interface Combatant {
@@ -65,18 +71,22 @@ export interface Combatant {
 
 /**
  * COMBAT, Combat inputs and outputs, item 3: an Agent's current values as a Combat reads them, with its effective max
- * health, current health, and effective weapon damage.
+ * health, current health, effective weapon damage, and effective armor.
  */
 export function agentCombatantState(agent: AgentState, bonus: AgentUpgradeBonus): CombatantState {
-  return { ...agentCombatantValues(agent, bonus), weaponDamage: effectiveWeaponDamage(agent, bonus) };
+  return {
+    ...agentCombatantValues(agent, bonus),
+    weaponDamage: effectiveWeaponDamage(agent, bonus),
+    armor: effectiveArmor(agent, bonus),
+  };
 }
 
 /**
  * COMBAT, Combat inputs and outputs, item 3: an Enemy's current values in the hundredths form of an Agent; its whole
- * values are written back after the Combat; see DEC-056.
+ * values are written back after the Combat; see DEC-056. Its effective armor is its base armor.
  */
 export function enemyCombatantState(enemy: EnemyState): CombatantState {
-  return { ...enemyCombatantValues(enemy), weaponDamage: enemy.baseWeaponDamage };
+  return { ...enemyCombatantValues(enemy), weaponDamage: enemy.baseWeaponDamage, armor: enemy.baseArmor };
 }
 
 /** COMBAT, Combat inputs and outputs: every input of a Combat other than its random outcomes. */
@@ -173,8 +183,13 @@ interface Fighter {
    * the only thing that changes it in a Combat, so it always equals `effectiveSkill(state)`.
    */
   effective: number;
-  /** The Combat-only property; see COMBAT, Combat-only properties. */
+  /** The Combat-only properties; see COMBAT, Combat-only properties. */
   incapacitated: boolean;
+  /**
+   * Starts at the effective armor and only falls. Effective skill does not read it, so losing it changes neither
+   * `effective` nor the Selection weights cached by effective skill.
+   */
+  currentArmor: number;
   damageDealtHundredths: number;
   damageTakenHundredths: number;
   /** COMBAT, Combat experience: counted for an Agent only. */
@@ -233,6 +248,8 @@ function fight(
       state: { ...combatant.state },
       effective,
       incapacitated,
+      // Combat start, step 1: every Combatant gains current armor, set to its effective armor.
+      currentArmor: combatant.state.armor,
       damageDealtHundredths: 0,
       damageTakenHundredths: 0,
       combatExperience: 0,
@@ -245,11 +262,13 @@ function fight(
           maxHealth: combatant.state.maxHealth,
           exhaustion: exhaustionOf(combatant.state),
           weaponDamage: combatant.state.weaponDamage,
+          armor: combatant.state.armor,
           effectiveSkill: effective,
           incapacitated,
         },
         final: {
           currentHealthHundredths: combatant.state.currentHealthHundredths,
+          currentArmor: combatant.state.armor,
           exhaustion: exhaustionOf(combatant.state),
           effectiveSkill: effective,
           condition: 'ableToFight',
@@ -339,15 +358,23 @@ function fight(
     const sum = aSquared + BigInt(d) * BigInt(d);
     const hit = random.chance(`combat.hit.${attacker.id}`, ratio(aSquared, sum));
     let damage: number | null = null;
+    let armorRemoved = 0;
     let healthRemovedHundredths = 0;
     if (hit) {
       const bounds = damageBounds(attacker.state.weaponDamage, combat);
       damage = random.uniform(`combat.damage.${attacker.id}`, bounds.lo, bounds.hi);
-      // E.g., a damage outcome of 10 against an Agent with current health 5.60 removes 5.60.
-      healthRemovedHundredths = Math.min(damage * 100, defender.state.currentHealthHundredths);
+      // COMBAT, Effects of an attack, step 3: the defender's current armor absorbs what it can.
+      armorRemoved = Math.min(damage, defender.currentArmor);
+      defender.currentArmor -= armorRemoved;
+      // Step 4: the rest removes current health. E.g., a damage outcome of 10 against an Agent with current health
+      // 5.60 and no current armor removes 5.60.
+      healthRemovedHundredths = Math.min(
+        (damage - armorRemoved) * 100,
+        defender.state.currentHealthHundredths,
+      );
       defender.state.currentHealthHundredths -= healthRemovedHundredths;
     }
-    // COMBAT, Effects of an attack, step 4: no upper clamp applies; AGENT, Exhaustion and Exact exhaustion,
+    // COMBAT, Effects of an attack, step 5: no upper clamp applies; AGENT, Exhaustion and Exact exhaustion,
     // statement 2: a whole gain of exhaustion raises Exact exhaustion by the same amount.
     attacker.state.exactExhaustionHundredths = clampExhaustion(
       attacker.state.exactExhaustionHundredths + agentParameters.exhaustionPerAttack * 100,
@@ -384,6 +411,7 @@ function fight(
       hitProbability: { n: toStored(aSquared), d: toStored(sum) },
       hit,
       damage,
+      armorRemoved,
       healthRemovedHundredths,
       attackerAfter: {
         currentHealthHundredths: attacker.state.currentHealthHundredths,
@@ -392,6 +420,7 @@ function fight(
       defenderAfter: {
         currentHealthHundredths: defender.state.currentHealthHundredths,
         exhaustion: exhaustionOf(defender.state),
+        currentArmor: defender.currentArmor,
       },
       defenderDead: defender.state.currentHealthHundredths === 0,
       defenderIncapacitated,
@@ -465,6 +494,7 @@ function fight(
       ...fighter.report,
       final: {
         currentHealthHundredths: fighter.state.currentHealthHundredths,
+        currentArmor: fighter.currentArmor,
         exhaustion: exhaustionOf(fighter.state),
         effectiveSkill: eff(fighter),
         condition,

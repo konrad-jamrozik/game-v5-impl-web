@@ -747,3 +747,18 @@
   progress, are never Player-visible and stay hidden.
 - **Links:** DEC-080
 - **Resolution:** Open
+
+## PROB-053: A Lead discovered by a Player action has no Turn of discovery for the Situation panel to order it by
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** SITP, Leads shown: "ordered from the newest to the oldest by the Turn in which each was
+  discovered, as the History entries record it"; LEAD, Turn report: "every Lead that is in the set of discovered Leads
+  of the World state that Advance turn produces and not in that of the World state before it"; LEAD, Lead discovery,
+  which evaluates `discovered_when` in the World state every Player action produces.
+- **Description:** A Lead discovered in the World state of a Player action, e.g. after a Developer cheat completes
+  the Lead its `discovered_when` names, is already discovered when the next Advance turn starts, so no Turn report and
+  no History entry lists it, and it was not discovered at campaign creation either. The Leads shown rule then gives it
+  no place in the order.
+- **Links:** DEC-083
+- **Resolution:** Open

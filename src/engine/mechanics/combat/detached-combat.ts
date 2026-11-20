@@ -36,6 +36,8 @@ export interface DetachedExplicitEntry {
   readonly exhaustion: number;
   /** A whole number of at least 1. */
   readonly effectiveWeaponDamage: number;
+  /** A whole number of at least 0; 0 when the entry leaves it out. */
+  readonly effectiveArmor?: number;
 }
 
 /** An entry of the Agents' side: an Agent of the Current campaign by Instance ID, or explicit values. */
@@ -177,12 +179,18 @@ function explicitState(entry: Record<string, unknown>, side: 'agent' | 'enemy'):
   if (!isWhole(weaponDamage, 1)) {
     return 'effectiveWeaponDamage must be a whole number of at least 1';
   }
+  // COMBAT, Detached Combat: effective armor is 0 when the entry leaves it out.
+  const armor = entry['effectiveArmor'] ?? 0;
+  if (!isWhole(armor, 0)) {
+    return 'effectiveArmor must be a whole number of at least 0';
+  }
   return {
     skillHundredths: skill,
     currentHealthHundredths: health,
     maxHealth,
     exactExhaustionHundredths: exhaustion * 100,
     weaponDamage,
+    armor,
   };
 }
 
@@ -226,6 +234,7 @@ export function buildDetachedCombat(
       turn: world.turn,
       enemyArchetypes: gdrs.enemyArchetypes,
       weapons: gdrs.weapons,
+      armors: gdrs.armors,
     });
     enemyEntries = enemies.map((enemy) => ({ kind: 'enemyArchetype', id: enemy.archetype }));
   } else {
@@ -284,7 +293,8 @@ export function buildDetachedCombat(
         }
         // COMBAT, Enemy creation: the values a new Enemy of the EnemyArchetype has.
         const weapon = must(gdrs.weapons.get(archetype.weapon), `Weapon ${archetype.weapon}`);
-        state = enemyCombatantState(createEnemy(id, '', archetype, weapon).state);
+        const armor = must(gdrs.armors.get(archetype.armor), `Armor ${archetype.armor}`);
+        state = enemyCombatantState(createEnemy(id, '', archetype, weapon, armor).state);
         entryName = { kind: 'enemyArchetype', id: archetype.id };
       } else {
         return malformed(`${where} has the kind ${kind}, which its side does not take.`);

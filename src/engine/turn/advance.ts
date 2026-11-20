@@ -337,6 +337,7 @@ export function applyAdvanceTurn(
           turn,
           enemyArchetypes: gdrs.enemyArchetypes,
           weapons: gdrs.weapons,
+          armors: gdrs.armors,
         });
         world.missionSites[site.id] = site;
         for (const enemy of enemies) {
@@ -684,6 +685,7 @@ export function applyAdvanceTurn(
         turn,
         enemyArchetypes: gdrs.enemyArchetypes,
         weapons: gdrs.weapons,
+        armors: gdrs.armors,
       });
       world.missionSites[site.id] = site;
       for (const enemy of enemies) {

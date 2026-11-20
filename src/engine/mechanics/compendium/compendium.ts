@@ -67,9 +67,11 @@ export function articleVisible(
     return lead !== undefined && leadDiscovered(lead, world);
   };
   switch (article.subjectType) {
-    // AGENT, ECON, Player-visible information: in every World state.
+    // AGENT, ECON, Player-visible information: in every World state; COMBAT, Player-visible information, and COMP,
+    // Article visibility: an Armor too, which needs no Met subject.
     case 'AgentArchetype':
     case 'Upgrade':
+    case 'Armor':
       return true;
     // COMBAT, Player-visible information: in every World state; COMP, Met subjects: the article also needs its
     // subject to be a Met subject.

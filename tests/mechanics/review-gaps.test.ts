@@ -286,13 +286,16 @@ describe('ECON and MISSION: gaps', () => {
   });
 
   it('COMBAT, Combat inputs: a Combat reads the effective weapon damage and effective max health of an Agent', () => {
-    let state = newCampaign({ money: 5000 });
-    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    state = act(state, 'purchaseUpgrade', { upgrade: 'max_health' });
+    // No Bootstrap Upgrade is a Max health Upgrade, so the `armor` Upgrade is made one here: an Upgrade's effect is
+    // decided only by its `effect` (ECON, Upgrades).
+    const catalog = catalogWith((raw) => (raw.get('armor')['effect'] = 'agent_max_health'));
+    let state = newCampaign({ money: 5000, catalog });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' }, 'player', catalog);
+    state = act(state, 'purchaseUpgrade', { upgrade: 'armor' }, 'player', catalog);
     const [a1] = agentIds(state) as [string];
     const site = addMissionSite(state, 'apprehend_member');
-    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a1] });
-    state = advance(state, winning(state, site.site));
+    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a1] }, 'player', catalog);
+    state = advance(state, winning(state, site.site), catalog);
     const participant = state.world.history.turnReport!.combatReports[0]!.participants.find(
       (item) => item.id === a1,
     )!;

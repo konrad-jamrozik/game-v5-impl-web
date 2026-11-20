@@ -7,10 +7,8 @@ import { deepFreeze, detach, must, q } from '../../kernel/index.ts';
 import { GAME_BUILD, type GdrCatalog, type MissionSiteArchetypeGdr } from '../../gdr/index.ts';
 import { applyGameAction } from '../actions/actions.ts';
 import {
-  agentCombatantValues,
   canBeAssigned,
   effectiveSkill,
-  effectiveWeaponDamage,
   enemyCombatantValues,
   type AgentUpgradeBonus,
   exhaustionOf,
@@ -19,8 +17,10 @@ import {
   isInBase,
 } from '../mechanics/agents/agents.ts';
 import {
+  agentCombatantState,
   combatRating,
   damageBounds,
+  enemyCombatantState,
   isAbleToFight,
   type CombatantState,
 } from '../mechanics/combat/combat.ts';
@@ -105,7 +105,7 @@ function ratesOf(world: CurrentWorldState, gdrs: GdrCatalog): UpgradedRates {
 
 /** An Enemy's values in the hundredths form that effective skill and a Combat read; see DEC-056. */
 function enemyCombatant(enemy: Enemy['state']): CombatantState {
-  return { ...enemyCombatantValues(enemy), weaponDamage: enemy.baseWeaponDamage };
+  return enemyCombatantState(enemy);
 }
 
 /** ECON, Upgrade bonus: what the Upgrades of this World state add to every Serving Agent's effective values. */
@@ -115,7 +115,7 @@ function bonusOf(world: CurrentWorldState, gdrs: GdrCatalog): AgentUpgradeBonus 
 
 /** An Agent's values, with its effective max health and current health, as effective skill and a Combat read them. */
 function agentCombatant(agent: Agent['state'], bonus: AgentUpgradeBonus): CombatantState {
-  return { ...agentCombatantValues(agent, bonus), weaponDamage: effectiveWeaponDamage(agent, bonus) };
+  return agentCombatantState(agent, bonus);
 }
 
 function agentView(
@@ -147,6 +147,10 @@ function agentView(
     weaponName: gdrs.weapons.get(s.weapon)?.name ?? s.weapon,
     baseWeaponDamage: s.baseWeaponDamage,
     effectiveWeaponDamage: values.weaponDamage,
+    armor: s.armor,
+    armorName: gdrs.armors.get(s.armor)?.name ?? s.armor,
+    baseArmor: s.baseArmor,
+    effectiveArmor: values.armor,
     assignment: s.assignment === null ? null : { ...s.assignment },
     canBeAssigned: canBeAssigned(s),
     fitForWork: isFitForWork(s, gdrs.agentParameters),
@@ -159,6 +163,7 @@ function agentView(
     killedBy: s.killedBy === null ? null : { ...s.killedBy },
     finalMaxHealth: s.finalMaxHealth,
     finalWeaponDamage: s.finalWeaponDamage,
+    finalArmor: s.finalArmor,
     healthRecoveryRateHundredths: serving
       ? healthRecoveryRateHundredths(values.maxHealth, healthRecoveryPctHundredths)
       : null,
@@ -185,6 +190,9 @@ function enemyView(enemy: Enemy, gdrs: GdrCatalog): EnemyView {
     weapon: s.weapon,
     weaponName: gdrs.weapons.get(s.weapon)?.name ?? s.weapon,
     weaponDamage: s.baseWeaponDamage,
+    armor: s.armor,
+    armorName: gdrs.armors.get(s.armor)?.name ?? s.armor,
+    baseArmor: s.baseArmor,
   };
 }
 
@@ -373,6 +381,9 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
     })),
     ...caps,
     ...ratesOf(world, gdrs),
+    agentArmor:
+      must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype').armor +
+      bonusOf(world, gdrs).armor,
     servingAgents: serving,
     deployedAgents: countDeployed(agents),
     trainingAgents: countTraining(agents),
@@ -798,6 +809,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         skill: gdrs.agentArchetype.skill,
         baseHealth: gdrs.agentArchetype.baseHealth,
         weapon: gdrs.agentArchetype.weapon,
+        armor: gdrs.agentArchetype.armor,
       },
       agentParameters: numbers(gdrs.agentParameters),
       combatParameters: {
@@ -824,12 +836,18 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
           damageOfAHit: { min: bounds.lo, max: bounds.hi },
         };
       }),
+      armors: [...gdrs.armors.values()].map((armor) => ({
+        id: armor.id,
+        name: armor.name,
+        armor: armor.armor,
+      })),
       enemyArchetypes: [...gdrs.enemyArchetypes.values()].map((enemy) => ({
         id: enemy.id,
         name: enemy.name,
         skill: enemy.skill,
         baseHealth: enemy.baseHealth,
         weapon: enemy.weapon,
+        armor: enemy.armor,
       })),
       missionSiteArchetypes: gdrs.missionSiteArchetypes.map((archetype) => ({
         id: archetype.id,

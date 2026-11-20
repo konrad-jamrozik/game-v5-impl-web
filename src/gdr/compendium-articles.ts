@@ -290,6 +290,7 @@ const PLACEHOLDER_SOURCES: Readonly<
   RecoveryParameters: { properties: 'every', subjectOnly: false },
   EnemyArchetype: { properties: 'every', subjectOnly: false },
   Weapon: { properties: 'every', subjectOnly: false },
+  Armor: { properties: 'every', subjectOnly: false },
   CombatParameters: { properties: 'every', subjectOnly: false },
   EconomyParameters: { properties: 'every', subjectOnly: false },
   Upgrade: { properties: 'every', subjectOnly: false },
@@ -305,8 +306,8 @@ const PLACEHOLDER_SOURCES: Readonly<
  * defines them, with the Type of the GDR they reference. A Placeholder shows the `name` of the referenced GDR.
  */
 const REFERENCE_PROPERTIES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  AgentArchetype: { weapon: 'Weapon' },
-  EnemyArchetype: { weapon: 'Weapon' },
+  AgentArchetype: { weapon: 'Weapon', armor: 'Armor' },
+  EnemyArchetype: { weapon: 'Weapon', armor: 'Armor' },
 };
 
 /** The GDRs of a Game build as authored, by identifier; an identifier is unique only within a Type (DEC-014). */

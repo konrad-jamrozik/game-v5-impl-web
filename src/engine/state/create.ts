@@ -52,6 +52,7 @@ export function createCampaignState(
 
   // AGENT, Initial roster.
   const weapon = must(gdrs.weapons.get(gdrs.agentArchetype.weapon), 'Weapon of the AgentArchetype');
+  const armor = must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype');
   for (let i = 0; i < gdrs.agentParameters.initialRosterSize; i += 1) {
     const agent = createAgent({
       id: newInstanceId(world, 'agent'),
@@ -60,6 +61,7 @@ export function createCampaignState(
       initialRoster: true,
       archetype: gdrs.agentArchetype,
       weapon,
+      armor,
     });
     world.agents[agent.id] = agent;
   }

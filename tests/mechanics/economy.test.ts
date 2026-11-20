@@ -12,6 +12,7 @@ import {
 import {
   act,
   addMissionSite,
+  catalogWith,
   advance,
   agent,
   agentIds,
@@ -65,7 +66,7 @@ describe('ECON: examples', () => {
       ['transport_cap', 0],
       ['training_cap', 0],
       ['weapon_damage', 0],
-      ['max_health', 0],
+      ['armor', 0],
       ['training_skill_gain', 0],
       ['exhaustion_recovery', 0],
       ['health_recovery', 0],
@@ -174,6 +175,7 @@ describe('ECON: examples', () => {
       world.agents[a7]!.state.turnTerminated = 1;
       world.agents[a7]!.state.finalMaxHealth = world.agents[a7]!.state.baseHealth;
       world.agents[a7]!.state.finalWeaponDamage = world.agents[a7]!.state.baseWeaponDamage;
+      world.agents[a7]!.state.finalArmor = world.agents[a7]!.state.baseArmor;
       world.agents[a7]!.state.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       setCurrentHealth(world.agents[a7]!.state, 0);
       world.agents[a7]!.state.assignment = null;
@@ -242,6 +244,7 @@ describe('ECON: examples', () => {
       dead.turnTerminated = 1;
       dead.finalMaxHealth = dead.baseHealth;
       dead.finalWeaponDamage = dead.baseWeaponDamage;
+      dead.finalArmor = dead.baseArmor;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       setCurrentHealth(dead, 0);
       dead.assignment = null;
@@ -276,6 +279,7 @@ describe('ECON: examples', () => {
       dead.turnTerminated = 1;
       dead.finalMaxHealth = dead.baseHealth;
       dead.finalWeaponDamage = dead.baseWeaponDamage;
+      dead.finalArmor = dead.baseArmor;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       setCurrentHealth(dead, 0);
       dead.assignment = null;
@@ -365,6 +369,7 @@ describe('ECON: examples', () => {
       dead.turnTerminated = 1;
       dead.finalMaxHealth = dead.baseHealth;
       dead.finalWeaponDamage = dead.baseWeaponDamage;
+      dead.finalArmor = dead.baseArmor;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       setCurrentHealth(dead, 0);
       dead.assignment = null;
@@ -410,8 +415,69 @@ describe('ECON: examples', () => {
     expect(gdrs.weapons.get('sidearm')!.damage).toBe(10);
   });
 
+  it('Armor Upgrade', () => {
+    let state = setMoney(newCampaign(), 1500);
+    const [a1, a2] = agentIds(state) as [string, string];
+    const armors = (s: CampaignState) => agentIds(s).map((id) => effectiveValuesOf(s, id).armor);
+    // BOOT: every Agent wears the Service armor, whose base armor is 0.
+    expect(armors(state)).toEqual([0, 0, 0, 0]);
+    expect(agents(state).every((a) => a.state.armor === 'service_armor' && a.state.baseArmor === 0)).toBe(
+      true,
+    );
+    const beforePurchase = state;
+    state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
+    expect(money(state)).toBe(1000);
+    // ECON, Armor Upgrade: effective armor = base armor + Upgrade bonus of agent_armor, at once, rewriting no value.
+    expect(armors(state)).toEqual([1, 1, 1, 1]);
+    expect(agents(state)).toEqual(agents(beforePurchase));
+    // AGENT, Service record: a dismissed Agent keeps its effective armor as its Final armor.
+    state = act(state, 'dismissAgents', { agents: [a1] });
+    expect(agent(state, a1).state.finalArmor).toBe(1);
+    state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
+    expect([a1, a2].map((id) => effectiveValuesOf(state, id).armor)).toEqual([1, 2]);
+    // Player API: each Agent's Armor and effective armor, a Terminated Agent's Final armor, and the effective armor
+    // that the Armor Upgrade card of the Upgrades View shows.
+    const live = currentLiveWorldStateView(state, gdrs);
+    expect(live.agency.agentArmor).toBe(2);
+    expect(live.agents.find((item) => item.id === a2)).toMatchObject({
+      armor: 'service_armor',
+      armorName: 'Service armor',
+      baseArmor: 0,
+      effectiveArmor: 2,
+      finalArmor: null,
+    });
+    expect(currentRetiredWorldStateView(state, gdrs).agents.find((item) => item.id === a1)).toMatchObject({
+      effectiveArmor: 1,
+      finalArmor: 1,
+    });
+    // A new Agent has the effective armor of every other Serving Agent.
+    state = act(state, 'hireAgent');
+    expect(effectiveValuesOf(state, agentIds(state).at(-1)!).armor).toBe(2);
+    // The first Combat after the purchase starts every Agent with the raised current armor; no Enemy is affected.
+    const site = addMissionSite(state, 'apprehend_member');
+    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a2] });
+    state = advance(state, winning(state, site.site));
+    const report = state.world.history.turnReport!.combatReports[0]!;
+    expect(report.participants.find((item) => item.id === a2)!.start.armor).toBe(2);
+    expect(
+      report.participants.filter((item) => item.side === 'enemy').every((item) => item.start.armor === 0),
+    ).toBe(true);
+  });
+
   it('Max health and Rate Upgrades', () => {
-    let state = withAgents(setMoney(newCampaign(), 2050), 4);
+    // No Bootstrap Upgrade is a Max health Upgrade, so this example adds one (BOOT, Economy and Upgrades GDRs).
+    const withMaxHealth = catalogWith((raw) => {
+      const file = raw.files.find((item) => item.gdrs.some((gdr) => gdr['type'] === 'Upgrade'))!;
+      raw.add(file.path, {
+        id: 'max_health',
+        type: 'Upgrade',
+        name: 'Max health',
+        price: 500,
+        effect: 'agent_max_health',
+        increment: 1,
+      });
+    });
+    let state = withAgents(setMoney(newCampaign({ catalog: withMaxHealth }), 2050), 4, withMaxHealth);
     const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
     state = setAssignment(state, [a3], 'Training');
     state = tweak(state, (world) => {
@@ -426,18 +492,19 @@ describe('ECON: examples', () => {
       dead.turnTerminated = 1;
       dead.finalMaxHealth = dead.baseHealth;
       dead.finalWeaponDamage = dead.baseWeaponDamage;
+      dead.finalArmor = dead.baseArmor;
       dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       setCurrentHealth(dead, 0);
       dead.exactExhaustionHundredths = 4000;
       dead.assignment = null;
     });
     const health = (s: CampaignState, id: string) => {
-      const { currentHealth, maxHealth } = effectiveValuesOf(s, id);
+      const { currentHealth, maxHealth } = effectiveValuesOf(s, id, withMaxHealth);
       return [currentHealth, maxHealth];
     };
     const beforePurchase = state;
 
-    state = act(state, 'purchaseUpgrade', { upgrade: 'max_health' });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'max_health' }, 'player', withMaxHealth);
     expect(money(state)).toBe(1550);
     expect([a1, a2, a3, a4].map((id) => health(state, id))).toEqual([
       [31, 31],
@@ -447,7 +514,7 @@ describe('ECON: examples', () => {
     ]);
     // AGENT, Effective max health and current health: the purchase rewrites no Agent value.
     expect(agents(state)).toEqual(agents(beforePurchase));
-    state = act(state, 'hireAgent');
+    state = act(state, 'hireAgent', {}, 'player', withMaxHealth);
     expect(money(state)).toBe(1500);
     const a5 = agentIds(state).at(-1)!;
     expect(agent(state, a5).state).toMatchObject({
@@ -457,18 +524,18 @@ describe('ECON: examples', () => {
     });
     expect(health(state, a5)).toEqual([31, 31]);
     const before = state;
-    state = act(state, 'purchaseUpgrade', { upgrade: 'exhaustion_recovery' });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'exhaustion_recovery' }, 'player', withMaxHealth);
     // ECON, Rate Upgrades: 5 + 0.5 × 1 = 5.50, 2 + 0.2 × 1 = 2.20, and 1 + 0.1 × 1 = 1.10, held in hundredths.
     expect(agency(state)).toMatchObject({ money: 1000, exhaustionRecoveryHundredths: 550 });
-    state = act(state, 'purchaseUpgrade', { upgrade: 'health_recovery' });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'health_recovery' }, 'player', withMaxHealth);
     expect(agency(state)).toMatchObject({ money: 500, healthRecoveryPctHundredths: 220 });
-    state = act(state, 'purchaseUpgrade', { upgrade: 'training_skill_gain' });
+    state = act(state, 'purchaseUpgrade', { upgrade: 'training_skill_gain' }, 'player', withMaxHealth);
     expect(agency(state)).toMatchObject({ money: 0, trainingSkillGainHundredths: 110 });
     expect(agents(state)).toEqual(agents(before));
 
     // Money for Upkeep, so that the Campaign goes on to the next Advance turn; it changes no Agent value.
-    state = act(state, 'addMoney', { amount: 1000 }, 'developer');
-    state = advance(state);
+    state = act(state, 'addMoney', { amount: 1000 }, 'developer', withMaxHealth);
+    state = advance(state, {}, withMaxHealth);
     // a3 gains 1.10 to 101.10; a1 loses 5.50 Exact exhaustion to 6.50, exhaustion 7; a2 loses 5.50 to 2.50,
     // exhaustion 3, and regains round up to hundredths(2.2 × 31 / 100) = 0.69, to 21.69 of 31.
     expect(agent(state, a3).state.skillHundredths).toBe(10110);
@@ -481,15 +548,15 @@ describe('ECON: examples', () => {
     });
     expect(health(state, a2)).toEqual([21.69, 31]);
     expect(exhaustionOf(agent(state, a2).state)).toBe(3);
-    state = advance(state);
+    state = advance(state, {}, withMaxHealth);
     // In the next Advance turn a1 falls to Exact exhaustion 1, where without the Upgrade it would be 2.
     expect(agent(state, a1).state.exactExhaustionHundredths).toBe(100);
     // AGENT, Service record: an Agent dismissed now keeps its effective max health as its Final max health, and a
     // later purchase changes it no more.
-    state = act(state, 'dismissAgents', { agents: [a1] });
+    state = act(state, 'dismissAgents', { agents: [a1] }, 'player', withMaxHealth);
     expect(agent(state, a1).state.finalMaxHealth).toBe(31);
-    state = act(state, 'addMoney', { amount: 500 }, 'developer');
-    state = act(state, 'purchaseUpgrade', { upgrade: 'max_health' });
+    state = act(state, 'addMoney', { amount: 500 }, 'developer', withMaxHealth);
+    state = act(state, 'purchaseUpgrade', { upgrade: 'max_health' }, 'player', withMaxHealth);
     expect([a1, a3].map((id) => health(state, id))).toEqual([
       [31, 31],
       [32, 32],

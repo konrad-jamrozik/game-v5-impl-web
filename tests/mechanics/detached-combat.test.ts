@@ -32,9 +32,15 @@ import {
   withAgents,
 } from '../helpers/game.ts';
 
-/** A Campaign with four Agents deployed to a new `raid_outpost`, before the Advance turn that fights its Combat. */
+/**
+ * A Campaign with four Agents deployed to a new `raid_outpost`, before the Advance turn that fights its Combat, and
+ * three Armor Upgrades bought, so that their current armor absorbs hits.
+ */
 function deployedCampaign(): { state: CampaignState; team: string[]; site: string } {
-  let state = withAgents(newCampaign(), 4);
+  let state = withAgents(newCampaign({ money: 1500 }), 4);
+  for (let i = 0; i < 3; i += 1) {
+    state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
+  }
   const team = agentIds(state).slice(0, 4);
   state = setAssignment(state, team, 'Standby');
   const added = addMissionSite(state, 'raid_outpost');
@@ -126,6 +132,7 @@ describe('REUSE: Agreement test of developer.tools.fightCombat', () => {
       throw new Error('No Combat was fought');
     }
     expect(played.log.length).toBeGreaterThan(0);
+    expect(played.log.some((attack) => attack.armorRemoved > 0)).toBe(true);
 
     // The Combat's starting values and the Game build's GDR values, given as explicit values.
     const explicit = (id: string) => {
@@ -137,6 +144,8 @@ describe('REUSE: Agreement test of developer.tools.fightCombat', () => {
         effectiveMaxHealth: start.maxHealth,
         exhaustion: start.exhaustion,
         effectiveWeaponDamage: start.weaponDamage,
+        // An entry without effective armor has armor 0, as each Enemy's is here.
+        ...(start.armor > 0 ? { effectiveArmor: start.armor } : {}),
       };
     };
     const fromValues = fought(state, {
@@ -211,7 +220,16 @@ describe('COMBAT: Detached Combat', () => {
       maxHealth: soldier.baseHealth,
       exhaustion: 0,
       weaponDamage: gdrs.weapons.get(soldier.weapon)!.damage,
+      armor: gdrs.armors.get(soldier.armor)!.armor,
     });
+    // COMBAT, Detached Combat: an explicit entry that leaves out effective armor has armor 0.
+    expect(one.combatReport.participants[0]!.start.armor).toBe(0);
+    const armored = fought(state, {
+      agents: [{ ...explicitAgent, effectiveArmor: 6 }],
+      enemies: [{ kind: 'enemyArchetype', id: 'soldier' }],
+      seed: 's',
+    });
+    expect(armored.combatReport.participants[0]!.start.armor).toBe(6);
   });
 
   it('applies GDR values the setup supplies and keeps the Game build values otherwise', () => {
@@ -276,6 +294,8 @@ describe('COMBAT: Detached Combat', () => {
       { effectiveMaxHealth: 0 },
       { exhaustion: 1.5 },
       { effectiveWeaponDamage: 0 },
+      { effectiveArmor: -1 },
+      { effectiveArmor: 1.5 },
     ]) {
       expect(rejection(state, { ...base, agents: [{ ...explicitAgent, ...bad }] })).toBe(
         'value_out_of_range',
@@ -286,6 +306,7 @@ describe('COMBAT: Detached Combat', () => {
       'value_out_of_range',
     );
     expect(rejection(state, { ...base, agents: [{ ...explicitAgent, baseSkill: 10.55 }] })).toBe('accepted');
+    expect(rejection(state, { ...base, agents: [{ ...explicitAgent, effectiveArmor: 4 }] })).toBe('accepted');
     for (const gdrValues of [
       { incapacitation_skill_fraction: 1 },
       { weapon_damage_range: '1.5' },

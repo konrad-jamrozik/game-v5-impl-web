@@ -255,9 +255,11 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const placeOf = (target: SituationTarget | ReportTarget): { id: DetailViewId; item: string | null } =>
     target.kind === 'lead'
       ? { id: 'leads', item: target.lead }
-      : target.kind === 'missionSite'
-        ? { id: 'missions', item: target.missionSite }
-        : { id: 'agents', item: null };
+      : target.kind === 'leads'
+        ? { id: 'leads', item: null }
+        : target.kind === 'missionSite'
+          ? { id: 'missions', item: target.missionSite }
+          : { id: 'agents', item: null };
 
   /**
    * SITP: selecting an item opens the Detail view that details it, with that item selected. CSCR, View trail, Start
@@ -641,7 +643,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             ))}
           </nav>
 
-          <SituationPanel state={state} leads={leads} onShow={show} />
+          <SituationPanel state={state} leads={leads} history={snapshot.history} onShow={show} />
 
           <footer className="side-footer">
             <AutopilotBar snapshot={snapshot} />

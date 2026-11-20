@@ -12,7 +12,10 @@ export interface CombatLogRow {
   readonly tint: 'agent' | 'enemy';
   /** The outcome's colour: Positive when an Agent hit, Danger when an Enemy hit, Text muted for a miss. */
   readonly tone: 'good' | 'bad' | 'muted';
-  /** The outcome without its decisive word, e.g. "hit for 14, health 0" or "miss". */
+  /**
+   * The outcome without its decisive word, e.g. "hit for 14, health 0", "hit for 15, 8 absorbed, armor 0, health 23",
+   * or "miss".
+   */
   readonly outcome: string;
   /** The word that names a participant made dead or Incapacitated, shown in bold; null when there is none. */
   readonly decisive: 'dead' | 'incapacitated' | null;
@@ -37,15 +40,28 @@ export function finalCondition(
   }
 }
 
+/**
+ * TRVIEW, Combat report: the Armor of one participant: its effective armor at Combat start and its current armor at
+ * Combat end joined by "→", e.g. "3 → 0", and "0" alone for a participant whose effective armor is 0.
+ */
+export function armorText(who: Pick<CombatReport['participants'][number], 'start' | 'final'>): string {
+  return who.start.armor === 0 ? '0' : `${who.start.armor} → ${who.final.currentArmor}`;
+}
+
 export function combatLogRow(attack: Attack, sideOf: (id: string) => 'agent' | 'enemy'): CombatLogRow {
   const tint = sideOf(attack.attacker);
   if (!attack.hit) {
     return { tint, tone: 'muted', outcome: 'miss', decisive: null };
   }
+  // TRVIEW, Combat report: when the defender had current armor before the hit, the armor removed is named as absorbed,
+  // with the defender's current armor after it, between the damage outcome and the current health.
+  const armorBefore = attack.defenderAfter.currentArmor + attack.armorRemoved;
+  const armor =
+    armorBefore > 0 ? `, ${attack.armorRemoved} absorbed, armor ${attack.defenderAfter.currentArmor}` : '';
   return {
     tint,
     tone: tint === 'agent' ? 'good' : 'bad',
-    outcome: `hit for ${attack.damage ?? 0}, health ${wholeText(attack.defenderAfter.currentHealthHundredths)}`,
+    outcome: `hit for ${attack.damage ?? 0}${armor}, health ${wholeText(attack.defenderAfter.currentHealthHundredths)}`,
     decisive: attack.defenderDead ? 'dead' : attack.defenderIncapacitated ? 'incapacitated' : null,
   };
 }

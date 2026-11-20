@@ -66,6 +66,17 @@ function change(upgrade: UpgradeView, state: CurrentLiveWorldStateView): Change 
       after: `${decimalText(now + upgrade.incrementHundredths)}${rate.unit}`,
     };
   }
+  // UVIEW, Upgrade cards: the effective armor of a Serving Agent now and after one more acquisition, e.g. "Armor 2 → 3":
+  // "Armor of every Agent" above "2 → 3", shown even while the Agency has no Serving Agent.
+  if (upgrade.effect === 'agent_armor') {
+    const now = state.agency.agentArmor;
+    return {
+      kind: 'Armor Upgrade',
+      what: 'Armor of every Agent',
+      before: String(now),
+      after: String(now + upgrade.incrementHundredths / 100),
+    };
+  }
   // UVIEW, Upgrade cards: the Increment added to the effective max health or the effective weapon damage of every
   // Serving Agent, e.g. "+1 max health": "Max health of every Agent" above a bare "+1".
   const increment = `+${upgrade.incrementHundredths / 100}`;

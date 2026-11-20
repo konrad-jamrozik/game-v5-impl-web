@@ -804,6 +804,12 @@ function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: Curr
         <dd>
           {agent.weaponName} <span className="figure secondary">· damage {agent.effectiveWeaponDamage}</span>
         </dd>
+        {/* AVIEW, Agent details: the Armor with its effective armor, e.g. "Service armor · armor 2"; a Terminated
+            Agent's is its Final armor, which the view reports as its effective armor. */}
+        <dt>Armor</dt>
+        <dd data-testid="details-armor">
+          {agent.armorName} <span className="figure secondary">· armor {agent.effectiveArmor}</span>
+        </dd>
         {/* GUI, Decimal quantities shown: the one place that shows these values with two decimals. */}
         <dt>Skill</dt>
         <dd className="figure" data-testid="details-skill">

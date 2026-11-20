@@ -142,8 +142,10 @@ describe('AGENT: examples', () => {
         healthLostHundredths: 0,
         baseHealth: 30,
         exactExhaustionHundredths: 0,
-        weapon: 'sidearm',
+        weapon: 'service_weapon',
         baseWeaponDamage: 10,
+        armor: 'service_armor',
+        baseArmor: 0,
         assignment: { kind: 'Standby' },
         status: 'AtAssignment',
         participationHistory: [],
@@ -152,6 +154,7 @@ describe('AGENT: examples', () => {
         killedBy: null,
         finalMaxHealth: null,
         finalWeaponDamage: null,
+        finalArmor: null,
       });
       expect(currentHealthOf(a.state)).toBe(3000);
       expect(effectiveSkill(valuesOf(a.state), p)).toBe(100);
@@ -203,8 +206,10 @@ describe('AGENT: examples', () => {
       skill: 100,
       currentHealth: 30,
       exhaustion: 0,
-      weapon: 'sidearm',
+      weapon: 'service_weapon',
       baseWeaponDamage: 10,
+      armor: 'service_armor',
+      baseArmor: 0,
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
@@ -440,6 +445,7 @@ describe('AGENT: examples', () => {
       world.agents[a6]!.state.turnTerminated = 1;
       world.agents[a6]!.state.finalMaxHealth = world.agents[a6]!.state.baseHealth;
       world.agents[a6]!.state.finalWeaponDamage = world.agents[a6]!.state.baseWeaponDamage;
+      world.agents[a6]!.state.finalArmor = world.agents[a6]!.state.baseArmor;
       world.agents[a6]!.state.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
       setCurrentHealth(world.agents[a6]!.state, 0);
       world.agents[a6]!.state.assignment = null;

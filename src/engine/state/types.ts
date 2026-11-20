@@ -75,6 +75,10 @@ export interface AgentState {
   weapon: string;
   /** AGENT, Agent properties: base weapon damage; no rule changes it after creation. */
   baseWeaponDamage: number;
+  /** A reference to the Armor GDR. */
+  armor: string;
+  /** AGENT, Agent properties: base armor, a whole number of at least 0; no rule changes it after creation. */
+  baseArmor: number;
   /** Present exactly when the Agent is Serving. */
   assignment: Assignment | null;
   participationHistory: Participation[];
@@ -90,6 +94,8 @@ export interface AgentState {
    * AGENT, Service record: the effective weapon damage the Agent had when it became Terminated; present exactly then.
    */
   finalWeaponDamage: number | null;
+  /** AGENT, Service record: the effective armor the Agent had when it became Terminated; present exactly then. */
+  finalArmor: number | null;
 }
 /** AGENT, Agent properties: the Enemy whose attack made a Killed Agent dead, and that Enemy's Mission site. */
 export interface KilledBy {
@@ -193,6 +199,10 @@ export interface EnemyState {
   exhaustion: number;
   weapon: string;
   baseWeaponDamage: number;
+  /** A reference to the Armor GDR. */
+  armor: string;
+  /** COMBAT, Enemy properties: base armor, which is also the Enemy's effective armor. */
+  baseArmor: number;
 }
 export type Enemy = Instance<EnemyConstants, EnemyState>;
 
@@ -216,11 +226,15 @@ export interface CombatParticipantReport {
     readonly exhaustion: number;
     /** The effective weapon damage. */
     readonly weaponDamage: number;
+    /** The effective armor, which is also the current armor at Combat start. */
+    readonly armor: number;
     readonly effectiveSkill: number;
     readonly incapacitated: boolean;
   };
   readonly final: {
     readonly currentHealthHundredths: number;
+    /** COMBAT, Combat-only properties: the current armor when the Combat ended. */
+    readonly currentArmor: number;
     readonly exhaustion: number;
     readonly effectiveSkill: number;
     readonly condition: CombatantCondition;
@@ -244,10 +258,17 @@ export interface AttackRecord {
   readonly hit: boolean;
   /** Absent, not zero, for a miss. */
   readonly damage: number | null;
+  /** COMBAT, Effects of an attack, step 3: the current armor the attack took from the defender; 0 for a miss. */
+  readonly armorRemoved: number;
   /** In hundredths, as is each current health below; exhaustion is whole. */
   readonly healthRemovedHundredths: number;
   readonly attackerAfter: { readonly currentHealthHundredths: number; readonly exhaustion: number };
-  readonly defenderAfter: { readonly currentHealthHundredths: number; readonly exhaustion: number };
+  readonly defenderAfter: {
+    readonly currentHealthHundredths: number;
+    readonly exhaustion: number;
+    /** The defender's current armor after the attack. */
+    readonly currentArmor: number;
+  };
   readonly defenderDead: boolean;
   readonly defenderIncapacitated: boolean;
   readonly attackerIncapacitated: boolean;

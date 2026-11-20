@@ -21,6 +21,7 @@ const SUBJECT_TYPES: Readonly<Record<string, { readonly category: string; readon
   AgentArchetype: { category: 'Agents', heading: 'New Agent' },
   EnemyArchetype: { category: 'Enemies', heading: 'Enemy' },
   Weapon: { category: 'Weapons', heading: 'Weapon' },
+  Armor: { category: 'Armor', heading: 'Armor' },
   Upgrade: { category: 'Upgrades', heading: 'Upgrade' },
   FactionArchetype: { category: 'Factions', heading: 'Faction' },
   Lead: { category: 'Leads', heading: 'Lead' },
@@ -263,6 +264,7 @@ const UPGRADE_WORDING: Readonly<Record<string, { readonly rate: boolean; readonl
   training_cap: { rate: false, after: ' to the Training cap' },
   agent_weapon_damage: { rate: false, after: ' weapon damage for every Agent' },
   agent_max_health: { rate: false, after: ' max health for every Agent' },
+  agent_armor: { rate: false, after: ' armor for every Agent' },
   training_skill_gain: { rate: true, after: ' skill for each turn of Training' },
   exhaustion_recovery: { rate: true, after: ' exhaustion recovered each turn' },
   health_recovery: { rate: true, after: '% of max health recovered each turn' },
@@ -313,6 +315,13 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
       ? []
       : [reference('Weapon', id, weapon.name), { text: ' · damage ' }, figure(weapon.damage)];
   };
+  /** COMPV, Agent data sheet and Enemy data sheet: the Armor, followed by "· armor" and its `base_armor`. */
+  const armorValue = (id: string): SheetPart[] => {
+    const armor = gameData.armors.find((item) => item.id === id);
+    return armor === undefined
+      ? []
+      : [reference('Armor', id, armor.name), { text: ' · armor ' }, figure(armor.armor)];
+  };
   const rows: [string, readonly SheetPart[]][] = [];
 
   switch (article.subjectType) {
@@ -322,6 +331,7 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
         rows.push(['Skill', [figure(agent.skill)]]);
         rows.push(['Health', [figure(agent.baseHealth)]]);
         rows.push(['Weapon', weaponValue(agent.weapon)]);
+        rows.push(['Armor', armorValue(agent.armor)]);
       }
       break;
     }
@@ -331,6 +341,7 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
         rows.push(['Skill', [figure(enemy.skill)]]);
         rows.push(['Health', [figure(enemy.baseHealth)]]);
         rows.push(['Weapon', weaponValue(enemy.weapon)]);
+        rows.push(['Armor', armorValue(enemy.armor)]);
         rows.push([
           'Appears at',
           listed(
@@ -354,6 +365,21 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
           listed(['AgentArchetype', 'EnemyArchetype'], (id) =>
             [gameData.agentArchetype, ...gameData.enemyArchetypes].some(
               (carrier) => carrier.id === id && carrier.weapon === subject,
+            ),
+          ),
+        ]);
+      }
+      break;
+    }
+    case 'Armor': {
+      const armor = gameData.armors.find((item) => item.id === subject);
+      if (armor !== undefined) {
+        rows.push(['Armor', [figure(armor.armor)]]);
+        rows.push([
+          'Worn by',
+          listed(['AgentArchetype', 'EnemyArchetype'], (id) =>
+            [gameData.agentArchetype, ...gameData.enemyArchetypes].some(
+              (wearer) => wearer.id === id && wearer.armor === subject,
             ),
           ),
         ]);

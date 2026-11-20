@@ -63,6 +63,12 @@ export interface AgentView {
   readonly baseWeaponDamage: number;
   /** AGENT, Effective weapon damage: a Derived value; the Final weapon damage for a Terminated Agent. */
   readonly effectiveWeaponDamage: number;
+  /** A reference to the Armor GDR, and its name. */
+  readonly armor: string;
+  readonly armorName: string;
+  readonly baseArmor: number;
+  /** AGENT, Effective armor: a Derived value; the Final armor for a Terminated Agent. */
+  readonly effectiveArmor: number;
   /** Absent for a Killed or Dismissed Agent. */
   readonly assignment: Assignment | null;
   readonly canBeAssigned: boolean;
@@ -85,6 +91,8 @@ export interface AgentView {
   readonly finalMaxHealth: number | null;
   /** AGENT, Service record: absent for a Serving Agent. */
   readonly finalWeaponDamage: number | null;
+  /** AGENT, Service record: absent for a Serving Agent. */
+  readonly finalArmor: number | null;
   /** Reported for every Serving Agent, a Decimal quantity in hundredths. */
   readonly healthRecoveryRateHundredths: number | null;
   /** Absent unless the Current assignment is Recovery. */
@@ -107,6 +115,10 @@ export interface EnemyView {
   readonly weaponName: string;
   /** The base weapon damage, which is also the effective weapon damage of an Enemy. */
   readonly weaponDamage: number;
+  readonly armor: string;
+  readonly armorName: string;
+  /** The base armor, which is also the effective armor of an Enemy. */
+  readonly baseArmor: number;
 }
 
 export interface ConsequenceView {
@@ -267,6 +279,11 @@ export interface AgencyView {
   readonly trainingSkillGainHundredths: number;
   readonly exhaustionRecoveryHundredths: number;
   readonly healthRecoveryPctHundredths: number;
+  /**
+   * ECON, Armor Upgrade: the effective armor every Serving Agent has, i.e. the `base_armor` of the Armor that the
+   * AgentArchetype's `armor` references plus the Upgrade bonus of agent_armor; reported even with no Serving Agent.
+   */
+  readonly agentArmor: number;
   readonly servingAgents: number;
   readonly deployedAgents: number;
   readonly trainingAgents: number;
@@ -392,6 +409,7 @@ export interface GameDataView {
     readonly skill: number;
     readonly baseHealth: number;
     readonly weapon: string;
+    readonly armor: string;
   };
   readonly agentParameters: Readonly<Record<string, number>>;
   readonly combatParameters: Readonly<Record<string, string>>;
@@ -410,12 +428,15 @@ export interface GameDataView {
     /** COMBAT, Damage outcome: the inclusive bounds of the damage of a hit for a weapon damage equal to `damage`. */
     readonly damageOfAHit: { readonly min: number; readonly max: number };
   }[];
+  /** COMBAT, Armor: every Armor GDR, with its `base_armor` as `armor`. */
+  readonly armors: readonly { readonly id: string; readonly name: string; readonly armor: number }[];
   readonly enemyArchetypes: readonly {
     readonly id: string;
     readonly name: string;
     readonly skill: number;
     readonly baseHealth: number;
     readonly weapon: string;
+    readonly armor: string;
   }[];
   readonly missionSiteArchetypes: readonly {
     readonly id: string;

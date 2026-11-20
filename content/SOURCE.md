@@ -56,6 +56,14 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   specification commit `d1eb150c8977830c5e4db88871701f2a847b22fc` on 2026-11-19, adding `target_base_weight` and
   `target_preferred_hit_chance` and rewording the Combat article. The copy is still identical to the specification's
   `content/` directory.
+- Every file that changed between specification commits `d2657623dc9db8a0a7b71e69810e636689ece3d6` and
+  `f708abb52a62c8ddf4e43b938e15ca6c99d4afc9`: patched unchanged from specification commit
+  `f708abb52a62c8ddf4e43b938e15ca6c99d4afc9` on 2026-11-19. It adds `combat/armors.yaml` with the Armors
+  `service_armor` and `no_armor`, the Weapon `service_weapon`, and the articles `service_weapon_article`,
+  `service_armor_article`, and `armor_article`; gives the AgentArchetype and every EnemyArchetype an `armor`; replaces
+  the Upgrade `max_health` with `armor` (effect `agent_armor`) and deletes `max_health_article`; and rewords six
+  other articles. The copy is still identical to the specification's `content/` directory, and has 166 YAML files
+  holding 284 GDRs.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

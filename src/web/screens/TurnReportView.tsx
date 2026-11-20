@@ -10,7 +10,7 @@ import type {
   MissionSiteView,
   TurnReport,
 } from '../../engine/index.ts';
-import { combatLogRow, finalCondition } from '../combat-log.ts';
+import { armorText, combatLogRow, finalCondition } from '../combat-log.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
 import { progressGain, progressPoints, wholeText } from '../format.ts';
@@ -357,6 +357,7 @@ const PARTICIPANT_WIDTHS = [
   '92px',
   '104px',
   '120px',
+  '72px',
   '104px',
   '72px',
   '64px',
@@ -414,6 +415,7 @@ function CombatReportDetails(props: {
               <th className="num">Base skill</th>
               <th className="num">Eff. skill</th>
               <th className="num">Health</th>
+              <th className="num">Armor</th>
               <th className="num">Exhaustion</th>
               <th className="num">Damage</th>
               <th className="num">Dealt</th>
@@ -458,6 +460,9 @@ function CombatReportDetails(props: {
                         wholeText(who.final.currentHealthHundredths)
                       )}
                       /{who.start.maxHealth}
+                    </td>
+                    <td className="num" data-testid={`armor-${who.id}`}>
+                      {armorText(who)}
                     </td>
                     <td className="num">
                       {who.start.exhaustion} →{' '}

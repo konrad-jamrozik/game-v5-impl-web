@@ -4,7 +4,7 @@
  * receives only the values it needs; see DEC-003.
  */
 import { EngineDefect, fromHundredths, roundDown, roundUp, type Rational } from '../../../kernel/index.ts';
-import type { AgentArchetypeGdr, AgentParametersGdr, WeaponGdr } from '../../../gdr/index.ts';
+import type { AgentArchetypeGdr, AgentParametersGdr, ArmorGdr, WeaponGdr } from '../../../gdr/index.ts';
 import type { Agent, AgentState, Assignment } from '../../state/types.ts';
 
 /**
@@ -21,12 +21,14 @@ export interface CombatantValues {
 }
 
 /**
- * ECON, Upgrade bonus: what the Agency's acquired Upgrades add to the max health and to the weapon damage of every
- * Serving Agent; see AGENT, Effective max health and current health, and Effective weapon damage.
+ * ECON, Upgrade bonus: what the Agency's acquired Upgrades add to the max health, to the weapon damage, and to the
+ * armor of every Serving Agent; see AGENT, Effective max health and current health, Effective weapon damage, and
+ * Effective armor.
  */
 export interface AgentUpgradeBonus {
   readonly maxHealth: number;
   readonly weaponDamage: number;
+  readonly armor: number;
 }
 
 /**
@@ -59,6 +61,17 @@ export function effectiveWeaponDamage(
   return agent.finalWeaponDamage ?? agent.baseWeaponDamage + bonus.weaponDamage;
 }
 
+/**
+ * AGENT, Effective armor, and ECON, Armor Upgrade: an Agent's is its Final armor when it is Terminated, and otherwise
+ * its base armor plus the Upgrade bonus of agent_armor. Effective skill never reads it.
+ */
+export function effectiveArmor(
+  agent: Pick<AgentState, 'baseArmor' | 'finalArmor'>,
+  bonus: AgentUpgradeBonus,
+): number {
+  return agent.finalArmor ?? agent.baseArmor + bonus.armor;
+}
+
 /** The values of an Agent as CombatantValues. */
 export function agentCombatantValues(agent: AgentState, bonus: AgentUpgradeBonus): CombatantValues {
   return {
@@ -83,7 +96,7 @@ export function setAgentCurrentHealth(
 
 /**
  * AGENT, Service record: an Agent that becomes Terminated loses its Assignment and records Turn terminated, and its
- * Final max health and Final weapon damage from the World state before it became Terminated.
+ * Final max health, Final weapon damage, and Final armor from the World state before it became Terminated.
  */
 export function terminateAgent(
   agent: AgentState,
@@ -93,6 +106,7 @@ export function terminateAgent(
 ): void {
   agent.finalMaxHealth = effectiveMaxHealth(agent, bonus);
   agent.finalWeaponDamage = effectiveWeaponDamage(agent, bonus);
+  agent.finalArmor = effectiveArmor(agent, bonus);
   agent.status = status;
   agent.assignment = null;
   agent.turnTerminated = turn;
@@ -285,6 +299,7 @@ export function createAgent(input: {
   initialRoster: boolean;
   archetype: AgentArchetypeGdr;
   weapon: WeaponGdr;
+  armor: ArmorGdr;
 }): Agent {
   // No Upgrade changes an initial value: a new Agent has no health lost, and its effective values follow the Upgrade
   // bonus like every other Serving Agent's.
@@ -300,6 +315,8 @@ export function createAgent(input: {
       exactExhaustionHundredths: 0,
       weapon: input.weapon.id,
       baseWeaponDamage: input.weapon.damage,
+      armor: input.armor.id,
+      baseArmor: input.armor.armor,
       assignment: { kind: 'Standby' },
       status: input.initialRoster ? 'AtAssignment' : 'InTransit',
       participationHistory: [],
@@ -308,6 +325,7 @@ export function createAgent(input: {
       killedBy: null,
       finalMaxHealth: null,
       finalWeaponDamage: null,
+      finalArmor: null,
     },
   };
 }

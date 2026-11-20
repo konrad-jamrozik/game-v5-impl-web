@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vite-plus/test';
 import type { CombatReport } from '../../src/engine/index.ts';
-import { combatLogRow } from '../../src/web/combat-log.ts';
+import { armorText, combatLogRow } from '../../src/web/combat-log.ts';
 
 type Attack = CombatReport['log'][number];
 
@@ -16,9 +16,10 @@ function attack(attacker: string, hit: boolean, extra: Partial<Attack> = {}): At
     hitProbability: { n: 10000, d: 11600 },
     hit,
     damage: hit ? 14 : null,
+    armorRemoved: 0,
     healthRemovedHundredths: hit ? 1400 : 0,
     attackerAfter: { currentHealthHundredths: 3000, exhaustion: 1 },
-    defenderAfter: { currentHealthHundredths: 600, exhaustion: 0 },
+    defenderAfter: { currentHealthHundredths: 600, exhaustion: 0, currentArmor: 0 },
     defenderDead: false,
     defenderIncapacitated: false,
     attackerIncapacitated: false,
@@ -52,12 +53,38 @@ describe('TRVIEW: Combat log colours', () => {
   it('names a participant made dead or Incapacitated with its own decisive word', () => {
     const dead = attack('agent-1', true, {
       defenderDead: true,
-      defenderAfter: { currentHealthHundredths: 0, exhaustion: 0 },
+      defenderAfter: { currentHealthHundredths: 0, exhaustion: 0, currentArmor: 0 },
     });
     expect(combatLogRow(dead, sideOf)).toMatchObject({ outcome: 'hit for 14, health 0', decisive: 'dead' });
     expect(combatLogRow(attack('agent-1', true, { defenderIncapacitated: true }), sideOf)).toMatchObject({
       decisive: 'incapacitated',
     });
+  });
+
+  it('names the armor absorbed and the armor left when the defender had current armor', () => {
+    const through = attack('enemy-1', true, {
+      damage: 15,
+      armorRemoved: 8,
+      healthRemovedHundredths: 700,
+      defenderAfter: { currentHealthHundredths: 2300, exhaustion: 1, currentArmor: 0 },
+    });
+    expect(combatLogRow(through, sideOf).outcome).toBe('hit for 15, 8 absorbed, armor 0, health 23');
+    const absorbed = attack('enemy-1', true, {
+      damage: 7,
+      armorRemoved: 7,
+      healthRemovedHundredths: 0,
+      defenderAfter: { currentHealthHundredths: 3000, exhaustion: 1, currentArmor: 18 },
+    });
+    expect(combatLogRow(absorbed, sideOf).outcome).toBe('hit for 7, 7 absorbed, armor 18, health 30');
+  });
+
+  it('shows each participant armor at start and at end, and 0 alone without armor', () => {
+    expect(
+      armorText({ start: { armor: 3 }, final: { currentArmor: 0 } } as Parameters<typeof armorText>[0]),
+    ).toBe('3 → 0');
+    expect(
+      armorText({ start: { armor: 0 }, final: { currentArmor: 0 } } as Parameters<typeof armorText>[0]),
+    ).toBe('0');
   });
 
   it('defines the Agent attack tint and the Enemy attack tint at 7% opacity', () => {

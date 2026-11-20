@@ -8,6 +8,8 @@ export interface AgentArchetypeGdr {
   readonly skill: number;
   readonly baseHealth: number;
   readonly weapon: string;
+  /** A reference to the Armor GDR a newly created Agent is equipped with. */
+  readonly armor: string;
 }
 
 export interface AgentParametersGdr {
@@ -44,6 +46,15 @@ export interface WeaponGdr {
   readonly damage: number;
 }
 
+/** COMBAT, Armor: the base armor of the Combatants equipped with it. */
+export interface ArmorGdr {
+  readonly type: 'Armor';
+  readonly id: string;
+  readonly name: string;
+  /** `base_armor`: a whole number of at least 0. */
+  readonly armor: number;
+}
+
 export interface EnemyArchetypeGdr {
   readonly type: 'EnemyArchetype';
   readonly id: string;
@@ -51,6 +62,7 @@ export interface EnemyArchetypeGdr {
   readonly skill: number;
   readonly baseHealth: number;
   readonly weapon: string;
+  readonly armor: string;
 }
 
 /** Each value is a ratio read as the exact decimal number it is written as. */
@@ -92,6 +104,7 @@ export type UpgradeEffect =
   | 'training_cap'
   | 'agent_weapon_damage'
   | 'agent_max_health'
+  | 'agent_armor'
   | 'training_skill_gain'
   | 'exhaustion_recovery'
   | 'health_recovery';
@@ -314,6 +327,7 @@ export type AnyGdr =
   | AgentArchetypeGdr
   | AgentParametersGdr
   | WeaponGdr
+  | ArmorGdr
   | EnemyArchetypeGdr
   | CombatParametersGdr
   | RecoveryParametersGdr
@@ -372,6 +386,7 @@ export interface GdrCatalog {
   readonly endingParameters: EndingParametersGdr;
   readonly configurationParameters: ConfigurationParametersGdr;
   readonly weapons: ReadonlyMap<string, WeaponGdr>;
+  readonly armors: ReadonlyMap<string, ArmorGdr>;
   readonly enemyArchetypes: ReadonlyMap<string, EnemyArchetypeGdr>;
   readonly upgrades: readonly UpgradeGdr[];
   readonly campaignConfigurations: readonly CampaignConfigurationGdr[];

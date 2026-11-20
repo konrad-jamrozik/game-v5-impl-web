@@ -7,7 +7,7 @@ import {
   turnReportView,
 } from '../../src/engine/views/views.ts';
 import { completionEstimate, progressCircle } from '../../src/web/completion.ts';
-import { situationGroups } from '../../src/web/situation.ts';
+import { leadDiscoveryTurns, situationGroups } from '../../src/web/situation.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/web/turn-summary.ts';
 import { act, advance, agentIds, gdrs, newCampaign, tweak, withAgents } from '../helpers/game.ts';
 
@@ -28,7 +28,7 @@ describe('GUI: Situation panel', () => {
     const state = withAgents(newCampaign(), 4);
     const view = currentLiveWorldStateView(state, gdrs);
     const groups = situationGroups(view, currentRetiredWorldStateView(state, gdrs).leads);
-    expect(groups.map((group) => group.id)).toEqual(['leads', 'agents']);
+    expect(groups.map((group) => group.id)).toEqual(['agents', 'leads']);
     const leads = groups.find((group) => group.id === 'leads');
     expect(leads?.id === 'leads' && leads.rows.map((lead) => lead.id)).toContain(MEMBER);
     // SITP, Groups: the Agents line counts the Agents on Standby and the free Training places; the group counts
@@ -50,7 +50,8 @@ describe('GUI: Situation panel', () => {
       currentLiveWorldStateView(state, gdrs),
       currentRetiredWorldStateView(state, gdrs).leads,
     );
-    const active = groups[0]!;
+    expect(groups.map((group) => group.id).slice(0, 2)).toEqual(['agents', 'investigations']);
+    const active = groups[1]!;
     expect(active.id).toBe('investigations');
     if (active.id !== 'investigations') {
       return;
@@ -60,6 +61,33 @@ describe('GUI: Situation panel', () => {
     expect(active.rows[0]!.estimate.text).toMatch(/^ETA /);
     const leads = groups.find((group) => group.id === 'leads');
     expect(leads?.id === 'leads' && leads.rows.some((lead) => lead.id === MEMBER)).toBe(false);
+  });
+
+  it('shows at most four Leads, newest first, and a line for the Leads it does not show', () => {
+    const view = currentLiveWorldStateView(withAgents(newCampaign(), 4), gdrs);
+    const lead = (id: string) => ({
+      ...currentRetiredWorldStateView(newCampaign(), gdrs).leads[0]!,
+      id,
+      name: id,
+      status: 'Available' as const,
+    });
+    // l1 and l2 at campaign creation, l3 and l4 in Turn 2, l5 in Turn 5, in the authored order l1 to l5.
+    const all = ['l1', 'l2', 'l3', 'l4', 'l5'].map(lead);
+    const turns = leadDiscoveryTurns({
+      entries: [
+        { turn: 2, report: { discoveredLeads: ['l3', 'l4'] } },
+        { turn: 5, report: { discoveredLeads: ['l5'] } },
+      ],
+    } as unknown as Parameters<typeof leadDiscoveryTurns>[0]);
+    const leadsOf = (leads: typeof all) =>
+      situationGroups(view, leads, turns).find((group) => group.id === 'leads');
+    // SITP, Leads shown: more than four Leads show the three newest and a line for the other two.
+    expect(leadsOf(all)).toMatchObject({ count: 5, more: 2 });
+    expect(leadsOf(all)?.rows.map((item) => item.id)).toEqual(['l5', 'l3', 'l4']);
+    // Four or fewer Leads show each of them, in that order.
+    const four = leadsOf(all.slice(0, 4));
+    expect(four).toMatchObject({ count: 4, more: 0 });
+    expect(four?.rows.map((item) => item.id)).toEqual(['l3', 'l4', 'l1', 'l2']);
   });
 
   it('is empty, i.e. says that nothing needs attention, when every group is left out', () => {

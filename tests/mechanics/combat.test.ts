@@ -59,6 +59,8 @@ describe('COMBAT: examples', () => {
         maxHealth: health,
         exactExhaustionHundredths: 0,
         weaponDamage: damage,
+        // BOOT, Combat GDRs: every EnemyArchetype wears `no_armor`.
+        armor: 0,
       });
       expect(effectiveSkill(enemy, gdrs.agentParameters)).toBe(skill);
     }
@@ -99,6 +101,7 @@ describe('COMBAT: examples', () => {
               maxHealth: 30,
               exactExhaustionHundredths: 0,
               weaponDamage: 10,
+              armor: 0,
             },
           },
         ],
@@ -335,6 +338,7 @@ describe('COMBAT: examples', () => {
     ]);
     expect(participant(report, 'a1').final).toEqual({
       currentHealthHundredths: 2300,
+      currentArmor: 0,
       exhaustion: 4,
       effectiveSkill: 76,
       condition: 'ableToFight',
@@ -461,6 +465,7 @@ describe('COMBAT: examples', () => {
         maxHealth: 20,
         exactExhaustionHundredths: 0,
         weaponDamage: 10,
+        armor: 0,
       },
     };
     const incapacitatedEnemy = fight([combatAgent('a1')], [zeroSkill], {});
@@ -514,6 +519,73 @@ describe('COMBAT: examples', () => {
     expect(soldier.rounds).toBe(41);
     expect(soldier.ratings[40]).toMatchObject({ agents: 50 });
     expect(soldier.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 57 });
+  });
+
+  it('Effects of an attack: current armor absorbs hits before current health, and only within its Combat', () => {
+    // The example of the specification: current health 30 and current armor 25, hit for 7, 10, 15, and 4. A
+    // `weapon_damage_range` of 1 lets a weapon damage of 10 roll each of them.
+    const catalog = catalogWith((raw) => (raw.get('combat_parameters')['weapon_damage_range'] = 1));
+    const enemy: Combatant = {
+      id: 'e1',
+      state: {
+        skillHundredths: 10000,
+        currentHealthHundredths: 10000,
+        maxHealth: 100,
+        exactExhaustionHundredths: 0,
+        weaponDamage: 10,
+        armor: 0,
+      },
+    };
+    const inputs = {
+      agents: [combatAgent('a1', { armor: 25 })],
+      enemies: [enemy],
+      combat: catalog.combatParameters,
+      agentParameters: catalog.agentParameters,
+    };
+    const injected: Injected = {
+      'combat.hit.a1': misses(200),
+      'combat.hit.e1': [true, true, true, true, ...misses(200)],
+      'combat.damage.e1': [7, 10, 15, 4],
+    };
+    const outputs = fightCombat(inputs, injectedRandom(injected));
+    const hits = outputs.report.log.filter((item) => item.attacker === 'e1' && item.hit);
+    expect(
+      hits.map((item) => [
+        item.damage,
+        item.armorRemoved,
+        item.healthRemovedHundredths / 100,
+        item.defenderAfter.currentHealthHundredths / 100,
+        item.defenderAfter.currentArmor,
+      ]),
+    ).toEqual([
+      [7, 7, 0, 30, 18],
+      [10, 10, 0, 30, 8],
+      [15, 8, 7, 23, 0],
+      [4, 0, 4, 19, 0],
+    ]);
+    // A hit its current armor absorbs whole changes the defender's effective skill only through exhaustion.
+    expect(hits.slice(0, 3).map((item) => item.d)).toEqual([100, 100, 100]);
+    const a1 = outputs.report.participants.find((item) => item.id === 'a1')!;
+    expect(a1.start).toMatchObject({ armor: 25, currentHealthHundredths: 3000 });
+    expect(a1.final.currentArmor).toBe(0);
+    // Damage taken counts no armor removed.
+    expect(a1.damageTakenHundredths).toBe(1100);
+    // The current armor is a Combat-only property: the final values a Combat returns keep the effective armor.
+    expect(outputs.agents[0]!.armor).toBe(25);
+    expect(inputs.agents[0]!.state.armor).toBe(25);
+  });
+
+  it('No armor: every hit removes current health as if armor did not exist', () => {
+    const report = fight([combatAgent('a1')], [combatEnemy('e1', 'initiate')], {
+      'combat.hit.a1': misses(200),
+      'combat.hit.e1': [true, ...misses(200)],
+      'combat.damage.e1': [8],
+    });
+    const hit = report.log.find((item) => item.attacker === 'e1')!;
+    expect([hit.armorRemoved, hit.healthRemovedHundredths, hit.defenderAfter.currentArmor]).toEqual([
+      0, 800, 0,
+    ]);
+    expect(participant(report, 'e1').start.armor).toBe(0);
   });
 
   it('Combat ratings of Mission sites', () => {
@@ -570,6 +642,13 @@ describe('COMBAT: examples', () => {
       raw.get('agent_parameters')['exhaustion_per_defense'] = 0;
     });
     expectDefective((raw) => (raw.get('sidearm')['base_weapon_damage'] = 0));
+    // COMBAT, Combat GDR validation, rules 2, 3, and 8, for Armor.
+    expectDefective((raw) => (raw.get('no_armor')['base_armor'] = -1));
+    expectDefective((raw) => (raw.get('no_armor')['base_armor'] = 0.5));
+    expectDefective((raw) => (raw.get('initiate')['armor'] = 'plate'));
+    expectDefective((raw) => delete raw.get('initiate')['armor']);
+    expectDefective((raw) => (raw.get('field_agent')['armor'] = 'plate'));
+    expectDefective((raw) => (raw.get('service_armor')['weight'] = 1));
     expectDefective((raw) => (raw.get('combat_parameters')['weapon_damage_range'] = { $decimal: '1.5' }));
     expectDefective((raw) => (raw.get('sidearm')['range'] = 3));
     expectDefective((raw) => (raw.get('cult_leader')['weapon'] = 'laser'));

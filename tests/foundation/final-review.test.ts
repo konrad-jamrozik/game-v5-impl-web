@@ -134,26 +134,27 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('BOOT: the Bootstrap GDRs', () => {
-  it('supplies 279 GDRs, and a Victory path through the Leads of every Faction to Peace on Earth', () => {
-    // BOOT, GDR files: 22 files that each hold every GDR of one Type, and one file for each of the 141 Compendium
+  it('supplies 284 GDRs, and a Victory path through the Leads of every Faction to Peace on Earth', () => {
+    // BOOT, GDR files: 23 files that each hold every GDR of one Type, and one file for each of the 143 Compendium
     // articles in the one directory that holds one file per GDR.
     const articleFiles = RAW_GDR_FILES.filter((file) =>
       file.path.startsWith('compendium/compendium_articles/'),
     );
-    expect(articleFiles).toHaveLength(141);
-    expect(RAW_GDR_FILES).toHaveLength(22 + 141);
-    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(279);
+    expect(articleFiles).toHaveLength(143);
+    expect(RAW_GDR_FILES).toHaveLength(23 + 143);
+    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(284);
     const catalog = bootstrapGdrCatalog();
     // BOOT, Bootstrap scope: the counts of the GDRs that grew.
     expect([
       catalog.enemyArchetypes.size,
       catalog.weapons.size,
+      catalog.armors.size,
       catalog.leads.length,
       catalog.missionSiteArchetypes.filter((site) => site.kind === 'initiative').length,
       catalog.missionSiteArchetypes.filter((site) => site.kind === 'response').length,
       catalog.factionActivityLevels.size,
       catalog.factionOperationLevels.length,
-    ]).toEqual([9, 8, 56, 8, 16, 8, 6]);
+    ]).toEqual([9, 9, 2, 56, 8, 16, 8, 6]);
     expect(catalog.factionArchetypes.map((faction) => [faction.id, faction.initialActivityLevel])).toEqual([
       ['red_dawn', 'faint'],
       ['exalt', 'dormant'],

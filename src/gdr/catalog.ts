@@ -210,6 +210,7 @@ const schemas = {
       base_skill: whole(0),
       base_health: whole(1),
       weapon: id,
+      armor: id,
     })
     .transform((g) => ({
       type: g.type,
@@ -218,6 +219,7 @@ const schemas = {
       skill: g.base_skill,
       baseHealth: g.base_health,
       weapon: g.weapon,
+      armor: g.armor,
     })),
   AgentParameters: z
     .strictObject({
@@ -262,6 +264,10 @@ const schemas = {
   Weapon: z
     .strictObject({ id, type: z.literal('Weapon'), name, base_weapon_damage: whole(1) })
     .transform((g) => ({ type: g.type, id: g.id, name: g.name, damage: g.base_weapon_damage })),
+  // COMBAT, Combat GDR validation, rules 3 and 8: base_armor is a whole number of at least 0.
+  Armor: z
+    .strictObject({ id, type: z.literal('Armor'), name, base_armor: whole(0) })
+    .transform((g) => ({ type: g.type, id: g.id, name: g.name, armor: g.base_armor })),
   EnemyArchetype: z
     .strictObject({
       id,
@@ -270,6 +276,7 @@ const schemas = {
       base_skill: whole(0),
       base_health: whole(1),
       weapon: id,
+      armor: id,
     })
     .transform((g) => ({
       type: g.type,
@@ -278,6 +285,7 @@ const schemas = {
       skill: g.base_skill,
       baseHealth: g.base_health,
       weapon: g.weapon,
+      armor: g.armor,
     })),
   CombatParameters: z
     .strictObject({
@@ -342,6 +350,7 @@ const schemas = {
         'training_cap',
         'agent_weapon_damage',
         'agent_max_health',
+        'agent_armor',
         'training_skill_gain',
         'exhaustion_recovery',
         'health_recovery',
@@ -839,6 +848,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const music = single<GdrCatalog['music']>('MusicParameters');
 
   const weapons = mapOf<ReturnType<GdrCatalog['weapons']['get']> & AnyGdr>('Weapon');
+  const armors = mapOf<ReturnType<GdrCatalog['armors']['get']> & AnyGdr>('Armor');
   const enemyArchetypes = mapOf<ReturnType<GdrCatalog['enemyArchetypes']['get']> & AnyGdr>('EnemyArchetype');
   const upgrades = all<GdrCatalog['upgrades'][number]>('Upgrade');
   const campaignConfigurations = all<GdrCatalog['campaignConfigurations'][number]>('CampaignConfiguration');
@@ -870,9 +880,15 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   if (agentArchetype && !weapons.has(agentArchetype.weapon)) {
     problems.push(`AgentArchetype ${agentArchetype.id}: weapon ${agentArchetype.weapon} is not a Weapon GDR`);
   }
+  if (agentArchetype && !armors.has(agentArchetype.armor)) {
+    problems.push(`AgentArchetype ${agentArchetype.id}: armor ${agentArchetype.armor} is not an Armor GDR`);
+  }
   for (const enemy of enemyArchetypes.values()) {
     if (!weapons.has(enemy.weapon)) {
       problems.push(`EnemyArchetype ${enemy.id}: weapon ${enemy.weapon} is not a Weapon GDR`);
+    }
+    if (!armors.has(enemy.armor)) {
+      problems.push(`EnemyArchetype ${enemy.id}: armor ${enemy.armor} is not an Armor GDR`);
     }
   }
   if (combatParameters) {
@@ -1033,6 +1049,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     endingParameters,
     configurationParameters,
     weapons,
+    armors,
     enemyArchetypes,
     upgrades,
     campaignConfigurations,

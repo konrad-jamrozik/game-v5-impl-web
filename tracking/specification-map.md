@@ -660,6 +660,7 @@ No files.
 - src/web/completion.ts
 - tests/web/situation-and-summary.test.ts
 - e2e/web.spec.ts
+- src/web/screens/Campaign.tsx
 
 ## SOUNDS: Sounds
 
@@ -760,6 +761,9 @@ No files.
 - tests/web/tally.test.ts
 - e2e/web.spec.ts
 - src/web/styles.css
+- src/engine/views/views.ts
+- src/engine/player-api.ts
+- tests/mechanics/economy.test.ts
 
 ## VIS: Visual Design
 

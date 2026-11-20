@@ -201,6 +201,7 @@ function addAgent(world: CurrentWorldState, gdrs: GdrCatalog): void {
     initialRoster: false,
     archetype: gdrs.agentArchetype,
     weapon: must(gdrs.weapons.get(gdrs.agentArchetype.weapon), 'Weapon of the AgentArchetype'),
+    armor: must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype'),
   });
   world.agents[agent.id] = agent;
 }
@@ -301,8 +302,8 @@ function dismissAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): 
   }
   const bonus = bonusOf(world, gdrs);
   for (const agent of agents) {
-    // AGENT, Service record: Turn terminated is the Turn in which dismissAgents dismissed it, and the Final max health
-    // and Final weapon damage are its effective values before it.
+    // AGENT, Service record: Turn terminated is the Turn in which dismissAgents dismissed it, and the Final max health,
+    // Final weapon damage, and Final armor are its effective values before it.
     terminateAgent(agent.state, 'Dismissed', world.turn, bonus);
   }
   return null;
@@ -322,8 +323,8 @@ function purchaseUpgrade(world: CurrentWorldState, args: Args, gdrs: GdrCatalog)
   }
   world.agency.state.money -= upgrade.price;
   world.agency.state.acquisitions[upgrade.id] = (world.agency.state.acquisitions[upgrade.id] ?? 0) + 1;
-  // No Upgrade changes a stored value beyond the Acquisitions: the Weapon damage and Max health Upgrades raise the
-  // Derived effective values of every Serving Agent; see ECON, Upgrade effects, and AGENT, Modifiable values.
+  // No Upgrade changes a stored value beyond the Acquisitions: the Weapon damage, Max health, and Armor Upgrades raise
+  // the Derived effective values of every Serving Agent; see ECON, Upgrade effects, and AGENT, Modifiable values.
   return null;
 }
 

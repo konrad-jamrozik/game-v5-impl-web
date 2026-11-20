@@ -132,6 +132,7 @@ describe('COMPV: Panes', () => {
     expect(categoryOf(subject('agency', 'The Agency', 'AgencyArchetype'))).toBe('Other');
     expect(categoryOf(subject('field_agent', 'Field agent', 'AgentArchetype'))).toBe('Agents');
     expect(categoryOf(subject('agent_cap', 'Agent cap', 'Upgrade'))).toBe('Upgrades');
+    expect(categoryOf(subject('service_armor', 'Service armor', 'Armor'))).toBe('Armor');
     expect(categoryOf(subject('lead', 'A lead', 'Lead'))).toBe('Leads');
   });
 
@@ -236,15 +237,23 @@ describe('COMPV: Subject data sheets', () => {
     const state = newCampaign();
     const agent = gdrs.agentArchetype;
     const weapon = gdrs.weapons.get(agent.weapon)!;
+    const armor = gdrs.armors.get(agent.armor)!;
     const sheet = sheetOf(state, agent.id);
     expect(sheet?.heading).toBe('New Agent');
     expect(rowsOf(sheet)).toEqual({
       Skill: String(agent.skill),
       Health: String(agent.baseHealth),
       Weapon: `[${weapon.name}] · damage ${weapon.damage}`,
+      // E.g. "Service armor · armor 0", linked to the Subject article about the Armor.
+      Armor: `[${armor.name}] · armor ${armor.armor}`,
     });
     // Labels: a label is an Article link to the article that the Article term lookup reports for its text.
-    expect(sheet?.rows.map((row) => row.labelArticle)).toEqual(['mechanics_skill', 'mechanics_health', null]);
+    expect(sheet?.rows.map((row) => row.labelArticle)).toEqual([
+      'mechanics_skill',
+      'mechanics_health',
+      null,
+      'mechanics_damage',
+    ]);
     // Numbers are in the Figure style.
     expect(sheet?.rows[0]?.value).toEqual([{ text: String(agent.skill), style: 'figure' }]);
   });
@@ -262,6 +271,8 @@ describe('COMPV: Subject data sheets', () => {
       Skill: String(soldier.skill),
       Health: String(soldier.baseHealth),
       Weapon: `[${weapon.name}] · damage ${weapon.damage}`,
+      // `no_armor` has no Subject article, so "None" is not a link.
+      Armor: 'None · armor 0',
     });
     const holding = gdrs.missionSiteArchetypes.filter((site) =>
       site.enemies.some(([enemy]) => enemy === 'soldier'),
@@ -293,6 +304,16 @@ describe('COMPV: Subject data sheets', () => {
     expect(rows['Carried by']).toContain(`[${gdrs.agentArchetype.name}]`);
   });
 
+  it('Armor data sheet: its armor and who wears it', () => {
+    const armor = gdrs.armors.get(gdrs.agentArchetype.armor)!;
+    const sheet = sheetOf(newCampaign(), armor.id);
+    expect(sheet?.heading).toBe('Armor');
+    expect(rowsOf(sheet)).toEqual({
+      Armor: String(armor.armor),
+      'Worn by': `[${gdrs.agentArchetype.name}]`,
+    });
+  });
+
   it('Upgrade data sheet: the price and what one acquisition adds, worded by its effect', () => {
     const state = newCampaign();
     const each = (id: string) => rowsOf(sheetOf(state, id))['Each purchase'];
@@ -303,7 +324,7 @@ describe('COMPV: Subject data sheets', () => {
     expect(each('transport_cap')).toMatch(/^\+\d+ to the Transport cap$/);
     expect(each('training_cap')).toMatch(/^\+\d+ to the Training cap$/);
     expect(each('weapon_damage')).toMatch(/^\+\d+ weapon damage for every Agent$/);
-    expect(each('max_health')).toMatch(/^\+\d+ max health for every Agent$/);
+    expect(each('armor')).toMatch(/^\+\d+ armor for every Agent$/);
     // GUI, Decimal quantities shown: the Increment of a Rate Upgrade is shown with two decimals.
     expect(each('training_skill_gain')).toMatch(/^\+\d+\.\d\d skill for each turn of Training$/);
     expect(each('exhaustion_recovery')).toMatch(/^\+\d+\.\d\d exhaustion recovered each turn$/);

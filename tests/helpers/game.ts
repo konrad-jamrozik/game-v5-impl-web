@@ -6,6 +6,7 @@ import {
   agentCombatantValues,
   agentCurrentHealthHundredths,
   effectiveMaxHealth,
+  effectiveArmor,
   effectiveWeaponDamage,
   exhaustionOf,
   setAgentCurrentHealth,
@@ -157,7 +158,7 @@ export const LEGACY_FILES: readonly RawGdrFile[] = (() => {
       delete gdr['visible_when'];
     }
   }
-  // `initiate` carries the Agents' Weapon.
+  // `initiate` carries `sidearm`, whose base weapon damage equals that of the Agents' Service weapon.
   byId('/enemy_archetypes.yaml', 'initiate')['weapon'] = 'sidearm';
   // Compendium articles about, or naming, a GDR left out are left out.
   const kept = new Set(files.flatMap((file) => file.gdrs.map((gdr) => gdr['id'])));
@@ -511,6 +512,7 @@ export function addMissionSite(
       turn: Math.max(1, world.turn - 1),
       enemyArchetypes: catalog.enemyArchetypes,
       weapons: catalog.weapons,
+      armors: catalog.armors,
     });
     site.state.turnsUntilExpiration = options.turnsUntilExpiration ?? archetype.expiresInTurns;
     world.missionSites[site.id] = site;
@@ -581,21 +583,26 @@ export function losing(state: CampaignState, site: string): Injected {
   return { ...allMiss(Object.keys(world.agents)), ...hitHardest(state, enemies) };
 }
 
-/** The Upgrade bonus of a Campaign without any Max health or Weapon damage Upgrade, or with the given ones. */
-export function bonusOf(maxHealth = 0, weaponDamage = 0): AgentUpgradeBonus {
-  return { maxHealth, weaponDamage };
+/** The Upgrade bonus of a Campaign without any Max health, Weapon damage, or Armor Upgrade, or with the given ones. */
+export function bonusOf(maxHealth = 0, weaponDamage = 0, armor = 0): AgentUpgradeBonus {
+  return { maxHealth, weaponDamage, armor };
 }
 
-/** An Agent's effective weapon damage and effective max health in a Campaign state, with its Upgrade bonus. */
+/**
+ * An Agent's effective weapon damage, effective max health, and effective armor in a Campaign state, with its Upgrade
+ * bonus.
+ */
 export function effectiveValuesOf(
   state: CampaignState,
   id: string,
-): { weaponDamage: number; maxHealth: number; currentHealth: number } {
+  catalog: GdrCatalog = gdrs,
+): { weaponDamage: number; maxHealth: number; currentHealth: number; armor: number } {
   const world = state.world.current;
-  const bonus = agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
+  const bonus = agentUpgradeBonus(catalog.upgrades, world.agency.state.acquisitions);
   const found = agent(state, id).state;
   return {
     weaponDamage: effectiveWeaponDamage(found, bonus),
+    armor: effectiveArmor(found, bonus),
     maxHealth: effectiveMaxHealth(found, bonus),
     currentHealth: agentCurrentHealthHundredths(found, bonus) / 100,
   };
@@ -643,9 +650,15 @@ export function units<S extends { skillHundredths: number; exactExhaustionHundre
  */
 export function combatAgent(
   id: string,
-  values: Partial<{ skill: number; currentHealth: number; exhaustion: number; weaponDamage: number }> = {},
+  values: Partial<{
+    skill: number;
+    currentHealth: number;
+    exhaustion: number;
+    weaponDamage: number;
+    armor: number;
+  }> = {},
 ): Combatant {
-  const v = { skill: 100, currentHealth: 30, exhaustion: 0, weaponDamage: 10, ...values };
+  const v = { skill: 100, currentHealth: 30, exhaustion: 0, weaponDamage: 10, armor: 0, ...values };
   return {
     id,
     state: {
@@ -654,6 +667,7 @@ export function combatAgent(
       maxHealth: 30,
       exactExhaustionHundredths: Math.round(v.exhaustion * 100),
       weaponDamage: v.weaponDamage,
+      armor: v.armor,
     },
   };
 }
@@ -662,7 +676,8 @@ export function combatAgent(
 export function combatEnemy(id: string, archetypeId: string, catalog: GdrCatalog = gdrs): Combatant {
   const archetype = catalog.enemyArchetypes.get(archetypeId);
   const weapon = archetype ? catalog.weapons.get(archetype.weapon) : undefined;
-  if (!archetype || !weapon) {
+  const armor = archetype ? catalog.armors.get(archetype.armor) : undefined;
+  if (!archetype || !weapon || !armor) {
     throw new Error(`No EnemyArchetype ${archetypeId}`);
   }
   return {
@@ -673,6 +688,7 @@ export function combatEnemy(id: string, archetypeId: string, catalog: GdrCatalog
       maxHealth: archetype.baseHealth,
       exactExhaustionHundredths: 0,
       weaponDamage: weapon.damage,
+      armor: armor.armor,
     },
   };
 }

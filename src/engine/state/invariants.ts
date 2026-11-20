@@ -94,15 +94,21 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     if (!gdrs.weapons.has(s.weapon) || s.baseWeaponDamage < 1) {
       fail(`${where}: Weapon does not resolve or base weapon damage is below 1`);
     }
-    // AGENT, Service record: Final max health and Final weapon damage are present exactly when Terminated.
+    if (!gdrs.armors.has(s.armor) || !Number.isSafeInteger(s.baseArmor) || s.baseArmor < 0) {
+      fail(`${where}: Armor does not resolve or base armor is not a whole number of at least 0`);
+    }
+    // AGENT, Service record: Final max health, Final weapon damage, and Final armor are present exactly when
+    // Terminated.
     if (
       isServing(s) !== (s.finalMaxHealth === null) ||
       isServing(s) !== (s.finalWeaponDamage === null) ||
+      isServing(s) !== (s.finalArmor === null) ||
       (s.finalMaxHealth !== null && s.finalMaxHealth < s.baseHealth) ||
-      (s.finalWeaponDamage !== null && s.finalWeaponDamage < s.baseWeaponDamage)
+      (s.finalWeaponDamage !== null && s.finalWeaponDamage < s.baseWeaponDamage) ||
+      (s.finalArmor !== null && s.finalArmor < s.baseArmor)
     ) {
       fail(
-        `${where}: Final max health or Final weapon damage is not present exactly when the Agent is Terminated`,
+        `${where}: Final max health, Final weapon damage, or Final armor is not present exactly when the Agent is Terminated`,
       );
     }
     const maxHealth = effectiveMaxHealth(s, bonus);
@@ -292,6 +298,9 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
       !world.missionSites[enemy.constants.missionSite]?.state.enemies.includes(enemy.id) ||
       !gdrs.enemyArchetypes.has(enemy.archetype) ||
       !gdrs.weapons.has(s.weapon) ||
+      !gdrs.armors.has(s.armor) ||
+      !Number.isSafeInteger(s.baseArmor) ||
+      s.baseArmor < 0 ||
       s.skill < 0 ||
       s.baseHealth < 1 ||
       s.healthLost < 0 ||

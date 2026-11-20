@@ -1627,3 +1627,43 @@
 - **Why:** One query reports all that the Compendium View needs for one World state, and the Data sheets look up many
   terms per article.
 - **Links:** None
+
+## DEC-082: How Player API, the Combat report, and a Detached Combat carry armor
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** COMBAT, Combat report: "How the Turn report organizes its Combat reports is left to
+  the implementation"; "the armor removed, the health removed, the defender's current
+  armor after the attack"; COMBAT, Detached Combat: "effective armor, which is 0 when the entry leaves it out"; AGENT,
+  Player-visible information; UVIEW, Upgrade cards: "which is shown even while the Agency has no Serving Agent".
+- **Description:** A Combat report participant records its effective armor at Combat start as `start.armor` and its
+  current armor at Combat end as `final.currentArmor`; each attack records `armorRemoved` and
+  `defenderAfter.currentArmor`. An explicit entry of a Detached Combat gives its effective armor as `effectiveArmor`,
+  a whole number of at least 0, under Attribute ranges, which ties it to no base armor in an explicit entry; an entry
+  without it has armor 0. The AgentView reports `armor`, `armorName`, `baseArmor`, `effectiveArmor`, which is the
+  Final armor of a Terminated Agent, and `finalArmor`; the EnemyView reports `armor`, `armorName`, and `baseArmor`;
+  `getGameData()` reports every Armor GDR under `armors`, and the `armor` of the AgentArchetype and of each
+  EnemyArchetype. The AgencyView reports `agentArmor`, the effective armor every Serving Agent has, which the Armor
+  Upgrade card of the Upgrades View shows, so that the GUI computes no game value. The current armor a Combat keeps is
+  not written back to any Combatant, and the Combat's final values keep the effective armor it started with.
+- **Options considered:** Field names following the existing weapon fields; a separate armor section of the Combat
+  report.
+- **Option chosen:** Field names following the existing weapon fields.
+- **Why:** Armor sits beside weapon damage in every rule that names it, so the reader of a report or a view finds it
+  where the weapon values are.
+- **Links:** None
+
+## DEC-083: The Situation panel orders the Leads by the History entries that record their discovery
+
+- **Category:** Gap resolution
+- **Affected specifications:** SITP, Leads shown: "ordered from the newest to the oldest by the Turn in which each was
+  discovered, as the History entries record it"; "A Lead discovered at campaign creation is older than every Lead
+  discovered in a Turn".
+- **Description:** The GUI reads the Turn of each Lead's discovery from the `discoveredLeads` of the History entries
+  that `player.queries.getHistory()` returns, taking the `turn` of the entry that lists it. A Lead that no History
+  entry lists counts as discovered at campaign creation, older than every other, and Leads of one Turn keep the
+  authored order of the Lead GDRs. The line for the Leads not shown reads "N more leads".
+- **Options considered:** A discovery Turn on each LeadView; reading the History entries in the GUI.
+- **Option chosen:** Reading the History entries in the GUI.
+- **Why:** The History entries are Player-visible and already hold the discovery of every Lead discovered in a Turn,
+  which is where the specification says the order comes from, so no new Player API value is needed.
+- **Links:** PROB-053

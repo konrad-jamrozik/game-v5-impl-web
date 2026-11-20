@@ -2,6 +2,7 @@
 import { must, ratio, roundUp } from '../../../kernel/index.ts';
 import type {
   AgentParametersGdr,
+  ArmorGdr,
   EnemyArchetypeGdr,
   FactionOperationLevelGdr,
   MissionSiteArchetypeGdr,
@@ -46,6 +47,7 @@ export function createEnemy(
   missionSiteId: string,
   archetype: EnemyArchetypeGdr,
   weapon: WeaponGdr,
+  armor: ArmorGdr,
 ): Enemy {
   return {
     id,
@@ -58,6 +60,8 @@ export function createEnemy(
       exhaustion: 0,
       weapon: weapon.id,
       baseWeaponDamage: weapon.damage,
+      armor: armor.id,
+      baseArmor: armor.armor,
     },
   };
 }
@@ -74,14 +78,16 @@ export function createMissionSite(input: {
   turn: number;
   enemyArchetypes: ReadonlyMap<string, EnemyArchetypeGdr>;
   weapons: ReadonlyMap<string, WeaponGdr>;
+  armors: ReadonlyMap<string, ArmorGdr>;
 }): { site: MissionSite; enemies: Enemy[] } {
   const siteId = input.newId('mission-site');
   const enemies: Enemy[] = [];
   for (const [archetypeId, count] of input.archetype.enemies) {
     const archetype = must(input.enemyArchetypes.get(archetypeId), `EnemyArchetype ${archetypeId}`);
     const weapon = must(input.weapons.get(archetype.weapon), `Weapon ${archetype.weapon}`);
+    const armor = must(input.armors.get(archetype.armor), `Armor ${archetype.armor}`);
     for (let i = 0; i < count; i += 1) {
-      enemies.push(createEnemy(input.newId('enemy'), siteId, archetype, weapon));
+      enemies.push(createEnemy(input.newId('enemy'), siteId, archetype, weapon, armor));
     }
   }
   return {
