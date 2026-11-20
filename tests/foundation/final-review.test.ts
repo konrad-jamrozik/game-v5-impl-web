@@ -134,47 +134,86 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('BOOT: the Bootstrap GDRs', () => {
-  it('supplies 115 GDRs, and for each Faction a Victory path from its first Lead to its elimination', () => {
-    // BOOT, GDR files: 22 files that each hold every GDR of one Type, and one file for each of the 63 Compendium
+  it('supplies 279 GDRs, and a Victory path through the Leads of every Faction to Peace on Earth', () => {
+    // BOOT, GDR files: 22 files that each hold every GDR of one Type, and one file for each of the 141 Compendium
     // articles in the one directory that holds one file per GDR.
     const articleFiles = RAW_GDR_FILES.filter((file) =>
       file.path.startsWith('compendium/compendium_articles/'),
     );
-    expect(articleFiles).toHaveLength(63);
-    expect(RAW_GDR_FILES).toHaveLength(22 + 63);
-    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(115);
+    expect(articleFiles).toHaveLength(141);
+    expect(RAW_GDR_FILES).toHaveLength(22 + 141);
+    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(279);
     const catalog = bootstrapGdrCatalog();
-    const sites = catalog.missionSiteArchetypes;
-    expect(catalog.factionArchetypes.map((faction) => faction.id)).toEqual([
-      'red_dawn',
-      'exalt',
-      'black_lotus',
+    // BOOT, Bootstrap scope: the counts of the GDRs that grew.
+    expect([
+      catalog.enemyArchetypes.size,
+      catalog.weapons.size,
+      catalog.leads.length,
+      catalog.missionSiteArchetypes.filter((site) => site.kind === 'initiative').length,
+      catalog.missionSiteArchetypes.filter((site) => site.kind === 'response').length,
+      catalog.factionActivityLevels.size,
+      catalog.factionOperationLevels.length,
+    ]).toEqual([9, 8, 56, 8, 16, 8, 6]);
+    expect(catalog.factionArchetypes.map((faction) => [faction.id, faction.initialActivityLevel])).toEqual([
+      ['red_dawn', 'faint'],
+      ['exalt', 'dormant'],
+      ['black_lotus', 'dormant'],
     ]);
+    expect(catalog.factionActivityLevels.get('dormant')).toMatchObject({
+      operationEveryTurns: null,
+      operationLevelWeights: [],
+    });
+    const byId = (id: string) => catalog.leads.find((lead) => lead.id === id)!;
+    // The first Lead concerns no Faction and creates no Mission site; it is completed once.
+    expect(byId('criminal_organizations')).toMatchObject({
+      faction: null,
+      discoveredWhen: null,
+      investigateAgain: 'never',
+      onCompletion: { createMissionSite: null, eliminateFaction: false, winCampaign: false },
+    });
+    // Follow each Faction's chain from its first Lead: a locate Lead's Won Mission discovers the next Lead, and a Lead
+    // that creates no Mission site discovers the next one by its completion, up to the Terminate Lead.
+    const next = (lead: string, site: string | null) =>
+      catalog.leads.filter((item) => {
+        const condition = item.discoveredWhen;
+        return site === null
+          ? condition?.kind === 'lead_completed' && condition.lead === lead
+          : condition?.kind === 'mission_won' &&
+              condition.missionSiteArchetype === site &&
+              item.faction === byId(lead).faction;
+      });
     for (const faction of catalog.factionArchetypes) {
-      // BOOT, Victory path: a `mission_won` Condition of a Lead holds only for a Won Mission targeting its own Faction.
-      const leads = catalog.leads.filter((item) => item.faction === faction.id);
-      // Follow the Leads from one without `discovered_when` to one whose Mission site eliminates the Faction.
-      let lead = leads.find((item) => item.discoveredWhen === null);
-      const path: string[] = [];
-      while (lead !== undefined) {
-        const current = lead;
-        path.push(current.id);
-        const site = sites.find((item) => item.id === current.onCompletion.createMissionSite);
-        if (site?.onWin?.eliminateTargetFaction === true) {
-          break;
-        }
-        lead = leads.find(
-          (item) =>
-            item.discoveredWhen?.kind === 'mission_won' &&
-            item.discoveredWhen.missionSiteArchetype === current.onCompletion.createMissionSite,
-        );
+      let lead = byId(`locate_${faction.id}_member`);
+      expect(lead.discoveredWhen).toEqual({ kind: 'lead_completed', lead: 'criminal_organizations' });
+      const path: string[] = [lead.id];
+      while (!lead.onCompletion.eliminateFaction) {
+        const following = next(lead.id, lead.onCompletion.createMissionSite);
+        expect(following, `after ${lead.id}`).toHaveLength(1);
+        lead = following[0]!;
+        path.push(lead.id);
       }
-      expect(path).toEqual([
-        `locate_${faction.id}_member`,
-        `locate_${faction.id}_safehouse`,
-        `locate_${faction.id}_hq`,
-      ]);
-      expect(lead).toBeDefined();
+      expect(path).toHaveLength(18);
+      expect(path.filter((id) => byId(id).onCompletion.createMissionSite !== null)).toHaveLength(8);
+      expect(path.at(-1)).toBe(`terminate_${faction.id}`);
+      expect(path.every((id) => byId(id).faction === faction.id)).toBe(true);
+      // The locate Leads of tiers 1 to 7 can be completed again; the HQ Lead only until its Mission is Won.
+      expect(byId(`locate_${faction.id}_outpost`).investigateAgain).toBe('always');
+      expect(byId(`locate_${faction.id}_hq`).investigateAgain).toBe('until_mission_won');
+      expect(byId(`${faction.id}_profile`).investigateAgain).toBe('never');
     }
+    // Peace on Earth wins the Campaign once all three Terminate Leads are completed.
+    expect(byId('peace_on_earth')).toMatchObject({
+      faction: null,
+      discoveredWhen: {
+        kind: 'all',
+        conditions: catalog.factionArchetypes.map((faction) => ({
+          kind: 'lead_completed',
+          lead: `terminate_${faction.id}`,
+        })),
+      },
+      onCompletion: { createMissionSite: null, eliminateFaction: false, winCampaign: true },
+    });
+    // No Mission site eliminates a Faction.
+    expect(catalog.missionSiteArchetypes.some((site) => site.onWin.eliminateTargetFaction)).toBe(false);
   });
 });

@@ -31,7 +31,7 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
       turns += 1;
     }
     const state = ok(engine.player.queries.getCurrentState());
-    expect(state.ending).toMatchObject({ ending: 'Victory', reasons: ['EveryFactionEliminated'] });
+    expect(state.ending).toMatchObject({ ending: 'Victory', reasons: ['CampaignObjectiveAchieved'] });
     expect(state.factions.every((faction) => faction.eliminated)).toBe(true);
     expect(state.leads.every((lead) => lead.status === 'Archived' && lead.completionCount >= 1)).toBe(true);
     expect(ok(engine.session.getStatus())).toMatchObject({ devMode: false, campaignEnded: true });
@@ -60,19 +60,34 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
     });
   });
 
-  it('reaches Defeat by Panic at the limit when Mission sites are ignored', async () => {
+  it('reaches Defeat by an existential operation not stopped when Mission sites are ignored', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'panic' }));
     const agents = ok(engine.player.queries.getCurrentState()).agents.map((agent) => agent.id);
     ok(await engine.player.actions.assignAgents(agents, 'Contracting'));
     let turns = 0;
     while (ok(engine.player.queries.getCurrentState()).ending === null && turns < 2000) {
+      // Every rested Agent back on Standby returns to Contracting, so that money never runs out.
+      const rested = ok(engine.player.queries.getCurrentState())
+        .agents.filter(
+          (agent) => agent.assignment?.kind === 'Standby' && agent.canBeAssigned && agent.exhaustion === 0,
+        )
+        .map((agent) => agent.id);
+      if (rested.length > 0) {
+        ok(await engine.player.actions.assignAgents(rested, 'Contracting'));
+      }
       ok(await engine.player.actions.advanceTurn());
       turns += 1;
     }
     const state = ok(engine.player.queries.getCurrentState());
-    expect(state.ending).toMatchObject({ ending: 'Defeat', reasons: ['PanicAtTheLimit'] });
-    expect(state.panic).toBe(100);
+    // At the Bootstrap scale an ignored operation raises Panic by at most 3 points, so the first ignored operation of
+    // level 6 loses the Campaign long before Panic reaches its limit, and leaves Panic as it was.
+    expect(state.ending).toMatchObject({ ending: 'Defeat', reasons: ['ExistentialOperationNotStopped'] });
+    expect(state.panicHundredths).toBeGreaterThan(0);
+    expect(state.panicHundredths).toBeLessThan(10_000);
+    expect(
+      ok(engine.player.queries.getTurnReport())?.expiredMissionSites.some((site) => site.consequence.defeat),
+    ).toBe(true);
     // Returning to a World state before the ending: the Turn-end Autosave of the last Turn.
     const target = ok(await engine.session.timeline.undoToAutosave());
     expect(target.turn).toBe(state.ending!.turn);
@@ -393,7 +408,7 @@ describe('DEV with the real game', () => {
     ok(await engine.session.campaign.create({ seed: 'override' }));
     ok(engine.session.developer.enable());
     const [agent] = ok(engine.player.queries.getCurrentState()).agents;
-    const outcome = 'investigation.requiredProgress.locate_red_dawn_member';
+    const outcome = 'investigation.requiredProgress.criminal_organizations';
     expect(errorCode(await engine.developer.actions.overrideRandomOutcome('no.such.outcome', true))).toBe(
       'invalid_input',
     );
@@ -413,7 +428,7 @@ describe('DEV with the real game', () => {
     // The Required progress outcome of the next Investigation of the Lead is fixed to 4, of the range 3 to 4.
     ok(await engine.developer.actions.overrideRandomOutcome(outcome, 4));
     expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([{ outcome, value: 4 }]);
-    ok(await engine.player.actions.startInvestigation('locate_red_dawn_member', [agent!.id]));
+    ok(await engine.player.actions.startInvestigation('criminal_organizations', [agent!.id]));
     const actual = () =>
       (
         liveWorld(engine).investigations as {

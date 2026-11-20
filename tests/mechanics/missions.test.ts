@@ -1,22 +1,27 @@
 /** Tests, from the former Acceptance examples, of MISSION (Missions) and RECOVER (Agent Recovery). */
 import { describe, expect, it } from 'vite-plus/test';
+import { advanceTurnOf } from '../../src/engine/game-rules.ts';
 import {
   consequencesOf,
   missionExhaustion,
+  previousOperation,
   selectResponseArchetype,
 } from '../../src/engine/mechanics/missions/missions.ts';
+import { isRejection } from '../../src/engine/result.ts';
+import { seedRng } from '../../src/kernel/index.ts';
 import { exhaustionOf } from '../../src/engine/mechanics/agents/agents.ts';
 import {
   healthRecoveryRateHundredths,
   recoveryTurnsRemaining,
 } from '../../src/engine/mechanics/recovery/recovery.ts';
-import { injectedRandom } from '../../src/engine/random.ts';
+import { injectedRandom, seededRandom } from '../../src/engine/random.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
 import type { GdrCatalog } from '../../src/gdr/index.ts';
 import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
 import {
   act,
+  BOOTSTRAP_GDRS as bootstrap,
   addMissionSite,
   advance,
   agent,
@@ -40,14 +45,17 @@ import {
   units,
   setCurrentHealth,
   currentHealthOf,
+  useLegacyCatalog,
 } from '../helpers/game.ts';
+
+useLegacyCatalog();
 
 const set = (
   state: CampaignState,
-  values: { panic?: number; money?: number; funding?: number; turn?: number },
+  values: { panicHundredths?: number; money?: number; funding?: number; turn?: number },
 ) =>
   tweak(state, (world) => {
-    world.panic = values.panic ?? world.panic;
+    world.panicHundredths = values.panicHundredths ?? world.panicHundredths;
     world.agency.state.money = values.money ?? world.agency.state.money;
     world.agency.state.funding = values.funding ?? world.agency.state.funding;
     world.turn = values.turn ?? world.turn;
@@ -88,7 +96,7 @@ describe('MISSION: examples', () => {
     const view = currentStateView(state, gdrs).missionSites[0]!;
     expect(view).toMatchObject({
       enemiesCombatRating: 120,
-      rewards: { money: 5, fundingChange: 0, panicReduction: 1 },
+      rewards: { money: 5, fundingChange: 0, panicReductionHundredths: 100 },
       mission: null,
       lead: 'locate_red_dawn_member',
     });
@@ -123,7 +131,7 @@ describe('MISSION: examples', () => {
     );
 
     // Resolution, Advance turn ending turn 6, with the Combat trace of the example.
-    state = tweak(set(state, { money: 400, funding: 20, panic: 10 }), (world) => {
+    state = tweak(set(state, { money: 400, funding: 20, panicHundredths: 1000 }), (world) => {
       delete world.missionSites[other.site];
       for (const id of other.state.world.current.missionSites[other.site]!.state.enemies) {
         delete world.enemies[id];
@@ -181,7 +189,7 @@ describe('MISSION: examples', () => {
     ]);
     // Mission growth: m1 is the first Mission of each, so the survival skill gain 30 adds to each combat skill gain:
     // a1 8 + 4 + 30 = 42, a2 8 + 30 = 38, a3 and a4 4 + 30 = 34. Each Experience equals its gain.
-    expect(report.combatReports[0]!.participants.slice(0, 4).map((p) => p.combatSkillGain)).toEqual([
+    expect(report.combatReports[0]!.participants.slice(0, 4).map((p) => p.combatExperience)).toEqual([
       12, 8, 4, 4,
     ]);
     expect([a1, a2, a3, a4].map((id) => agent(state, id).state.skillHundredths / 100)).toEqual([
@@ -191,29 +199,29 @@ describe('MISSION: examples', () => {
     expect(report.missions[0]!.growth).toEqual([
       {
         agent: a1,
-        survivalSkillGain: 30,
-        missionSkillGain: 42,
+        survivalExperience: 30,
+        missionExperience: 42,
         skillAfterHundredths: 14200,
         experienceAfter: 42,
       },
       {
         agent: a2,
-        survivalSkillGain: 30,
-        missionSkillGain: 38,
+        survivalExperience: 30,
+        missionExperience: 38,
         skillAfterHundredths: 13800,
         experienceAfter: 38,
       },
       {
         agent: a3,
-        survivalSkillGain: 30,
-        missionSkillGain: 34,
+        survivalExperience: 30,
+        missionExperience: 34,
         skillAfterHundredths: 13400,
         experienceAfter: 34,
       },
       {
         agent: a4,
-        survivalSkillGain: 30,
-        missionSkillGain: 34,
+        survivalExperience: 30,
+        missionExperience: 34,
         skillAfterHundredths: 13400,
         experienceAfter: 34,
       },
@@ -231,7 +239,7 @@ describe('MISSION: examples', () => {
         ],
       });
     }
-    expect([money(state), funding(state), state.world.current.panic]).toEqual([385, 20, 9]);
+    expect([money(state), funding(state), state.world.current.panicHundredths]).toEqual([385, 20, 900]);
     expect(
       currentStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
     ).toMatchObject({ available: false, status: 'Archived', completionCount: 1 });
@@ -249,7 +257,7 @@ describe('MISSION: examples', () => {
 
   it('foil_sabotage ignored, Lost, and Won', () => {
     const created = addMissionSite(
-      set(newCampaign(), { money: 320, funding: 20, panic: 10, turn: 41 }),
+      set(newCampaign(), { money: 320, funding: 20, panicHundredths: 1000, turn: 41 }),
       'foil_sabotage',
     );
     const s2 = created.site;
@@ -258,7 +266,7 @@ describe('MISSION: examples', () => {
       kind: 'Response',
       enemiesCombatRating: 400,
       rewards: { money: 30, fundingChange: 5 },
-      penalties: { panicIncrease: 8, fundingChange: -1 },
+      penalties: { panicIncreaseHundredths: 800, fundingChange: -1, defeat: false },
       operationLevel: { id: 'operation_level_2', level: 2 },
     });
     expect(view.enemies.map((e) => e.archetype)).toEqual([
@@ -276,14 +284,14 @@ describe('MISSION: examples', () => {
       ignored = advance(ignored);
       expect(site(ignored, s2).state).toMatchObject({ lifecycle: 'Active', turnsUntilExpiration: expected });
     }
-    const beforeExpiry = { money: money(ignored), panic: ignored.world.current.panic };
+    const beforeExpiry = { money: money(ignored), panic: ignored.world.current.panicHundredths };
     ignored = advance(ignored);
     expect(site(ignored, s2).state).toEqual({
       lifecycle: 'Expired',
       turnsUntilExpiration: 0,
       enemies: site(created.state, s2).state.enemies,
     });
-    expect(ignored.world.current.panic).toBe(beforeExpiry.panic + 8);
+    expect(ignored.world.current.panicHundredths).toBe(beforeExpiry.panic + 800);
     expect(funding(ignored)).toBe(19);
     expect(money(ignored)).toBe(beforeExpiry.money + 20 - 40);
     expect(Object.keys(ignored.world.current.missions)).toHaveLength(0);
@@ -331,9 +339,9 @@ describe('MISSION: examples', () => {
       exhaustion: 12,
     });
     // Mission growth applies as after a win: 2 + 2 + 2 + 2 + 2 + 1 + 2 = 13 and the survival skill gain 30.
-    expect(lostReport.combatReports[0]!.participants[0]!.combatSkillGain).toBe(13);
+    expect(lostReport.combatReports[0]!.participants[0]!.combatExperience).toBe(13);
     expect(agent(lost, a1).state).toMatchObject({ skillHundredths: 14300, experience: 43 });
-    expect([lost.world.current.panic, funding(lost), money(lost)]).toEqual([18, 19, 300]);
+    expect([lost.world.current.panicHundredths, funding(lost), money(lost)]).toEqual([1800, 19, 300]);
     expect(site(lost, s2).state).toMatchObject({ lifecycle: 'Concluded', turnsUntilExpiration: 4 });
 
     // Won: four Agents prevail in three Combat rounds.
@@ -357,7 +365,7 @@ describe('MISSION: examples', () => {
     // Every Agent's exhaustion is at most 30, so every Agent has effective skill 100 and a1, the earliest, is targeted.
     expect(round2Enemies.every((x) => x.defender === a1)).toBe(true);
     expect(mission(won, missionAt(won, s2)).state.lifecycle).toBe('Won');
-    expect([money(won), funding(won), won.world.current.panic]).toEqual([330, 25, 10]);
+    expect([money(won), funding(won), won.world.current.panicHundredths]).toEqual([330, 25, 1000]);
     for (const id of [a1, a2, a3, a4]) {
       expect(units(agent(won, id).state)).toMatchObject({
         currentHealth: 30,
@@ -376,7 +384,7 @@ describe('MISSION: examples', () => {
     for (let i = 0; i < 4; i += 1) {
       state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
     }
-    state = set(state, { money: 1000 + 30, funding: 25, panic: 40, turn: 150 });
+    state = set(state, { money: 1000 + 30, funding: 25, panicHundredths: 4000, turn: 150 });
     state = tweak(state, (world) => {
       // Money is 1000 when Mission resolution begins: income 25 and upkeep 120 come first.
       world.agency.state.money = 1000 - 25 + 120;
@@ -408,7 +416,7 @@ describe('MISSION: examples', () => {
     expect(report.cancelledMissionSites).toEqual([s5.site]);
     expect(report.expiredMissionSites).toEqual([]);
     expect(forward.world.history.historyEntries.at(-1)!.report.cancelledMissionSites).toEqual([s5.site]);
-    expect(forward.world.current.panic).toBe(40);
+    expect(forward.world.current.panicHundredths).toBe(4000);
   });
 
   it('Transport cap and other rejections of deployAgents', () => {
@@ -500,7 +508,7 @@ describe('MISSION: examples', () => {
       lifecycle: 'Expired',
       turnsUntilExpiration: 0,
     });
-    expect([money(expired), funding(expired), expired.world.current.panic]).toEqual([480, 20, 0]);
+    expect([money(expired), funding(expired), expired.world.current.panicHundredths]).toEqual([480, 20, 0]);
     // Deployed in the last Turn: the team fights, and the Mission site is never Expired.
     let state = act(created.state, 'deployAgents', {
       missionSite: created.site,
@@ -534,10 +542,10 @@ describe('MISSION: examples', () => {
     expect(s9!.state.enemies).toHaveLength(5);
     state = advance(advance(state));
     expect(site(state, s9!.id).state.turnsUntilExpiration).toBe(1);
-    const panic = state.world.current.panic;
+    const panic = state.world.current.panicHundredths;
     state = advance(state);
     expect(site(state, s9!.id).state.lifecycle).toBe('Expired');
-    expect(state.world.current.panic).toBe(panic + 3);
+    expect(state.world.current.panicHundredths).toBe(panic + 300);
 
     // With a second MissionSiteArchetype of level 1, each of the two has Probability 1 / 2.
     const catalog = catalogWith((raw) =>
@@ -552,9 +560,69 @@ describe('MISSION: examples', () => {
         'f',
         1,
         catalog.missionSiteArchetypes,
+        null,
       ).id;
     expect(pick('test_foil_level_1')).toBe('test_foil_level_1');
     expect(pick('foil_recruitment_push')).toBe('foil_recruitment_push');
+  });
+
+  it('MissionSiteArchetype selection excludes the initiating Faction previous operation when the level offers another', () => {
+    // The possible values are what the selection offers its random outcome; each has the same weight.
+    const offered = (level: number, previous: string | null, catalog: GdrCatalog = bootstrap) => {
+      let seen: string[] = [];
+      const recording = {
+        ...injectedRandom({}),
+        weighted: (_outcome: string, entries: readonly (readonly [string, number])[]) => {
+          seen = entries.map(([key, weight]) => {
+            expect(weight).toBe(1);
+            return key;
+          });
+          return entries[0]![0];
+        },
+      };
+      selectResponseArchetype(recording, 'f', level, catalog.missionSiteArchetypes, previous);
+      return seen;
+    };
+    // E.g., with the Bootstrap values: after foil_sabotage, a level-2 occurrence selects one of the other two, and a
+    // level-1 occurrence any of the three of level 1.
+    expect(offered(2, 'foil_sabotage')).toEqual(['foil_vip_assassination', 'defend_against_office_raid']);
+    expect(offered(1, 'foil_sabotage')).toEqual([
+      'foil_recruitment_push',
+      'foil_supply_theft',
+      'foil_business_extortion',
+    ]);
+    expect(offered(2, null)).toHaveLength(3);
+    // A level that offers only one MissionSiteArchetype repeats it.
+    expect(offered(6, 'defend_against_hq_assault')).toEqual(['defend_against_hq_assault']);
+
+    // The previous operation is read from the Faction's latest Response Mission site, whatever became of it, and the
+    // previous operation of another Faction plays no part.
+    let state = newCampaign({ catalog: bootstrap });
+    const f = onlyFaction(state).id;
+    const first = addMissionSite(state, 'foil_sabotage', { catalog: bootstrap });
+    state = tweak(first.state, (world) => {
+      world.missionSites[first.site]!.state.lifecycle = 'Expired';
+      Object.values(world.factions)[0]!.state.turnsUntilNextOperation = 1;
+    });
+    expect(previousOperation(f, state.world.current.missionSites)).toBe('foil_sabotage');
+    expect(previousOperation('faction-9', state.world.current.missionSites)).toBeNull();
+    // A seeded selection over 40 occurrences of level 2 never repeats foil_sabotage right after it.
+    for (let seed = 0; seed < 40; seed += 1) {
+      const next = advanceTurnOf(
+        state,
+        bootstrap,
+        injectedRandom(
+          { [`faction.${f}.operationLevel`]: [2], [`faction.${f}.operationInterval`]: [20] },
+          seededRandom(seedRng(`no repeat ${seed}`), []),
+        ),
+      );
+      if (isRejection(next)) {
+        throw new Error(next.message);
+      }
+      const created = Object.values(next.world.current.missionSites).at(-1)!;
+      expect(created.archetype).not.toBe('foil_sabotage');
+      expect(created.constants.origin).toMatchObject({ initiatingFaction: f });
+    }
   });
 
   it('Several Mission sites in one step', () => {
@@ -564,7 +632,7 @@ describe('MISSION: examples', () => {
         state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
       }
       // Money is 200 when Mission resolution begins: upkeep 120 comes first, and funding is 0.
-      state = set(state, { money: 200 + 120, funding: 0, panic: 50 });
+      state = set(state, { money: 200 + 120, funding: 0, panicHundredths: 5000 });
       const ids = agentIds(state);
       const s10 = addMissionSite(state, 'apprehend_member');
       const s11 = addMissionSite(s10.state, 'foil_sabotage');
@@ -589,10 +657,14 @@ describe('MISSION: examples', () => {
       const results = forward.world.history.turnReport!.missions.map((m) => m.result);
       if (sabotageWon) {
         expect(results).toEqual(['Won', 'Won', 'Lost']);
-        expect([money(forward), funding(forward), forward.world.current.panic]).toEqual([235, 5, 52]);
+        expect([money(forward), funding(forward), forward.world.current.panicHundredths]).toEqual([
+          235, 5, 5200,
+        ]);
       } else {
         expect(results).toEqual(['Won', 'Lost', 'Lost']);
-        expect([money(forward), funding(forward), forward.world.current.panic]).toEqual([205, 0, 60]);
+        expect([money(forward), funding(forward), forward.world.current.panicHundredths]).toEqual([
+          205, 0, 6000,
+        ]);
       }
     }
   });
@@ -645,7 +717,7 @@ describe('MISSION: examples', () => {
     const level2 = gdrs.factionOperationLevels.find((item) => item.level === 2)!;
     expect(consequencesOf('Lost', archetype('raid_safehouse'), null)).toMatchObject({
       money: 0,
-      panicIncrease: 0,
+      panicIncreaseHundredths: 0,
     });
     expect(consequencesOf('Expired', archetype('raid_safehouse'), null)).toMatchObject({
       money: 0,
@@ -654,70 +726,100 @@ describe('MISSION: examples', () => {
     expect(consequencesOf('Won', archetype('raid_hq'), null)).toEqual({
       money: 0,
       fundingChange: 0,
-      panicIncrease: 0,
-      panicReduction: 0,
+      panicIncreaseHundredths: 0,
+      panicReductionHundredths: 0,
       eliminateTargetFaction: true,
+      defeat: false,
     });
     expect(consequencesOf('Expired', archetype('foil_sabotage'), level2)).toEqual(
       consequencesOf('Lost', archetype('foil_sabotage'), level2),
     );
     expect(consequencesOf('Cancelled', archetype('foil_sabotage'), level2)).toMatchObject({
-      panicIncrease: 0,
+      panicIncreaseHundredths: 0,
     });
+    // A `defeat` Effect of a Faction operation level applies when its Response Mission is Lost or its site Expired.
+    const level6 = bootstrap.factionOperationLevels.find((item) => item.level === 6)!;
+    const hqAssault = bootstrap.missionSiteArchetypes.find(
+      (item) => item.id === 'defend_against_hq_assault',
+    )!;
+    expect(consequencesOf('Lost', hqAssault, level6)).toMatchObject({
+      defeat: true,
+      panicIncreaseHundredths: 0,
+    });
+    expect(consequencesOf('Expired', hqAssault, level6)).toMatchObject({ defeat: true });
+    expect(consequencesOf('Won', hqAssault, level6)).toMatchObject({ defeat: false, money: 0 });
   });
 
   it('GDR validation', () => {
     expectDefective((raw) => (raw.get('apprehend_member')['expires_in_turns'] = 0));
     expectDefective((raw) => (raw.get('foil_sabotage')['enemies'].$entries.length = 0));
-    expectDefective((raw) => raw.get('raid_safehouse')['enemies'].$entries.push(['commander', 1]));
+    expectDefective((raw) => raw.get('raid_safehouse')['enemies'].$entries.push(['no_such_enemy', 1]));
     expectDefective((raw) => (raw.get('foil_recruitment_push')['enemies'].$entries[0][1] = 0));
     expectDefective((raw) => (raw.get('foil_sabotage')['on_win'] = [effect('money', 30)]));
     expectDefective((raw) => raw.get('raid_hq')['on_win'].push(effect('money', -5)));
     // Rule 5: an Initiative `on_win` is a valid Effect list of `money`, `funding`, `panic` of at most 0, and
     // `eliminate_faction` of `true` (EFFECT, Effect list format; FACTION, Elimination).
     expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = [effect('panic', 1)]));
+    expectDefective(
+      (raw) => (raw.get('apprehend_member')['on_win'] = [effect('panic', { $decimal: '0.01' })]),
+    );
+    expectDefective(
+      (raw) => (raw.get('apprehend_member')['on_win'] = [effect('panic', { $decimal: '-0.005' })]),
+    );
     expectDefective((raw) => raw.get('apprehend_member')['on_win'].push(effect('money', 1)));
     expectDefective((raw) => (raw.get('raid_hq')['on_win'] = [effect('eliminate_faction', false)]));
     expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = [effect('panic_reduction_pct', 1)]));
+    expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = [effect('defeat', true)]));
     expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = [{ $entries: [] }]));
     expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = { $entries: [['money', 5]] }));
-    expectDefective((raw) => (raw.get('foil_sabotage')['operation_level'] = 3));
+    expectDefective((raw) => (raw.get('foil_sabotage')['operation_level'] = 9));
     expectDefective((raw) => (raw.get('apprehend_member')['operation_level'] = 1));
     expectDefective((raw) => (raw.get('apprehend_member')['kind'] = 'offensive'));
     // Rule 7: an operation level's Effect lists hold only `money` and `funding` of at least 0 on a win, and `panic`
-    // of at least 0 and `funding` of any sign when ignored or lost; both properties are required.
+    // of at least 0, `funding` of any sign, and `defeat` when ignored or lost; both properties are required.
     expectDefective((raw) => raw.get('operation_level_2')['on_ignored_or_lost'].push(effect('money', 5)));
     expectDefective((raw) => (raw.get('operation_level_2')['on_ignored_or_lost'] = [effect('panic', -1)]));
     expectDefective((raw) => (raw.get('operation_level_2')['on_win'] = [effect('funding', -1)]));
+    expectDefective((raw) => (raw.get('operation_level_2')['on_win'] = [effect('defeat', true)]));
     expectDefective((raw) => delete raw.get('operation_level_2')['on_win']);
+    expect(
+      catalogWith((raw) => raw.get('operation_level_2')['on_ignored_or_lost'].push(effect('defeat', true)))
+        .factionOperationLevels[1]!.onIgnoredOrLost.defeat,
+    ).toBe(true);
   });
 
   it('Effect lists of Consequences', () => {
     // EFFECT, Effect list format; ECON, Money and funding Effect kinds; ENDING, Panic Effect kind: a `panic` Effect of
-    // -2 is a Panic reduction of 2, and an Effect kind the list does not hold changes nothing.
+    // -0.1 is a Panic reduction of 0.10, held as 10 hundredths, and an Effect kind the list does not hold changes
+    // nothing. The Bootstrap values:
     const site = (catalog: GdrCatalog, id: string) =>
       catalog.missionSiteArchetypes.find((item) => item.id === id)!;
     const level = (catalog: GdrCatalog, value: number) =>
       catalog.factionOperationLevels.find((item) => item.level === value)!;
-    expect(site(gdrs, 'raid_safehouse').onWin).toEqual({
+    expect(site(bootstrap, 'raid_safehouse').onWin).toEqual({
       money: 100,
       funding: 5,
-      panicReductionPct: 2,
+      panicReductionHundredths: 10,
       eliminateTargetFaction: false,
     });
-    expect(site(gdrs, 'raid_hq').onWin).toEqual({
-      money: 0,
-      funding: 0,
-      panicReductionPct: 0,
-      eliminateTargetFaction: true,
+    expect(site(bootstrap, 'raid_hq').onWin).toEqual({
+      money: 10_000,
+      funding: 100,
+      panicReductionHundredths: 2000,
+      eliminateTargetFaction: false,
     });
-    expect(level(gdrs, 1)).toMatchObject({
+    expect(site(bootstrap, 'apprehend_member').onWin.panicReductionHundredths).toBe(5);
+    expect(level(bootstrap, 1)).toMatchObject({
       onWin: { money: 10, funding: 0 },
-      onIgnoredOrLost: { panicIncreasePct: 3, funding: 0 },
+      onIgnoredOrLost: { panicIncreaseHundredths: 2, funding: 0, defeat: false },
     });
-    expect(level(gdrs, 2)).toMatchObject({
+    expect(level(bootstrap, 2)).toMatchObject({
       onWin: { money: 30, funding: 5 },
-      onIgnoredOrLost: { panicIncreasePct: 8, funding: -1 },
+      onIgnoredOrLost: { panicIncreaseHundredths: 10, funding: -1, defeat: false },
+    });
+    expect(level(bootstrap, 6)).toMatchObject({
+      onWin: { money: 0, funding: 0 },
+      onIgnoredOrLost: { panicIncreaseHundredths: 0, funding: 0, defeat: true },
     });
     // Order has no meaning, and an empty or omitted Effect list is valid and changes nothing.
     const changed = catalogWith((raw) => {
@@ -726,11 +828,15 @@ describe('MISSION: examples', () => {
       delete raw.get('apprehend_member')['on_win'];
     });
     expect(site(changed, 'raid_safehouse').onWin).toEqual(site(gdrs, 'raid_safehouse').onWin);
-    expect(level(changed, 2).onIgnoredOrLost).toEqual({ panicIncreasePct: 0, funding: 0 });
+    expect(level(changed, 2).onIgnoredOrLost).toEqual({
+      panicIncreaseHundredths: 0,
+      funding: 0,
+      defeat: false,
+    });
     expect(site(changed, 'apprehend_member').onWin).toEqual({
       money: 0,
       funding: 0,
-      panicReductionPct: 0,
+      panicReductionHundredths: 0,
       eliminateTargetFaction: false,
     });
     expectDefective((raw) => {

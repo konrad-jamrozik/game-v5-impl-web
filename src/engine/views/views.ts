@@ -44,6 +44,7 @@ import {
 import {
   activeInvestigationOf,
   completionCount,
+  factionOfLead,
   leadAvailability,
   leadOfMissionSite,
   leadStatus,
@@ -54,7 +55,6 @@ import { articleForTerm, resolveArticles, visibleArticles } from '../mechanics/c
 import type {
   ActionAvailability,
   SimpleAssignment,
-  ActivityLevelView,
   AgencyView,
   AgentView,
   AvailableActionsView,
@@ -184,9 +184,10 @@ function consequenceView(amounts: ConsequenceAmounts): ConsequenceView {
   return {
     money: amounts.money,
     fundingChange: amounts.fundingChange,
-    panicIncrease: amounts.panicIncrease,
-    panicReduction: amounts.panicReduction,
+    panicIncreaseHundredths: amounts.panicIncreaseHundredths,
+    panicReductionHundredths: amounts.panicReductionHundredths,
     eliminatesTargetFaction: amounts.eliminateTargetFaction,
+    defeat: amounts.defeat,
   };
 }
 
@@ -296,8 +297,7 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
       name: lead.name,
       description: lead.description,
       factionArchetype: lead.faction,
-      faction:
-        Object.values(world.factions).find((faction) => faction.archetype === lead.faction)?.id ?? null,
+      faction: factionOfLead(lead, world)?.id ?? null,
       assessed,
       requiredProgress: assessed ? lead.requiredProgress : 'unknown',
       requiredProgressRange: assessed
@@ -305,6 +305,8 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
         : 'unknown',
       investigateAgain: lead.investigateAgain,
       createsMissionSite: lead.onCompletion.createMissionSite,
+      eliminatesFaction: lead.onCompletion.eliminateFaction,
+      winsCampaign: lead.onCompletion.winCampaign,
       completionCount: completionCount(lead.id, world.investigations),
       available: availability.available,
       status: leadStatus(availability),
@@ -314,24 +316,12 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
   });
 }
 
-function activityLevelView(id: string, gdrs: GdrCatalog): ActivityLevelView {
-  const level = must(gdrs.factionActivityLevels.get(id), `FactionActivityLevel ${id}`);
-  return {
-    id: level.id,
-    name: level.name,
-    lastsTurns: level.lastsTurns === null ? null : [level.lastsTurns[0], level.lastsTurns[1]],
-    operationEveryTurns: [level.operationEveryTurns[0], level.operationEveryTurns[1]],
-    operationLevelWeights: level.operationLevelWeights.map(([key, weight]) => ({ level: key, weight })),
-    next: level.next,
-  };
-}
-
+/** FACTION, Player-visible information: never the Faction activity level or either countdown. */
 function factionViews(world: CurrentWorldState, gdrs: GdrCatalog): FactionView[] {
   return Object.values(world.factions).map((faction) => ({
     id: faction.id,
     archetype: faction.archetype,
     name: gdrs.factionArchetypes.find((item) => item.id === faction.archetype)?.name ?? faction.archetype,
-    activityLevel: activityLevelView(faction.state.activityLevel, gdrs),
     eliminated: faction.state.eliminated,
     eliminatedTurn: faction.state.eliminatedTurn,
   }));
@@ -386,7 +376,7 @@ export function currentStateView(state: CampaignState, gdrs: GdrCatalog): Curren
   const world = state.world.current;
   return {
     turn: world.turn,
-    panic: world.panic,
+    panicHundredths: world.panicHundredths,
     panicLimit: gdrs.endingParameters.defeatAtPanicPct,
     ending:
       world.ending === null || world.endingTurn === null
@@ -812,7 +802,6 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         onWin: { ...level.onWin },
         onIgnoredOrLost: { ...level.onIgnoredOrLost },
       })),
-      factionActivityLevels: [...gdrs.factionActivityLevels.keys()].map((id) => activityLevelView(id, gdrs)),
       names: {
         agency: gdrs.agencyArchetype.name,
         investigation: gdrs.investigationArchetype.name,
@@ -857,7 +846,7 @@ function inspectWorldState(state: CampaignState): unknown {
       nextInstanceNumbers: world.nextInstanceNumbers,
       pendingRandomOutcomeOverrides: world.randomOverrides,
       turn: world.turn,
-      panic: world.panic,
+      panicHundredths: world.panicHundredths,
       campaignEnding: world.ending,
       endingReasons: world.endingReasons,
       endingTurn: world.endingTurn,

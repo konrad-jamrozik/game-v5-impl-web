@@ -116,7 +116,7 @@ describe('Terminal CLI', () => {
       'new same-seed',
       'hire',
       'assign Contracting agent-2 agent-3',
-      'investigate locate_red_dawn_member agent-4',
+      'investigate criminal_organizations agent-4',
       'next',
       'next',
       'undo',
@@ -128,7 +128,7 @@ describe('Terminal CLI', () => {
     ok(await viaApi.session.campaign.create({ seed: 'same-seed' }));
     ok(await viaApi.player.actions.hireAgent());
     ok(await viaApi.player.actions.assignAgents(['agent-2', 'agent-3'], 'Contracting'));
-    ok(await viaApi.player.actions.startInvestigation('locate_red_dawn_member', ['agent-4']));
+    ok(await viaApi.player.actions.startInvestigation('criminal_organizations', ['agent-4']));
     ok(await viaApi.player.actions.advanceTurn());
     ok(await viaApi.player.actions.advanceTurn());
     await viaApi.session.timeline.undoAction();

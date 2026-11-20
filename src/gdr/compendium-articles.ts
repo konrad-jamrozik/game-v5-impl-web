@@ -8,6 +8,7 @@ import type {
   ArticleTemplate,
   CatalogCompendiumArticle,
   CompendiumArticleGdr,
+  Condition,
   TemplatePart,
 } from './types.ts';
 
@@ -15,7 +16,18 @@ import type {
 export type RawGdr = Readonly<Record<string, unknown>>;
 
 const CATEGORIES: readonly ArticleCategory[] = ['guide', 'mechanics', 'subject'];
-const PROPERTIES = ['id', 'type', 'category', 'title', 'body', 'subject', 'formulas', 'terms', 'see_also'];
+const PROPERTIES = [
+  'id',
+  'type',
+  'category',
+  'title',
+  'body',
+  'subject',
+  'formulas',
+  'terms',
+  'see_also',
+  'visible_when',
+];
 
 /** COMP, Displayed title: two texts are equal ignoring case exactly when they are equal in lower case. */
 export function ignoringCase(text: string): string {
@@ -44,6 +56,7 @@ function entriesOf(value: unknown): [string, unknown][] | null {
  */
 export function parseCompendiumArticle(
   raw: RawGdr,
+  parseCondition: (raw: unknown) => Condition | null,
 ): { readonly article: CompendiumArticleGdr } | { readonly problems: readonly string[] } {
   const problems: string[] = [];
   // Rule 1: Category is valid.
@@ -127,6 +140,15 @@ export function parseCompendiumArticle(
       problems.push('See also is valid');
     }
   }
+  // Rule 10: Visibility Condition is valid: a valid Condition of the Condition kind `lead_completed` only. That the
+  // Lead it names exists is checked across the Game build.
+  let visibleWhen: Condition | null = null;
+  if (raw['visible_when'] !== undefined) {
+    visibleWhen = parseCondition(raw['visible_when']);
+    if (visibleWhen === null || usesMissionWon(visibleWhen)) {
+      problems.push('Visibility Condition is valid');
+    }
+  }
   if (problems.length > 0) {
     return { problems };
   }
@@ -141,8 +163,39 @@ export function parseCompendiumArticle(
       formulas,
       terms,
       seeAlso,
+      visibleWhen,
     },
   };
+}
+
+/** Whether a Condition uses the Condition kind `mission_won` at any depth. */
+function usesMissionWon(condition: Condition): boolean {
+  switch (condition.kind) {
+    case 'all':
+    case 'any':
+      return condition.conditions.some(usesMissionWon);
+    case 'not':
+      return usesMissionWon(condition.condition);
+    case 'mission_won':
+      return true;
+    case 'lead_completed':
+      return false;
+  }
+}
+
+/** The Leads the `lead_completed` Conditions of a Condition name, at any depth. */
+export function leadsNamed(condition: Condition): string[] {
+  switch (condition.kind) {
+    case 'all':
+    case 'any':
+      return condition.conditions.flatMap(leadsNamed);
+    case 'not':
+      return leadsNamed(condition.condition);
+    case 'mission_won':
+      return [];
+    case 'lead_completed':
+      return [condition.lead];
+  }
 }
 
 type AuthoredPart =
@@ -389,6 +442,13 @@ export function validateCompendiumArticles(
         report(`See also is valid (${target})`);
       }
     }
+    // Rule 10: each Lead a `lead_completed` Condition of `visible_when` names is a Lead of the Game build, as LEAD,
+    // Lead completed Condition kind, permits.
+    for (const lead of article.visibleWhen === null ? [] : leadsNamed(article.visibleWhen)) {
+      if (!(byId.get(lead) ?? []).some((gdr) => gdr['type'] === 'Lead')) {
+        report(`Visibility Condition is valid (${lead})`);
+      }
+    }
     // Rule 9: Placeholders are valid.
     const template = (text: string): ArticleTemplate => {
       const parts = parseTemplate(text);
@@ -419,6 +479,7 @@ export function validateCompendiumArticles(
       formulas: article.formulas.map((row) => ({ label: template(row.label), text: template(row.text) })),
       terms: article.terms,
       seeAlso: article.seeAlso,
+      visibleWhen: article.visibleWhen,
     };
   });
 }

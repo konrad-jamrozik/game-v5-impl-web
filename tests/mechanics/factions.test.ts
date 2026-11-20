@@ -5,21 +5,19 @@ import { injectedRandom } from '../../src/engine/random.ts';
 import { createCampaignState } from '../../src/engine/state/create.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView, turnReportView } from '../../src/engine/views/views.ts';
+import { currentStateView, gameDataView, turnReportView } from '../../src/engine/views/views.ts';
 import { RAW_GDR_FILES, buildGdrCatalog } from '../../src/gdr/index.ts';
 import {
-  act,
   addMissionSite,
   advance,
   agentIds,
   catalogWith,
   expectDefective,
+  finishingInvestigation,
   gdrs,
   newCampaign,
   onlyFaction,
   tweak,
-  winning,
-  withAgents,
 } from '../helpers/game.ts';
 
 function setFaction(
@@ -110,25 +108,94 @@ describe('FACTION: examples', () => {
     const used = advance(state, {
       [`faction.${f}.levelDuration`]: [90],
       [`faction.${f}.operationLevel`]: [2],
-      [`faction.${f}.operationInterval`]: [11],
-      [`mission.archetypeSelection.${f}`]: ['foil_sabotage'],
+      [`faction.${f}.operationInterval`]: [13],
+      [`mission.archetypeSelection.${f}`]: ['foil_vip_assassination'],
     });
     expect(onlyFaction(used).state).toMatchObject({
-      activityLevel: 'active',
+      activityLevel: 'emerging',
       turnsUntilNextLevel: 90,
-      turnsUntilNextOperation: 11,
+      turnsUntilNextOperation: 13,
     });
     expect(sites(used)).toHaveLength(3);
     expect(sites(used)[2]!.state.turnsUntilExpiration).toBe(4);
-    // An Operation interval of 11 is outside `faint`'s 15 to 25, so it proves the new level was read.
+    // An Operation interval of 13 is outside `faint`'s 15 to 25, so it proves the new level was read.
     expect(used.world.current.turn).toBe(61);
+    // FACTION, Turn report: the Turn report holds the operation, never the escalation.
+    expect(turnReportView(used)?.factionActivity).toEqual([
+      { faction: f, createdMissionSite: sites(used)[2]!.id, operationLevel: 'operation_level_2' },
+    ]);
+    expect(JSON.stringify(used.world.history.historyEntries.at(-1))).not.toMatch(/escalat|emerging/);
+  });
+
+  it('A level without operations: no countdown and no operation; waking draws one and does not count it down', () => {
+    // Campaign creation at `dormant`, the initial level of Exalt and Black Lotus.
+    const levels = (id: string) => gdrs.factionActivityLevels.get(id)!;
+    const exalt = buildGdrCatalog(RAW_GDR_FILES).factionArchetypes.find((item) => item.id === 'exalt')!;
+    const created = createFaction(
+      'faction-2',
+      exalt,
+      levels,
+      injectedRandom({ 'faction.faction-2.levelDuration': [20] }),
+    );
+    expect(created.state).toEqual({
+      activityLevel: 'dormant',
+      turnsUntilNextLevel: 20,
+      turnsUntilNextOperation: null,
+      eliminated: false,
+      eliminatedTurn: null,
+    });
+    let state = tweak(newCampaign(), (world) => {
+      const faction = Object.values(world.factions)[0]!;
+      faction.state.activityLevel = 'dormant';
+      faction.state.turnsUntilNextLevel = 2;
+      faction.state.turnsUntilNextOperation = null;
+    });
+    const f = onlyFaction(state).id;
+    state = advance(state);
+    expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 1, turnsUntilNextOperation: null });
+    // Waking: the countdown is drawn over `faint` and is not counted down in the same Advance turn.
+    state = advance(state, {
+      [`faction.${f}.levelDuration`]: [60],
+      [`faction.${f}.operationInterval`]: [15],
+    });
+    expect(onlyFaction(state).state).toMatchObject({
+      activityLevel: 'faint',
+      turnsUntilNextLevel: 60,
+      turnsUntilNextOperation: 15,
+    });
+    for (let i = 0; i < 14; i += 1) {
+      state = advance(state);
+    }
+    expect(sites(state)).toHaveLength(0);
+    state = advance(state, {
+      [`faction.${f}.operationLevel`]: [1],
+      [`faction.${f}.operationInterval`]: [20],
+    });
+    expect(sites(state)).toHaveLength(1);
+    // A move to a level without operations makes the countdown absent.
+    const catalog = catalogWith((raw) => {
+      raw.get('emerging')['operation_every_turns'] = null;
+      raw.get('emerging')['operation_level_weights'] = { $entries: [] };
+    });
+    let quiet = tweak(newCampaign({ catalog }), (world) => {
+      const faction = Object.values(world.factions)[0]!;
+      faction.state.turnsUntilNextLevel = 1;
+      faction.state.turnsUntilNextOperation = 1;
+    });
+    quiet = advance(quiet, { [`faction.${f}.levelDuration`]: [60] }, catalog);
+    expect(onlyFaction(quiet).state).toMatchObject({
+      activityLevel: 'emerging',
+      turnsUntilNextOperation: null,
+    });
+    expect(sites(quiet)).toHaveLength(0);
+    expect(checkInvariants(quiet, catalog)).toEqual([]);
   });
 
   it('A level change does not reset the operation countdown', () => {
-    let state = setFaction(newCampaign(), { level: 'active', untilLevel: 1, untilOperation: 5 });
+    let state = setFaction(newCampaign(), { level: 'war', untilLevel: 1, untilOperation: 5 });
     state = advance(state);
     expect(onlyFaction(state).state).toMatchObject({
-      activityLevel: 'war',
+      activityLevel: 'total_war',
       turnsUntilNextLevel: null,
       turnsUntilNextOperation: 4,
     });
@@ -138,19 +205,23 @@ describe('FACTION: examples', () => {
     }
     const f = onlyFaction(state).id;
     state = advance(state, {
-      [`faction.${f}.operationInterval`]: [18],
+      [`faction.${f}.operationInterval`]: [17],
       [`faction.${f}.operationLevel`]: [2],
     });
-    expect(onlyFaction(state).state.turnsUntilNextOperation).toBe(18);
+    expect(onlyFaction(state).state.turnsUntilNextOperation).toBe(17);
     expect(sites(state)).toHaveLength(1);
   });
 
   it('Operations at the final level', () => {
-    let state = setFaction(newCampaign(), { level: 'war', untilLevel: null, untilOperation: 1 });
+    let state = setFaction(newCampaign(), { level: 'total_war', untilLevel: null, untilOperation: 1 });
     const f = onlyFaction(state).id;
-    state = advance(state, { [`faction.${f}.operationLevel`]: [1], [`faction.${f}.operationInterval`]: [8] });
+    state = advance(state, {
+      [`faction.${f}.operationLevel`]: [1],
+      [`faction.${f}.operationInterval`]: [8],
+      [`mission.archetypeSelection.${f}`]: ['foil_recruitment_push'],
+    });
     expect(onlyFaction(state).state).toMatchObject({
-      activityLevel: 'war',
+      activityLevel: 'total_war',
       turnsUntilNextLevel: null,
       turnsUntilNextOperation: 8,
     });
@@ -163,18 +234,15 @@ describe('FACTION: examples', () => {
     expect(sites(state)).toHaveLength(2);
   });
 
-  it('Elimination stops escalation and operations', () => {
-    let state = withAgents(newCampaign({ money: 100_000 }), 12);
-    for (let i = 0; i < 4; i += 1) {
-      state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
-    }
-    state = tweak(state, (world) => {
+  it('Elimination by a Lead stops escalation and operations in the same Advance turn', () => {
+    let state = tweak(newCampaign(), (world) => {
       world.turn = 120;
+      world.discoveredLeads.push('terminate_red_dawn');
     });
     state = setFaction(state, { level: 'active', untilLevel: 1, untilOperation: 1 });
-    const site = addMissionSite(state, 'raid_hq');
-    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: agentIds(site.state) });
-    state = advance(state, winning(state, site.site));
+    const site = addMissionSite(state, 'raid_safehouse');
+    const terminate = finishingInvestigation(site.state, 'terminate_red_dawn', agentIds(state)[0]!);
+    state = advance(terminate.state);
     expect(onlyFaction(state).state).toEqual({
       activityLevel: 'active',
       turnsUntilNextLevel: 1,
@@ -182,8 +250,12 @@ describe('FACTION: examples', () => {
       eliminated: true,
       eliminatedTurn: 120,
     });
-    expect(sites(state)).toHaveLength(1);
-    expect(state.world.current.ending).toBe('Victory');
+    // Its Active Mission site is Cancelled, it creates no Response Mission site, and it does not win the Campaign.
+    expect(sites(state).map((item) => item.state.lifecycle)).toEqual(['Cancelled']);
+    expect(state.world.current.ending).toBeNull();
+    expect(currentStateView(state, gdrs).leads.find((lead) => lead.id === 'terminate_red_dawn')!.status).toBe(
+      'Archived',
+    );
   });
 
   it('Several Factions', () => {
@@ -211,6 +283,8 @@ describe('FACTION: examples', () => {
       [`faction.${red!.id}.operationInterval`]: [20],
       [`faction.${test!.id}.operationLevel`]: [2],
       [`faction.${test!.id}.operationInterval`]: [11],
+      [`mission.archetypeSelection.${red!.id}`]: ['foil_recruitment_push'],
+      [`mission.archetypeSelection.${test!.id}`]: ['foil_sabotage'],
     };
     const forward = advance(state, injected, catalog);
     const reversed = advance(state, injected, catalog, (items) => [...items].reverse());
@@ -270,37 +344,21 @@ describe('FACTION: examples', () => {
   it('Player-visible information', () => {
     let state = setFaction(newCampaign(), { untilLevel: 45, untilOperation: 25 });
     const [view] = currentStateView(state, gdrs).factions;
+    // FACTION, Player-visible information: neither the Faction activity level nor either countdown.
     expect(view).toEqual({
       id: onlyFaction(state).id,
       archetype: 'red_dawn',
       name: 'Red Dawn',
-      activityLevel: {
-        id: 'faint',
-        name: 'Faint',
-        lastsTurns: [60, 90],
-        operationEveryTurns: [15, 25],
-        operationLevelWeights: [
-          { level: 1, weight: 80 },
-          { level: 2, weight: 20 },
-        ],
-        next: 'active',
-      },
       eliminated: false,
       eliminatedTurn: null,
     });
     const text = JSON.stringify(currentStateView(state, gdrs));
-    expect(text).not.toMatch(/turnsUntilNext|"45"|:45[,}]/);
-    state = setFaction(state, { level: 'war', untilLevel: null });
+    expect(text).not.toMatch(/turnsUntilNext|"45"|:45[,}]|activityLevel|faint/i);
+    state = setFaction(state, { level: 'total_war', untilLevel: null });
     const final = currentStateView(state, gdrs).factions[0]!;
-    expect(final.activityLevel.next).toBeNull();
-    expect(Object.keys(final)).toEqual([
-      'id',
-      'archetype',
-      'name',
-      'activityLevel',
-      'eliminated',
-      'eliminatedTurn',
-    ]);
+    expect(Object.keys(final)).toEqual(['id', 'archetype', 'name', 'eliminated', 'eliminatedTurn']);
+    // No FactionActivityLevel GDR is Player-visible.
+    expect(JSON.stringify(gameDataView(gdrs))).not.toMatch(/activityLevel|operationEveryTurns|Total war/i);
   });
 
   it('GDR validation', () => {
@@ -308,10 +366,15 @@ describe('FACTION: examples', () => {
       raw.get('war')['next'] = 'faint';
       raw.get('war')['lasts_turns'] = [60, 90];
     });
-    expectDefective((raw) => raw.get('faint')['operation_level_weights'].$entries.push(['3', 5]));
+    expectDefective((raw) => raw.get('faint')['operation_level_weights'].$entries.push(['7', 5]));
     expectDefective((raw) => (raw.get('active')['lasts_turns'] = null));
     expectDefective((raw) => (raw.get('faint')['operation_every_turns'] = [0, 25]));
-    expectDefective((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'dormant'));
+    expectDefective((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'missing_level'));
+    // Rule 8: weights exactly when the level has operations.
+    expectDefective((raw) => (raw.get('dormant')['operation_every_turns'] = [10, 20]));
+    expectDefective((raw) => (raw.get('faint')['operation_every_turns'] = null));
+    expectDefective((raw) => raw.get('dormant')['operation_level_weights'].$entries.push(['1', 5]));
+    expect(catalogWith((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'dormant'))).toBeDefined();
     expectDefective((raw) => (raw.get('faint')['operation_level_weights'].$entries[1][1] = 0));
     expectDefective((raw) => (raw.get('red_dawn')['description'] = 'x'));
     expectDefective((raw) => delete raw.get('war')['next']);

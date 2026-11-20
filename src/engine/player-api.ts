@@ -112,9 +112,12 @@ export interface EnemyView {
 export interface ConsequenceView {
   readonly money: number;
   readonly fundingChange: number;
-  readonly panicIncrease: number;
-  readonly panicReduction: number;
+  /** The Panic increase and Panic reduction, Decimal quantities in hundredths of a percentage point. */
+  readonly panicIncreaseHundredths: number;
+  readonly panicReductionHundredths: number;
   readonly eliminatesTargetFaction: boolean;
+  /** Whether it loses the Campaign, through a `defeat` Effect (ENDING, Defeat Effect kind). */
+  readonly defeat: boolean;
 }
 
 export interface MissionSiteView {
@@ -182,8 +185,11 @@ export interface LeadView {
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  /** The FactionArchetype the Lead names, and the Faction of the Campaign that has it. */
-  readonly factionArchetype: string;
+  /**
+   * The FactionArchetype the Lead names, and the Faction of the Campaign that has it; both absent for a Lead that
+   * concerns no Faction.
+   */
+  readonly factionArchetype: string | null;
   readonly faction: string | null;
   /** INVSTG, Assessment: whether at least one Investigation of the Lead is Assessed. */
   readonly assessed: boolean;
@@ -193,8 +199,14 @@ export interface LeadView {
   readonly requiredProgressRange: { readonly min: number; readonly max: number } | Unknown;
   /** LEAD, Lead: whether the Lead can be investigated again after an Investigation of it is Completed. */
   readonly investigateAgain: 'never' | 'until_mission_won' | 'always';
-  /** The MissionSiteArchetype its completion effect creates. */
-  readonly createsMissionSite: string;
+  /**
+   * LEAD, Completion effect: the Effects of its `on_completion`. The MissionSiteArchetype a `create_mission_site`
+   * Effect creates, or none; whether an `eliminate_faction` Effect makes its Faction Eliminated; and whether a
+   * `win_campaign` Effect wins the Campaign.
+   */
+  readonly createsMissionSite: string | null;
+  readonly eliminatesFaction: boolean;
+  readonly winsCampaign: boolean;
   /** LEAD, Missions from a Lead: the number of Completed Investigations of the Lead. */
   readonly completionCount: number;
   /**
@@ -209,20 +221,14 @@ export interface LeadView {
   readonly activeInvestigation: string | null;
 }
 
-export interface ActivityLevelView {
-  readonly id: string;
-  readonly name: string;
-  readonly lastsTurns: readonly [number, number] | null;
-  readonly operationEveryTurns: readonly [number, number];
-  readonly operationLevelWeights: readonly { readonly level: number; readonly weight: number }[];
-  readonly next: string | null;
-}
-
+/**
+ * FACTION, Player-visible information: a Faction's Faction activity level, the FactionActivityLevels, and both
+ * countdowns are not Player-visible, so a FactionView has no property for any of them.
+ */
 export interface FactionView {
   readonly id: string;
   readonly archetype: string;
   readonly name: string;
-  readonly activityLevel: ActivityLevelView;
   readonly eliminated: boolean;
   readonly eliminatedTurn: number | null;
 }
@@ -265,7 +271,9 @@ export interface AgencyView {
 /** `player.queries.getCurrentState()`: Current world state and Campaign configuration. */
 export interface CurrentStateView {
   readonly turn: number;
-  readonly panic: number;
+  /** ENDING, Panic: a Decimal quantity from 0 to 100, in hundredths, e.g. 2435 for 24.35%. */
+  readonly panicHundredths: number;
+  /** The Panic limit, a whole number of percent. */
   readonly panicLimit: number;
   /** Absent while the Campaign is being played. */
   readonly ending: {
@@ -397,9 +405,12 @@ export interface GameDataView {
     readonly level: number;
     readonly name: string;
     readonly onWin: { readonly money: number; readonly funding: number };
-    readonly onIgnoredOrLost: { readonly panicIncreasePct: number; readonly funding: number };
+    readonly onIgnoredOrLost: {
+      readonly panicIncreaseHundredths: number;
+      readonly funding: number;
+      readonly defeat: boolean;
+    };
   }[];
-  readonly factionActivityLevels: readonly ActivityLevelView[];
   readonly names: {
     readonly agency: string;
     readonly investigation: string;

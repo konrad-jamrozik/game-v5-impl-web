@@ -3,6 +3,7 @@
  * smaller trend charts of the resources the agency runs on, and one Faction chart for each Faction below them.
  */
 import { responseSitesSeries } from '../faction-activity.ts';
+import { decimalText } from '../format.ts';
 import type { Snapshot } from '../store.ts';
 import { DetailView } from './DetailView.tsx';
 import { LineChart } from './LineChart.tsx';
@@ -20,7 +21,14 @@ export function ChartsView({ snapshot, onClose }: { snapshot: Snapshot; onClose:
           headline
           title="Panic after each Turn"
           unit="%"
-          points={entries.map((entry) => ({ turn: entry.turn, value: entry.report.panicAfter }))}
+          points={entries.map((entry) => ({
+            turn: entry.turn,
+            value: entry.report.panicAfterHundredths / 100,
+          }))}
+          // CVIEW, Panic chart: the current value is written with two decimals, e.g. "24.35%", under GUI, Decimal
+          // quantities shown; the drawn value is in percentage points, so the text goes back to whole hundredths.
+          valueText={(value) => decimalText(Math.round(value * 100))}
+          testId="panic-chart"
           {...(panicLimit === undefined ? {} : { limit: panicLimit, valueNote: `of ${panicLimit}% limit` })}
         />
         <div className="charts">

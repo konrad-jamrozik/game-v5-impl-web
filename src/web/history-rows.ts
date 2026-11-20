@@ -11,6 +11,7 @@ export interface HistoryRow {
   readonly moneyEnd: number;
   readonly income: number;
   readonly upkeep: number;
+  /** Panic, in hundredths. */
   readonly panic: number;
   readonly agents: number;
   readonly actions: readonly ActionRecordItem[];
@@ -32,7 +33,7 @@ export function historyRows(snapshot: Pick<Snapshot, 'history' | 'state'>): Hist
     moneyEnd: entry.turnEnd.money,
     income: entry.report.income,
     upkeep: entry.report.upkeep,
-    panic: entry.report.panicAfter,
+    panic: entry.report.panicAfterHundredths,
     agents: entry.turnEnd.servingAgents,
     actions: entry.actions,
     entry,
@@ -49,7 +50,7 @@ export function historyRows(snapshot: Pick<Snapshot, 'history' | 'state'>): Hist
       income: state.agency.projectedIncome,
       upkeep: state.agency.projectedUpkeep,
       // What that Advance turn would change of Panic depends on events not yet resolved.
-      panic: state.panic,
+      panic: state.panicHundredths,
       agents: open.turnEnd.servingAgents,
       actions: open.actions,
       entry: null,

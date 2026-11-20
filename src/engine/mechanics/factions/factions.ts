@@ -17,8 +17,14 @@ function levelDuration(random: Random, factionId: string, level: FactionActivity
   return random.uniform(`faction.${factionId}.levelDuration`, level.lastsTurns[0], level.lastsTurns[1]);
 }
 
-/** FACTION, Operation interval: a uniform whole-number outcome over `operation_every_turns`. */
-function operationInterval(random: Random, factionId: string, level: FactionActivityLevelGdr): number {
+/**
+ * FACTION, Operation interval: a uniform whole-number outcome over `operation_every_turns`. No outcome exists for a
+ * level without operations, whose `operation_every_turns` is `null`.
+ */
+function operationInterval(random: Random, factionId: string, level: FactionActivityLevelGdr): number | null {
+  if (level.operationEveryTurns === null) {
+    return null;
+  }
   return random.uniform(
     `faction.${factionId}.operationInterval`,
     level.operationEveryTurns[0],
@@ -59,6 +65,10 @@ export interface FactionOperationOccurrence {
 /**
  * FACTION, Faction activity: Escalation and then Faction operation occurrence generation for one Faction whose
  * Eliminated is no. Changes the Faction's State and returns the occurrence, if one happens.
+ *
+ * A move to a level without operations makes Turns until the next operation absent; a move from such a level to one
+ * with operations, i.e. the Faction waking, draws it, and a Faction that wakes in this step does not count it down in
+ * the same step. A move between two levels that both have operations leaves it unchanged.
  */
 export function applyFactionActivity(
   factionId: string,
@@ -70,6 +80,7 @@ export function applyFactionActivity(
   if (faction.eliminated) {
     return null;
   }
+  let woke = false;
   if (faction.turnsUntilNextLevel !== null) {
     faction.turnsUntilNextLevel -= 1;
     if (faction.turnsUntilNextLevel === 0) {
@@ -78,7 +89,16 @@ export function applyFactionActivity(
       );
       faction.activityLevel = next.id;
       faction.turnsUntilNextLevel = levelDuration(random, factionId, next);
+      if (next.operationEveryTurns === null) {
+        faction.turnsUntilNextOperation = null;
+      } else if (faction.turnsUntilNextOperation === null) {
+        faction.turnsUntilNextOperation = operationInterval(random, factionId, next);
+        woke = true;
+      }
     }
+  }
+  if (faction.turnsUntilNextOperation === null || woke) {
+    return null;
   }
   faction.turnsUntilNextOperation -= 1;
   if (faction.turnsUntilNextOperation !== 0) {
@@ -91,7 +111,10 @@ export function applyFactionActivity(
       level.operationLevelWeights.map(([key, weight]) => [String(key), weight]),
     ),
   );
-  faction.turnsUntilNextOperation = operationInterval(random, factionId, level);
+  faction.turnsUntilNextOperation = must(
+    operationInterval(random, factionId, level),
+    'Operation interval of a level with operations',
+  );
   return { initiatingFaction: factionId, operationLevel, turn };
 }
 

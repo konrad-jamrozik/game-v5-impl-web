@@ -20,6 +20,8 @@ import {
   arriveAgent,
   articleFile,
   catalogWith,
+  completeLead,
+  expectDefective,
   gdrs,
   missionAt,
   newCampaign,
@@ -91,14 +93,15 @@ const entry = (
   formulas: [],
   terms,
   seeAlso,
+  visibleWhen: null,
 });
 const bodyOf = (list: readonly CatalogCompendiumArticle[], id: string) =>
   shown(resolveArticles(list).find((item) => item.article.id === id)!.body);
 
 describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
-  it('supplies 6 Guide articles, 25 Mechanics articles, and 32 Subject articles, in the order of their identifiers', () => {
+  it('supplies 6 Guide articles, 26 Mechanics articles, and 109 Subject articles, in the order of their identifiers', () => {
     const all = bootstrapGdrCatalog().compendiumArticles;
-    expect(all).toHaveLength(63);
+    expect(all).toHaveLength(141);
     expect(all.filter((article) => article.category === 'guide').map((article) => article.id)).toEqual([
       'guide_agency',
       'guide_agents',
@@ -108,14 +111,14 @@ describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
       'guide_upgrades',
     ]);
     const mechanics = all.filter((article) => article.category === 'mechanics');
-    expect(mechanics).toHaveLength(25);
+    expect(mechanics).toHaveLength(26);
     for (const article of mechanics) {
       expect(article.id).toMatch(/^mechanics_/);
       expect(article.formulas.length).toBeGreaterThan(0);
       expect(article.subject).toBeNull();
     }
     const subjects = all.filter((article) => article.category === 'subject');
-    expect(subjects).toHaveLength(32);
+    expect(subjects).toHaveLength(109);
     for (const article of subjects) {
       expect(article.id).toBe(`${article.subject}_article`);
     }
@@ -235,7 +238,7 @@ describe('COMP: Placeholders', () => {
       addArticle(raw, 'test_values', {
         body:
           'Hire for {economy.hire_cost}, armed with a {field_agent.weapon}; a hit deals ' +
-          '{combat_parameters.weapon_damage_range} either way, and survival {agent_parameters.skill_gain_per_mission_survived.2}.',
+          '{combat_parameters.weapon_damage_range} either way, and survival {agent_parameters.experience_per_mission_survived.2}.',
       });
       addArticle(raw, 'test_subject', {
         category: 'subject',
@@ -250,7 +253,7 @@ describe('COMP: Placeholders', () => {
     const weapon = catalog.weapons.get(catalog.agentArchetype.weapon)!.name;
     expect(shown(view.find((article) => article.id === 'test_values')!.body).join('')).toBe(
       `Hire for <${economy}>, armed with a <${weapon}>; a hit deals <0.5> either way, and survival ` +
-        `<${catalog.agentParameters.skillGainPerMissionSurvived[1]}>.`,
+        `<${catalog.agentParameters.experiencePerMissionSurvived[1]}>.`,
     );
     const soldier = catalog.enemyArchetypes.get('soldier')!;
     const subject = view.find((article) => article.id === 'test_subject')!;
@@ -274,8 +277,8 @@ describe('COMP: Placeholders', () => {
       // `subject` in an article that has no subject.
       ['{subject.name}', /names no GDR/],
       // An index exactly when the value is a list, and then one from 1 to the number of entries.
-      ['{agent_parameters.skill_gain_per_mission_survived}', /names a list and has no index/],
-      ['{agent_parameters.skill_gain_per_mission_survived.9}', /has an index beyond the/],
+      ['{agent_parameters.experience_per_mission_survived}', /names a list and has no index/],
+      ['{agent_parameters.experience_per_mission_survived.9}', /has an index beyond the/],
       ['{economy.hire_cost.1}', /has an index and names no list/],
       // The brace rules.
       ['a lone } brace', /closes no Placeholder/],
@@ -702,15 +705,17 @@ describe('COMP: Article visibility and Player-visible information', () => {
         article.category !== 'subject' ||
         ['AgentArchetype', 'EnemyArchetype', 'Weapon', 'Upgrade'].includes(article.subjectType ?? ''),
     );
-    expect(always).toHaveLength(6 + 25 + 1 + 3 + 3 + 8);
+    expect(always).toHaveLength(6 + 26 + 1 + 9 + 8 + 8);
     expect(ids).toEqual(
       all
         .filter(
           (article) =>
             always.includes(article) ||
-            ['red_dawn_article', 'locate_red_dawn_member_article', 'apprehend_member_article'].includes(
-              article.id,
-            ),
+            [
+              'criminal_organizations_article',
+              'locate_red_dawn_member_article',
+              'apprehend_member_article',
+            ].includes(article.id),
         )
         .map((article) => article.id),
     );
@@ -771,20 +776,50 @@ describe('COMP: Article visibility and Player-visible information', () => {
     state = act(arrive(state), 'deployAgents', { missionSite: site.id, agents: ids });
     const before = state;
     const beforeIds = visible(before);
+    expect(beforeIds).not.toContain('interrogate_red_dawn_member_article');
     expect(beforeIds).not.toContain('locate_red_dawn_safehouse_article');
-    expect(beforeIds).not.toContain('raid_safehouse_article');
 
-    // The Advance turn ending Turn t: the Mission is Won and discovers locate_red_dawn_safehouse.
+    // The Advance turn ending Turn t: the Mission is Won and discovers interrogate_red_dawn_member.
     state = advance(state, winning(state, site.id));
     expect(state.world.current.missions[missionAt(state, site.id)]!.state.lifecycle).toBe('Won');
     const after = visible(state);
-    expect(after).toContain('locate_red_dawn_safehouse_article');
-    expect(after).toContain('raid_safehouse_article');
-    expect(after).not.toContain('locate_red_dawn_hq_article');
-    expect(after).not.toContain('raid_hq_article');
+    expect(after).toContain('interrogate_red_dawn_member_article');
+    expect(after).not.toContain('locate_red_dawn_safehouse_article');
+    expect(after).not.toContain('raid_safehouse_article');
+    expect(after).not.toContain('red_dawn_article');
 
-    // Undo restores the World state before that Advance turn, in which both articles are absent again.
+    // Undo restores the World state before that Advance turn, in which the article is absent again.
     expect(visible(before)).toEqual(beforeIds);
+  });
+
+  it('visible_when: the article about a Faction waits for its profile Lead to be completed', () => {
+    const state = newCampaign();
+    // Its subject, the FactionArchetype, is Player-visible from campaign creation, but its `visible_when` does not hold.
+    expect(visible(state)).not.toContain('red_dawn_article');
+    expect(gdrs.compendiumArticles.find((article) => article.id === 'red_dawn_article')!.visibleWhen).toEqual(
+      {
+        kind: 'lead_completed',
+        lead: 'red_dawn_profile',
+      },
+    );
+    const profiled = completeLead(state, 'red_dawn_profile');
+    expect(visible(profiled)).toContain('red_dawn_article');
+    expect(visible(profiled)).toContain('locate_red_dawn_safehouse_article');
+    // COMP, rule 10: only `lead_completed`, naming a Lead of the Game build.
+    expectDefective(
+      (raw) =>
+        (raw.get('red_dawn_article')['visible_when'] = { $entries: [['mission_won', 'apprehend_member']] }),
+    );
+    expectDefective(
+      (raw) =>
+        (raw.get('red_dawn_article')['visible_when'] = { $entries: [['lead_completed', 'no_such_lead']] }),
+    );
+    expectDefective((raw) => (raw.get('red_dawn_article')['visible_when'] = 'red_dawn_profile'));
+    expect(
+      catalogWith((raw) => delete raw.get('red_dawn_article')['visible_when']).compendiumArticles.find(
+        (article) => article.id === 'red_dawn_article',
+      )!.visibleWhen,
+    ).toBeNull();
   });
 
   it('A Response Mission site', () => {
@@ -821,7 +856,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
       withoutArticles = advance(withoutArticles, {}, none);
     }
     expect(withoutArticles).toEqual(withArticles);
-    expect(visibleArticles(withArticles.world.current, gdrs)).toHaveLength(49);
+    expect(visibleArticles(withArticles.world.current, gdrs)).toHaveLength(61);
   });
 
   it('every Bootstrap article lies in the directory of one file per GDR', () => {
@@ -838,12 +873,8 @@ describe('COMP: Player API', () => {
     expect(engine.player.queries.getArticleForTerm('skill').ok).toBe(false);
     ok(await engine.session.campaign.create({ seed: 'compendium' }));
     const initial = ok(engine.player.queries.getCompendiumArticles());
-    expect(initial.map((article) => article.id)).toEqual(visible(newCampaign()));
-    expect(initial.find((article) => article.id === 'red_dawn_article')).toMatchObject({
-      title: 'Red Dawn',
-      subject: 'red_dawn',
-      subjectType: 'FactionArchetype',
-    });
+    expect(initial.map((article) => article.id)).toEqual(visible(newCampaign({ firstLead: false })));
+    expect(initial.find((article) => article.id === 'red_dawn_article')).toBeUndefined();
     expect(ok(engine.player.queries.getArticleForTerm('Combat rating'))).toBe('mechanics_combat');
     expect(ok(engine.player.queries.getArticleForTerm('Raid safehouse'))).toBeNull();
 
@@ -862,6 +893,14 @@ describe('COMP: Player API', () => {
     expect(has('locate_red_dawn_safehouse_article')).toBe(true);
     expect(has('raid_safehouse_article')).toBe(true);
     expect(has('locate_red_dawn_hq_article')).toBe(false);
+    // red_dawn_profile, whose completion discovered the safehouse Lead, makes the article about Red Dawn visible.
+    expect(
+      ok(engine.player.queries.getCompendiumArticles()).find((item) => item.id === 'red_dawn_article'),
+    ).toMatchObject({
+      title: 'Red Dawn',
+      subject: 'red_dawn',
+      subjectType: 'FactionArchetype',
+    });
     expect(ok(engine.player.queries.getArticleForTerm('Raid safehouse'))).toBe('raid_safehouse_article');
 
     // Undo to the Autosave before that Advance turn: the two articles are absent again.

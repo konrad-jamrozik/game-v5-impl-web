@@ -60,7 +60,7 @@ export interface AgentState {
   status: AgentStatus;
   /** AGENT, Agent properties: base skill, a Decimal quantity held in hundredths; see NUMBERS, Decimal quantities. */
   skillHundredths: number;
-  /** AGENT, Agent properties: Experience, the base skill gained from Missions; only Mission growth changes it. */
+  /** AGENT, Growth: Experience, the sum of every Mission experience; only Mission growth changes it. */
   experience: number;
   /**
    * AGENT, Effective max health and current health: health lost, a Decimal quantity held in hundredths. Current health
@@ -105,8 +105,11 @@ export interface FactionState {
   activityLevel: string;
   /** Absent exactly when the Faction activity level is a final level. Never Player-visible. */
   turnsUntilNextLevel: number | null;
-  /** Never Player-visible. */
-  turnsUntilNextOperation: number;
+  /**
+   * Never Player-visible. For a Faction that is not Eliminated, absent exactly when its Faction activity level has no
+   * operations, i.e. its `operation_every_turns` is `null`.
+   */
+  turnsUntilNextOperation: number | null;
   eliminated: boolean;
   eliminatedTurn: number | null;
 }
@@ -224,8 +227,8 @@ export interface CombatParticipantReport {
   };
   readonly damageDealtHundredths: number;
   readonly damageTakenHundredths: number;
-  /** COMBAT, Combat skill gain: an Agent's, a whole number of at least 0; absent for an Enemy, which has none. */
-  readonly combatSkillGain: number | null;
+  /** COMBAT, Combat experience: an Agent's, a whole number of at least 0; absent for an Enemy, which has none. */
+  readonly combatExperience: number | null;
 }
 
 export interface AttackRecord {
@@ -267,7 +270,12 @@ export interface CombatReport {
 // ---- Campaign-wide values (ENDING, LEAD, TURN) ---------------------------------------------------
 
 export type CampaignEnding = 'Victory' | 'Defeat';
-export type EndingReason = 'EveryFactionEliminated' | 'PanicAtTheLimit' | 'MoneyBelowZero';
+/** ENDING, Ending reasons: the exhaustive set. */
+export type EndingReason =
+  | 'CampaignObjectiveAchieved'
+  | 'PanicAtTheLimit'
+  | 'MoneyBelowZero'
+  | 'ExistentialOperationNotStopped';
 
 export interface CurrentWorldState {
   /** The Campaign seed; never Player-visible. */
@@ -282,7 +290,8 @@ export interface CurrentWorldState {
   /** Pending random outcome overrides; see DEV, Random outcome overrides. */
   randomOverrides: RandomOverride[];
   turn: number;
-  panic: number;
+  /** ENDING, Panic: a Decimal quantity from 0 to 100, held in hundredths, i.e. from 0 to 10000. */
+  panicHundredths: number;
   ending: CampaignEnding | null;
   endingReasons: EndingReason[];
   endingTurn: number | null;
@@ -306,9 +315,12 @@ export interface CurrentWorldState {
 export interface ConsequenceRecord {
   readonly money: number;
   readonly fundingChange: number;
-  readonly panicIncrease: number;
-  readonly panicReduction: number;
+  /** The Panic increase and Panic reduction, Decimal quantities in hundredths of a percentage point. */
+  readonly panicIncreaseHundredths: number;
+  readonly panicReductionHundredths: number;
   readonly eliminatedFaction: string | null;
+  /** Whether a `defeat` Effect applied, which loses the Campaign (ENDING, Pending defeat). */
+  readonly defeat: boolean;
 }
 
 export interface MissionResultRecord {
@@ -330,8 +342,8 @@ export interface MissionResultRecord {
 /** AGENT, Mission growth: one survivor's gains from one Mission and its values after them. */
 export interface MissionGrowthRecord {
   readonly agent: string;
-  readonly survivalSkillGain: number;
-  readonly missionSkillGain: number;
+  readonly survivalExperience: number;
+  readonly missionExperience: number;
   /** Base skill after the gain, in hundredths. */
   readonly skillAfterHundredths: number;
   readonly experienceAfter: number;
@@ -411,13 +423,14 @@ export interface TurnReport {
     readonly kind: MissionSiteKind;
     readonly consequence: ConsequenceRecord;
   }[];
+  /**
+   * FACTION, Turn report: each Faction that had a Faction operation occurrence, in Instance ID order, with the Response
+   * Mission site it created and the occurrence's FactionOperationLevel. It never holds whether a Faction escalated.
+   */
   readonly factionActivity: readonly {
     readonly faction: string;
-    /** The Faction activity level the Faction moved to, if it escalated. */
-    readonly escalatedTo: string | null;
-    /** The Response Mission site its Faction operation occurrence created, if one happened. */
-    readonly createdMissionSite: string | null;
-    readonly operationLevel: string | null;
+    readonly createdMissionSite: string;
+    readonly operationLevel: string;
   }[];
   readonly recovery: readonly {
     readonly agent: string;
@@ -428,7 +441,8 @@ export interface TurnReport {
     readonly exhaustionAfter: number;
     readonly recovered: boolean;
   }[];
-  readonly panic: { readonly before: number; readonly after: number };
+  /** Panic before and after the Advance turn, in hundredths. */
+  readonly panicHundredths: { readonly before: number; readonly after: number };
   readonly funding: { readonly before: number; readonly after: number };
   readonly money: { readonly turnEnd: number; readonly after: number };
   readonly ending: {
@@ -441,7 +455,8 @@ export interface TurnReport {
 export interface StateSummary {
   readonly money: number;
   readonly funding: number;
-  readonly panic: number;
+  /** Panic, in hundredths. */
+  readonly panicHundredths: number;
   readonly servingAgents: number;
   readonly activeInvestigations: number;
   readonly activeMissionSites: number;
@@ -520,8 +535,8 @@ export interface HistoryEntry {
       readonly consequence: ConsequenceRecord;
     }[];
     readonly cancelledMissionSites: readonly string[];
-    readonly escalatedFactions: readonly string[];
-    readonly panicAfter: number;
+    /** Panic after the Advance turn, in hundredths. */
+    readonly panicAfterHundredths: number;
     readonly moneyAfter: number;
     readonly fundingAfter: number;
     readonly ending: CampaignEnding | null;

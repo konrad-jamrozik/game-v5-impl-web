@@ -6,6 +6,7 @@
 import { Fragment, useEffect, type ReactNode } from 'react';
 import type { HistoryEntry } from '../../engine/index.ts';
 import { actionLines, expenditures, type ActionNames } from '../history-actions.ts';
+import { panicText } from '../format.ts';
 import { historyRows } from '../history-rows.ts';
 import { usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
@@ -60,9 +61,6 @@ function Events(props: {
       ) : null}
       {report.expiredMissionSites.length > 0 ? (
         <Label tone="tone-accent">{count(report.expiredMissionSites.length, 'Mission site')} expired</Label>
-      ) : null}
-      {report.escalatedFactions.length > 0 ? (
-        <Label tone="tone-bad">{count(report.escalatedFactions.length, 'Faction')} escalated</Label>
       ) : null}
       {report.ending === null ? null : (
         <Label tone={report.ending === 'Victory' ? 'tone-good' : 'tone-bad'}>{report.ending}</Label>
@@ -137,7 +135,8 @@ export function HistoryView({
     <DetailView id="history" title="History" aside="Turn by Turn · newest first" onClose={onClose}>
       <div className="table-scroll" data-testid="history">
         <Grid
-          widths={['104px', '120px', '120px', '112px', '92px', '92px', '76px', '84px', '128px', '440px']}
+          // HVIEW: the Panic column is wide enough for Panic with two decimals, e.g. "24.35%", as on its Artboard.
+          widths={['104px', '120px', '120px', '112px', '92px', '92px', '100px', '84px', '128px', '440px']}
           testId="history-table"
           scroll={false}
         >
@@ -173,7 +172,7 @@ export function HistoryView({
                     <td className="num">{row.moneyEnd}</td>
                     <td className="num tone-good">+{row.income}</td>
                     <td className="num tone-bad">−{row.upkeep}</td>
-                    <td className="num">{row.panic}%</td>
+                    <td className="num">{panicText(row.panic)}</td>
                     <td className="num">{row.agents}</td>
                     <td className="num">
                       {row.actions.length === 0 ? (

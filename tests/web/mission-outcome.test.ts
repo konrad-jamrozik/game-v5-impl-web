@@ -13,9 +13,10 @@ import {
 const none: ConsequenceRecord = {
   money: 0,
   fundingChange: 0,
-  panicIncrease: 0,
-  panicReduction: 0,
+  panicIncreaseHundredths: 0,
+  panicReductionHundredths: 0,
   eliminatedFaction: null,
+  defeat: false,
 };
 
 function mission(
@@ -79,7 +80,7 @@ describe('MVIEW, Final state', () => {
 
 describe('MVIEW, Selected Mission site: Consequences that applied', () => {
   const won = mission('mission-site-3', 'Won', 'Prevailed');
-  const expiredPanic = { ...none, panicIncrease: 3 };
+  const expiredPanic = { ...none, panicIncreaseHundredths: 300 };
   const entries = [
     entry([won], []),
     entry([], [{ missionSite: 'mission-site-4', consequence: expiredPanic }]),

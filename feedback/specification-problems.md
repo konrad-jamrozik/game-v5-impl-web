@@ -540,7 +540,10 @@
   replaces them is not Player-visible, while an Autopilot AI sees only Player API. The chain the Basic Autopilot AI
   sorts by can therefore not be read as stated.
 - **Links:** DEC-060, PROB-021
-- **Resolution:** Open
+- **Resolution:** Resolved in acf5e1365fc4039ddd861339ac47f4abbfcc4526: BASICAI, Keep Mission sites coming, now reads
+  "the one furthest along its Faction's chain, i.e. the one with the longest chain of discovered Leads behind it" and
+  no longer measures the chain by prerequisites. What "behind it" means stays open under PROB-021, and DEC-060 stays
+  in force.
 
 ## PROB-038: Bootstrap GDRs, About Mechanics, and Domain Model still speak of Lead prerequisites
 
@@ -553,7 +556,9 @@
 - **Description:** Leads and Progression replaced Lead prerequisites with the Condition `discovered_when`, which
   discovers a Lead rather than gating its availability, but these passages still name prerequisites.
 - **Links:** DEC-061
-- **Resolution:** Open
+- **Resolution:** Open. Resolved in part in acf5e1365fc4039ddd861339ac47f4abbfcc4526: BOOT, Leads and Progression
+  GDRs, no longer says "it has no prerequisites", but still says "every Lead names its prerequisite Leads"; MECH and
+  DOM are unchanged.
 
 ## PROB-039: The order of the Investigations interrupted in an Advance turn is unstated
 
@@ -592,8 +597,10 @@
 - **Description:** The Compendium View must show the Effects in an order that Effect Lists says an Effect list does
   not have, so two Game builds with the same Effect list could show it differently. No specification states that
   Player API reports the authored order of the Effects, or an Effect whose value is 0 apart from an absent Effect,
-  which decides between "+0 money" and leaving the Effect out.
-- **Links:** DEC-064
+  which decides between "+0 money" and leaving the Effect out. Since Specification revision
+  acf5e1365fc4039ddd861339ac47f4abbfcc4526 the Leads View shows "one line for each Effect" of a Lead's
+  `on_completion`, which meets the same missing order.
+- **Links:** DEC-064, DEC-071
 - **Resolution:** Open
 
 ## PROB-042: The Combat report no longer shows the starting Incapacitated value it must show
@@ -621,4 +628,55 @@
   Previous article button is enabled and shows the article already shown. No rule says whether equal neighbours are
   merged; the list of changes to the Article history is stated to be exhaustive.
 - **Links:** DEC-066
+- **Resolution:** Open
+
+## PROB-044: No Turn report holds the Faction a Lead's completion made Eliminated, or the Campaign it won
+
+- **Category:** Implicit gap
+- **Severity:** Medium
+- **Affected specifications:** LEAD, Turn report: "The Turn report of an Advance turn holds the Leads discovered in
+  it"; INVSTG, Turn report: "... whether it completed ... and the Mission site its completion created, if any";
+  MISSION, Turn report: "the Consequences that applied: ... the Faction made Eliminated, and the Defeat, if any".
+- **Description:** A Won Mission that makes a Faction Eliminated is reported with its Consequences, but the
+  `eliminate_faction` and `win_campaign` Effects of a Lead's completion, which LEAD, Completion effect, now allows,
+  appear in no Turn report or History entry. The Player learns of them only from the Faction's Eliminated and
+  Eliminated turn and from the Campaign ending.
+- **Links:** DEC-068
+- **Resolution:** Open
+
+## PROB-045: The Turn advancement step table still says a completed Investigation creates one Mission site
+
+- **Category:** Duplicate
+- **Severity:** Low
+- **Affected specifications:** TURN, Turn advancement steps, step 4: "A completed Investigation becomes Completed,
+  applies its Lead's completion effect, which creates one Initiative Mission site"; LEAD, Completion effect: "a Lead
+  may also do none of these"; INVSTG, Completion: "a Lead may instead, or also, make its Faction Eliminated or win the
+  Campaign, or change nothing".
+- **Description:** The summary of step 4 restates the completion effect as it was before Leads could create no Mission
+  site, eliminate their Faction, or win the Campaign, and so disagrees with the rule it summarizes.
+- **Links:** DEC-069
+- **Resolution:** Open
+
+## PROB-046: How far along its Faction's chain a Lead without a Faction is, is not defined
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** BASICAI, Keep Mission sites coming: "then the one furthest along its Faction's chain,
+  i.e. the one with the longest chain of discovered Leads behind it"; LEAD, Lead: "A Lead without it concerns no
+  Faction."
+- **Description:** `criminal_organizations` and `peace_on_earth` have no Faction, so they have no Faction's chain to
+  be measured along.
+- **Links:** DEC-070
+- **Resolution:** Open
+
+## PROB-047: The least width of a pane without a table is unstated
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** VIS, Detail views and navigation, Panes: "a table scrolls sideways only when the window
+  is too narrow for every pane to take its least width"; LVIEW, Selected Lead.
+- **Description:** VIS speaks of every pane's least width but states it only for a pane that holds a table. Without
+  one, a wide table, e.g. Agents to add in the Leads View, can squeeze the selected Lead's pane to a few words a line
+  at a common window width, e.g. 1500 px.
+- **Links:** DEC-072
 - **Resolution:** Open

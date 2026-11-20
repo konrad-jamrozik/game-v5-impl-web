@@ -5,7 +5,7 @@ export function summarize(world: CurrentWorldState): StateSummary {
   return {
     money: world.agency.state.money,
     funding: world.agency.state.funding,
-    panic: world.panic,
+    panicHundredths: world.panicHundredths,
     servingAgents: Object.values(world.agents).filter((agent) => isServing(agent.state)).length,
     activeInvestigations: Object.values(world.investigations).filter(
       (investigation) => investigation.state.lifecycle === 'Active',

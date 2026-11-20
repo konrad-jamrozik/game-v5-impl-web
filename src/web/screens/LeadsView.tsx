@@ -7,6 +7,7 @@ import type { AgentView, CurrentStateView, InvestigationView, LeadView } from '.
 import { agentsToAddOrder, isInBase } from '../agents-to-add.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
 import { progressGain, progressPoints, wholeText } from '../format.ts';
+import { leadFactionName, onCompletionLines } from '../lead-completion.ts';
 import { progressBar } from '../progress-bar.ts';
 import { activeInvestigationRows, leadsToInvestigate, rangeText } from '../situation.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
@@ -52,8 +53,6 @@ export function LeadsView(props: {
   const { snapshot, state } = props;
   const [picked, setPicked] = useState<string | null>(props.initial);
   const [archivedOpen, setArchivedOpen] = useState(false);
-  const siteName = (archetype: string) =>
-    snapshot.gameData?.missionSiteArchetypes.find((item) => item.id === archetype)?.name ?? archetype;
 
   const active = activeInvestigationRows(state);
   const investigated = new Set(active.map((row) => row.investigation.lead));
@@ -155,13 +154,7 @@ export function LeadsView(props: {
           )}
         </div>
         {selected === null ? null : (
-          <LeadDetails
-            lead={selected}
-            investigation={investigation}
-            snapshot={snapshot}
-            state={state}
-            siteName={siteName}
-          />
+          <LeadDetails lead={selected} investigation={investigation} snapshot={snapshot} state={state} />
         )}
         {selected === null || (selected.status !== 'Available' && investigation === undefined) ? null : (
           <Team
@@ -183,23 +176,24 @@ function LeadDetails(props: {
   investigation: InvestigationView | undefined;
   snapshot: Snapshot;
   state: CurrentStateView;
-  siteName: (archetype: string) => string;
 }) {
-  const { lead, investigation, snapshot, state, siteName } = props;
-  const faction = state.factions.find((item) => item.id === lead.faction)?.name ?? lead.factionArchetype;
-  const archetype = snapshot.gameData?.missionSiteArchetypes.find(
-    (item) => item.id === lead.createsMissionSite,
-  );
-  const enemies = archetype?.enemies.reduce((sum, item) => sum + item.count, 0);
+  const { lead, investigation, snapshot, state } = props;
   const completions = lead.completionCount;
   const range = rangeText(lead);
+  const faction = leadFactionName(lead, state);
+  const onCompletion = onCompletionLines(lead, snapshot.gameData, state);
   return (
     <div className="pane" data-testid={`lead-details-${lead.id}`}>
       <h4 className="pane-title">{lead.name}</h4>
       <p className="secondary small">{lead.description}</p>
       <dl className="pairs">
-        <dt>Faction</dt>
-        <dd>{faction}</dd>
+        {/* LVIEW, Selected Lead: its Faction only when it has one. */}
+        {faction === null ? null : (
+          <>
+            <dt>Faction</dt>
+            <dd data-testid="lead-faction">{faction}</dd>
+          </>
+        )}
         <dt>Status</dt>
         <dd className={lead.status === 'Available' ? 'tone-good' : 'muted'} data-testid="lead-status">
           {STATUS_TEXT[lead.status]}
@@ -210,11 +204,6 @@ function LeadDetails(props: {
             <dd data-testid="lead-investigate-again">{INVESTIGATE_AGAIN_NOTE[lead.investigateAgain]}</dd>
           </>
         )}
-        <dt>Completion creates</dt>
-        <dd>
-          {siteName(lead.createsMissionSite)}
-          {enemies === undefined ? '' : ` · ${enemies} Enemies`}
-        </dd>
         {completions === 0 ? null : (
           <>
             <dt>Completed</dt>
@@ -222,6 +211,22 @@ function LeadDetails(props: {
           </>
         )}
       </dl>
+      {onCompletion.length === 0 ? null : (
+        <div data-testid="lead-on-completion">
+          <div className="label pane-sub">On completion</div>
+          {onCompletion.map((line) => (
+            <div
+              key={line.key}
+              className={`small${line.good ? ' tone-good' : ''}`}
+              data-testid={`lead-on-completion-${line.key}`}
+            >
+              {line.before}
+              {line.strong === '' ? null : <strong>{line.strong}</strong>}
+              {line.after}
+            </div>
+          ))}
+        </div>
+      )}
       {investigation === undefined ? null : (
         <>
           <div className="label pane-sub">Investigation</div>
@@ -357,7 +362,7 @@ function Team(props: {
         <p className="muted small">No Agent that is Fit for work can be assigned now.</p>
       ) : (
         <Grid
-          widths={['36px', '104px', '200px', '84px', '104px', '96px']}
+          widths={['36px', '104px', '170px', '84px', '80px', '96px']}
           className="compact pick-grid"
           testId="agents-to-add"
         >

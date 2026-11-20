@@ -151,6 +151,7 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       return (
         typeof current['seed'] === 'string' &&
         typeof current['turn'] === 'number' &&
+        typeof current['panicHundredths'] === 'number' &&
         isRecord(current['rng']) &&
         isRecord(current['agency']) &&
         ['agents', 'factions', 'investigations', 'missionSites', 'missions', 'enemies'].every((key) =>

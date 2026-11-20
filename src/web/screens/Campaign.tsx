@@ -24,6 +24,7 @@ import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
 import { Button, CloseControl, Fact, Meter, typingIn } from '../ui.tsx';
 import { turnsSinceLastFactionActivity } from '../faction-activity.ts';
+import { decimalText, panicText } from '../format.ts';
 import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
 import { ChartsView } from './ChartsView.tsx';
@@ -42,7 +43,8 @@ import { TurnSummary } from './TurnSummary.tsx';
 import { UpgradesView } from './UpgradesView.tsx';
 
 const REASONS: Record<string, string> = {
-  EveryFactionEliminated: 'every Faction is eliminated',
+  CampaignObjectiveAchieved: 'the Campaign objective is achieved',
+  ExistentialOperationNotStopped: 'an existential operation was not stopped',
   PanicAtTheLimit: 'Panic reached its limit',
   MoneyBelowZero: 'money fell below zero',
 };
@@ -70,6 +72,7 @@ const SHORTCUTS: readonly {
   { keys: ['S', 'C', 'T'], what: 'Assign the selected Agents to Standby, Contracting, or Training' },
   { keys: ['A'], what: 'Select every Agent that can be assigned' },
   { keys: ['Q', 'W'], what: 'Show the previous or next article of the Compendium Article history' },
+  { keys: ['S'], what: 'Search article titles in the Compendium; Enter shows the first match' },
   { keys: ['`'], what: 'Developer tools' },
   { keys: ['?'], what: 'Keyboard shortcuts' },
 ];
@@ -476,9 +479,13 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             <span className="fact-label">Panic</span>
             <span className="meter-figure" data-testid="panic">
               <span>
-                {state.panic} / {state.panicLimit}%
+                {decimalText(state.panicHundredths)} / {state.panicLimit}%
               </span>
-              <Meter value={state.panic} max={state.panicLimit} label={`Panic ${state.panic}%`} />
+              <Meter
+                value={state.panicHundredths}
+                max={state.panicLimit * 100}
+                label={`Panic ${panicText(state.panicHundredths)}`}
+              />
             </span>
           </div>
           {/* CSCR, Status bar values, 6: its label may wrap onto two lines, so the controls keep one row. */}

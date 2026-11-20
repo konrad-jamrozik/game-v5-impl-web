@@ -23,7 +23,7 @@ export function createCampaignState(
     nextInstanceNumbers: {},
     randomOverrides: [],
     turn: 1,
-    panic: 0,
+    panicHundredths: 0,
     ending: null,
     endingReasons: [],
     endingTurn: null,

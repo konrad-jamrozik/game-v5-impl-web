@@ -29,14 +29,17 @@ import {
   units,
   setCurrentHealth,
   currentHealthOf,
+  useLegacyCatalog,
 } from '../helpers/game.ts';
+
+useLegacyCatalog();
 
 const set = (
   state: CampaignState,
-  values: { panic?: number; money?: number; funding?: number; turn?: number },
+  values: { panicHundredths?: number; money?: number; funding?: number; turn?: number },
 ) =>
   tweak(state, (world) => {
-    world.panic = values.panic ?? world.panic;
+    world.panicHundredths = values.panicHundredths ?? world.panicHundredths;
     world.agency.state.money = values.money ?? world.agency.state.money;
     world.agency.state.funding = values.funding ?? world.agency.state.funding;
     world.turn = values.turn ?? world.turn;
@@ -84,7 +87,7 @@ describe('TURN: examples', () => {
       investigations: [{ investigation: i1, progressGain: 0, progressAfter: 0, completed: false }],
       missions: [],
       recovery: [],
-      panic: { before: 0, after: 0 },
+      panicHundredths: { before: 0, after: 0 },
       ending: null,
     });
     expect(agent(state, a3).state.skillHundredths / 100).toBe(101);
@@ -139,7 +142,10 @@ describe('TURN: examples', () => {
       [`combat.damage.${e3}`]: [12],
     });
     const report = state.world.history.turnReport!;
-    expect(report.missions[0]).toMatchObject({ result: 'Won', consequence: { money: 5, panicReduction: 1 } });
+    expect(report.missions[0]).toMatchObject({
+      result: 'Won',
+      consequence: { money: 5, panicReductionHundredths: 100 },
+    });
     expect(report.upkeep.servingAgents).toBe(4);
     const wounded = [a1, a2].find((id) => currentHealthOf(agent(state, id).state) / 100 < 30)!;
     const unharmed = [a1, a2].find((id) => id !== wounded)!;
@@ -200,7 +206,12 @@ describe('TURN: examples', () => {
     state = tweak(state, (world) => {
       world.agency.state.acquisitions['transport_cap'] = 3;
     });
-    state = setFaction(set(state, { money: 1000, funding: 25, panic: 95, turn: 150 }), 'war', null, 1);
+    state = setFaction(
+      set(state, { money: 1000, funding: 25, panicHundredths: 9500, turn: 150 }),
+      'total_war',
+      null,
+      1,
+    );
     const ids = agentIds(state);
     const s3 = addMissionSite(state, 'raid_hq');
     const s4 = addMissionSite(s3.state, 'foil_sabotage');
@@ -211,7 +222,7 @@ describe('TURN: examples', () => {
     return { state, s3: s3.site, s4: s4.site, s5: s5.site, ids };
   }
 
-  it('The last Faction Eliminated while Panic reaches the limit', () => {
+  it('The last Faction Eliminated while Panic reaches the limit: no Victory, but Defeat', () => {
     const { state, s3, s4, s5, ids } = lastTurnState();
     const a9 = ids[8]!;
     const responseEnemies = state.world.current.missionSites[s4]!.state.enemies;
@@ -245,10 +256,13 @@ describe('TURN: examples', () => {
       eliminatedTurn: 150,
       turnsUntilNextOperation: 1,
     });
-    expect([money(forward), funding(forward), forward.world.current.panic]).toEqual([995, 24, 100]);
+    expect([money(forward), funding(forward), forward.world.current.panicHundredths]).toEqual([
+      995, 24, 10_000,
+    ]);
     expect(forward.world.current).toMatchObject({
-      ending: 'Victory',
-      endingReasons: ['EveryFactionEliminated'],
+      // ENDING, Victory: the last Faction made Eliminated is no Victory, so Panic at the limit is Defeat.
+      ending: 'Defeat',
+      endingReasons: ['PanicAtTheLimit'],
       endingTurn: 150,
       turn: 151,
     });
@@ -278,7 +292,10 @@ describe('TURN: examples', () => {
     const report = next.world.history.turnReport!;
     expect(report.missions.map((m) => m.result)).toEqual(['Lost', 'Lost']);
     expect(next.world.current.missionSites[s5]!.state.lifecycle).toBe('Expired');
-    expect(report.expiredMissionSites[0]!.consequence).toMatchObject({ panicIncrease: 3, fundingChange: 0 });
+    expect(report.expiredMissionSites[0]!.consequence).toMatchObject({
+      panicIncreaseHundredths: 300,
+      fundingChange: 0,
+    });
     expect(report.factionActivity[0]).toMatchObject({ operationLevel: 'operation_level_2' });
     const s6 = next.world.current.missionSites[report.factionActivity[0]!.createdMissionSite!]!;
     expect(s6).toMatchObject({
@@ -287,7 +304,7 @@ describe('TURN: examples', () => {
     });
     expect(funding(next)).toBe(24);
     expect(next.world.current).toMatchObject({
-      panic: 100,
+      panicHundredths: 10_000,
       ending: 'Defeat',
       endingReasons: ['PanicAtTheLimit'],
       endingTurn: 150,
@@ -297,7 +314,7 @@ describe('TURN: examples', () => {
 
   it('Two Mission sites created in one Advance turn', () => {
     let state = setFaction(
-      set(newCampaign({ money: 5000 }), { panic: 10, funding: 20, turn: 30 }),
+      set(newCampaign({ money: 5000 }), { panicHundredths: 1000, funding: 20, turn: 30 }),
       'faint',
       40,
       1,
@@ -339,23 +356,23 @@ describe('TURN: examples', () => {
     expect(expiration()).toEqual([3, 1]);
     state = advance(state);
     expect(expiration()).toEqual([2, 'Expired']);
-    expect([state.world.current.panic, funding(state)]).toEqual([13, 20]);
+    expect([state.world.current.panicHundredths, funding(state)]).toEqual([1300, 20]);
     state = advance(state);
     state = advance(state);
     expect(expiration()).toEqual(['Expired', 'Expired']);
-    expect(state.world.current.panic).toBe(13);
+    expect(state.world.current.panicHundredths).toBe(1300);
     expect(currentStateView(state, gdrs).leads[0]!.status).toBe('Available');
   });
 
   it('Money below zero, Defeat, and Turn close', () => {
-    const base = set(newCampaign(), { money: 15, funding: 0, panic: 30, turn: 20 });
+    const base = set(newCampaign(), { money: 15, funding: 0, panicHundredths: 3000, turn: 20 });
     const eliminated = advance(base);
     expect(eliminated.world.current).toMatchObject({
       ending: 'Defeat',
       endingReasons: ['MoneyBelowZero'],
       endingTurn: 20,
       turn: 21,
-      panic: 30,
+      panicHundredths: 3000,
     });
     expect(money(eliminated)).toBe(-25);
     expect(series(eliminated)).toEqual({ start: [500, -25], end: [15] });
@@ -374,7 +391,7 @@ describe('TURN: examples', () => {
 
   it('Funding and Panic from two steps', () => {
     let state = withAgents(newCampaign({ money: 100_000 }), 8);
-    state = tweak(set(state, { funding: 0, panic: 20 }), (world) => {
+    state = tweak(set(state, { funding: 0, panicHundredths: 2000 }), (world) => {
       world.agency.state.acquisitions['transport_cap'] = 2;
     });
     const ids = agentIds(state);
@@ -398,7 +415,7 @@ describe('TURN: examples', () => {
     expect(report.income.funding).toBe(0);
     // Step 5: max(0, 0 + 5 − 1) = 4; step 6: max(0, 4 − 1) = 3.
     expect(funding(forward)).toBe(3);
-    expect(forward.world.current.panic).toBe(20 - 2 + 8 + 8);
+    expect(forward.world.current.panicHundredths).toBe(2000 - 200 + 800 + 800);
     expect(currentStateView(forward, gdrs).agency.projectedIncome).toBe(3);
   });
 
@@ -508,7 +525,7 @@ describe('TURN: Values a step uses, as a property', () => {
     let state = withAgents(newCampaign({ money: 3000, catalog, quietFactions: false }), 20, catalog);
     state = tweak(state, (world) => {
       world.agency.state.acquisitions['transport_cap'] = 4;
-      world.panic = 40;
+      world.panicHundredths = 4000;
       for (const faction of Object.values(world.factions)) {
         faction.state.turnsUntilNextOperation = 1;
         faction.state.turnsUntilNextLevel = 1;

@@ -37,7 +37,7 @@ async function viaApi(): Promise<unknown> {
   const { player, session } = engine;
   await session.campaign.create({ seed: SEED });
   await player.actions.assignAgents(['agent-2', 'agent-3'], 'Contracting');
-  await player.actions.startInvestigation('locate_red_dawn_member', ['agent-4']);
+  await player.actions.startInvestigation('criminal_organizations', ['agent-4']);
   await player.actions.hireAgent();
   await player.actions.advanceTurn();
   await player.actions.advanceTurn();
@@ -55,7 +55,7 @@ async function viaCli(): Promise<unknown> {
   for (const command of [
     `new ${SEED}`,
     'assign Contracting agent-2 agent-3',
-    'investigate locate_red_dawn_member agent-4',
+    'investigate criminal_organizations agent-4',
     'hire',
     'next',
     'next',
@@ -95,11 +95,16 @@ async function viaWeb(page: Page): Promise<unknown> {
   await id(page, 'agent-agent-3').click();
   await id(page, 'order-contracting').click();
   await id(page, 'nav-leads').click();
-  await id(page, 'lead-locate_red_dawn_member').click();
+  await id(page, 'lead-criminal_organizations').click();
+  // LVIEW, Selected Lead: a Lead without a Faction shows none, and one whose `on_completion` is empty no "On
+  // completion" heading.
+  await expect(id(page, 'lead-details-criminal_organizations')).toBeVisible();
+  await expect(id(page, 'lead-faction')).toHaveCount(0);
+  await expect(id(page, 'lead-on-completion')).toHaveCount(0);
   await id(page, 'team-pick-agent-4').check();
   // LVIEW, Team progress estimate: shown while at least one Agent is checked.
   await expect(id(page, 'team-estimate')).toContainText('/ turn');
-  await id(page, 'investigate-locate_red_dawn_member').click();
+  await id(page, 'investigate-criminal_organizations').click();
   await id(page, 'nav-agents').click();
   await id(page, 'hire').click();
   await id(page, 'advance-turn').click();
@@ -332,9 +337,9 @@ test('the Situation panel stays in view beside a Detail view and an item opens i
   await id(page, 'nav-history').click();
   await expect(id(page, 'view-history')).toBeVisible();
   await expect(id(page, 'situation')).toBeVisible();
-  await id(page, 'situation-row-locate_red_dawn_member').click();
+  await id(page, 'situation-row-criminal_organizations').click();
   await expect(id(page, 'nav-leads')).toHaveAttribute('aria-pressed', 'true');
-  await expect(id(page, 'lead-details-locate_red_dawn_member')).toBeVisible();
+  await expect(id(page, 'lead-details-criminal_organizations')).toBeVisible();
   // CSCR, Detail views: selecting the button of the open Detail view, or Escape, closes it.
   await id(page, 'nav-leads').click();
   await expect(id(page, 'view-leads')).toHaveCount(0);
@@ -464,21 +469,20 @@ test('the Compendium View shows resolved articles, follows Article links, and ke
   const next = id(page, 'article-next');
 
   // COMPV, Panes: Guide first, then Mechanics, then the subject categories by name; Guide and its first article are
-  // selected when the View opens.
+  // selected when the View opens. At campaign start no Faction article or Mission site article is Player-visible yet,
+  // because the only Lead discovered, Criminal organizations, concerns no Faction and creates no Mission site.
   await expect(id(page, 'compendium-categories').locator('.list-name')).toHaveText([
     'Guide',
     'Mechanics',
     'Agents',
     'Enemies',
-    'Factions',
     'Leads',
-    'Mission sites',
     'Upgrades',
     'Weapons',
   ]);
   await expect(id(page, 'compendium-category-Guide')).toHaveClass(/list-row-on/);
   await expect(id(page, 'compendium-category-Guide')).toContainText('6');
-  await expect(id(page, 'compendium-category-Mechanics')).toContainText('25');
+  await expect(id(page, 'compendium-category-Mechanics')).toContainText('26');
   await expect(shown).toHaveAttribute('data-article', 'guide_agency');
   // COMPV, Following links, Open: the Article history holds only the article selected.
   await expect(previous).toBeDisabled();
@@ -499,9 +503,9 @@ test('the Compendium View shows resolved articles, follows Article links, and ke
   await expect(previous).toBeEnabled();
 
   // COMPV, Following links: an Article link shows the article it links to and selects its category and article.
-  // SOUNDS, Main click: an Article link follows a reference; SOUNDS, Select click: a button of the Article history.
+  // SOUNDS, Select click: an Article link selects the article it links to, and a button of the Article history.
   const link = id(page, 'article-body').locator('.article-link').first();
-  await expect(link).toHaveAttribute('data-sound', 'main');
+  await expect(link).toHaveAttribute('data-sound', 'select');
   await expect(link).toHaveCSS('text-decoration-line', 'underline');
   await expect(link).toHaveCSS('cursor', 'pointer');
   await expect(previous).toHaveAttribute('data-sound', 'select');
@@ -544,7 +548,13 @@ test('the Compendium View shows resolved articles, follows Article links, and ke
   // COMPV, Panes: the search field filters every category by displayed title; typing shows no other article.
   await id(page, 'compendium-search').fill('rifle');
   await expect(id(page, 'compendium-categories').locator('.list-name')).toHaveText(['Weapons']);
-  await expect(id(page, 'compendium-articles').locator('.list-name')).toHaveText(['Heavy rifle', 'Rifle']);
+  await expect(id(page, 'compendium-articles').locator('.list-name')).toHaveText([
+    'Anti-materiel rifle',
+    'Assault rifle',
+    'Battle rifle',
+    'Heavy rifle',
+    'Rifle',
+  ]);
   await expect(shown).toHaveAttribute('data-article', 'soldier_article');
   // Following a link to an article listed under the search text keeps the text.
   await sheet.locator('td .article-link', { hasText: 'Rifle' }).click();
@@ -555,6 +565,41 @@ test('the Compendium View shows resolved articles, follows Article links, and ke
   await expect(shown).toHaveAttribute('data-article', 'soldier_article');
   await expect(id(page, 'compendium-search')).toHaveValue('');
   await expect(id(page, 'compendium-category-Enemies')).toHaveClass(/list-row-on/);
+
+  // COMPV, Panes: the search field says how to reach it; the S key gives it the keyboard focus and selects its text,
+  // and is not typed into it; Enter shows the first article listed and moves the focus out, keeping the text.
+  const search = id(page, 'compendium-search');
+  await expect(search).toHaveAttribute('placeholder', 'Title (press S)');
+  await search.fill('old text');
+  await id(page, 'article-title').click();
+  await expect(search).not.toBeFocused();
+  await page.keyboard.press('s');
+  await expect(search).toBeFocused();
+  await page.keyboard.type('criminal');
+  await expect(search).toHaveValue('criminal');
+  await expect(shown).toHaveAttribute('data-article', 'soldier_article');
+  await page.keyboard.press('Enter');
+  await expect(shown).toHaveAttribute('data-article', 'criminal_organizations_article');
+  await expect(id(page, 'compendium-category-Leads')).toHaveClass(/list-row-on/);
+  await expect(id(page, 'article-criminal_organizations_article')).toHaveClass(/list-row-on/);
+  await expect(search).not.toBeFocused();
+  await expect(search).toHaveValue('criminal');
+  // COMPV, Lead data sheet: a Lead without a Faction or a created Mission site has no such rows.
+  await expect(id(page, 'article-data-sheet').locator('th')).toHaveText([
+    'Required progress',
+    'Can be investigated again',
+  ]);
+  // The Q key works again once Enter moved the focus out, and Enter shows another article as a new step.
+  await page.keyboard.press('q');
+  await expect(shown).toHaveAttribute('data-article', 'soldier_article');
+  // Enter with no match does nothing.
+  await page.keyboard.press('s');
+  await page.keyboard.type('no such title');
+  await page.keyboard.press('Enter');
+  await expect(search).toBeFocused();
+  await expect(shown).toHaveAttribute('data-article', 'soldier_article');
+  await search.fill('');
+  await id(page, 'article-title').click();
 
   // An article about something the Player may not know yet is absent, and so is every link to it.
   await expect(id(page, 'article-raid_safehouse_article')).toHaveCount(0);
@@ -607,4 +652,74 @@ test('the keyboard shortcuts view shows every key whole, and Undo names an Autop
   const redo = id(page, 'redo');
   await expect(redo.locator('.label-swap > span:not(.label-off)')).toHaveText('Redo Autopilot');
   await expect(redo).toHaveClass(/btn-autopilot/);
+  // CSCR, Keyboard shortcuts: the S key of the Compendium has its own row.
+  await id(page, 'open-settings').click();
+  await id(page, 'open-shortcuts').click();
+  await expect(id(page, 'shortcuts')).toContainText(
+    'Search article titles in the Compendium; Enter shows the first match',
+  );
+});
+
+test('the Autopilot controls keep their state for the rest of the Session', async ({ page }) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('autopilot-kept');
+  await id(page, 'new-campaign').click();
+  await id(page, 'autopilot-toggle').click();
+  await id(page, 'autopilot-turns').fill('100');
+  // CSCR, Autopilot controls: returning to the Main menu and creating a Campaign change none of them.
+  await id(page, 'to-menu').click();
+  await id(page, 'seed-input').fill('autopilot-kept-2');
+  await id(page, 'new-campaign').click();
+  await expect(id(page, 'autopilot-toggle')).toHaveAttribute('aria-expanded', 'true');
+  await expect(id(page, 'autopilot-turns')).toHaveValue('100');
+  // A new Session starts with them collapsed.
+  await page.reload();
+  await expect(id(page, 'autopilot-toggle')).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('completing Criminal organizations discovers the Locate member Leads, and Panic shows two decimals', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await id(page, 'seed-input').fill('criminal');
+  await id(page, 'new-campaign').click();
+  // GUI, Decimal quantities shown: Panic with two decimals against a whole-number Panic limit.
+  await expect(id(page, 'panic')).toHaveText(/^\d+\.\d\d \/ \d+%$/);
+  await id(page, 'nav-leads').click();
+  await id(page, 'lead-criminal_organizations').click();
+  for (const n of [1, 2, 3, 4]) {
+    await id(page, `team-pick-agent-${n}`).check();
+  }
+  await id(page, 'investigate-criminal_organizations').click();
+  let turn = 1;
+  while ((await id(page, 'lead-locate_red_dawn_member').count()) === 0 && turn < 15) {
+    await id(page, 'advance-turn').click();
+    turn += 1;
+    await afterAdvance(page, String(turn));
+    if ((await id(page, 'view-leads').count()) === 0) {
+      await id(page, 'nav-leads').click();
+    }
+  }
+  for (const faction of ['red_dawn', 'exalt', 'black_lotus']) {
+    await expect(id(page, `lead-locate_${faction}_member`)).toBeVisible();
+  }
+  // LVIEW, Selected Lead: its Faction, and "On completion" with one line for the Mission site it creates.
+  await id(page, 'lead-locate_red_dawn_member').click();
+  await expect(id(page, 'lead-faction')).toHaveText('Red Dawn');
+  await expect(id(page, 'lead-on-completion').locator('.label')).toHaveText('On completion');
+  await expect(id(page, 'lead-on-completion-site')).toHaveText(
+    /^Creates the Mission site Apprehend member · \d+ Enem(y|ies)$/,
+  );
+  await expect(id(page, 'lead-on-completion-eliminate')).toHaveCount(0);
+
+  // HVIEW: the Panic column with two decimals; CVIEW, Panic chart: the current value too.
+  await id(page, 'nav-history').click();
+  await expect(id(page, 'history-turn-now').locator('td').nth(6)).toHaveText(/^\d+\.\d\d%$/);
+  expect(
+    await id(page, 'history-table')
+      .locator('tbody td:nth-child(7)')
+      .evaluateAll((cells) => cells.filter((cell) => cell.scrollWidth > cell.clientWidth).length),
+  ).toBe(0);
+  await id(page, 'nav-charts').click();
+  await expect(id(page, 'panic-chart').locator('.chart-value')).toHaveText(/^\d+\.\d\d%of \d+% limit$/);
 });

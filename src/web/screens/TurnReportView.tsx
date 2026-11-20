@@ -215,9 +215,8 @@ function Sections(props: {
               const combat = report.combatReports.find((item) => item.mission === mission.mission);
               const enemies = combat?.participants.filter((who) => who.side === 'enemy') ?? [];
               const dead = enemies.filter((who) => who.final.condition === 'dead').length;
-              // TRVIEW, Missions: the sum of the Mission skill gains of the survivors, i.e. the Experience they
-              // gained, e.g. "+176 exp".
-              const experience = mission.growth.reduce((sum, item) => sum + item.missionSkillGain, 0);
+              // TRVIEW, Missions: the sum of the Mission experience of the survivors, e.g. "+176 exp".
+              const experience = mission.growth.reduce((sum, item) => sum + item.missionExperience, 0);
               return (
                 <tr key={mission.mission}>
                   <td>
@@ -368,23 +367,23 @@ const PARTICIPANT_WIDTHS = [
 const LOG_WIDTHS = ['72px', '120px', '120px', '164px', '300px'];
 
 /**
- * TRVIEW, Combat report: the Exp of one participant. A survivor shows its Mission skill gain, the Experience it gained,
- * as one total in Positive, e.g. "+43", never split into its parts; a Killed Agent its combat skill gain struck through
- * in Text muted, because it was never added; an Enemy nothing.
+ * TRVIEW, Combat report: the Exp of one participant. A survivor shows its Mission experience as one total in Positive,
+ * e.g. "+43", never split into its parts; a Killed Agent its combat experience struck through in Text muted, because it
+ * was never added; an Enemy nothing.
  */
 function Experience(props: {
   who: CombatReport['participants'][number];
   growth: readonly MissionGrowthRecord[];
 }) {
   const { who } = props;
-  if (who.side !== 'agent' || who.combatSkillGain === null) {
+  if (who.side !== 'agent' || who.combatExperience === null) {
     return null;
   }
   const gained = props.growth.find((item) => item.agent === who.id);
   if (gained === undefined) {
-    return <s className="muted">+{who.combatSkillGain}</s>;
+    return <s className="muted">+{who.combatExperience}</s>;
   }
-  return <span className="tone-good">+{gained.missionSkillGain}</span>;
+  return <span className="tone-good">+{gained.missionExperience}</span>;
 }
 
 function CombatReportDetails(props: {

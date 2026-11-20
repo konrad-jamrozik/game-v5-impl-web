@@ -33,9 +33,12 @@ export function LineChart(props: {
   headline?: boolean;
   /** Text after the current value, e.g. "of 100% limit". */
   valueNote?: string;
+  /** How a value of the series is written, e.g. with two decimals for Panic; by default as it is. */
+  valueText?: (value: number) => string;
   testId?: string;
 }) {
   const { points } = props;
+  const text = props.valueText ?? String;
   const [hover, setHover] = useState<number | null>(null);
   const headline = props.headline === true;
   const width = headline ? 760 : 300;
@@ -76,13 +79,13 @@ export function LineChart(props: {
         <span className="chart-value">
           {shown === null ? (
             <>
-              {last.value}
+              {text(last.value)}
               {unit}
               {props.valueNote === undefined ? null : <small>{props.valueNote}</small>}
             </>
           ) : (
             <>
-              {shown.value}
+              {text(shown.value)}
               {unit}
               <small>Turn {shown.turn}</small>
             </>
@@ -92,7 +95,7 @@ export function LineChart(props: {
       <svg
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={`${props.title}: ${first.value}${unit} in Turn ${first.turn}, ${last.value}${unit} in Turn ${last.turn}`}
+        aria-label={`${props.title}: ${text(first.value)}${unit} in Turn ${first.turn}, ${text(last.value)}${unit} in Turn ${last.turn}`}
         onMouseLeave={() => {
           setHover(null);
         }}

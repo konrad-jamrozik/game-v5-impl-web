@@ -25,7 +25,7 @@ describe('HVIEW: the current Turn row', () => {
       moneyEnd: start.agency.money,
       income: start.agency.projectedIncome,
       upkeep: start.agency.projectedUpkeep,
-      panic: start.panic,
+      panic: start.panicHundredths,
       agents: start.agency.servingAgents,
       actions: [],
       entry: null,

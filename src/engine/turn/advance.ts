@@ -43,12 +43,13 @@ import {
   progressGain,
   reachesActualRequiredProgress,
 } from '../mechanics/investigations/investigations.ts';
-import { discoverLeads, leadAvailability } from '../mechanics/leads/leads.ts';
+import { discoverLeads, factionOfLead, leadAvailability } from '../mechanics/leads/leads.ts';
 import {
   consequencesOf,
   createMissionSite,
   missionExhaustion,
   missionSiteCanExist,
+  previousOperation,
   selectResponseArchetype,
 } from '../mechanics/missions/missions.ts';
 import { recoverAgent } from '../mechanics/recovery/recovery.ts';
@@ -124,8 +125,12 @@ export function applyAdvanceTurn(
     return status === 'AtAssignment' || status === 'Recovering';
   };
 
+  // ENDING, Pending panic change, Pending victory, and Pending defeat: they exist only inside this Advance turn. The
+  // Pending panic change is a Decimal quantity, held in hundredths.
   let pendingPanicChange = 0;
-  const panicBefore = world.panic;
+  let pendingVictory = false;
+  let pendingDefeat = false;
+  const panicBefore = world.panicHundredths;
   const fundingBefore = world.agency.state.funding;
 
   // AGENT, Forced return: the Agents a step sent back to Standby after their work, in the order of the steps.
@@ -314,33 +319,42 @@ export function applyAdvanceTurn(
     }
     let created: string | null = null;
     if (result.completed) {
+      // LEAD, Completion effect: every Effect of `on_completion` applies once for this completion, in this step.
       const lead = must(
         gdrs.leads.find((item) => item.id === investigation.constants.lead),
         'Lead of a completed Investigation',
       );
-      const archetype = must(
-        gdrs.missionSiteArchetypes.find((item) => item.id === lead.onCompletion.createMissionSite),
-        `MissionSiteArchetype ${lead.onCompletion.createMissionSite}`,
-      );
-      const faction = must(
-        Object.values(world.factions).find((item) => item.archetype === lead.faction),
-        `Faction of Lead ${lead.id}`,
-      );
-      const { site, enemies } = createMissionSite({
-        newId: (type) => newInstanceId(world, type),
-        archetype,
-        origin: { kind: 'Investigation', investigation: investigation.id },
-        targetFaction: faction.id,
-        turn,
-        enemyArchetypes: gdrs.enemyArchetypes,
-        weapons: gdrs.weapons,
-      });
-      world.missionSites[site.id] = site;
-      for (const enemy of enemies) {
-        world.enemies[enemy.id] = enemy;
+      const faction = factionOfLead(lead, world);
+      const createMissionSiteOf = lead.onCompletion.createMissionSite;
+      if (createMissionSiteOf !== null) {
+        const archetype = must(
+          gdrs.missionSiteArchetypes.find((item) => item.id === createMissionSiteOf),
+          `MissionSiteArchetype ${createMissionSiteOf}`,
+        );
+        const { site, enemies } = createMissionSite({
+          newId: (type) => newInstanceId(world, type),
+          archetype,
+          origin: { kind: 'Investigation', investigation: investigation.id },
+          targetFaction: must(faction, `Faction of Lead ${lead.id}`).id,
+          turn,
+          enemyArchetypes: gdrs.enemyArchetypes,
+          weapons: gdrs.weapons,
+        });
+        world.missionSites[site.id] = site;
+        for (const enemy of enemies) {
+          world.enemies[enemy.id] = enemy;
+        }
+        created = site.id;
+        createdMissionSites.push(site.id);
       }
-      created = site.id;
-      createdMissionSites.push(site.id);
+      // FACTION, Elimination: the Faction of the Lead is Eliminated for every later step of this Advance turn.
+      if (lead.onCompletion.eliminateFaction) {
+        eliminateFaction(must(faction, `Faction of Lead ${lead.id}`).state, turn);
+      }
+      // ENDING, Victory Effect kind: the Pending victory becomes yes.
+      if (lead.onCompletion.winCampaign) {
+        pendingVictory = true;
+      }
     }
     investigationReports.push({
       investigation: investigation.id,
@@ -355,6 +369,12 @@ export function applyAdvanceTurn(
   const combatReports = new Map<string, CombatReport>();
   const missionFunding: number[] = [];
   const fundingAtStep5 = world.agency.state.funding;
+  // The Factions already Eliminated when this step begins, including one a Lead's completion made Eliminated in step 4.
+  const eliminatedAtStep5 = new Set(
+    Object.values(world.factions)
+      .filter((faction) => faction.state.eliminated)
+      .map((faction) => faction.id),
+  );
   for (const mission of order(Object.values(world.missions))) {
     if (mission.state.lifecycle !== 'Deployed') {
       continue;
@@ -450,7 +470,7 @@ export function applyAdvanceTurn(
       }
     }
     // MISSION, Resolving one Mission, step 7, and AGENT, Mission growth: every survivor, Won or Lost, gains its combat
-    // skill gain from the Combat report and its survival skill gain; a Killed Agent's combat skill gain is lost.
+    // experience from the Combat report and its survival experience; a Killed Agent's combat experience is lost.
     const growth: MissionGrowthRecord[] = [];
     for (const agent of team) {
       if (agent.state.status === 'Killed') {
@@ -465,7 +485,7 @@ export function applyAdvanceTurn(
       ).length;
       const gained = applyMissionGrowth(
         agent.state,
-        must(participant.combatSkillGain, 'combat skill gain of an Agent'),
+        must(participant.combatExperience, 'combat experience of an Agent'),
         missionsSurvived,
         agentParameters,
       );
@@ -489,7 +509,8 @@ export function applyAdvanceTurn(
     const amounts = consequencesOf(result, archetype, operationLevel);
     world.agency.state.money += amounts.money;
     missionFunding.push(amounts.fundingChange);
-    pendingPanicChange += amounts.panicIncrease - amounts.panicReduction;
+    pendingPanicChange += amounts.panicIncreaseHundredths - amounts.panicReductionHundredths;
+    pendingDefeat ||= amounts.defeat;
     let eliminatedFaction: string | null = null;
     if (amounts.eliminateTargetFaction) {
       const target = must(world.factions[site.constants.targetFaction], 'target Faction');
@@ -571,7 +592,7 @@ export function applyAdvanceTurn(
       result.result === 'Won' &&
       archetype.kind === 'initiative' &&
       archetype.onWin.eliminateTargetFaction &&
-      before.factions[site.constants.targetFaction]?.state.eliminated === false &&
+      !eliminatedAtStep5.has(site.constants.targetFaction) &&
       !reportedEliminations.has(site.constants.targetFaction);
     if (eliminates) {
       reportedEliminations.add(site.constants.targetFaction);
@@ -610,7 +631,8 @@ export function applyAdvanceTurn(
     const amounts = consequencesOf('Expired', archetype, operationLevel);
     world.agency.state.money += amounts.money;
     expiryFunding.push(amounts.fundingChange);
-    pendingPanicChange += amounts.panicIncrease - amounts.panicReduction;
+    pendingPanicChange += amounts.panicIncreaseHundredths - amounts.panicReductionHundredths;
+    pendingDefeat ||= amounts.defeat;
     expiredMissionSites.push({
       missionSite: site.id,
       missionSiteArchetype: site.archetype,
@@ -623,12 +645,10 @@ export function applyAdvanceTurn(
 
   // Step 7: Faction activity.
   const occurrences = new Map<string, FactionOperationOccurrence | null>();
-  const levelBefore = new Map<string, string>();
   for (const faction of order(Object.values(world.factions))) {
     if (faction.state.eliminated) {
       continue;
     }
-    levelBefore.set(faction.id, faction.state.activityLevel);
     occurrences.set(
       faction.id,
       applyFactionActivity(
@@ -648,14 +668,18 @@ export function applyAdvanceTurn(
       continue;
     }
     const occurrence = occurrences.get(faction.id) ?? null;
-    let created: string | null = null;
-    let operationLevelId: string | null = null;
     if (occurrence !== null) {
       const level = must(
         gdrs.factionOperationLevels.find((item) => item.level === occurrence.operationLevel),
         `FactionOperationLevel ${occurrence.operationLevel}`,
       );
-      const archetype = selectResponseArchetype(random, faction.id, level.level, gdrs.missionSiteArchetypes);
+      const archetype = selectResponseArchetype(
+        random,
+        faction.id,
+        level.level,
+        gdrs.missionSiteArchetypes,
+        previousOperation(faction.id, world.missionSites),
+      );
       const { site, enemies } = createMissionSite({
         newId: (type) => newInstanceId(world, type),
         archetype,
@@ -669,19 +693,8 @@ export function applyAdvanceTurn(
       for (const enemy of enemies) {
         world.enemies[enemy.id] = enemy;
       }
-      created = site.id;
-      operationLevelId = level.id;
       createdMissionSites.push(site.id);
-    }
-    const escalatedTo =
-      levelBefore.get(faction.id) === faction.state.activityLevel ? null : faction.state.activityLevel;
-    if (escalatedTo !== null || created !== null) {
-      factionActivity.push({
-        faction: faction.id,
-        escalatedTo,
-        createdMissionSite: created,
-        operationLevel: operationLevelId,
-      });
+      factionActivity.push({ faction: faction.id, createdMissionSite: site.id, operationLevel: level.id });
     }
   }
 
@@ -727,13 +740,14 @@ export function applyAdvanceTurn(
     }
   }
 
-  // Step 10: Panic.
-  world.panic = applyPendingPanicChange(world.panic, pendingPanicChange);
+  // Step 10: Panic. The Pending defeat never changes Panic.
+  world.panicHundredths = applyPendingPanicChange(world.panicHundredths, pendingPanicChange);
 
   // Step 11: Ending check.
   const decision = checkEnding({
-    factionsEliminated: Object.values(world.factions).map((faction) => faction.state.eliminated),
-    panic: world.panic,
+    pendingVictory,
+    pendingDefeat,
+    panicHundredths: world.panicHundredths,
     panicLimit: gdrs.endingParameters.defeatAtPanicPct,
     money: world.agency.state.money,
   });
@@ -774,7 +788,7 @@ export function applyAdvanceTurn(
     expiredMissionSites,
     factionActivity,
     recovery,
-    panic: { before: panicBefore, after: world.panic },
+    panicHundredths: { before: panicBefore, after: world.panicHundredths },
     funding: { before: fundingBefore, after: world.agency.state.funding },
     money: { turnEnd: before.agency.state.money, after: world.agency.state.money },
     ending: decision === null ? null : { ending: decision.ending, reasons: decision.reasons },
@@ -795,9 +809,10 @@ function toRecord(
   return {
     money: amounts.money,
     fundingChange: amounts.fundingChange,
-    panicIncrease: amounts.panicIncrease,
-    panicReduction: amounts.panicReduction,
+    panicIncreaseHundredths: amounts.panicIncreaseHundredths,
+    panicReductionHundredths: amounts.panicReductionHundredths,
     eliminatedFaction,
+    defeat: amounts.defeat,
   };
 }
 
@@ -886,10 +901,7 @@ function reduceReport(
         consequence: { ...item.consequence },
       })),
       cancelledMissionSites: report.cancelledMissionSites,
-      escalatedFactions: report.factionActivity
-        .filter((item) => item.escalatedTo !== null)
-        .map((item) => item.faction),
-      panicAfter: report.panic.after,
+      panicAfterHundredths: report.panicHundredths.after,
       moneyAfter: report.money.after,
       fundingAfter: report.funding.after,
       ending: report.ending?.ending ?? null,

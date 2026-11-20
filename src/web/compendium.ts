@@ -79,6 +79,16 @@ export function firstArticle(articles: readonly Article[]): string | null {
 }
 
 /**
+ * COMPV, Panes: the article the Enter key in the search field shows, i.e. the first article of the first category
+ * listed under the search text, or null when no article matches.
+ */
+export function firstMatchingArticle(articles: readonly Article[], search: string): string | null {
+  const matching = searchArticles(articles, search);
+  const category = compendiumCategories(matching)[0];
+  return category === undefined ? null : (articlesOf(matching, category.name)[0]?.id ?? null);
+}
+
+/**
  * COMPV, Following links: the Article history, a list of articles with one of them current, the article shown. It is
  * empty only while no article is Player-visible.
  */
@@ -204,15 +214,19 @@ function signed(value: number): string {
 }
 
 /**
- * COMPV, Effects shown: the Effects of an Effect list in the order money, funding, Panic, and Faction elimination,
- * separated by "·", or "None" when it holds none. A gain for the Player is in Positive and a loss in Danger.
+ * COMPV, Effects shown: the Effects of an Effect list in the order money, funding, Panic, Faction elimination, and
+ * defeat, separated by "·", or "None" when it holds none. Panic is shown with two decimals, e.g. "−0.10% Panic", under
+ * GUI, Decimal quantities shown, and `defeat` as "Loses the Campaign". A gain for the Player is in Positive and a loss
+ * in Danger.
  */
 export function effectParts(effects: {
   readonly money?: number;
   readonly funding?: number;
-  /** The `panic` value, in percentage points; negative lowers Panic. */
-  readonly panic?: number;
+  /** The `panic` value, a Decimal quantity in hundredths of a percentage point; negative lowers Panic. */
+  readonly panicHundredths?: number;
   readonly eliminateFaction?: boolean;
+  /** Whether a `defeat` Effect loses the Campaign. */
+  readonly defeat?: boolean;
 }): SheetPart[] {
   const parts: SheetPart[][] = [];
   const tone = (gain: boolean) => (gain ? 'good' : 'bad');
@@ -222,11 +236,16 @@ export function effectParts(effects: {
   if (effects.funding !== undefined && effects.funding !== 0) {
     parts.push([{ text: `${signed(effects.funding)} funding`, style: tone(effects.funding > 0) }]);
   }
-  if (effects.panic !== undefined && effects.panic !== 0) {
-    parts.push([{ text: `${signed(effects.panic)}% Panic`, style: tone(effects.panic < 0) }]);
+  const panic = effects.panicHundredths;
+  if (panic !== undefined && panic !== 0) {
+    const sign = panic < 0 ? MINUS : '+';
+    parts.push([{ text: `${sign}${decimalText(Math.abs(panic))}% Panic`, style: tone(panic < 0) }]);
   }
   if (effects.eliminateFaction === true) {
     parts.push([{ text: 'Eliminates the Faction', style: 'good' }]);
+  }
+  if (effects.defeat === true) {
+    parts.push([{ text: 'Loses the Campaign', style: 'bad' }]);
   }
   return parts.length === 0 ? [{ text: 'None' }] : joined(parts);
 }
@@ -361,24 +380,40 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
     case 'Lead': {
       const lead = state.leads.find((item) => item.id === subject);
       if (lead !== undefined) {
-        const faction =
-          state.factions.find((item) => item.archetype === lead.factionArchetype)?.name ??
-          aboutSubject('FactionArchetype', lead.factionArchetype)?.title;
-        rows.push([
-          'Faction',
-          faction === undefined ? [] : [reference('FactionArchetype', lead.factionArchetype, faction)],
-        ]);
+        // COMPV, Lead data sheet: a Lead without `faction` has no Faction row.
+        const archetype = lead.factionArchetype;
+        if (archetype !== null) {
+          const faction =
+            state.factions.find((item) => item.archetype === archetype)?.name ??
+            aboutSubject('FactionArchetype', archetype)?.title;
+          rows.push([
+            'Faction',
+            faction === undefined ? [] : [reference('FactionArchetype', archetype, faction)],
+          ]);
+        }
         rows.push([
           'Required progress',
           typeof lead.requiredProgress === 'number'
             ? [figure(lead.requiredProgress)]
             : [{ text: 'Unknown', style: 'muted' }],
         ]);
-        const site = gameData.missionSiteArchetypes.find((item) => item.id === lead.createsMissionSite);
-        rows.push([
-          'Reveals',
-          site === undefined ? [] : [reference('MissionSiteArchetype', site.id, site.name)],
-        ]);
+        // COMPV, Lead data sheet: a Lead without a `create_mission_site` Effect has no Reveals row.
+        const created = lead.createsMissionSite;
+        if (created !== null) {
+          const site = gameData.missionSiteArchetypes.find((item) => item.id === created);
+          rows.push(['Reveals', [reference('MissionSiteArchetype', created, site?.name ?? created)]]);
+        }
+        // COMPV, Lead data sheet: the `eliminate_faction` and `win_campaign` Effects, each in Positive.
+        const completion: SheetPart[][] = [];
+        if (lead.eliminatesFaction) {
+          completion.push([{ text: 'Eliminates the Faction', style: 'good' }]);
+        }
+        if (lead.winsCampaign) {
+          completion.push([{ text: 'Wins the Campaign', style: 'good' }]);
+        }
+        if (completion.length > 0) {
+          rows.push(['On completion', joined(completion)]);
+        }
         rows.push(['Can be investigated again', [{ text: INVESTIGATE_AGAIN[lead.investigateAgain] ?? '' }]]);
       }
       break;
@@ -420,8 +455,9 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
             rows.push([
               'If lost or expired',
               effectParts({
-                panic: level.onIgnoredOrLost.panicIncreasePct,
+                panicHundredths: level.onIgnoredOrLost.panicIncreaseHundredths,
                 funding: level.onIgnoredOrLost.funding,
+                defeat: level.onIgnoredOrLost.defeat,
               }),
             ]);
           }
@@ -431,7 +467,8 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
             effectParts({
               money: site.onWin?.money ?? 0,
               funding: site.onWin?.fundingChange ?? 0,
-              panic: (site.onWin?.panicIncrease ?? 0) - (site.onWin?.panicReduction ?? 0),
+              panicHundredths:
+                (site.onWin?.panicIncreaseHundredths ?? 0) - (site.onWin?.panicReductionHundredths ?? 0),
               eliminateFaction: site.onWin?.eliminatesTargetFaction === true,
             }),
           ]);

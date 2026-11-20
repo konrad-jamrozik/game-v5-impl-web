@@ -195,11 +195,11 @@ export function applyWorkExhaustion(
 }
 
 /**
- * AGENT, Mission growth: the survival skill gain of the n-th Mission survived, n counted from 1; the last entry of
- * skill_gain_per_mission_survived applies to every Mission beyond the list.
+ * AGENT, Mission growth: the survival experience of the n-th Mission survived, n counted from 1; the last entry of
+ * experience_per_mission_survived applies to every Mission beyond the list.
  */
-export function survivalSkillGain(missionsSurvived: number, parameters: AgentParametersGdr): number {
-  const list = parameters.skillGainPerMissionSurvived;
+export function survivalExperience(missionsSurvived: number, parameters: AgentParametersGdr): number {
+  const list = parameters.experiencePerMissionSurvived;
   const value = list[Math.min(missionsSurvived, list.length) - 1];
   if (missionsSurvived < 1 || value === undefined) {
     throw new EngineDefect('A survivor has survived at least one Mission');
@@ -209,26 +209,27 @@ export function survivalSkillGain(missionsSurvived: number, parameters: AgentPar
 
 /** What Mission growth gave one survivor of one Mission; see AGENT, Mission growth. */
 export interface MissionGrowth {
-  readonly survivalSkillGain: number;
-  readonly missionSkillGain: number;
+  readonly survivalExperience: number;
+  readonly missionExperience: number;
 }
 
 /**
- * AGENT, Mission growth: adds a survivor's combat skill gain and survival skill gain to its base skill and its
- * Experience. Every gain is a whole number, so the sums are exact. `missionsSurvived` is the number of Missions in its
+ * AGENT, Mission growth: adds a survivor's Mission experience, its combat experience plus its survival experience, to
+ * its Experience, and every point of it as one point of base skill, a conversion the rules fix and no GDR holds. Every
+ * amount is a whole number, so the sums are exact. `missionsSurvived` is the number of Missions in its
  * Participation history, the resolved one included.
  */
 export function applyMissionGrowth(
   agent: Pick<AgentState, 'skillHundredths' | 'experience'>,
-  combatSkillGain: number,
+  combatExperience: number,
   missionsSurvived: number,
   parameters: AgentParametersGdr,
 ): MissionGrowth {
-  const survival = survivalSkillGain(missionsSurvived, parameters);
-  const missionSkillGain = combatSkillGain + survival;
-  agent.skillHundredths += missionSkillGain * 100;
-  agent.experience += missionSkillGain;
-  return { survivalSkillGain: survival, missionSkillGain };
+  const survival = survivalExperience(missionsSurvived, parameters);
+  const missionExperience = combatExperience + survival;
+  agent.skillHundredths += missionExperience * 100;
+  agent.experience += missionExperience;
+  return { survivalExperience: survival, missionExperience };
 }
 
 /** AGENT, Attribute ranges: current health stays from 0 to effective max health. */

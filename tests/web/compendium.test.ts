@@ -18,6 +18,7 @@ import {
   dataSheet,
   effectParts,
   firstArticle,
+  firstMatchingArticle,
   hasNextArticle,
   hasPreviousArticle,
   nextArticle,
@@ -29,7 +30,8 @@ import {
   type DataSheet,
   type SheetPart,
 } from '../../src/web/compendium.ts';
-import { gdrs, newCampaign, tweak } from '../helpers/game.ts';
+import { decimalText } from '../../src/web/format.ts';
+import { completeLead, gdrs, newCampaign, tweak } from '../helpers/game.ts';
 
 const article = (
   id: string,
@@ -71,8 +73,9 @@ function sheetOf(state: CampaignState, id: string): DataSheet | null {
 }
 
 /** A World state in which every Lead of the test Game build is discovered and both Response Mission sites exist. */
+/** Every Lead discovered, and `red_dawn_profile` completed, which makes the article about Red Dawn Player-visible. */
 function everythingVisible(): CampaignState {
-  const state = tweak(newCampaign(), (world) => {
+  const state = tweak(completeLead(newCampaign(), 'red_dawn_profile'), (world) => {
     for (const lead of gdrs.leads) {
       if (!world.discoveredLeads.includes(lead.id)) {
         world.discoveredLeads.push(lead.id);
@@ -133,6 +136,16 @@ describe('COMPV: Panes', () => {
     ]);
     expect(searchArticles(articles, '')).toHaveLength(articles.length);
     expect(searchArticles(articles, 'no such title')).toEqual([]);
+  });
+
+  it('Enter in the search field shows the first article of the first category listed, or nothing', () => {
+    // "r" matches no Guide or Mechanics article, so the first category listed is Enemies.
+    expect(firstMatchingArticle(articles, 'r')).toBe('soldier_article');
+    expect(firstMatchingArticle(articles, 'GUI')).toBe('guide_a');
+    expect(firstMatchingArticle(articles, 'skill')).toBe('mechanics_skill');
+    expect(firstMatchingArticle(articles, 'no such title')).toBeNull();
+    // An empty search lists every article, so Enter shows the first article of Guide.
+    expect(firstMatchingArticle(articles, '')).toBe('guide_a');
   });
 });
 
@@ -269,9 +282,16 @@ describe('COMPV: Subject data sheets', () => {
   });
 
   it('Faction data sheet: leads on to the Leads the Player has learned of', () => {
-    expect(rowsOf(sheetOf(newCampaign(), 'red_dawn'))).toEqual({ Leads: '[Locate Red Dawn member]' });
+    // COMP, Article visibility: the article about Red Dawn waits for its profile Lead to be completed.
+    expect(compendiumArticlesView(newCampaign(), gdrs).some((item) => item.subject === 'red_dawn')).toBe(
+      false,
+    );
+    const profiled = completeLead(newCampaign(), 'red_dawn_profile');
+    expect(rowsOf(sheetOf(profiled, 'red_dawn'))).toEqual({
+      Leads: '[Locate Red Dawn member] · [Locate Red Dawn safehouse]',
+    });
     const all = rowsOf(sheetOf(everythingVisible(), 'red_dawn'))['Leads'] ?? '';
-    expect(all.split(' · ')).toHaveLength(gdrs.leads.length);
+    expect(all.split(' · ')).toHaveLength(gdrs.leads.filter((lead) => lead.faction === 'red_dawn').length);
   });
 
   it('Lead data sheet: its Faction, its Required progress once Assessed, and what it reveals', () => {
@@ -280,14 +300,38 @@ describe('COMPV: Subject data sheets', () => {
     const site = gdrs.missionSiteArchetypes.find((item) => item.id === lead.onCompletion.createMissionSite)!;
     const sheet = sheetOf(state, lead.id);
     expect(sheet?.heading).toBe('Lead');
+    // The Faction is no Article link while the article about it is not Player-visible.
     expect(rowsOf(sheet)).toEqual({
-      Faction: '[Red Dawn]',
+      Faction: 'Red Dawn',
       'Required progress': 'Unknown',
       Reveals: `[${site.name}]`,
-      'Can be investigated again': 'Until its Mission is won',
+      'Can be investigated again': 'Always',
     });
+    expect(rowsOf(sheetOf(completeLead(state, 'red_dawn_profile'), lead.id))['Faction']).toBe('[Red Dawn]');
     // "Unknown" is in Text muted until the Lead is an Assessed Lead.
     expect(sheet?.rows[1]?.value).toEqual([{ text: 'Unknown', style: 'muted' }]);
+  });
+
+  it('Lead data sheet: no Faction or Reveals row for a Lead without them, and On completion for its other Effects', () => {
+    const state = everythingVisible();
+    // A Lead without `faction` and with an empty `on_completion`.
+    expect(Object.keys(rowsOf(sheetOf(state, 'criminal_organizations')))).toEqual([
+      'Required progress',
+      'Can be investigated again',
+    ]);
+    // An `eliminate_faction` Effect, in Positive.
+    const terminate = sheetOf(state, 'terminate_red_dawn');
+    expect(rowsOf(terminate)['On completion']).toBe('Eliminates the Faction');
+    expect(rowsOf(terminate)['Reveals']).toBeUndefined();
+    expect(terminate?.rows.find((row) => row.label === 'On completion')?.value).toEqual([
+      { text: 'Eliminates the Faction', style: 'good' },
+    ]);
+    // A `win_campaign` Effect, in Positive, for a Lead that concerns no Faction.
+    const peace = rowsOf(sheetOf(state, 'peace_on_earth'));
+    expect(peace['On completion']).toBe('Wins the Campaign');
+    expect(peace['Faction']).toBeUndefined();
+    // A Lead with only a `create_mission_site` Effect has no On completion row.
+    expect(rowsOf(sheetOf(state, 'locate_red_dawn_member'))['On completion']).toBeUndefined();
   });
 
   it('Mission site data sheet: what awaits a team there and what is at stake', () => {
@@ -304,11 +348,13 @@ describe('COMPV: Subject data sheets', () => {
         .join(' · '),
     );
     expect(rows['Reward for a win']).toBe(
-      `+${site.onWin.money} money · −${site.onWin.panicReductionPct}% Panic`,
+      `+${site.onWin.money} money · −${decimalText(site.onWin.panicReductionHundredths)}% Panic`,
     );
+    expect(rows['Reward for a win']).toBe('+5 money · −0.05% Panic');
     expect(rows['Revealed by']).toBe('[Locate Red Dawn member]');
     expect(rows['If lost or expired']).toBeUndefined();
-    expect(rowsOf(sheetOf(state, 'raid_hq'))['Reward for a win']).toBe('Eliminates the Faction');
+    // No Initiative Mission site eliminates a Faction any more: a Terminate Lead does.
+    expect(rowsOf(sheetOf(state, 'raid_hq'))['Reward for a win']).not.toMatch(/Eliminates/);
 
     // A Response Mission site is Player-visible only while a Mission site of it exists.
     const response = gdrs.missionSiteArchetypes.find((item) => item.kind === 'response')!;
@@ -338,7 +384,10 @@ describe('COMPV: Subject data sheets', () => {
       effectText({ money: level.onWin.money, funding: level.onWin.funding }),
     );
     expect(responseRows['If lost or expired']).toBe(
-      effectText({ funding: level.onIgnoredOrLost.funding, panic: level.onIgnoredOrLost.panicIncreasePct }),
+      effectText({
+        funding: level.onIgnoredOrLost.funding,
+        panicHundredths: level.onIgnoredOrLost.panicIncreaseHundredths,
+      }),
     );
     expect(responseRows['Revealed by']).toBeUndefined();
   });
@@ -361,20 +410,25 @@ const effectText = (effects: Parameters<typeof effectParts>[0]) => text(effectPa
 
 describe('COMPV: Effects shown', () => {
   it('words each Effect so that the Player reads at once whether it helps or harms', () => {
-    expect(effectParts({ money: 100, funding: -1, panic: -2, eliminateFaction: true })).toEqual([
+    expect(effectParts({ money: 100, funding: -1, panicHundredths: -200, eliminateFaction: true })).toEqual([
       { text: '+100 money', style: 'good' },
       { text: ' · ' },
       { text: '−1 funding', style: 'bad' },
       { text: ' · ' },
-      { text: '−2% Panic', style: 'good' },
+      { text: '−2.00% Panic', style: 'good' },
       { text: ' · ' },
       { text: 'Eliminates the Faction', style: 'good' },
     ]);
-    expect(effectParts({ panic: 3, funding: 5 })).toEqual([
+    expect(effectParts({ panicHundredths: 30, funding: 5, defeat: true })).toEqual([
       { text: '+5 funding', style: 'good' },
       { text: ' · ' },
-      { text: '+3% Panic', style: 'bad' },
+      { text: '+0.30% Panic', style: 'bad' },
+      { text: ' · ' },
+      { text: 'Loses the Campaign', style: 'bad' },
     ]);
+    // GUI, Decimal quantities shown: a Panic Effect always has two decimals, e.g. "−0.10% Panic".
+    expect(effectText({ panicHundredths: -10 })).toBe('−0.10% Panic');
+    expect(effectText({ panicHundredths: 500 })).toBe('+5.00% Panic');
     // An Effect list that holds no Effect.
     expect(effectParts({})).toEqual([{ text: 'None' }]);
   });

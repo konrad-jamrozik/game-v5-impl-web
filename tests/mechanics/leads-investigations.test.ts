@@ -21,6 +21,8 @@ import {
 import type { GdrCatalog } from '../../src/gdr/index.ts';
 import {
   act,
+  BOOTSTRAP_GDRS as bootstrap,
+  finishingInvestigation,
   addMissionSite,
   advance,
   agent,
@@ -43,7 +45,10 @@ import {
   units,
   setCurrentHealth,
   valuesOf,
+  useLegacyCatalog,
 } from '../helpers/game.ts';
+
+useLegacyCatalog();
 
 const leads = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
   Object.fromEntries(currentStateView(state, catalog).leads.map((lead) => [lead.id, lead]));
@@ -210,6 +215,8 @@ describe('LEAD: examples', () => {
       requiredProgressRange: 'unknown',
       investigateAgain: 'until_mission_won',
       createsMissionSite: 'raid_safehouse',
+      eliminatesFaction: false,
+      winsCampaign: false,
       completionCount: 0,
       available: true,
       status: 'Available',
@@ -297,7 +304,8 @@ describe('LEAD: examples', () => {
     expect(statuses(state)).toEqual({ [MEMBER]: 'Archived', [SAFEHOUSE]: 'Archived', [HQ]: 'Archived' });
     // A discovered Lead stays discovered when its Faction is Eliminated.
     expect(state.world.current.discoveredLeads).toEqual([MEMBER, SAFEHOUSE, HQ]);
-    expect(state.world.current.ending).toBe('Victory');
+    // ENDING, Victory: every Faction being Eliminated does not by itself win the Campaign.
+    expect(state.world.current.ending).toBeNull();
   });
 
   it('An Abandoned Investigation', () => {
@@ -600,8 +608,54 @@ describe('LEAD: examples', () => {
     expectDefective((raw) => raw.get(MEMBER)['on_completion'].push(effect('create_mission_site', 'raid_hq')));
     expectDefective((raw) => (raw.get(MEMBER)['on_completion'][0].$entries[0][0] = 'create_mission'));
     expectDefective((raw) => raw.get(MEMBER)['on_completion'][0].$entries.push(['money', 1]));
-    expectDefective((raw) => (raw.get(MEMBER)['on_completion'] = []));
-    expectDefective((raw) => delete raw.get(MEMBER)['on_completion']);
+    // Rule 5: an empty or omitted `on_completion` is valid, and such a Lead has `never` by default (rule 6).
+    const empty = catalogWith((raw) => (raw.get(MEMBER)['on_completion'] = []));
+    expect(empty.leads.find((lead) => lead.id === MEMBER)).toMatchObject({
+      investigateAgain: 'never',
+      onCompletion: { createMissionSite: null, eliminateFaction: false, winCampaign: false },
+    });
+    expect(catalogWith((raw) => delete raw.get(MEMBER)['on_completion']).leads[0]!.onCompletion).toEqual({
+      createMissionSite: null,
+      eliminateFaction: false,
+      winCampaign: false,
+    });
+    // Rule 5: one Effect of each of `create_mission_site`, `eliminate_faction`, and `win_campaign`; a Lead that creates
+    // a Mission site or eliminates a Faction has `faction`.
+    expect(
+      catalogWith((raw) => {
+        const completion = raw.get(MEMBER)['on_completion'];
+        completion.push(effect('eliminate_faction', true), effect('win_campaign', true));
+      }).leads[0]!.onCompletion,
+    ).toEqual({ createMissionSite: 'apprehend_member', eliminateFaction: true, winCampaign: true });
+    expectDefective((raw) => raw.get(MEMBER)['on_completion'].push(effect('eliminate_faction', false)));
+    expectDefective((raw) => delete raw.get(MEMBER)['faction']);
+    expectDefective((raw) => {
+      delete raw.get(MEMBER)['faction'];
+      raw.get(MEMBER)['on_completion'] = [effect('eliminate_faction', true)];
+    });
+    // Rule 2: a Lead without `faction`, and with no Effect that needs one, is valid.
+    expect(
+      catalogWith((raw) => {
+        delete raw.get(MEMBER)['faction'];
+        raw.get(MEMBER)['on_completion'] = [effect('win_campaign', true)];
+      }).leads[0]!.faction,
+    ).toBeNull();
+    // Rule 4: the `discovered_when` of a Lead without `faction` uses no `mission_won` Condition.
+    expectDefective((raw) => {
+      delete raw.get(SAFEHOUSE)['faction'];
+      raw.get(SAFEHOUSE)['on_completion'] = [];
+    });
+    // Rule 6: `until_mission_won` only for a Lead that creates a Mission site.
+    expectDefective((raw) => {
+      raw.get(MEMBER)['on_completion'] = [];
+      raw.get(MEMBER)['investigate_again'] = 'until_mission_won';
+    });
+    expect(
+      catalogWith((raw) => {
+        raw.get(MEMBER)['on_completion'] = [];
+        raw.get(MEMBER)['investigate_again'] = 'always';
+      }).leads[0]!.investigateAgain,
+    ).toBe('always');
     expectDefective(
       (raw) => (raw.get(MEMBER)['on_completion'] = { $entries: [['create_mission_site', 'raid_hq']] }),
     );
@@ -612,6 +666,76 @@ describe('LEAD: examples', () => {
       (raw) => (raw.get(SAFEHOUSE)['requires'] = [{ $entries: [['mission_lost', 'apprehend_member']] }]),
     );
     expectDefective((raw) => (raw.get(MEMBER)['repeatable'] = true));
+  });
+});
+
+describe('LEAD: Leads that concern no Faction or create no Mission site, with the Bootstrap values', () => {
+  const view = (state: CampaignState) => leads(state, bootstrap);
+  const arrivedAgent = (state: CampaignState) => agentIds(state)[0]!;
+
+  it('a Lead without a Faction that creates no Mission site is completed once, and its completion discovers', () => {
+    let state = newCampaign({ catalog: bootstrap, firstLead: false });
+    expect(state.world.current.discoveredLeads).toEqual(['criminal_organizations']);
+    expect(view(state)['criminal_organizations']).toMatchObject({
+      factionArchetype: null,
+      faction: null,
+      createsMissionSite: null,
+      eliminatesFaction: false,
+      winsCampaign: false,
+      investigateAgain: 'never',
+      status: 'Available',
+    });
+    const started = finishingInvestigation(state, 'criminal_organizations', arrivedAgent(state), bootstrap);
+    state = advance(started.state, {}, bootstrap);
+    const report = turnReportView(state)!;
+    expect(report.investigations[0]).toMatchObject({ completed: true, createdMissionSite: null });
+    expect(report.createdMissionSites).toEqual([]);
+    expect(Object.keys(state.world.current.missionSites)).toHaveLength(0);
+    // Completed with `never`: Archived at once; the Lead it named is discovered in the same World state.
+    expect(view(state)['criminal_organizations']).toMatchObject({ status: 'Archived', completionCount: 1 });
+    expect(report.discoveredLeads).toEqual(['locate_red_dawn_member']);
+    const availability = leadAvailability(
+      bootstrap.leads.find((lead) => lead.id === 'criminal_organizations')!,
+      state.world.current,
+      bootstrap.missionSiteArchetypes,
+    );
+    expect(availability).toMatchObject({
+      mayBeInvestigatedAgain: false,
+      noUnfinishedMissionSite: true,
+      missionSiteCanExist: true,
+      factionNotEliminated: true,
+    });
+  });
+
+  it('a Lead of a Faction that creates no Mission site, e.g. a profile, and a Terminate Lead that archives its Faction', () => {
+    let state = tweak(newCampaign({ catalog: bootstrap }), (world) => {
+      world.discoveredLeads.push('red_dawn_profile', 'terminate_red_dawn');
+    });
+    const profile = finishingInvestigation(state, 'red_dawn_profile', arrivedAgent(state), bootstrap);
+    state = advance(profile.state, {}, bootstrap);
+    expect(view(state)['red_dawn_profile']).toMatchObject({ status: 'Archived', createsMissionSite: null });
+    expect(turnReportView(state)!.discoveredLeads).toContain('locate_red_dawn_safehouse');
+    // `always`: a locate Lead of tiers 1 to 7 stays Available after its completion and a Won Mission.
+    expect(view(state)['locate_red_dawn_member']).toMatchObject({
+      investigateAgain: 'always',
+      status: 'Available',
+    });
+    const [, second] = agentIds(state) as [string, string];
+    state = tweak(state, (world) => {
+      world.agents[second]!.state.status = 'AtAssignment';
+    });
+    const terminate = finishingInvestigation(state, 'terminate_red_dawn', second, bootstrap);
+    state = advance(terminate.state, {}, bootstrap);
+    expect(onlyFaction(state).state.eliminated).toBe(true);
+    // Condition 5: every Lead of an Eliminated Faction is Archived; a Lead without a Faction is not.
+    const statusesNow = Object.fromEntries(Object.values(view(state)).map((lead) => [lead.id, lead.status]));
+    expect(
+      Object.entries(statusesNow)
+        .filter(([id]) => bootstrap.leads.find((lead) => lead.id === id)!.faction === 'red_dawn')
+        .every(([, status]) => status === 'Archived'),
+    ).toBe(true);
+    expect(statusesNow['peace_on_earth']).toBe('Available');
+    expect(view(state)['terminate_red_dawn']).toMatchObject({ eliminatesFaction: true });
   });
 });
 

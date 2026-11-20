@@ -48,7 +48,7 @@ for (let t = 0; t < turns; t += 1) {
       `turn ${view.turn}`,
       `money ${view.agency.money}`,
       `funding ${view.agency.funding}`,
-      `panic ${view.panic}`,
+      `panic ${(view.panicHundredths / 100).toFixed(2)}%`,
       `caps ${view.agency.agentCap}/${view.agency.transportCap}/${view.agency.trainingCap}`,
       JSON.stringify(counts),
       `sites [${sites}]`,

@@ -57,6 +57,7 @@
 - src/ai/
 - scripts/simulate.ts
 - scripts/trace-campaign.ts
+- scripts/campaign-report.ts
 - tests/engine/campaign.test.ts
 
 ## BOOT: Bootstrap GDRs
@@ -173,6 +174,8 @@ No files.
 - tests/web/view-trail.test.ts
 - src/web/faction-activity.ts
 - tests/web/faction-activity.test.ts
+- src/web/autopilot-controls.ts
+- tests/web/lead-completion.test.ts
 
 ## CSTATE: Campaign State
 
@@ -276,6 +279,10 @@ No files.
 - tests/mechanics/endings.test.ts
 - src/gdr/catalog.ts
 - src/gdr/types.ts
+- tests/helpers/game.ts
+- src/engine/state/invariants.ts
+- src/engine/views/views.ts
+- src/engine/player-api.ts
 
 ## ENG: Engine Contract
 
@@ -302,6 +309,10 @@ No files.
 - src/gdr/types.ts
 - tests/mechanics/factions.test.ts
 - src/engine/state/create.ts
+- src/engine/state/invariants.ts
+- src/engine/views/views.ts
+- src/engine/player-api.ts
+- src/engine/mechanics/compendium/compendium.ts
 
 ## FEEDBACK: Implementation Feedback
 
@@ -420,6 +431,9 @@ No files.
 - src/web/screens/TurnReportView.tsx
 - src/web/screens/HistoryView.tsx
 - content/leads-and-progression/leads.yaml
+- src/ai/basic/basic-autopilot-ai.ts
+- tests/helpers/game.ts
+- tests/foundation/final-review.test.ts
 
 ## LICENSE: Implementation License
 
@@ -447,6 +461,8 @@ No files.
 - tests/web/agents-to-add.test.ts
 - src/web/condition.tsx
 - src/web/table-sort.ts
+- src/web/lead-completion.ts
+- tests/web/lead-completion.test.ts
 
 ## MENU: Main Menu
 

@@ -36,9 +36,15 @@ const misses = (count: number) => new Array<boolean>(count).fill(false);
 describe('COMBAT: examples', () => {
   it('Enemy creation', () => {
     const rows: [string, number, number, number][] = [
-      ['initiate', 40, 20, 10],
+      ['initiate', 40, 20, 8],
       ['soldier', 120, 30, 14],
-      ['cult_leader', 300, 40, 22],
+      ['operative', 60, 25, 10],
+      ['handler', 80, 25, 10],
+      ['lieutenant', 140, 30, 16],
+      ['elite', 250, 40, 20],
+      ['commander', 300, 40, 22],
+      ['high_commander', 500, 50, 28],
+      ['cult_leader', 800, 80, 32],
     ];
     for (const [archetype, skill, health, damage] of rows) {
       const enemy = combatEnemy('e', archetype).state;
@@ -200,7 +206,7 @@ describe('COMBAT: examples', () => {
     expect(report.participants.map((p) => p.damageTakenHundredths)).toEqual([700, 0, 2000, 2000]);
     // Combat skill gain: a1 4 + 2 + 1 + 4 + 4 = 15 from its three hits, the miss and the hit it took; a2 4 + 2 + 2 = 8
     // from its hit, its miss, and the miss it took. An Enemy has none, and a Combat changes no base skill.
-    expect(report.participants.map((p) => p.combatSkillGain)).toEqual([15, 8, null, null]);
+    expect(report.participants.map((p) => p.combatExperience)).toEqual([15, 8, null, null]);
     expect(report.participants.map((p) => p.start.skillHundredths)).toEqual([10000, 10000, 4000, 4000]);
   });
 
@@ -214,7 +220,7 @@ describe('COMBAT: examples', () => {
     });
     expect(report.outcome).toBe('Wiped');
     expect(report.log).toHaveLength(4);
-    expect(participant(report, 'a1')).toMatchObject({ combatSkillGain: 7, final: { condition: 'dead' } });
+    expect(participant(report, 'a1')).toMatchObject({ combatExperience: 7, final: { condition: 'dead' } });
     expect(a1.state.skillHundredths).toBe(10000);
   });
 
@@ -233,7 +239,7 @@ describe('COMBAT: examples', () => {
   });
 
   it('Wiped, with the Retreated check also holding', () => {
-    const report = fight([combatAgent('a1', { currentHealth: 6 })], [combatEnemy('e1', 'cult_leader')], {
+    const report = fight([combatAgent('a1', { currentHealth: 6 })], [combatEnemy('e1', 'commander')], {
       'combat.hit.a1': [false],
       'combat.hit.e1': [true],
       'combat.damage.e1': [11],
@@ -383,7 +389,7 @@ describe('COMBAT: examples', () => {
       rating([
         ['initiate', 6],
         ['soldier', 3],
-        ['cult_leader', 1],
+        ['commander', 1],
       ]),
     ).toBe(900);
     const four = [combatAgent('a1'), combatAgent('a2'), combatAgent('a3'), combatAgent('a4')];

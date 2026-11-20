@@ -8,7 +8,7 @@ import {
   effectiveSkill,
   isAway,
   isInBase,
-  survivalSkillGain,
+  survivalExperience,
   trainingGainProbability,
 } from '../../src/engine/mechanics/agents/agents.ts';
 import { ratio } from '../../src/kernel/index.ts';
@@ -563,14 +563,14 @@ describe('AGENT: examples', () => {
     expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_cap'] = 100));
     expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_work_start_max'] = 70));
     expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_work_limit'] = 120));
-    // skill_gain_per_mission_survived is a list of one or more whole numbers of at least 0.
-    expectDefective((raw) => (raw.get('agent_parameters')['skill_gain_per_mission_survived'] = []));
-    expectDefective((raw) => (raw.get('agent_parameters')['skill_gain_per_mission_survived'] = [30, -1]));
-    expectDefective((raw) => (raw.get('agent_parameters')['skill_gain_per_mission_survived'] = 30));
+    // experience_per_mission_survived is a list of one or more whole numbers of at least 0.
+    expectDefective((raw) => (raw.get('agent_parameters')['experience_per_mission_survived'] = []));
+    expectDefective((raw) => (raw.get('agent_parameters')['experience_per_mission_survived'] = [30, -1]));
+    expectDefective((raw) => (raw.get('agent_parameters')['experience_per_mission_survived'] = 30));
     expectDefective(
-      (raw) => (raw.get('agent_parameters')['skill_gain_per_attack_hit'] = { $decimal: '0.5' }),
+      (raw) => (raw.get('agent_parameters')['experience_per_attack_hit'] = { $decimal: '0.5' }),
     );
-    expectDefective((raw) => delete raw.get('agent_parameters')['skill_gain_per_defense_miss']);
+    expectDefective((raw) => delete raw.get('agent_parameters')['experience_per_defense_miss']);
   });
 
   it('Mission growth', () => {
@@ -582,7 +582,7 @@ describe('AGENT: examples', () => {
     const created = addMissionSite(state, 'foil_sabotage');
     state = act(created.state, 'deployAgents', { missionSite: created.site, agents: [a1, a2] });
     const enemies = created.state.world.current.missionSites[created.site]!.state.enemies;
-    const soldier = enemies[4]!;
+    const soldier = enemies.find((id) => created.state.world.current.enemies[id]!.archetype === 'soldier')!;
     state = tweak(state, (world) => {
       world.agents[a1]!.state.skillHundredths = 10110;
       world.agents[a2]!.state.skillHundredths = 100_000;
@@ -604,7 +604,7 @@ describe('AGENT: examples', () => {
     });
     const report = turnReportView(state)!;
     const combat = report.combatReports[0]!;
-    const gainOf = (id: string) => combat.participants.find((p) => p.id === id)!.combatSkillGain;
+    const gainOf = (id: string) => combat.participants.find((p) => p.id === id)!.combatExperience;
     expect(combat.outcome).toBe('Prevailed');
     expect(agent(state, a2).state.status).toBe('Killed');
     // a1: 4 + 2 + 4 + 4 for its attacks, 2 + 1 for the miss and the hit it took; a2: 4 for its hit, 1 for the hit
@@ -623,8 +623,8 @@ describe('AGENT: examples', () => {
     expect(report.missions[0]!.growth).toEqual([
       {
         agent: a1,
-        survivalSkillGain: 30,
-        missionSkillGain: a1Gain,
+        survivalExperience: 30,
+        missionExperience: a1Gain,
         skillAfterHundredths: 10110 + a1Gain * 100,
         experienceAfter: a1Gain,
       },
@@ -637,11 +637,17 @@ describe('AGENT: examples', () => {
   it('Mission growth: the survival skill gain by Missions survived', () => {
     // The fourth Mission survived gives 15, and so does the seventh, because the list has four entries.
     const p = gdrs.agentParameters;
-    expect([1, 2, 3, 4, 5, 7].map((n) => survivalSkillGain(n, p))).toEqual([30, 25, 20, 15, 15, 15]);
+    expect([1, 2, 3, 4, 5, 7].map((n) => survivalExperience(n, p))).toEqual([30, 25, 20, 15, 15, 15]);
     const agentState = { skillHundredths: 10110, experience: 0 };
-    expect(applyMissionGrowth(agentState, 13, 1, p)).toEqual({ survivalSkillGain: 30, missionSkillGain: 43 });
+    expect(applyMissionGrowth(agentState, 13, 1, p)).toEqual({
+      survivalExperience: 30,
+      missionExperience: 43,
+    });
     expect(agentState).toEqual({ skillHundredths: 14410, experience: 43 });
-    expect(applyMissionGrowth(agentState, 0, 7, p)).toEqual({ survivalSkillGain: 15, missionSkillGain: 15 });
+    expect(applyMissionGrowth(agentState, 0, 7, p)).toEqual({
+      survivalExperience: 15,
+      missionExperience: 15,
+    });
     expect(agentState).toEqual({ skillHundredths: 15910, experience: 58 });
   });
 

@@ -797,7 +797,10 @@
   file exactly these properties and values; since then the Implementation copies it again, and with it the
   properties of Mission growth that Specification revision 7985a451a43f4fcaba960b80ca50d8d888cc9cd0 added:
   `skill_gain_per_attack_hit` 4, `skill_gain_per_attack_miss` 2, `skill_gain_per_defense_hit` 1,
-  `skill_gain_per_defense_miss` 2, and `skill_gain_per_mission_survived` [30, 25, 20, 15].
+  `skill_gain_per_defense_miss` 2, and `skill_gain_per_mission_survived` [30, 25, 20, 15]. Specification revision
+  b01cfd1215c6438a3664ea47b4ebcbd2b4e4ec1c renamed those five to `experience_per_attack_hit`,
+  `experience_per_attack_miss`, `experience_per_defense_hit`, `experience_per_defense_miss`, and
+  `experience_per_mission_survived`, with the same values; the Implementation's copy follows it.
 - **Options considered:** Copy the specifications' YAML file unchanged; take the values the Acceptance examples and
   BOOT state.
 - **Option chosen:** The values the Acceptance examples and BOOT state.
@@ -1225,7 +1228,12 @@
 - **Description:** Behind a discovered Lead are the discovered Leads of the same Faction that were discovered in an
   earlier Turn, as the History entries' Leads discovered report it; a Lead discovered at campaign creation counts as
   discovered before the first Turn. The Basic Autopilot AI sorts by that count, most first, after the Leads whose Won
-  Mission site makes a Faction Eliminated. Equal Leads keep the order Player API lists them in.
+  Mission site makes a Faction Eliminated. Equal Leads keep the order Player API lists them in. Since Specification
+  revision acf5e1365fc4039ddd861339ac47f4abbfcc4526 the Leads whose completion wins the Campaign come first and those
+  whose completion, or whose Won Mission site, makes a Faction Eliminated second; a Lead a Mission from which is
+  already Won, read from the retained Mission sites and Missions of History, comes after every other Lead; and the
+  chain is still read from the Turns of discovery, because that revision keeps "the longest chain of discovered Leads
+  behind it" unexplained.
 - **Options considered:** Reading `discovered_when` from the GDRs; counting Won Missions against the Faction; the
   order of discovery from History.
 - **Option chosen:** The order of discovery from History.
@@ -1289,8 +1297,9 @@
   format: "Order has no meaning: Two Effect lists that hold the same Effects in a different order are the same
   Effect list."
 - **Description:** The Mission site Data sheet shows the Effects of `on_win` and `on_ignored_or_lost` in the order
-  `money`, `funding`, `panic`, `eliminate_faction`, the order of the table under Effects shown, whatever order the
-  GDR file states. It reads them from `getGameData()`, which reports each Effect list as its amounts, so an Effect
+  `money`, `funding`, `panic`, `eliminate_faction`, `defeat`, the order of the table under Effects shown, whatever
+  order the GDR file states; `defeat` joined the table in Specification revision
+  acf5e1365fc4039ddd861339ac47f4abbfcc4526. It reads them from `getGameData()`, which reports each Effect list as its amounts, so an Effect
   whose value is 0 is left out like an absent one, and an Effect list whose every amount is 0 reads "None". Every
   Bootstrap Effect list is authored in that order and has no value of 0.
 - **Options considered:** The order of the table under Effects shown; the authored order, reported by a new Player
@@ -1354,3 +1363,84 @@
 - **Why:** A user interface shows the segments one after another without parsing anything, and joined in order their
   texts are the templated text with every Placeholder replaced, as COMP, Article resolution, requires.
 - **Links:** Specification revision 3fd37d181b3675d4ca0bef981cb8c3ab43b35ff4.
+
+## DEC-068: A Lead's elimination of its Faction and its win of the Campaign are not reported in the Turn report
+
+- **Category:** Gap resolution
+- **Affected specifications:** LEAD, Turn report; INVSTG, Turn report; LEAD, Completion effect.
+- **Description:** The Turn report and the History entry hold, for a completed Investigation, only what INVSTG, Turn
+  report, lists, i.e. the Mission site its completion created, if any. A Faction that the completion made Eliminated is
+  shown by the Faction's Eliminated and Eliminated turn, and a Campaign it won by the Campaign ending and its Ending
+  reason Campaign objective achieved, both Player-visible. The Turn report's Mission Consequences name a Faction made
+  Eliminated only when a Won Mission made it so; a Faction a Lead made Eliminated in step 4 of the same Advance turn is
+  not named again by a Won Mission in step 5.
+- **Options considered:** Adding an Eliminated Faction and a won Campaign to each completed Investigation of the Turn
+  report; reporting nothing beyond what the specifications list.
+- **Option chosen:** Reporting nothing beyond what the specifications list.
+- **Why:** The Turn report's contents are stated as lists, and every fact is already Player-visible elsewhere; adding a
+  field is easy once the specifications say where it belongs.
+- **Links:** PROB-044
+
+## DEC-069: Step 4 applies the completion effect as LEAD states it, not as the step table summarizes it
+
+- **Category:** Conflict resolution
+- **Affected specifications:** TURN, Turn advancement steps, step 4; LEAD, Completion effect; INVSTG, Completion.
+- **Description:** A completed Investigation applies every Effect of its Lead's `on_completion`, in the order of the
+  completed Investigations' Instance IDs: a `create_mission_site` Effect creates one Initiative Mission site, an
+  `eliminate_faction` Effect makes the Faction of the Lead Eliminated at once, and a `win_campaign` Effect makes the
+  Pending victory yes; an empty Effect list changes nothing.
+- **Options considered:** The step table's "creates one Initiative Mission site"; LEAD, Completion effect.
+- **Option chosen:** LEAD, Completion effect.
+- **Why:** LEAD owns the completion effect, and the step table only summarizes it; the Bootstrap Victory path needs
+  Leads that create no Mission site.
+- **Links:** PROB-045
+
+## DEC-070: The Leads without a Faction form a chain of their own for the Basic Autopilot AI
+
+- **Category:** Gap resolution
+- **Affected specifications:** BASICAI, Keep Mission sites coming; LEAD, Lead.
+- **Description:** When the Basic Autopilot AI measures how far along its chain a Lead is, under DEC-060, the Leads
+  without a Faction count as one more Faction: behind such a Lead are the discovered Leads without a Faction that were
+  discovered in an earlier Turn. With the Bootstrap GDRs this matters little, because `peace_on_earth` already comes
+  first as the Lead that wins the Campaign, and `criminal_organizations` is the only Lead discovered at campaign
+  creation.
+- **Options considered:** Treating them as their own chain; counting every discovered Lead behind them; putting them
+  last.
+- **Option chosen:** Treating them as their own chain.
+- **Why:** It extends DEC-060 without a special case and never delays the first or the last Lead of the Victory path.
+- **Links:** PROB-046
+
+## DEC-071: The "On completion" lines of a Lead follow one fixed order, and so do its Data sheet Effects
+
+- **Category:** Gap resolution
+- **Affected specifications:** LVIEW, Selected Lead: "under the heading "On completion", one line for each Effect of
+  its `on_completion`"; COMPV, Lead data sheet, On completion; EFFECT, Effect list format: "Order has no meaning".
+- **Description:** The Leads View shows the lines of "On completion" in the order LVIEW describes them: the Mission
+  site the completion creates, then "Eliminates" and the Faction's name, then "Wins the Campaign", whatever order the
+  GDR file states them in. The On completion row of the Lead data sheet shows "Eliminates the Faction" before "Wins
+  the Campaign", separated by "·". Player API reports `on_completion` as `createsMissionSite`, `eliminatesFaction`, and
+  `winsCampaign`, with no authored order.
+- **Options considered:** The order LVIEW describes; the authored order, reported by a new Player API value.
+- **Option chosen:** The order LVIEW describes.
+- **Why:** As under DEC-064, an Effect list has no order, so one fixed order shows equal Effect lists alike; no
+  Bootstrap Lead has more than one Effect.
+- **Links:** PROB-041, DEC-064
+
+## DEC-072: The least widths of the panes beside a table
+
+- **Category:** Gap resolution
+- **Affected specifications:** VIS, Detail views and navigation, Panes: "A pane that holds a table is never narrower than that table's
+  columns while the Detail view has room for it, and the panes share the rest of the width, so that a table scrolls
+  sideways only when the window is too narrow for every pane to take its least width."
+- **Description:** In a Detail view with three panes, e.g. the Leads View and the Missions View, the list pane's least
+  width is 210 px and the selected item's pane's 190 px; the third pane takes the width of its table while the rest
+  allows, and the list and selected item panes share what remains. Below those least widths the table scrolls
+  sideways inside its pane. A list item's name wraps onto further lines rather than being cut short, and the value
+  beside it takes at most half the row, as on the Leads View Artboard. The Agents to add table of the Leads View has
+  the columns 36, 104, 170, 84, 80, and 96 px, which hold every Base Assignment with "· In transit" and every header.
+- **Options considered:** A least width of 0 for the selected item's pane, which squeezed it to a few words a line
+  beside a wide table; fixed least widths.
+- **Option chosen:** Fixed least widths.
+- **Why:** VIS names a least width for every pane but states none for a pane without a table, and the selected Lead's
+  "On completion" lines need room to be read.
+- **Links:** PROB-047

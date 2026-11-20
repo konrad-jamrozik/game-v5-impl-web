@@ -105,24 +105,48 @@ export function createMissionSite(input: {
 }
 
 /**
+ * MISSION, MissionSiteArchetype selection: the initiating Faction's previous operation, i.e. the MissionSiteArchetype of
+ * the Response Mission site its latest earlier Faction operation occurrence created, read from that retained Mission
+ * site; none for a Faction with no earlier occurrence. Mission sites are kept in creation order, so the latest is the
+ * last.
+ */
+export function previousOperation(
+  factionId: string,
+  missionSites: Readonly<Record<string, MissionSite>>,
+): string | null {
+  let previous: string | null = null;
+  for (const site of Object.values(missionSites)) {
+    const origin = site.constants.origin;
+    if (origin.kind === 'FactionOperation' && origin.initiatingFaction === factionId) {
+      previous = site.archetype;
+    }
+  }
+  return previous;
+}
+
+/**
  * MISSION, MissionSiteArchetype selection: uniform over the MissionSiteArchetypes of kind response whose
- * `operation_level` equals the level of the occurrence's Faction operation level.
+ * `operation_level` equals the level of the occurrence's Faction operation level, except that when there are two or
+ * more such candidates, the initiating Faction's previous operation is not a possible value.
  */
 export function selectResponseArchetype(
   random: Random,
   factionId: string,
   operationLevel: number,
   archetypes: readonly MissionSiteArchetypeGdr[],
+  previous: string | null,
 ): MissionSiteArchetypeGdr {
   const candidates = archetypes.filter(
     (archetype) => archetype.kind === 'response' && archetype.operationLevel === operationLevel,
   );
+  const possible =
+    candidates.length >= 2 ? candidates.filter((archetype) => archetype.id !== previous) : candidates;
   const chosen = random.weighted(
     `mission.archetypeSelection.${factionId}`,
-    candidates.map((archetype) => [archetype.id, 1] as const),
+    possible.map((archetype) => [archetype.id, 1] as const),
   );
   return must(
-    candidates.find((archetype) => archetype.id === chosen),
+    possible.find((archetype) => archetype.id === chosen),
     `MissionSiteArchetype for Faction operation level ${operationLevel}`,
   );
 }
@@ -131,17 +155,21 @@ export function selectResponseArchetype(
 export interface ConsequenceAmounts {
   readonly money: number;
   readonly fundingChange: number;
-  readonly panicIncrease: number;
-  readonly panicReduction: number;
+  /** The Panic increase and Panic reduction, Decimal quantities in hundredths of a percentage point. */
+  readonly panicIncreaseHundredths: number;
+  readonly panicReductionHundredths: number;
   readonly eliminateTargetFaction: boolean;
+  /** Whether a `defeat` Effect applies, which loses the Campaign (ENDING, Defeat Effect kind). */
+  readonly defeat: boolean;
 }
 
 const NO_CONSEQUENCE: ConsequenceAmounts = {
   money: 0,
   fundingChange: 0,
-  panicIncrease: 0,
-  panicReduction: 0,
+  panicIncreaseHundredths: 0,
+  panicReductionHundredths: 0,
   eliminateTargetFaction: false,
+  defeat: false,
 };
 
 /**
@@ -161,10 +189,10 @@ export function consequencesOf(
       return NO_CONSEQUENCE;
     }
     return {
+      ...NO_CONSEQUENCE,
       money: archetype.onWin.money,
       fundingChange: archetype.onWin.funding,
-      panicIncrease: 0,
-      panicReduction: archetype.onWin.panicReductionPct,
+      panicReductionHundredths: archetype.onWin.panicReductionHundredths,
       eliminateTargetFaction: archetype.onWin.eliminateTargetFaction,
     };
   }
@@ -174,7 +202,8 @@ export function consequencesOf(
   }
   return {
     ...NO_CONSEQUENCE,
-    panicIncrease: level.onIgnoredOrLost.panicIncreasePct,
+    panicIncreaseHundredths: level.onIgnoredOrLost.panicIncreaseHundredths,
     fundingChange: level.onIgnoredOrLost.funding,
+    defeat: level.onIgnoredOrLost.defeat,
   };
 }

@@ -28,13 +28,13 @@ export interface AgentParametersGdr {
   readonly exhaustionWorkLimit: number;
   /** A Decimal quantity, in hundredths; see NUMBERS, Decimal quantities. */
   readonly trainingSkillGainPerTurnHundredths: number;
-  /** COMBAT, Combat skill gain: the amounts per attack, by the Agent's part in it and its hit outcome. */
-  readonly skillGainPerAttackHit: number;
-  readonly skillGainPerAttackMiss: number;
-  readonly skillGainPerDefenseHit: number;
-  readonly skillGainPerDefenseMiss: number;
-  /** AGENT, Mission growth: the survival skill gain of the first, second, and each later Mission survived. */
-  readonly skillGainPerMissionSurvived: readonly number[];
+  /** COMBAT, Combat experience: the amounts per attack, by the Agent's part in it and its hit outcome. */
+  readonly experiencePerAttackHit: number;
+  readonly experiencePerAttackMiss: number;
+  readonly experiencePerDefenseHit: number;
+  readonly experiencePerDefenseMiss: number;
+  /** AGENT, Mission growth: the survival experience of the first, second, and each later Mission survived. */
+  readonly experiencePerMissionSurvived: readonly number[];
 }
 
 export interface WeaponGdr {
@@ -137,8 +137,9 @@ export interface FactionActivityLevelGdr {
   readonly id: string;
   readonly name: string;
   readonly lastsTurns: readonly [number, number] | null;
-  readonly operationEveryTurns: readonly [number, number];
-  /** The `level` of a FactionOperationLevel and its weight, in the authored order. */
+  /** FACTION, FactionActivityLevel: `null` for a level without operations. */
+  readonly operationEveryTurns: readonly [number, number] | null;
+  /** The `level` of a FactionOperationLevel and its weight, in the authored order; empty for a level without operations. */
   readonly operationLevelWeights: readonly (readonly [number, number])[];
   readonly next: string | null;
 }
@@ -149,7 +150,15 @@ export interface FactionOperationLevelGdr {
   readonly level: number;
   readonly name: string;
   readonly onWin: { readonly money: number; readonly funding: number };
-  readonly onIgnoredOrLost: { readonly panicIncreasePct: number; readonly funding: number };
+  /**
+   * MISSION, Consequences: the Panic increase, a Decimal quantity in hundredths of a percentage point; the funding
+   * change; and whether a `defeat` Effect loses the Campaign (ENDING, Defeat Effect kind).
+   */
+  readonly onIgnoredOrLost: {
+    readonly panicIncreaseHundredths: number;
+    readonly funding: number;
+    readonly defeat: boolean;
+  };
 }
 
 export interface LeadGdr {
@@ -157,15 +166,26 @@ export interface LeadGdr {
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  /** The identifier of a FactionArchetype. */
-  readonly faction: string;
+  /** The identifier of a FactionArchetype; none for a Lead that concerns no Faction. */
+  readonly faction: string | null;
   /** The Required progress, in progress points (INVSTG, LEAD). */
   readonly requiredProgress: number;
   /** LEAD, Lead discovery: the Condition that discovers the Lead; none for a Lead discovered from campaign creation. */
   readonly discoveredWhen: Condition | null;
-  /** LEAD, Lead availability: whether the Lead can be investigated again; `until_mission_won` when omitted. */
+  /**
+   * LEAD, Lead availability: whether the Lead can be investigated again; when omitted, `until_mission_won` for a Lead
+   * that creates a Mission site and `never` for one that does not.
+   */
   readonly investigateAgain: InvestigateAgain;
-  readonly onCompletion: { readonly createMissionSite: string };
+  /** LEAD, Completion effect: the Effects of `on_completion`; an Effect kind it does not hold is null or false. */
+  readonly onCompletion: {
+    /** The MissionSiteArchetype of kind initiative a `create_mission_site` Effect names. */
+    readonly createMissionSite: string | null;
+    /** Whether an `eliminate_faction` Effect makes the Faction of the Lead Eliminated. */
+    readonly eliminateFaction: boolean;
+    /** Whether a `win_campaign` Effect wins the Campaign (ENDING, Victory Effect kind). */
+    readonly winCampaign: boolean;
+  };
 }
 
 export type InvestigateAgain = 'never' | 'until_mission_won' | 'always';
@@ -209,7 +229,8 @@ export interface MissionSiteArchetypeGdr {
   readonly onWin: {
     readonly money: number;
     readonly funding: number;
-    readonly panicReductionPct: number;
+    /** A Decimal quantity in hundredths of a percentage point (ENDING, Panic Effect kind). */
+    readonly panicReductionHundredths: number;
     readonly eliminateTargetFaction: boolean;
   };
   /** Only for the `response` kind: the `level` of the Faction operation level it serves. */
@@ -250,6 +271,8 @@ export interface CompendiumArticleGdr {
   readonly terms: readonly string[];
   /** The identifiers of the Compendium articles the article points the Player to. */
   readonly seeAlso: readonly string[];
+  /** COMP, Article visibility: the Condition that must hold for the article to be Player-visible; none sets none. */
+  readonly visibleWhen: Condition | null;
 }
 
 /**
@@ -326,6 +349,8 @@ export interface CatalogCompendiumArticle {
   readonly formulas: readonly { readonly label: ArticleTemplate; readonly text: ArticleTemplate }[];
   readonly terms: readonly string[];
   readonly seeAlso: readonly string[];
+  /** COMP, Article visibility: the `visible_when` Condition, or none. */
+  readonly visibleWhen: Condition | null;
 }
 
 /** The GDRs of one Game build, validated and resolved. */

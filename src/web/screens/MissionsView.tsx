@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { ConsequenceView, CurrentStateView, HistoryEntry, MissionSiteView } from '../../engine/index.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
-import { wholeText } from '../format.ts';
+import { decimalText, wholeText } from '../format.ts';
 import {
   appliedConsequence,
   conditionText,
@@ -28,7 +28,10 @@ import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { assignmentText } from './AgentsView.tsx';
 
-/** MVIEW, Selected Mission site: each change written as what it does, e.g. "+60 money" or "Panic −5". */
+/**
+ * MVIEW, Selected Mission site: each change written as what it does, e.g. "+60 money", "Panic −0.50", "Red Dawn
+ * Eliminated", or "Campaign lost"; Panic with two decimals under GUI, Decimal quantities shown.
+ */
 export function consequenceParts(c: ConsequenceView, factionName: string): string[] {
   const parts: string[] = [];
   if (c.money !== 0) {
@@ -37,14 +40,17 @@ export function consequenceParts(c: ConsequenceView, factionName: string): strin
   if (c.fundingChange !== 0) {
     parts.push(`${c.fundingChange > 0 ? '+' : '−'}${Math.abs(c.fundingChange)} funding`);
   }
-  if (c.panicReduction !== 0) {
-    parts.push(`Panic −${c.panicReduction}`);
+  if (c.panicReductionHundredths !== 0) {
+    parts.push(`Panic −${decimalText(c.panicReductionHundredths)}`);
   }
-  if (c.panicIncrease !== 0) {
-    parts.push(`Panic +${c.panicIncrease}`);
+  if (c.panicIncreaseHundredths !== 0) {
+    parts.push(`Panic +${decimalText(c.panicIncreaseHundredths)}`);
   }
   if (c.eliminatesTargetFaction) {
     parts.push(`${factionName} Eliminated`);
+  }
+  if (c.defeat) {
+    parts.push('Campaign lost');
   }
   return parts;
 }
@@ -336,9 +342,10 @@ function appliedNothing(c: HistoryMission['consequence']): boolean {
   return (
     c.money === 0 &&
     c.fundingChange === 0 &&
-    c.panicIncrease === 0 &&
-    c.panicReduction === 0 &&
-    c.eliminatedFaction === null
+    c.panicIncreaseHundredths === 0 &&
+    c.panicReductionHundredths === 0 &&
+    c.eliminatedFaction === null &&
+    !c.defeat
   );
 }
 

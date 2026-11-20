@@ -392,9 +392,11 @@ describe('ECON: examples', () => {
         .slice(6)
         .map((id) => effectiveValuesOf(state, id).weaponDamage),
     ).toEqual([12, 12]);
-    expect(Object.values(state.world.current.enemies).every((e) => e.state.baseWeaponDamage === 10)).toBe(
-      true,
-    );
+    expect(
+      Object.values(state.world.current.enemies).every(
+        (e) => e.state.baseWeaponDamage === gdrs.weapons.get(e.state.weapon)!.damage,
+      ),
+    ).toBe(true);
     // An Agent dismissed after the purchases records the effective weapon damage it had as its Final weapon damage.
     state = act(setAssignment(state, [a4], 'Standby'), 'dismissAgents', { agents: [a4] });
     expect(agent(state, a4).state.finalWeaponDamage).toBe(12);

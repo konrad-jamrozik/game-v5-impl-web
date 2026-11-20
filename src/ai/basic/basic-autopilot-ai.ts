@@ -308,10 +308,18 @@ class Turn {
     }
     const team = candidates.slice(0, count).map((agent) => agent.id);
     const rested = this.byPreference(state.agents.filter((agent) => this.isRested(agent)));
-    // A Lead is investigated only if a winning team for the Mission site it creates could be formed now.
-    const winnable = (leadId: string): boolean => {
+    // A Lead that creates no Mission site advances progression by its completion alone, so it is always worth
+    // investigating. One that creates a Mission site is worth it only if a winning team for that Mission site could be
+    // formed now.
+    const worthInvestigating = (leadId: string): boolean => {
       const lead = state.leads.find((item) => item.id === leadId);
-      const archetype = this.data.missionSiteArchetypes.find((item) => item.id === lead?.createsMissionSite);
+      if (lead === undefined) {
+        return false;
+      }
+      if (lead.createsMissionSite === null) {
+        return true;
+      }
+      const archetype = this.data.missionSiteArchetypes.find((item) => item.id === lead.createsMissionSite);
       if (archetype === undefined) {
         return false;
       }
@@ -321,38 +329,55 @@ class Turn {
     // Effort is concentrated: an Active Investigation receives Agents before another Lead is started.
     const [active] = state.investigations;
     if (active !== undefined) {
-      if (!winnable(active.lead)) {
+      if (!worthInvestigating(active.lead)) {
         return false;
       }
       return this.act(`join ${active.id}`, () =>
         this.player.actions.assignAgentsToInvestigation(active.id, team),
       );
     }
-    // A Lead whose Won Mission site makes a Faction Eliminated comes first, then the one furthest along its Faction's
+    // A Lead whose completion wins the Campaign comes first, then one whose completion makes a Faction Eliminated,
+    // directly or through a Won Mission at the Mission site it creates, then the one furthest along its Faction's
     // chain. What discovers a Lead is not Player-visible, so the chain behind a Lead is read from the Turns in which
     // the Leads were discovered, which History reports: the discovered Leads of the same Faction discovered in an
     // earlier Turn are behind it; see DEC-060.
-    const eliminates = (site: string): boolean =>
-      this.data.missionSiteArchetypes.find((item) => item.id === site)?.onWin?.eliminatesTargetFaction ===
-      true;
+    const eliminates = (lead: LeadView): boolean =>
+      lead.eliminatesFaction ||
+      this.data.missionSiteArchetypes.find((item) => item.id === lead.createsMissionSite)?.onWin
+        ?.eliminatesTargetFaction === true;
+    const history = this.unwrap(this.player.queries.getHistory());
     const discoveredIn = new Map<string, number>();
-    for (const entry of this.unwrap(this.player.queries.getHistory()).entries) {
+    for (const entry of history.entries) {
       for (const lead of entry.report.discoveredLeads) {
         discoveredIn.set(lead, entry.turn);
       }
     }
+    // The Leads a Mission from which is Won, read from the retained Mission sites and Missions.
+    const wonSites = new Set(
+      history.retained.missions
+        .filter((mission) => mission.lifecycle === 'Won')
+        .map((mission) => mission.missionSite),
+    );
+    const missionWon = new Set(
+      history.retained.missionSites
+        .filter((site) => site.lead !== null && wonSites.has(site.id))
+        .map((site) => site.lead),
+    );
     const chainLength = (lead: LeadView): number =>
       state.leads.filter(
         (behind) =>
           behind.factionArchetype === lead.factionArchetype &&
           (discoveredIn.get(behind.id) ?? 0) < (discoveredIn.get(lead.id) ?? 0),
       ).length;
-    const eliminatesFirst = (lead: LeadView): number => (eliminates(lead.createsMissionSite) ? 1 : 0);
-    const leads = [...state.leads].sort(
-      (a, b) => eliminatesFirst(b) - eliminatesFirst(a) || chainLength(b) - chainLength(a),
-    );
-    for (const lead of leads) {
-      if (!lead.canBeInvestigatedNow || !winnable(lead.id)) {
+    const rank = (lead: LeadView): number => (lead.winsCampaign ? 2 : eliminates(lead) ? 1 : 0);
+    const leads = [...state.leads].sort((a, b) => rank(b) - rank(a) || chainLength(b) - chainLength(a));
+    // A Lead a Mission from which was already Won is investigated again only when no other Lead qualifies.
+    const ordered = [
+      ...leads.filter((lead) => !missionWon.has(lead.id)),
+      ...leads.filter((lead) => missionWon.has(lead.id)),
+    ];
+    for (const lead of ordered) {
+      if (!lead.canBeInvestigatedNow || !worthInvestigating(lead.id)) {
         continue;
       }
       if (await this.act(`start ${lead.id}`, () => this.player.actions.startInvestigation(lead.id, team))) {

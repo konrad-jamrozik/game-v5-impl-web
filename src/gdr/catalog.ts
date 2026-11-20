@@ -52,6 +52,25 @@ const hundredths = (min: number) =>
       return Number(match[1]) * 100 + Number((match[2] ?? '').padEnd(2, '0'));
     })
     .refine((value) => Number.isSafeInteger(value) && value >= min);
+/**
+ * NUMBERS, Decimal quantities: a GDR value that is a Decimal quantity and may be negative, e.g. the value of a `panic`
+ * Effect (ENDING, Panic Effect kind), read exactly into its whole number of hundredths; e.g. `-0.05` is -5.
+ */
+const signedHundredths = z
+  .union([z.int(), z.strictObject({ $decimal: z.string() })])
+  .transform((value, context) => {
+    if (typeof value === 'number') {
+      return value * 100;
+    }
+    const match = /^([+-]?)(\d+)\.(\d{1,2})$/.exec(value.$decimal);
+    if (match === null) {
+      context.addIssue({ code: 'custom', message: 'At most two digits after the decimal point' });
+      return z.NEVER;
+    }
+    const magnitude = Number(match[2]) * 100 + Number((match[3] ?? '').padEnd(2, '0'));
+    return match[1] === '-' ? 0 - magnitude : magnitude;
+  })
+  .refine((value) => Number.isSafeInteger(value));
 /** A nested mapping, with its authored key order. */
 const entries = <T extends z.ZodType>(value: T) =>
   z.strictObject({ $entries: z.array(z.tuple([z.string(), value])) }).transform((map) => map.$entries);
@@ -193,12 +212,12 @@ const schemas = {
       exhaustion_work_start_max: whole(0),
       exhaustion_work_limit: whole(0),
       training_skill_gain_per_turn: hundredths(0),
-      skill_gain_per_attack_hit: whole(0),
-      skill_gain_per_attack_miss: whole(0),
-      skill_gain_per_defense_hit: whole(0),
-      skill_gain_per_defense_miss: whole(0),
+      experience_per_attack_hit: whole(0),
+      experience_per_attack_miss: whole(0),
+      experience_per_defense_hit: whole(0),
+      experience_per_defense_miss: whole(0),
       // AGENT, Agent GDR validation, rule 5: a list of one or more whole numbers of at least 0.
-      skill_gain_per_mission_survived: z.array(whole(0)).min(1),
+      experience_per_mission_survived: z.array(whole(0)).min(1),
     })
     .transform((g) => ({
       type: g.type,
@@ -217,11 +236,11 @@ const schemas = {
       exhaustionWorkStartMax: g.exhaustion_work_start_max,
       exhaustionWorkLimit: g.exhaustion_work_limit,
       trainingSkillGainPerTurnHundredths: g.training_skill_gain_per_turn,
-      skillGainPerAttackHit: g.skill_gain_per_attack_hit,
-      skillGainPerAttackMiss: g.skill_gain_per_attack_miss,
-      skillGainPerDefenseHit: g.skill_gain_per_defense_hit,
-      skillGainPerDefenseMiss: g.skill_gain_per_defense_miss,
-      skillGainPerMissionSurvived: g.skill_gain_per_mission_survived,
+      experiencePerAttackHit: g.experience_per_attack_hit,
+      experiencePerAttackMiss: g.experience_per_attack_miss,
+      experiencePerDefenseHit: g.experience_per_defense_hit,
+      experiencePerDefenseMiss: g.experience_per_defense_miss,
+      experiencePerMissionSurvived: g.experience_per_mission_survived,
     })),
   Weapon: z
     .strictObject({ id, type: z.literal('Weapon'), name, base_weapon_damage: whole(1) })
@@ -353,7 +372,7 @@ const schemas = {
       type: z.literal('FactionActivityLevel'),
       name,
       lasts_turns: range.nullable(),
-      operation_every_turns: range,
+      operation_every_turns: range.nullable(),
       operation_level_weights: entries(z.int()),
       next: id.nullable(),
     })
@@ -378,9 +397,15 @@ const schemas = {
       on_ignored_or_lost: effectList,
     })
     .transform((g, context) => {
-      // MISSION, MissionSiteArchetype validation, rule 7: Operation level Consequences are valid.
+      // MISSION, MissionSiteArchetype validation, rule 7: Operation level Consequences are valid. A `panic` Effect is a
+      // Decimal quantity of at least 0 (ENDING, Panic Effect kind), and a `defeat` Effect is always `true` (ENDING,
+      // Defeat Effect kind).
       const onWin = effectsOf(g.on_win, { money: whole(0), funding: whole(0) });
-      const onLost = effectsOf(g.on_ignored_or_lost, { panic: whole(0), funding: z.int() });
+      const onLost = effectsOf(g.on_ignored_or_lost, {
+        panic: signedHundredths.refine((value) => value >= 0),
+        funding: z.int(),
+        defeat: z.literal(true),
+      });
       if (!onWin.success || !onLost.success) {
         context.addIssue({ code: 'custom', message: 'Operation level consequences are not valid' });
         return z.NEVER;
@@ -391,7 +416,11 @@ const schemas = {
         level: g.level,
         name: g.name,
         onWin: { money: onWin.data.money ?? 0, funding: onWin.data.funding ?? 0 },
-        onIgnoredOrLost: { panicIncreasePct: onLost.data.panic ?? 0, funding: onLost.data.funding ?? 0 },
+        onIgnoredOrLost: {
+          panicIncreaseHundredths: onLost.data.panic ?? 0,
+          funding: onLost.data.funding ?? 0,
+          defeat: onLost.data.defeat === true,
+        },
       };
     }),
   Lead: z
@@ -400,19 +429,46 @@ const schemas = {
       type: z.literal('Lead'),
       name,
       description: z.string().min(1),
-      faction: id,
+      // LEAD, Lead GDR validation, rule 1: `faction`, `discovered_when`, `investigate_again`, and `on_completion` are
+      // optional.
+      faction: id.optional(),
       required_progress: whole(1),
-      // LEAD, Lead GDR validation, rules 4 and 5.
       discovered_when: condition.optional(),
       investigate_again: z.enum(['never', 'until_mission_won', 'always']).optional(),
-      on_completion: effectList,
+      on_completion: effectList.optional(),
     })
     .transform((g, context) => {
-      // LEAD, Lead GDR validation, rule 6: exactly one Effect, of the Effect kind `create_mission_site`.
-      const effects = effectsOf(g.on_completion, { create_mission_site: id });
-      const created = effects.data?.create_mission_site;
-      if (!effects.success || g.on_completion.size !== 1 || created === undefined) {
+      // LEAD, Lead GDR validation, rule 5: at most one Effect of each of the Effect kinds `create_mission_site`,
+      // `eliminate_faction`, and `win_campaign`, and no other; a Lead that creates a Mission site or eliminates a
+      // Faction has `faction`.
+      const effects = effectsOf(g.on_completion ?? new Map(), {
+        create_mission_site: id,
+        eliminate_faction: z.literal(true),
+        win_campaign: z.literal(true),
+      });
+      if (!effects.success) {
         context.addIssue({ code: 'custom', message: 'Completion effect is valid' });
+        return z.NEVER;
+      }
+      const created = effects.data.create_mission_site ?? null;
+      const eliminateFaction = effects.data.eliminate_faction === true;
+      if ((created !== null || eliminateFaction) && g.faction === undefined) {
+        context.addIssue({ code: 'custom', message: 'Completion effect is valid (it needs a faction)' });
+        return z.NEVER;
+      }
+      // LEAD, Lead GDR validation, rule 4: a Lead without `faction` has no `mission_won` Condition.
+      if (
+        g.faction === undefined &&
+        g.discovered_when !== undefined &&
+        conditionReferences(g.discovered_when).missionSiteArchetypes.length > 0
+      ) {
+        context.addIssue({ code: 'custom', message: 'Discovery Condition is valid' });
+        return z.NEVER;
+      }
+      // LEAD, Lead GDR validation, rule 6: `until_mission_won` only for a Lead that creates a Mission site. A Lead
+      // without `investigate_again` has `until_mission_won` when it creates one, and `never` when it does not.
+      if (g.investigate_again === 'until_mission_won' && created === null) {
+        context.addIssue({ code: 'custom', message: 'Investigate again is valid' });
         return z.NEVER;
       }
       return {
@@ -420,11 +476,15 @@ const schemas = {
         id: g.id,
         name: g.name,
         description: g.description,
-        faction: g.faction,
+        faction: g.faction ?? null,
         requiredProgress: g.required_progress,
         discoveredWhen: g.discovered_when ?? null,
-        investigateAgain: g.investigate_again ?? 'until_mission_won',
-        onCompletion: { createMissionSite: created },
+        investigateAgain: g.investigate_again ?? (created === null ? 'never' : 'until_mission_won'),
+        onCompletion: {
+          createMissionSite: created,
+          eliminateFaction,
+          winCampaign: effects.data.win_campaign === true,
+        },
       };
     }),
   InvestigationArchetype: z.strictObject({ id, type: z.literal('InvestigationArchetype'), name }),
@@ -461,7 +521,7 @@ const schemas = {
       const onWin = effectsOf(g.on_win ?? new Map(), {
         money: whole(0),
         funding: whole(0),
-        panic: z.int().max(0),
+        panic: signedHundredths.refine((value) => value <= 0),
         eliminate_faction: z.literal(true),
       });
       if (!onWin.success || (g.kind === 'response' && g.on_win !== undefined)) {
@@ -491,7 +551,7 @@ const schemas = {
         onWin: {
           money: onWin.data.money ?? 0,
           funding: onWin.data.funding ?? 0,
-          panicReductionPct: 0 - (onWin.data.panic ?? 0),
+          panicReductionHundredths: 0 - (onWin.data.panic ?? 0),
           eliminateTargetFaction: onWin.data.eliminate_faction === true,
         },
         operationLevel: g.operation_level ?? null,
@@ -506,7 +566,7 @@ const schemas = {
   CompendiumArticle: z
     .looseObject({ id, type: z.literal('CompendiumArticle') })
     .transform((raw, context): CompendiumArticleGdr => {
-      const parsed = parseCompendiumArticle(raw);
+      const parsed = parseCompendiumArticle(raw, parseCondition);
       if ('problems' in parsed) {
         for (const message of parsed.problems) {
           context.addIssue({ code: 'custom', message });
@@ -767,7 +827,9 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
       seen.add(cursor.id);
       cursor = factionActivityLevels.get(cursor.next);
     }
-    if (level.operationLevelWeights.length === 0) {
+    // FACTION, Faction GDR validation, rule 8: at least one key for a level with operations, and none for a level
+    // without them.
+    if ((level.operationLevelWeights.length === 0) !== (level.operationEveryTurns === null)) {
       problems.push(`FactionActivityLevel ${level.id}: Weights are valid`);
     }
     for (const [key, weight] of level.operationLevelWeights) {
@@ -811,15 +873,18 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
 
   // LEAD, Lead GDR validation.
   for (const lead of leads) {
-    if (!factionArchetypes.some((archetype) => archetype.id === lead.faction)) {
+    if (lead.faction !== null && !factionArchetypes.some((archetype) => archetype.id === lead.faction)) {
       problems.push(`Lead ${lead.id}: Faction resolves`);
     }
     if (lead.discoveredWhen !== null && !conditionResolves(lead.discoveredWhen)) {
       problems.push(`Lead ${lead.id}: Discovery Condition is valid`);
     }
-    const created = missionSiteArchetypes.find((site) => site.id === lead.onCompletion.createMissionSite);
-    if (created?.kind !== 'initiative') {
-      problems.push(`Lead ${lead.id}: Completion effect is valid`);
+    const createMissionSite = lead.onCompletion.createMissionSite;
+    if (createMissionSite !== null) {
+      const created = missionSiteArchetypes.find((site) => site.id === createMissionSite);
+      if (created?.kind !== 'initiative') {
+        problems.push(`Lead ${lead.id}: Completion effect is valid`);
+      }
     }
   }
 

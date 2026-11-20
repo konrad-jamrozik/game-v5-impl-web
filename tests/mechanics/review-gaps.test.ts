@@ -35,7 +35,10 @@ import {
   units,
   setCurrentHealth,
   effectiveValuesOf,
+  useLegacyCatalog,
 } from '../helpers/game.ts';
+
+useLegacyCatalog();
 
 const invalid = (state: CampaignState, change: Parameters<typeof tweak>[1]) =>
   expect(checkInvariants(tweak(state, change), gdrs).length).toBeGreaterThan(0);
@@ -237,9 +240,15 @@ describe('FACTION: gaps', () => {
       faction.state.turnsUntilNextOperation = 1;
     });
     const f = onlyFaction(state).id;
-    // An Operation interval of 8 is possible only over `war`'s 8 to 18, not over `active`'s 11 to 21.
-    state = advance(state, { [`faction.${f}.operationInterval`]: [8], [`faction.${f}.operationLevel`]: [2] });
-    expect(onlyFaction(state).state).toMatchObject({ activityLevel: 'war', turnsUntilNextOperation: 8 });
+    // An Operation interval of 10 is possible only over `expanding`'s 10 to 20, not over `active`'s 11 to 21.
+    state = advance(state, {
+      [`faction.${f}.operationInterval`]: [10],
+      [`faction.${f}.operationLevel`]: [2],
+    });
+    expect(onlyFaction(state).state).toMatchObject({
+      activityLevel: 'expanding',
+      turnsUntilNextOperation: 10,
+    });
     expect(Object.values(state.world.current.missionSites)[0]!.constants.origin).toMatchObject({
       operationLevel: 'operation_level_2',
     });

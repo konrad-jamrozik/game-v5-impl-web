@@ -47,7 +47,7 @@ for (let i = first; i < first + seeds; i += 1) {
   turns.push(state.value.turn);
   if (process.argv.includes('--verbose')) {
     console.log(
-      `seed ${i}: ${key} at turn ${state.value.turn}, panic ${state.value.panic}, agents ${state.value.agency.servingAgents}`,
+      `seed ${i}: ${key} at turn ${state.value.turn}, panic ${(state.value.panicHundredths / 100).toFixed(2)}%, agents ${state.value.agency.servingAgents}`,
     );
   }
 }

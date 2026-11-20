@@ -42,6 +42,13 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `compendium/encyclopedia_articles.yaml`, which that commit deleted. The copy has 85 YAML files in all. The
   Placeholders of the articles show the values of this copy, e.g. those of `agents/agent_parameters.yaml` under
   DEC-038.
+- Every file that changed between specification commits `b7c9e79b0c4856e37d8c37dc4b37038c5d304846` and
+  `acf5e1365fc4039ddd861339ac47f4abbfcc4526`: patched unchanged from specification commit
+  `acf5e1365fc4039ddd861339ac47f4abbfcc4526` on 2026-11-19. It renames the Mission growth parameters of
+  `agents/agent_parameters.yaml` to Experience, adds six EnemyArchetypes, five Weapons, five Faction activity levels
+  (among them `dormant`, without operations), four Faction operation levels, 47 Leads, 19 MissionSiteArchetypes, and
+  78 CompendiumArticle files, and rewrites many others. The copy is now identical to the specification's `content/`
+  directory, and has 163 YAML files holding 279 GDRs.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

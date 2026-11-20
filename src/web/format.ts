@@ -44,8 +44,9 @@ export interface ConsequencePart {
 
 /**
  * The Consequences that applied, in order, each with its tone under VIS, Consequences: a gain of money or funding, a
- * Panic reduction, and an Eliminated Faction are good; a loss of funding and a Panic increase are bad. A loss of money,
- * which no Consequence gives today, would be bad too.
+ * Panic reduction, and an Eliminated Faction are good; a loss of funding, a Panic increase, and a Defeat, read
+ * "Campaign lost", are bad. A loss of money, which no Consequence gives today, would be bad too. A Panic change is shown
+ * with two decimals under GUI, Decimal quantities shown, e.g. "Panic −0.50".
  */
 export function consequenceParts(c: ConsequenceRecord): ConsequencePart[] {
   const parts: ConsequencePart[] = [];
@@ -58,19 +59,27 @@ export function consequenceParts(c: ConsequenceRecord): ConsequencePart[] {
       tone: c.fundingChange > 0 ? 'good' : 'bad',
     });
   }
-  if (c.panicIncrease !== 0) {
-    parts.push({ text: `Panic +${c.panicIncrease}`, tone: 'bad' });
+  if (c.panicIncreaseHundredths !== 0) {
+    parts.push({ text: `Panic +${decimalText(c.panicIncreaseHundredths)}`, tone: 'bad' });
   }
-  if (c.panicReduction !== 0) {
-    parts.push({ text: `Panic −${c.panicReduction}`, tone: 'good' });
+  if (c.panicReductionHundredths !== 0) {
+    parts.push({ text: `Panic −${decimalText(c.panicReductionHundredths)}`, tone: 'good' });
   }
   if (c.eliminatedFaction !== null) {
     parts.push({ text: `eliminated ${c.eliminatedFaction}`, tone: 'good' });
   }
+  if (c.defeat) {
+    parts.push({ text: 'Campaign lost', tone: 'bad' });
+  }
   return parts;
 }
 
-/** What one consequence of a Mission or a Mission site changed, e.g. "money +80, Panic −3". */
+/** GUI, Decimal quantities shown: Panic, held in hundredths, shown with two decimals, e.g. 2435 as "24.35%". */
+export function panicText(hundredths: number): string {
+  return `${decimalText(hundredths)}%`;
+}
+
+/** What one consequence of a Mission or a Mission site changed, e.g. "money +80, Panic −0.50". */
 export function consequenceText(c: ConsequenceRecord): string {
   return (
     consequenceParts(c)

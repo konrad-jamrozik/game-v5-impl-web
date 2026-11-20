@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import type { AutopilotLimit, DisengagementResult } from '../../engine/index.ts';
+import { shownAutopilotAi, useAutopilotControls } from '../autopilot-controls.ts';
 import { run, theEngine, type Snapshot } from '../store.ts';
 import { Button } from '../ui.tsx';
 
@@ -42,9 +43,14 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
   const { session } = theEngine();
   const listed = session.autopilot.listAutopilotAis();
   const ais = listed.ok ? listed.value : [];
-  const [aiId, setAiId] = useState(ais[0]?.autopilotAiId ?? '');
-  const [turns, setTurns] = useState(10);
-  const [expanded, setExpanded] = useState(false);
+  // CSCR, Autopilot controls: whether they are expanded, the chosen Autopilot AI, and the number of Turns are kept for
+  // the rest of the Session.
+  const [controls, keep] = useAutopilotControls();
+  const { expanded, turns } = controls;
+  const aiId = shownAutopilotAi(
+    controls.aiId,
+    ais.map((ai) => ai.autopilotAiId),
+  );
   const active = snapshot.status.autopilot;
   const progress = snapshot.autopilot?.status === 'active' ? snapshot.autopilot.progress : null;
   const ended = snapshot.state?.ending !== null && snapshot.state?.ending !== undefined;
@@ -89,7 +95,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
       data-testid="autopilot-toggle"
       data-sound="none"
       onClick={() => {
-        setExpanded((on) => !on);
+        keep({ expanded: !expanded });
       }}
     >
       Autopilot {expanded ? '▾' : '▸'}
@@ -139,7 +145,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
         disabled={reason !== null}
         title={reason ?? undefined}
         onChange={(event) => {
-          setAiId(event.target.value);
+          keep({ aiId: event.target.value });
         }}
       >
         {ais.map((ai) => (
@@ -176,7 +182,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
           value={turns}
           disabled={active !== null}
           onChange={(event) => {
-            setTurns(Math.max(1, Math.trunc(Number(event.target.value)) || 1));
+            keep({ turns: Math.max(1, Math.trunc(Number(event.target.value)) || 1) });
           }}
         />
         <Button

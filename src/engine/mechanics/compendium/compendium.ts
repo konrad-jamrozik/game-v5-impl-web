@@ -3,17 +3,23 @@
  * in, never stored. No game behavior reads a Compendium article, so nothing here changes Campaign state.
  */
 import type { ArticleTemplate, CatalogCompendiumArticle, GdrCatalog } from '../../../gdr/index.ts';
+import { conditionHolds } from '../conditions/conditions.ts';
 import { leadDiscovered, type LeadWorld } from '../leads/leads.ts';
 
 /**
- * COMP, Article visibility: a Guide article or a Mechanics article is always Player-visible; a Subject article
- * exactly when its subject is Player-visible, as the specification that owns the subject's Type declares it.
+ * COMP, Article visibility: an article whose `visible_when` does not hold is not Player-visible. Otherwise a Guide
+ * article or a Mechanics article is always Player-visible, and a Subject article exactly when its subject is
+ * Player-visible, as the specification that owns the subject's Type declares it.
  */
 export function articleVisible(
   article: CatalogCompendiumArticle,
   world: LeadWorld,
   gdrs: GdrCatalog,
 ): boolean {
+  // `visible_when` uses only `lead_completed` Conditions, which read no supplied Faction.
+  if (article.visibleWhen !== null && !conditionHolds(article.visibleWhen, world, { faction: null })) {
+    return false;
+  }
   const subject = article.subject;
   if (article.category !== 'subject' || subject === null || article.subjectType === null) {
     return true;
@@ -49,7 +55,6 @@ export function articleVisible(
     case 'RecoveryParameters':
     case 'EconomyParameters':
     case 'InvestigationParameters':
-    case 'FactionActivityLevel':
     case 'FactionOperationLevel':
     case 'AgencyArchetype':
     case 'InvestigationArchetype':
@@ -58,7 +63,9 @@ export function articleVisible(
     case 'BackgroundArtwork':
       return true;
     // No Player API value includes a Campaign configuration preset or the default-preset choice, nor the GDR
-    // `music`, which the Graphical User Interface reads from the Game build.
+    // `music`, which the Graphical User Interface reads from the Game build. FACTION, Player-visible information: no
+    // FactionActivityLevel is Player-visible.
+    case 'FactionActivityLevel':
     case 'CampaignConfiguration':
     case 'ConfigurationParameters':
     case 'MusicParameters':

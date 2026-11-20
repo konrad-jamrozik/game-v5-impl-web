@@ -14,19 +14,24 @@ export interface LeadWorld {
   readonly discoveredLeads: readonly string[];
 }
 
-/** The four conditions of LEAD, Lead availability, each read from one World state; never Player-visible. */
+/** The five conditions of LEAD, Lead availability, each read from one World state; never Player-visible. */
 export interface LeadAvailability {
   readonly available: boolean;
   /** Condition 1: Discovered. */
   readonly discovered: boolean;
   /** Condition 2: May be investigated again, under its `investigate_again`. */
   readonly mayBeInvestigatedAgain: boolean;
-  /** Condition 3: No Unfinished Mission site. */
+  /** Condition 3: No Unfinished Mission site; always holds for a Lead that creates no Mission site. */
   readonly noUnfinishedMissionSite: boolean;
-  /** Condition 4: Its Mission site can exist. */
+  /** Condition 4: It creates no Mission site, or its Mission site can exist. */
   readonly missionSiteCanExist: boolean;
-  /** Whether the Faction of the Lead is Eliminated; read by Lead status. */
-  readonly factionEliminated: boolean;
+  /** Condition 5: It has no Faction, or its Faction is not Eliminated. */
+  readonly factionNotEliminated: boolean;
+}
+
+/** LEAD, Lead availability: a Lead creates a Mission site exactly when its `on_completion` holds a `create_mission_site`. */
+export function createsMissionSite(lead: LeadGdr): boolean {
+  return lead.onCompletion.createMissionSite !== null;
 }
 
 /** The Lead that created a Mission site: the Lead of its origin Investigation; none for a Response Mission site. */
@@ -40,8 +45,11 @@ export function leadOfMissionSite(
   return investigations[site.constants.origin.investigation]?.constants.lead ?? null;
 }
 
-function factionOf(lead: LeadGdr, world: Pick<LeadWorld, 'factions'>): Faction | undefined {
-  return Object.values(world.factions).find((item) => item.archetype === lead.faction);
+/** The Faction of a Lead: the Faction whose Archetype is its `faction`; none for a Lead without `faction`. */
+export function factionOfLead(lead: LeadGdr, world: Pick<LeadWorld, 'factions'>): Faction | undefined {
+  return lead.faction === null
+    ? undefined
+    : Object.values(world.factions).find((item) => item.archetype === lead.faction);
 }
 
 /** LEAD, Missions from a Lead: the completion count, i.e. the number of Completed Investigations of the Lead. */
@@ -54,13 +62,13 @@ export function completionCount(
   ).length;
 }
 
-/** LEAD, Lead availability: the four conditions, each read from the given World state. */
+/** LEAD, Lead availability: the five conditions, each read from the given World state. */
 export function leadAvailability(
   lead: LeadGdr,
   world: LeadWorld,
   missionSiteArchetypes: readonly MissionSiteArchetypeGdr[],
 ): LeadAvailability {
-  const faction = factionOf(lead, world);
+  const faction = factionOfLead(lead, world);
   const discovered = world.discoveredLeads.includes(lead.id);
   const sites = Object.values(world.missionSites).filter(
     (site) => leadOfMissionSite(site, world.investigations) === lead.id,
@@ -87,15 +95,22 @@ export function leadAvailability(
   const noUnfinishedMissionSite = !sites.some(
     (site) => site.state.lifecycle === 'Active' || site.state.lifecycle === 'Deployed',
   );
-  const archetype = missionSiteArchetypes.find((item) => item.id === lead.onCompletion.createMissionSite);
-  const canExist = archetype !== undefined && missionSiteCanExist(archetype, faction, world);
+  let canExist = true;
+  if (createsMissionSite(lead)) {
+    const archetype = missionSiteArchetypes.find((item) => item.id === lead.onCompletion.createMissionSite);
+    canExist = archetype !== undefined && missionSiteCanExist(archetype, faction, world);
+  }
+  // Condition 5. A Lead whose `faction` names no Faction of the Campaign cannot occur for a valid Game build, and is
+  // treated as an Eliminated one.
+  const factionNotEliminated = lead.faction === null || (faction !== undefined && !faction.state.eliminated);
   return {
-    available: discovered && mayBeInvestigatedAgain && noUnfinishedMissionSite && canExist,
+    available:
+      discovered && mayBeInvestigatedAgain && noUnfinishedMissionSite && canExist && factionNotEliminated,
     discovered,
     mayBeInvestigatedAgain,
     noUnfinishedMissionSite,
     missionSiteCanExist: canExist,
-    factionEliminated: faction === undefined || faction.state.eliminated,
+    factionNotEliminated,
   };
 }
 
@@ -119,7 +134,7 @@ export function discoverLeads(
       (lead) =>
         !world.discoveredLeads.includes(lead.id) &&
         (lead.discoveredWhen === null ||
-          conditionHolds(lead.discoveredWhen, world, { faction: factionOf(lead, world)?.id ?? null })),
+          conditionHolds(lead.discoveredWhen, world, { faction: factionOfLead(lead, world)?.id ?? null })),
     )
     .map((lead) => lead.id);
   world.discoveredLeads.push(...added);
@@ -129,11 +144,11 @@ export function discoverLeads(
 export type LeadStatus = 'Available' | 'Inactive' | 'Archived';
 
 /**
- * LEAD, Lead status of a discovered Lead, in the order of the table: Archived when condition 2 of Lead availability
- * does not hold or its Faction is Eliminated, otherwise Inactive when it is not available, otherwise Available.
+ * LEAD, Lead status of a discovered Lead, in the order of the table: Archived when condition 2 or condition 5 of Lead
+ * availability does not hold, otherwise Inactive when it is not available, otherwise Available.
  */
 export function leadStatus(availability: LeadAvailability): LeadStatus {
-  if (!availability.mayBeInvestigatedAgain || availability.factionEliminated) {
+  if (!availability.mayBeInvestigatedAgain || !availability.factionNotEliminated) {
     return 'Archived';
   }
   return availability.available ? 'Available' : 'Inactive';

@@ -4,7 +4,7 @@
  * the Article history to return by. The engine returns only the Player-visible articles, each in its resolved form
  * (COMP); this view shows the segments as reported and adds the Data sheet of a Subject article.
  */
-import { Fragment, useEffect } from 'react';
+import { Fragment, useEffect, useRef, type RefObject } from 'react';
 import type { ArticleSegmentView, CompendiumArticleView, CurrentStateView } from '../../engine/index.ts';
 import {
   articlesOf,
@@ -13,6 +13,7 @@ import {
   currentArticle,
   dataSheet,
   firstArticle,
+  firstMatchingArticle,
   hasNextArticle,
   hasPreviousArticle,
   nextArticle,
@@ -25,6 +26,8 @@ import {
   type SheetPart,
 } from '../compendium.ts';
 import { usePlaceState } from '../place.tsx';
+import { playSound } from '../sound-player.ts';
+import { SOUND } from '../sounds.ts';
 import { theEngine, type Snapshot } from '../store.ts';
 import { typingIn } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -32,15 +35,26 @@ import { DetailView } from './DetailView.tsx';
 /**
  * COMPV, Article history: while the Compendium View is open, the Q key presses the Previous article button and the W
  * key the Next article button. Pressing the button itself plays its Sound and keeps a disabled button inert; a key
- * typed into the search field, or pressed while a dialog covers the view, presses nothing.
+ * typed into the search field, or pressed while a dialog covers the view, presses nothing. COMPV, Panes: the S key
+ * gives the search field the keyboard focus and selects its whole text, and is not typed into it; SOUNDS, Main click:
+ * giving a text field the keyboard focus plays no Sound.
  */
-function useArticleHistoryKeys(): void {
+function useCompendiumKeys(search: RefObject<HTMLInputElement | null>): void {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (typingIn(event.target) || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
         return;
       }
       const key = event.key.toLowerCase();
+      if (key === 's') {
+        const field = search.current;
+        if (field !== null && document.querySelector('.scrim') === null) {
+          field.focus();
+          field.select();
+          event.preventDefault();
+        }
+        return;
+      }
       const testId = key === 'q' ? 'article-previous' : key === 'w' ? 'article-next' : null;
       if (testId === null || document.querySelector('.scrim') !== null) {
         return;
@@ -55,19 +69,19 @@ function useArticleHistoryKeys(): void {
     return () => {
       window.removeEventListener('keydown', onKey);
     };
-  }, []);
+  }, [search]);
 }
 
 /**
- * COMPV, Following links: an Article link, drawn as the text around it with an underline. SOUNDS, Main click:
- * selecting it opens an article to be read.
+ * COMPV, Following links: an Article link, drawn as the text around it with an underline. SOUNDS, Select click, Article
+ * link: selecting it selects the article it links to, as selecting it in the Articles pane does.
  */
 function ArticleLink(props: { article: string; text: string; onOpen: (article: string) => void }) {
   return (
     <button
       type="button"
       className="article-link"
-      data-sound="main"
+      data-sound="select"
       data-article={props.article}
       onClick={() => {
         props.onOpen(props.article);
@@ -125,7 +139,8 @@ function SheetParts(props: { parts: readonly SheetPart[]; onOpen: (article: stri
 export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateView; onClose: () => void }) {
   const { snapshot, state } = props;
   const all: readonly CompendiumArticleView[] = snapshot.articles ?? [];
-  useArticleHistoryKeys();
+  const searchField = useRef<HTMLInputElement>(null);
+  useCompendiumKeys(searchField);
   // CSCR, View trail: the search text and the Article history are part of the place of the Compendium View.
   const [search, setSearch] = usePlaceState('search', '');
   const [stored, setHistory] = usePlaceState<ArticleHistory>('history', openHistory(firstArticle(all)));
@@ -179,14 +194,30 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
         <label className="search-field">
           <span className="muted">Search</span>
           <input
+            ref={searchField}
             type="search"
             className="search"
-            placeholder="Title"
+            placeholder="Title (press S)"
             aria-label="Search the Compendium by title"
             data-testid="compendium-search"
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);
+            }}
+            onKeyDown={(event) => {
+              // COMPV, Panes: Enter shows the first article listed under the search text and moves the keyboard focus
+              // out of the search field, keeping its text; with no match it does nothing. SOUNDS, Select click, Search.
+              if (event.key !== 'Enter') {
+                return;
+              }
+              event.preventDefault();
+              const first = firstMatchingArticle(all, search);
+              if (first === null) {
+                return;
+              }
+              playSound(SOUND.select);
+              show(first);
+              event.currentTarget.blur();
             }}
           />
         </label>

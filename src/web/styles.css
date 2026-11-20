@@ -2184,10 +2184,12 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 /* VIS, Panes: the third pane holds a table, e.g. the Deploy table of the Missions View, and is never narrower than
-   that table's columns; the other panes share the rest of the width. */
+   that table's columns while the Detail view has room for it; the other panes share the rest of the width. Each of
+   them keeps a least width, so that a narrow window scrolls the table sideways rather than squeezing the selected
+   item's pane to a few words a line. */
 .panes {
   display: grid;
-  grid-template-columns: minmax(260px, 1.1fr) minmax(0, 1.3fr) minmax(min-content, 1.2fr);
+  grid-template-columns: minmax(210px, 1.1fr) minmax(190px, 1.3fr) minmax(0, max-content);
   gap: 16px;
   align-items: start;
 }
@@ -2265,16 +2267,19 @@ label:has(> input[type='checkbox']:disabled) {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* A name too long for its row wraps onto a second line, as on the Leads View Artboard, rather than being cut short. */
 .list-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  overflow-wrap: break-word;
 }
 
+/* The value beside a name takes at most half the row and wraps within it, so that the name keeps room to read. */
 .list-value {
+  flex: 0 1 auto;
+  max-width: 50%;
   font-family: var(--font-figure);
   font-size: 12px;
-  white-space: nowrap;
+  text-align: right;
 }
 
 .list-toggle {

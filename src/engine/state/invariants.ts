@@ -60,20 +60,25 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
   if (world.turn < 1) {
     fail('TURN: the turn number is below 1');
   }
-  if (world.panic < 0 || world.panic > 100) {
+  // ENDING, Panic and Campaign ending invariants, rule 1: Panic is a Decimal quantity from 0 to 100, in hundredths.
+  if (
+    !Number.isSafeInteger(world.panicHundredths) ||
+    world.panicHundredths < 0 ||
+    world.panicHundredths > 10_000
+  ) {
     fail('ENDING: Panic is outside 0 to 100');
   }
   const ended = world.ending !== null;
   if (ended !== world.endingReasons.length > 0 || ended !== (world.endingTurn !== null)) {
     fail('ENDING: the Campaign ending, Ending reasons, and Ending turn do not agree');
   }
-  if (world.ending === 'Victory' && world.endingReasons.join() !== 'EveryFactionEliminated') {
-    fail('ENDING: Victory has an Ending reason other than Every Faction Eliminated');
+  if (world.ending === 'Victory' && world.endingReasons.join() !== 'CampaignObjectiveAchieved') {
+    fail('ENDING: Victory has an Ending reason other than Campaign objective achieved');
   }
   if (
     world.ending === 'Defeat' &&
     (new Set(world.endingReasons).size !== world.endingReasons.length ||
-      world.endingReasons.some((reason) => reason === 'EveryFactionEliminated'))
+      world.endingReasons.some((reason) => reason === 'CampaignObjectiveAchieved'))
   ) {
     fail('ENDING: Defeat has an invalid Ending reason');
   }
@@ -325,9 +330,17 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     }
     if (
       !faction.state.eliminated &&
-      (faction.state.turnsUntilNextOperation < 1 || (faction.state.turnsUntilNextLevel ?? 1) < 1)
+      ((faction.state.turnsUntilNextOperation ?? 1) < 1 || (faction.state.turnsUntilNextLevel ?? 1) < 1)
     ) {
       fail(`${where}: a countdown is below 1`);
+    }
+    // FACTION, Faction State: for a Faction that is not Eliminated, Turns until the next operation is absent exactly
+    // at a level without operations.
+    if (
+      !faction.state.eliminated &&
+      (faction.state.turnsUntilNextOperation === null) !== (level.operationEveryTurns === null)
+    ) {
+      fail(`${where}: Turns until the next operation is absent exactly at a level without operations`);
     }
   }
 
