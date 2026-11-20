@@ -4,7 +4,7 @@
  */
 import fc from 'fast-check';
 import { describe, expect, it } from 'vite-plus/test';
-import { createBasicAutopilotAi } from '../../src/ai/index.ts';
+import { BASIC_AI_THRESHOLDS, createBasicAutopilotAi, type BasicAiThresholds } from '../../src/ai/index.ts';
 import type { Engine } from '../../src/engine/index.ts';
 import {
   autopilot,
@@ -157,6 +157,32 @@ describe('Campaign runs', () => {
     expect(ok(whole.engine.session.autopilot.listAutopilotAis())).toEqual([
       { autopilotAiId: 'basic', name: 'Basic Autopilot AI' },
     ]);
+  });
+
+  it('the Basic Autopilot AI plays with the tuning parameters it is given', async () => {
+    const play = async (thresholds: Partial<BasicAiThresholds>) => {
+      const ai = createBasicAutopilotAi({ ...BASIC_AI_THRESHOLDS, ...thresholds });
+      const { engine } = await startEngine({ autopilotAis: [ai] });
+      ok(await engine.session.globalConfiguration.set('autosaveLimit', 0));
+      ok(await engine.session.campaign.create({ seed: 'tuning' }));
+      await autopilot(engine, { kind: 'turnAdvancements', count: 60 });
+      return ok(engine.player.queries.getCurrentLiveWorldState());
+    };
+    const acquisitions = (state: { agency: { upgrades: readonly { id: string; acquisitions: number }[] } }) =>
+      Object.fromEntries(state.agency.upgrades.map((upgrade) => [upgrade.id, upgrade.acquisitions]));
+    // The default parameters are BASIC_AI_THRESHOLDS: the same play as with no parameters given.
+    const defaults = await play({});
+    const plain = await startEngine();
+    ok(await plain.engine.session.globalConfiguration.set('autosaveLimit', 0));
+    ok(await plain.engine.session.campaign.create({ seed: 'tuning' }));
+    await autopilot(plain.engine, { kind: 'turnAdvancements', count: 60 });
+    expect(ok(plain.engine.player.queries.getCurrentLiveWorldState())).toEqual(defaults);
+    // An Upgrade of weight 0 is never bought.
+    const noWeapons = await play({ upgradeWeights: { weapon_damage: 0 } });
+    expect(acquisitions(noWeapons)['weapon_damage']).toBe(0);
+    // A Training share of 0 leaves Training empty.
+    const noTraining = await play({ trainingSharePct: 0 });
+    expect(noTraining.agency.trainingAgents).toBe(0);
   });
 });
 

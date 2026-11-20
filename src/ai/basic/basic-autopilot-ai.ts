@@ -37,6 +37,22 @@ export interface BasicAiThresholds {
   /** The Transport cap and Training cap to keep, as Percent values of the roster. */
   readonly transportCapPct: number;
   readonly trainingCapPct: number;
+  /**
+   * The most Agents step 7 puts on Training, as a Percent value of the roster; 100 leaves only the Training cap as the
+   * limit.
+   */
+  readonly trainingSharePct: number;
+  /**
+   * The Agents step 5 keeps on Contracting even once Expected income meets its target, as a Percent value of the
+   * roster; 0 leaves only the Expected income target.
+   */
+  readonly contractingSharePct: number;
+  /**
+   * The weight of each Upgrade other than the Cap Upgrades in the rotation, by Upgrade ID; an Upgrade it does not name
+   * has weight 1, and one with weight 0 is never bought. The rotation buys the Upgrade with the fewest acquisitions per
+   * unit of weight, so an Upgrade of weight 2 is bought about twice as often as one of weight 1.
+   */
+  readonly upgradeWeights: Readonly<Record<string, number>>;
 }
 
 /** The thresholds of this Game build, tuned against Campaigns of many Campaign seeds; see DEC-021. */
@@ -53,6 +69,9 @@ export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
   rosterPerUpgrade: 4,
   transportCapPct: 25,
   trainingCapPct: 30,
+  trainingSharePct: 100,
+  contractingSharePct: 0,
+  upgradeWeights: {},
 };
 
 /** Thrown inside a step when the Autopilot engagement has ended, so that the step makes no further call. */
@@ -223,7 +242,8 @@ class Turn {
     rested: readonly AgentView[],
   ): string[] | null {
     const places = state.agency.transportCap - state.agency.deployedAgents;
-    const needed = Math.max(1, ceilDiv(enemyCount, this.t.enemiesPerAgent));
+    // One Agent may answer for a fractional number of Enemies, e.g. 1.5.
+    const needed = Math.max(1, Math.ceil(enemyCount / this.t.enemiesPerAgent - 1e-9));
     const strongestFirst = [...rested]
       .map((agent, index) => ({ agent, index }))
       .sort((x, y) => y.agent.effectiveSkill - x.agent.effectiveSkill || x.index - y.index)
@@ -290,7 +310,10 @@ class Turn {
    */
   private async restoreIncome(state: CurrentLiveWorldStateView, urgent: boolean): Promise<boolean> {
     const target = urgent ? state.agency.projectedUpkeep : this.incomeTarget(state);
-    if (this.expectedIncome(state) >= target) {
+    // An Agent In transit to Contracting has the Current assignment Contracting already.
+    const contracting = state.agents.filter((agent) => agent.assignment?.kind === 'Contracting').length;
+    const shareShort = !urgent && contracting * 100 < state.agency.servingAgents * this.t.contractingSharePct;
+    if (this.expectedIncome(state) >= target && !shareShort) {
       return false;
     }
     const candidates = urgent
@@ -445,7 +468,8 @@ class Turn {
    * too, then those beyond the Agent reserve to Contracting.
    */
   private async employIdle(state: CurrentLiveWorldStateView): Promise<boolean> {
-    const places = Math.max(0, state.agency.trainingCap - state.agency.trainingAgents);
+    const share = Math.floor((state.agency.servingAgents * this.t.trainingSharePct) / 100);
+    const places = Math.max(0, Math.min(state.agency.trainingCap, share) - state.agency.trainingAgents);
     const toTraining = this.byPreference(
       state.agents.filter((agent) => this.isFresh(agent) && agent.assignment?.kind === 'Standby'),
     )
@@ -500,11 +524,14 @@ class Turn {
     if (agency.trainingCap * 100 < agency.servingAgents * this.t.trainingCapPct) {
       return buy('training_cap');
     }
-    // Otherwise rotate among the Upgrades that make every Agent more effective: the one bought least often comes
-    // first, and the cheaper of two bought equally often.
+    // Otherwise rotate among the Upgrades that make every Agent more effective: the one bought least often for its
+    // weight comes first, and the cheaper of two equal ones. With every weight 1 this is the one bought least often.
+    const weight = (id: string): number => this.t.upgradeWeights[id] ?? 1;
     const effective = [...agency.upgrades]
-      .filter((item) => !item.effect.endsWith('_cap') && item.incrementHundredths > 0)
-      .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price)[0];
+      .filter((item) => !item.effect.endsWith('_cap') && item.incrementHundredths > 0 && weight(item.id) > 0)
+      .map((item) => ({ item, due: (item.acquisitions + 1) / weight(item.id) }))
+      .sort((a, b) => a.due - b.due || a.item.price - b.item.price)
+      .map(({ item }) => item)[0];
     if (effective === undefined || effective.price > budget) {
       return false;
     }

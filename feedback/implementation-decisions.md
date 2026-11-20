@@ -502,6 +502,13 @@
   the game-ts values win again.
 - **Update:** The Transport cap and Training cap were 50% each until the comparison above at specification revision
   e3bd230499aa61d126f94320c17f8d3347f54be3.
+- **Update:** BASICAI, Tuning parameters: the values above are `BASIC_AI_THRESHOLDS` in `src/ai/basic/`, and
+  `createBasicAutopilotAi(thresholds)` builds the Basic Autopilot AI from any other set, e.g. for the Spec repo's
+  Autopilot Bench. The Game build passes none and so plays with `BASIC_AI_THRESHOLDS`. The Tuning parameters beyond the
+  goals have their neutral values there: `trainingSharePct` 100, `contractingSharePct` 0, and `upgradeWeights` empty,
+  i.e. weight 1 for every Upgrade. With them the rotation orders by acquisitions plus one, divided by the weight, which
+  orders as acquisitions alone, so the Game build plays exactly as before. `enemiesPerAgent` may be fractional, and a
+  team then needs the number of Enemies divided by it, rounded up.
 - **Links:** None.
 
 ## DEC-022: Properties and name of a Campaign configuration preset
