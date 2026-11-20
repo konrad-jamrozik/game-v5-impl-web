@@ -1415,8 +1415,12 @@ export class EngineCore<S extends ShellState> {
     const state = this.present(this.requireCampaign());
     try {
       switch (query) {
-        case 'currentState':
-          return ok(this.rules.currentStateView(state));
+        case 'currentLiveWorldState':
+          return ok(this.rules.currentLiveWorldStateView(state));
+        case 'currentRetiredWorldState':
+          return ok(this.rules.currentRetiredWorldStateView(state));
+        case 'campaignConfiguration':
+          return ok(this.rules.campaignConfigurationView(state));
         case 'turnReport':
           return ok(this.rules.turnReportView(state));
         case 'history':
@@ -1438,12 +1442,44 @@ export class EngineCore<S extends ShellState> {
     }
   }
 
-  developerQuery(principal: Principal): Result<unknown> {
+  /**
+   * DEV, Developer tools: a `developer.tools` operation the rules supply, e.g. `fightCombat`. It has the access of
+   * Developer API, reads the Current world state, and changes no Campaign state: no Timeline entry, no autosave, and
+   * no random outcome of the Current campaign.
+   */
+  developerTool(principal: Principal, tool: string, args: unknown): Result<unknown> {
+    const denied = this.checkDeveloper(principal);
+    if (denied) {
+      return denied;
+    }
+    if (this.rules.developerTool === undefined) {
+      return fail('invalid_input', 'There is no such tool.');
+    }
+    const state = this.present(this.requireCampaign());
+    try {
+      const value = this.rules.developerTool(state, tool, detach(args));
+      return isRejection(value) ? fail(value.code, value.message, value.reason) : ok(value);
+    } catch (error) {
+      return this.defectResult(error);
+    }
+  }
+
+  /**
+   * A `developer.queries` operation: `getCampaignState()` by default, otherwise the named one the rules supply, e.g.
+   * `initiativeOperationLevels`, which reads the Game build of the Current campaign and no Campaign state.
+   */
+  developerQuery(principal: Principal, query = 'campaignState'): Result<unknown> {
     const denied = this.checkDeveloper(principal);
     if (denied) {
       return denied;
     }
     try {
+      if (query !== 'campaignState') {
+        if (this.rules.extraDeveloperQuery === undefined) {
+          return fail('invalid_input', 'There is no such query.');
+        }
+        return ok(this.rules.extraDeveloperQuery(query));
+      }
       const campaign = this.requireCampaign();
       return ok(
         this.rules.inspect({

@@ -13,7 +13,7 @@ export function ChartsView({ snapshot, onClose }: { snapshot: Snapshot; onClose:
   const entries = history?.entries ?? [];
   const state = snapshot.state;
   const panicLimit = state?.panicLimit;
-  const sites = [...(state?.missionSites ?? []), ...(history?.retained.missionSites ?? [])];
+  const sites = [...(state?.missionSites ?? []), ...(snapshot.retired?.missionSites ?? [])];
   return (
     <DetailView id="charts" title="Charts" onClose={onClose}>
       <div className="stack" data-testid="charts">

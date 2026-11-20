@@ -1,6 +1,10 @@
 /** LVIEW, Selected Lead: the Faction and the "On completion" lines of a Lead. CSCR, Autopilot controls: kept state. */
 import { afterEach, describe, expect, it } from 'vite-plus/test';
-import { currentStateView, gameDataView } from '../../src/engine/views/views.ts';
+import {
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
+  gameDataView,
+} from '../../src/engine/views/views.ts';
 import {
   NEW_SESSION_CONTROLS,
   keepAutopilotControls,
@@ -20,9 +24,10 @@ function leadViews() {
       }
     }
   });
-  const view = currentStateView(state, gdrs);
+  const view = currentLiveWorldStateView(state, gdrs);
+  const retired = currentRetiredWorldStateView(state, gdrs);
   const lead = (id: string) => {
-    const found = view.leads.find((item) => item.id === id);
+    const found = retired.leads.find((item) => item.id === id);
     if (found === undefined) {
       throw new Error(`No discovered Lead ${id}`);
     }

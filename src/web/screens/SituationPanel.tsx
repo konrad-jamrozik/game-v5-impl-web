@@ -3,7 +3,7 @@
  * it opens the Detail view that details it, with that item selected.
  */
 import type { ReactNode } from 'react';
-import type { CurrentStateView } from '../../engine/index.ts';
+import type { CurrentLiveWorldStateView, LeadView } from '../../engine/index.ts';
 import { GROUP_TITLES, SOON_EXPIRING_TURNS, situationGroups, type SituationGroup } from '../situation.ts';
 import { ProgressCircle } from './ProgressCircle.tsx';
 
@@ -16,11 +16,12 @@ export type SituationTarget =
 const TONES = { next: ' tone-accent', plain: '', muted: ' muted' } as const;
 
 export function SituationPanel(props: {
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
+  leads: readonly LeadView[];
   onShow: (target: SituationTarget) => void;
 }) {
   const { state } = props;
-  const groups = situationGroups(state);
+  const groups = situationGroups(state, props.leads);
   return (
     <section className="situation" data-testid="situation" aria-label="Situation">
       <header className="section-head">

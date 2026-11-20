@@ -14,8 +14,6 @@ import {
   applyMissionGrowth,
   applyWorkExhaustion,
   effectiveSkill,
-  effectiveWeaponDamage,
-  enemyCombatantValues,
   exhaustionOf,
   recordParticipation,
   setAgentCurrentHealth,
@@ -23,7 +21,7 @@ import {
   trainingGainProbability,
   type CombatantValues,
 } from '../mechanics/agents/agents.ts';
-import { fightCombat } from '../mechanics/combat/combat.ts';
+import { agentCombatantState, enemyCombatantState, fightCombat } from '../mechanics/combat/combat.ts';
 import {
   agentUpgradeBonus,
   fundingAfter,
@@ -385,39 +383,31 @@ export function applyAdvanceTurn(
       `MissionSiteArchetype ${site.archetype}`,
     );
     const team = mission.state.currentTeam.map((id) => must(world.agents[id], `Agent ${id}`));
-    // An Enemy fights in the hundredths form of an Agent and its whole values are written back after the Combat;
-    // see DEC-056.
     const siteEnemies = site.state.enemies.map((id) => must(world.enemies[id], `Enemy ${id}`));
-    const enemyStates = siteEnemies.map((enemy) => ({
-      ...enemyCombatantValues(enemy.state),
-      weaponDamage: enemy.state.baseWeaponDamage,
-    }));
-    // An Agent fights with its effective max health, current health, and effective weapon damage; its current health
-    // and Exact exhaustion are written back after the Combat, current health as the health lost it leaves.
-    const agentStates = team.map((agent) => ({
-      ...agentCombatantValues(agent.state, bonus),
-      weaponDamage: effectiveWeaponDamage(agent.state, bonus),
-    }));
-    const report = fightCombat({
-      missionId: mission.id,
-      agents: team.map((agent, index) => ({ id: agent.id, state: must(agentStates[index], 'Agent') })),
-      enemies: siteEnemies.map((enemy, index) => ({
-        id: enemy.id,
-        state: must(enemyStates[index], 'Enemy'),
-      })),
-      combat: gdrs.combatParameters,
-      agentParameters,
+    // COMBAT, Fighting a Combat: the inputs come from the World state, the Combat is fought by the one shared
+    // implementation, and this step applies its outputs. An Agent fights with its effective max health, current
+    // health, and effective weapon damage; an Enemy in the hundredths form of an Agent; see DEC-056.
+    const fought = fightCombat(
+      {
+        agents: team.map((agent) => ({ id: agent.id, state: agentCombatantState(agent.state, bonus) })),
+        enemies: siteEnemies.map((enemy) => ({ id: enemy.id, state: enemyCombatantState(enemy.state) })),
+        combat: gdrs.combatParameters,
+        agentParameters,
+      },
       random,
-    });
+    );
+    const report: CombatReport = { mission: mission.id, ...fought.report };
+    // An Enemy's whole values are written back; an Agent's current health is written back as the health lost it
+    // leaves, and its Exact exhaustion as it is.
     siteEnemies.forEach((enemy, index) => {
-      const fought = must(enemyStates[index], 'Enemy');
-      enemy.state.healthLost = enemy.state.baseHealth - fought.currentHealthHundredths / 100;
-      enemy.state.exhaustion = fought.exactExhaustionHundredths / 100;
+      const final = must(fought.enemies[index], 'Enemy');
+      enemy.state.healthLost = enemy.state.baseHealth - final.currentHealthHundredths / 100;
+      enemy.state.exhaustion = final.exactExhaustionHundredths / 100;
     });
     team.forEach((agent, index) => {
-      const fought = must(agentStates[index], 'Agent');
-      setAgentCurrentHealth(agent.state, fought.currentHealthHundredths, bonus);
-      agent.state.exactExhaustionHundredths = fought.exactExhaustionHundredths;
+      const final = must(fought.agents[index], 'Agent');
+      setAgentCurrentHealth(agent.state, final.currentHealthHundredths, bonus);
+      agent.state.exactExhaustionHundredths = final.exactExhaustionHundredths;
     });
     const currentHealthOf = (agent: (typeof team)[number]): number =>
       agentCurrentHealthHundredths(agent.state, bonus);

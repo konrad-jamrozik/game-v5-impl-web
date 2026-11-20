@@ -3,7 +3,12 @@
  * of its Investigation.
  */
 import { useMemo, useState } from 'react';
-import type { AgentView, CurrentStateView, InvestigationView, LeadView } from '../../engine/index.ts';
+import type {
+  AgentView,
+  CurrentLiveWorldStateView,
+  InvestigationView,
+  LeadView,
+} from '../../engine/index.ts';
 import { agentsToAddOrder, isInBase } from '../agents-to-add.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
 import { progressGain, progressPoints, wholeText } from '../format.ts';
@@ -45,7 +50,7 @@ interface ListItem {
 
 export function LeadsView(props: {
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   locked: string | null;
   initial: string | null;
   onClose: () => void;
@@ -54,7 +59,8 @@ export function LeadsView(props: {
   const [picked, setPicked] = useState<string | null>(props.initial);
   const [archivedOpen, setArchivedOpen] = useState(false);
 
-  const active = activeInvestigationRows(state);
+  const leads = snapshot.retired?.leads ?? [];
+  const active = activeInvestigationRows(state, leads);
   const investigated = new Set(active.map((row) => row.investigation.lead));
   const groups: { id: string; title: string; items: ListItem[]; collapsed?: boolean }[] = [
     {
@@ -69,7 +75,7 @@ export function LeadsView(props: {
     {
       id: 'available',
       title: 'Leads to investigate',
-      items: leadsToInvestigate(state).map((lead) => ({
+      items: leadsToInvestigate(state, leads).map((lead) => ({
         lead,
         detail: rangeText(lead) === null ? 'effort needed unknown' : `required ${rangeText(lead) ?? ''}`,
         tone: 'secondary',
@@ -78,7 +84,7 @@ export function LeadsView(props: {
     {
       id: 'inactive',
       title: 'Inactive',
-      items: state.leads
+      items: leads
         .filter((lead) => lead.status === 'Inactive' && !investigated.has(lead.id))
         .map((lead) => {
           const site = state.missionSites.find(
@@ -92,7 +98,7 @@ export function LeadsView(props: {
       id: 'archived',
       title: 'Archived',
       collapsed: !archivedOpen,
-      items: state.leads
+      items: leads
         .filter((lead) => lead.status === 'Archived' && !investigated.has(lead.id))
         .map((lead) => ({ lead, detail: '', tone: 'muted' })),
     },
@@ -105,7 +111,7 @@ export function LeadsView(props: {
       : state.investigations.find((item) => item.id === selected.activeInvestigation);
 
   return (
-    <DetailView id="leads" title="Leads" aside={`${state.leads.length} discovered`} onClose={props.onClose}>
+    <DetailView id="leads" title="Leads" aside={`${leads.length} discovered`} onClose={props.onClose}>
       <div className="panes">
         <div className="pane pane-list">
           {groups.map((group) =>
@@ -175,7 +181,7 @@ function LeadDetails(props: {
   lead: LeadView;
   investigation: InvestigationView | undefined;
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
 }) {
   const { lead, investigation, snapshot, state } = props;
   const completions = lead.completionCount;
@@ -263,7 +269,7 @@ function Team(props: {
   lead: LeadView;
   investigation: InvestigationView | undefined;
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   locked: string | null;
 }) {
   const { player } = theEngine();

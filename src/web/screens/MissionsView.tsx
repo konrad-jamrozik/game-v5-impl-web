@@ -3,7 +3,12 @@
  * and who goes.
  */
 import { useEffect, useState, type ReactNode } from 'react';
-import type { ConsequenceView, CurrentStateView, HistoryEntry, MissionSiteView } from '../../engine/index.ts';
+import type {
+  ConsequenceView,
+  CurrentLiveWorldStateView,
+  HistoryEntry,
+  MissionSiteView,
+} from '../../engine/index.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
 import { decimalText, wholeText } from '../format.ts';
@@ -73,7 +78,7 @@ function CombatRating(props: { value: number | string; testId: string }) {
 
 export function MissionsView(props: {
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   locked: string | null;
   initial: string | null;
   onClose: () => void;
@@ -85,13 +90,13 @@ export function MissionsView(props: {
   const [showFinished, setShowFinished] = useState(
     () =>
       props.initial !== null &&
-      (snapshot.history?.retained.missionSites.some((site) => site.id === props.initial) ?? false),
+      (snapshot.retired?.missionSites.some((site) => site.id === props.initial) ?? false),
   );
   const [picked, setPicked] = useState<string | null>(props.initial);
   const [checked, setChecked] = useState<readonly string[]>([]);
 
   const factionName = (id: string) => state.factions.find((faction) => faction.id === id)?.name ?? id;
-  const retained = snapshot.history?.retained;
+  const retired = snapshot.retired;
   const entries = snapshot.history?.entries ?? [];
   const active = state.missionSites
     .filter((site) => site.lifecycle === 'Active')
@@ -111,7 +116,7 @@ export function MissionsView(props: {
           ];
     });
   // MVIEW, Mission site list: each finished Mission site with its target Faction and the final state it reached.
-  const finished: ListItem[] = [...(retained?.missionSites ?? [])].reverse().map((site) => {
+  const finished: ListItem[] = [...(retired?.missionSites ?? [])].reverse().map((site) => {
     const reached = finalState(site.lifecycle, historyMission(entries, site.id));
     return {
       site,
@@ -126,7 +131,7 @@ export function MissionsView(props: {
     };
   });
 
-  const everySite = [...state.missionSites, ...(retained?.missionSites ?? [])];
+  const everySite = [...state.missionSites, ...(retired?.missionSites ?? [])];
   const selected =
     everySite.find((site) => site.id === picked) ?? (showFinished ? finished[0]?.site : active[0]) ?? null;
 
@@ -176,7 +181,7 @@ export function MissionsView(props: {
             setPicked(null);
           }}
         >
-          Finished {retained?.missionSites.length ?? 0}
+          Finished {retired?.missionSites.length ?? 0}
         </button>
       }
       onClose={props.onClose}
@@ -243,16 +248,16 @@ export function MissionsView(props: {
 function SiteDetails(props: {
   site: MissionSiteView;
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   entries: readonly HistoryEntry[];
   factionName: (id: string) => string;
 }) {
   const { player } = theEngine();
-  const { site, state, entries, factionName } = props;
+  const { site, snapshot, state, entries, factionName } = props;
   const target = factionName(site.targetFaction);
   const origin =
     site.origin.kind === 'Investigation'
-      ? `Lead: ${state.leads.find((lead) => lead.id === site.lead)?.name ?? site.lead ?? '-'}`
+      ? `Lead: ${snapshot.retired?.leads.find((lead) => lead.id === site.lead)?.name ?? site.lead ?? '-'}`
       : `Faction operation: ${site.operationLevel?.name ?? '-'}`;
   const mission = state.missions.find((item) => item.id === site.mission);
   const record = historyMission(entries, site.id);
@@ -451,7 +456,7 @@ function EnemiesTable(props: { site: MissionSiteView }) {
 function Deployment(props: {
   site: MissionSiteView;
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   locked: string | null;
   checked: readonly string[];
   onCheck: (ids: readonly string[]) => void;

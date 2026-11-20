@@ -8,7 +8,9 @@ import type {
   AutopilotAi,
   AvailableActionsView,
   CompendiumArticleView,
-  CurrentStateView,
+  CampaignConfigurationView,
+  CurrentLiveWorldStateView,
+  CurrentRetiredWorldStateView,
   DeploymentPreview,
   GameDataView,
   HistoryView,
@@ -35,8 +37,20 @@ import {
 } from './session/core.ts';
 import type { GlobalConfigurationReport, SettingValue } from './session/global-configuration.ts';
 import type { CampaignState, TurnReport } from './state/types.ts';
+import type { InitiativeOperationLevelsView } from './views/views.ts';
+import type { DetachedCombatResult, DetachedCombatSetup } from './mechanics/combat/detached-combat.ts';
 
 export type * from './player-api.ts';
+export type {
+  DetachedAgentEntry,
+  DetachedCombatParticipant,
+  DetachedCombatResult,
+  DetachedCombatSetup,
+  DetachedEnemyEntry,
+  DetachedExplicitEntry,
+} from './mechanics/combat/detached-combat.ts';
+export type { FoughtCombatReport } from './mechanics/combat/combat.ts';
+export type { InitiativeOperationLevelEntry, InitiativeOperationLevelsView } from './views/views.ts';
 export type {
   AutopilotLimit,
   AutopilotProgress,
@@ -136,6 +150,11 @@ export interface Engine {
     readonly queries: {
       /** Campaign state in full, including the Timeline, the History, and hidden values. */
       getCampaignState(): Result<unknown>;
+      /**
+       * LEAD, Reading Initiative operation levels: the level of every Lead and of every MissionSiteArchetype of kind
+       * initiative of the Game build of the Current campaign, discovered or not; reads no Campaign state.
+       */
+      getInitiativeOperationLevels(): Result<InitiativeOperationLevelsView>;
     };
     readonly actions: {
       addMoney(amount: number): Promise<Result<CommitOutcome>>;
@@ -145,6 +164,15 @@ export interface Engine {
         outcome: string,
         value: number | boolean | string,
       ): Promise<Result<CommitOutcome>>;
+    };
+    /** DEV, Developer tools: run one part of the Game rules on inputs the caller supplies; they change nothing. */
+    readonly tools: {
+      /**
+       * COMBAT, Detached Combat: fights one Combat on the setup's Combatants and GDR values, with random outcomes
+       * derived from its Detached seed alone, by the same procedure as the Mission resolution step, and returns its
+       * Combat report and each participant's final values. It changes no Campaign state.
+       */
+      fightCombat(setup: DetachedCombatSetup): Result<DetachedCombatResult>;
     };
   };
   /** Calls the listener after anything a query could report has changed. Returns a function that stops it. */
@@ -158,7 +186,12 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
     core.commitAction(principal, { surface: 'player', name, args });
   return {
     queries: {
-      getCurrentState: () => core.playerQuery(principal, 'currentState') as Result<CurrentStateView>,
+      getCurrentLiveWorldState: () =>
+        core.playerQuery(principal, 'currentLiveWorldState') as Result<CurrentLiveWorldStateView>,
+      getCurrentRetiredWorldState: () =>
+        core.playerQuery(principal, 'currentRetiredWorldState') as Result<CurrentRetiredWorldStateView>,
+      getCampaignConfiguration: () =>
+        core.playerQuery(principal, 'campaignConfiguration') as Result<CampaignConfigurationView>,
       getTurnReport: () => core.playerQuery(principal, 'turnReport') as Result<TurnReport | null>,
       getHistory: () => core.playerQuery(principal, 'history') as Result<HistoryView>,
       getAvailableActions: () =>
@@ -277,12 +310,23 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
     },
     player: playerApi(core, CONTROLLER),
     developer: {
-      queries: { getCampaignState: () => core.developerQuery(CONTROLLER) },
+      queries: {
+        getCampaignState: () => core.developerQuery(CONTROLLER),
+        getInitiativeOperationLevels: () =>
+          core.developerQuery(
+            CONTROLLER,
+            'initiativeOperationLevels',
+          ) as Result<InitiativeOperationLevelsView>,
+      },
       actions: {
         addMoney: (amount) => developerAction('addMoney', { amount }),
         addAgents: (count) => developerAction('addAgents', { count }),
         overrideRandomOutcome: (outcome, value) =>
           developerAction('overrideRandomOutcome', { outcome, value }),
+      },
+      tools: {
+        fightCombat: (setup) =>
+          core.developerTool(CONTROLLER, 'fightCombat', setup) as Result<DetachedCombatResult>,
       },
     },
     subscribe: (listener) => core.subscribe(listener),

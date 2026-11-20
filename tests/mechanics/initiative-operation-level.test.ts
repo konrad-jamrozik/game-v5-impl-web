@@ -1,0 +1,303 @@
+/** Tests of LEAD, Initiative operation level, and of how Player API, Developer API, and the Basic Autopilot AI read it. */
+import { describe, expect, it } from 'vite-plus/test';
+import { createBasicAutopilotAi } from '../../src/ai/index.ts';
+import type { LeadView, PlayerApi } from '../../src/engine/index.ts';
+import { initiativeOperationLevels } from '../../src/engine/mechanics/leads/leads.ts';
+import { currentLiveWorldStateView, currentRetiredWorldStateView } from '../../src/engine/views/views.ts';
+import {
+  bootstrapGdrCatalog,
+  type Condition,
+  type LeadGdr,
+  type MissionSiteArchetypeGdr,
+} from '../../src/gdr/index.ts';
+import { errorCode, ok, startEngine } from '../helpers/engine.ts';
+import { addMissionSite, gdrs, newCampaign } from '../helpers/game.ts';
+
+function lead(
+  id: string,
+  options: { faction?: string | null; discoveredWhen?: Condition | null; creates?: string | null } = {},
+): LeadGdr {
+  return {
+    type: 'Lead',
+    id,
+    name: id,
+    description: id,
+    faction: options.faction === undefined ? 'red_dawn' : options.faction,
+    requiredProgress: 10,
+    discoveredWhen: options.discoveredWhen ?? null,
+    investigateAgain: 'never',
+    onCompletion: { createMissionSite: options.creates ?? null, eliminateFaction: false, winCampaign: false },
+  };
+}
+
+function archetype(id: string, kind: 'initiative' | 'response'): MissionSiteArchetypeGdr {
+  return {
+    type: 'MissionSiteArchetype',
+    id,
+    name: id,
+    kind,
+    expiresInTurns: 3,
+    enemies: [],
+    onWin: { money: 0, funding: 0, panicReductionHundredths: 0, eliminateTargetFaction: false },
+    operationLevel: kind === 'response' ? 1 : null,
+    canExistWhen: null,
+  };
+}
+
+const ARCHETYPES = [
+  archetype('site_a', 'initiative'),
+  archetype('site_b', 'initiative'),
+  archetype('site_c', 'initiative'),
+  archetype('response_site', 'response'),
+];
+
+const completed = (id: string): Condition => ({ kind: 'lead_completed', lead: id });
+const won = (id: string): Condition => ({ kind: 'mission_won', missionSiteArchetype: id });
+
+function levelsOf(leads: LeadGdr[]) {
+  return initiativeOperationLevels({ leads, missionSiteArchetypes: ARCHETYPES });
+}
+
+describe('LEAD, Initiative operation level with the Bootstrap GDRs', () => {
+  const RED_DAWN: readonly (readonly [string, number])[] = [
+    ['criminal_organizations', 0],
+    ['locate_red_dawn_member', 1],
+    ['interrogate_red_dawn_member', 1],
+    ['red_dawn_profile', 1],
+    ['locate_red_dawn_safehouse', 2],
+    ['interrogate_red_dawn_handler', 2],
+    ['locate_red_dawn_outpost', 3],
+    ['interrogate_red_dawn_soldier', 3],
+    ['locate_red_dawn_training_facility', 4],
+    ['interrogate_red_dawn_lieutenant', 4],
+    ['locate_red_dawn_logistics_hub', 5],
+    ['interrogate_red_dawn_commander', 5],
+    ['locate_red_dawn_command_center', 6],
+    ['analyze_red_dawn_command_structure', 6],
+    ['locate_red_dawn_regional_stronghold', 7],
+    ['interrogate_red_dawn_high_commander', 7],
+    ['locate_red_dawn_hq', 8],
+    ['interrogate_red_dawn_cult_leader', 8],
+    ['terminate_red_dawn', 8],
+    ['peace_on_earth', 8],
+  ];
+  const ARCHETYPE_LEVELS: readonly (readonly [string, number])[] = [
+    ['apprehend_member', 1],
+    ['raid_safehouse', 2],
+    ['raid_outpost', 3],
+    ['raid_training_facility', 4],
+    ['raid_logistics_hub', 5],
+    ['raid_command_center', 6],
+    ['raid_regional_stronghold', 7],
+    ['raid_hq', 8],
+  ];
+  const levels = initiativeOperationLevels(bootstrapGdrCatalog());
+
+  it('gives every Red Dawn Lead the level of its tier', () => {
+    for (const [id, level] of RED_DAWN) {
+      expect([id, levels.leads.get(id)]).toEqual([id, level]);
+    }
+  });
+
+  it('gives every MissionSiteArchetype of kind initiative the level of its tier', () => {
+    for (const [id, level] of ARCHETYPE_LEVELS) {
+      expect([id, levels.missionSiteArchetypes.get(id)]).toEqual([id, level]);
+    }
+    expect([...levels.missionSiteArchetypes.keys()].sort()).toEqual(
+      ARCHETYPE_LEVELS.map(([id]) => id).sort(),
+    );
+  });
+
+  it('gives every Lead of the Game build a level, the same along each Faction chain', () => {
+    expect([...levels.leads.values()].every((level) => level !== null)).toBe(true);
+    expect(levels.leads.get('locate_exalt_outpost')).toBe(3);
+    expect(levels.leads.get('interrogate_black_lotus_handler')).toBe(2);
+  });
+
+  it('is calculated once per Game build', () => {
+    expect(initiativeOperationLevels(bootstrapGdrCatalog())).toBe(
+      initiativeOperationLevels(bootstrapGdrCatalog()),
+    );
+  });
+});
+
+describe('LEAD, Required level of each Condition form', () => {
+  it('takes the highest of `all`, 0 for an empty `all`, and the lowest of `any`', () => {
+    const levels = levelsOf([
+      lead('first', { creates: 'site_a' }),
+      lead('second', { discoveredWhen: won('site_a'), creates: 'site_b' }),
+      lead('both', { discoveredWhen: { kind: 'all', conditions: [won('site_a'), won('site_b')] } }),
+      lead('either', { discoveredWhen: { kind: 'any', conditions: [won('site_a'), won('site_b')] } }),
+      lead('empty', { discoveredWhen: { kind: 'all', conditions: [] } }),
+    ]);
+    expect(levels.leads.get('first')).toBe(1);
+    expect(levels.leads.get('second')).toBe(2);
+    expect(levels.leads.get('both')).toBe(2);
+    expect(levels.leads.get('either')).toBe(1);
+    expect(levels.leads.get('empty')).toBe(0);
+  });
+
+  it('adds nothing for `not` and for a `mission_won` of a response MissionSiteArchetype', () => {
+    const levels = levelsOf([
+      lead('first', { creates: 'site_a' }),
+      lead('negated', { discoveredWhen: { kind: 'not', condition: won('site_a') }, creates: 'site_b' }),
+      lead('response', { discoveredWhen: won('response_site') }),
+      lead('mixed', {
+        discoveredWhen: {
+          kind: 'all',
+          conditions: [won('response_site'), { kind: 'not', condition: won('site_a') }],
+        },
+      }),
+    ]);
+    expect(levels.leads.get('negated')).toBe(1);
+    expect(levels.leads.get('response')).toBe(0);
+    expect(levels.leads.get('mixed')).toBe(0);
+  });
+
+  it('reads the Required level, not the level, of a completed Lead', () => {
+    const levels = levelsOf([
+      lead('first', { creates: 'site_a' }),
+      lead('after', { discoveredWhen: completed('first'), creates: 'site_b' }),
+    ]);
+    expect(levels.leads.get('after')).toBe(1);
+  });
+
+  it('counts only the Leads of the same Faction for a `mission_won`', () => {
+    const levels = levelsOf([
+      lead('other', { faction: 'exalt', creates: 'site_a' }),
+      lead('mine', { discoveredWhen: won('site_a') }),
+    ]);
+    expect(levels.leads.get('mine')).toBeNull();
+    expect(levels.missionSiteArchetypes.get('site_a')).toBe(1);
+  });
+});
+
+describe('LEAD, Initiative operation level edge cases', () => {
+  it('gives no level to a Lead whose discovery requires the Lead itself, nor to what only it creates', () => {
+    const levels = levelsOf([
+      lead('first', { creates: 'site_a' }),
+      lead('self', { discoveredWhen: completed('self'), creates: 'site_c' }),
+      lead('loop', { discoveredWhen: won('site_b'), creates: 'site_b' }),
+      lead('never_discoverable', { discoveredWhen: { kind: 'any', conditions: [completed('self')] } }),
+    ]);
+    expect(levels.leads.get('self')).toBeNull();
+    expect(levels.leads.get('loop')).toBeNull();
+    expect(levels.leads.get('never_discoverable')).toBeNull();
+    expect(levels.missionSiteArchetypes.get('site_c')).toBeNull();
+    expect(levels.missionSiteArchetypes.get('site_b')).toBeNull();
+    expect(levels.missionSiteArchetypes.has('response_site')).toBe(false);
+  });
+
+  it('gives a MissionSiteArchetype that several Leads create the lowest of their levels', () => {
+    const levels = levelsOf([
+      lead('first', { creates: 'site_a' }),
+      lead('second', { discoveredWhen: won('site_a'), creates: 'site_b' }),
+      lead('late', { discoveredWhen: won('site_b'), creates: 'site_c' }),
+      lead('early', { faction: 'exalt', creates: 'site_c' }),
+    ]);
+    expect(levels.leads.get('late')).toBe(3);
+    expect(levels.leads.get('early')).toBe(1);
+    expect(levels.missionSiteArchetypes.get('site_c')).toBe(1);
+  });
+
+  it('lets a level fall when a shorter chain is found later in Game build order', () => {
+    // In the first pass `reader` takes level 2 from `second`, then falls to 0 once `base` has a value.
+    const levels = levelsOf([
+      lead('first', { creates: 'site_a' }),
+      lead('second', { discoveredWhen: won('site_a'), creates: 'site_b' }),
+      lead('reader', { discoveredWhen: { kind: 'any', conditions: [won('site_b'), completed('base')] } }),
+      lead('base', { discoveredWhen: completed('first') }),
+    ]);
+    expect(levels.leads.get('reader')).toBe(0);
+  });
+});
+
+describe('LEAD, Reading Initiative operation levels', () => {
+  it('returns the level with every discovered Lead and every Initiative Mission site, and none for a Response one', () => {
+    let state = newCampaign();
+    const initiative = addMissionSite(state, 'raid_outpost', { lead: 'locate_red_dawn_outpost' });
+    state = initiative.state;
+    const response = gdrs.missionSiteArchetypes.find((item) => item.kind === 'response');
+    const responseSite = addMissionSite(state, response!.id);
+    state = responseSite.state;
+    const leads = currentRetiredWorldStateView(state, gdrs).leads;
+    expect(leads.find((item) => item.id === 'criminal_organizations')?.initiativeOperationLevel).toBe(0);
+    expect(leads.find((item) => item.id === 'locate_red_dawn_member')?.initiativeOperationLevel).toBe(1);
+    const sites = currentLiveWorldStateView(state, gdrs).missionSites;
+    expect(sites.find((site) => site.id === initiative.site)?.initiativeOperationLevel).toBe(3);
+    expect(sites.find((site) => site.id === responseSite.site)?.initiativeOperationLevel).toBeNull();
+  });
+
+  it('reports every level through Developer API only while Dev mode is enabled', async () => {
+    const { engine } = await startEngine();
+    expect(errorCode(engine.developer.queries.getInitiativeOperationLevels())).toBe('no_current_campaign');
+    ok(await engine.session.campaign.create({ seed: 'levels' }));
+    expect(errorCode(engine.developer.queries.getInitiativeOperationLevels())).toBe('dev_mode_disabled');
+    ok(engine.session.developer.enable());
+    const before = ok(engine.session.timeline.getStatus());
+    const report = ok(engine.developer.queries.getInitiativeOperationLevels());
+    const catalog = bootstrapGdrCatalog();
+    expect(report.leads.map((item) => item.id)).toEqual(catalog.leads.map((item) => item.id));
+    expect(report.leads).toContainEqual({ id: 'locate_red_dawn_hq', name: expect.any(String), level: 8 });
+    expect(report.missionSiteArchetypes).toContainEqual({
+      id: 'raid_hq',
+      name: expect.any(String),
+      level: 8,
+    });
+    expect(report.missionSiteArchetypes).toHaveLength(8);
+    expect(report.leadsWithoutLevel).toEqual([]);
+    expect(report.missionSiteArchetypesWithoutLevel).toEqual([]);
+    // A query: it changes no Campaign state.
+    expect(ok(engine.session.timeline.getStatus())).toEqual(before);
+  });
+});
+
+describe('Basic Autopilot AI, Keep Mission sites coming', () => {
+  it('tries the Lead with the highest Initiative operation level first, and one with none last', async () => {
+    const { engine } = await startEngine();
+    ok(await engine.session.campaign.create({ seed: 'order' }));
+    const attempts: string[] = [];
+    const fake = (base: LeadView, id: string, level: number | null): LeadView => ({
+      ...base,
+      id,
+      factionArchetype: 'red_dawn',
+      createsMissionSite: null,
+      eliminatesFaction: false,
+      winsCampaign: false,
+      canBeInvestigatedNow: true,
+      initiativeOperationLevel: level,
+    });
+    const real = engine.player;
+    const player: PlayerApi = {
+      ...real,
+      queries: {
+        ...real.queries,
+        getCurrentRetiredWorldState: () => {
+          const result = real.queries.getCurrentRetiredWorldState();
+          if (!result.ok) {
+            return result;
+          }
+          const [base] = result.value.leads;
+          return {
+            ...result,
+            value: {
+              ...result.value,
+              leads: [fake(base!, 'no_level', null), fake(base!, 'low', 2), fake(base!, 'high', 3)],
+            },
+          };
+        },
+      },
+      actions: {
+        ...real.actions,
+        startInvestigation: async (leadId, agents) => {
+          attempts.push(leadId);
+          return real.actions.startInvestigation(leadId, agents);
+        },
+      },
+    };
+    for (let turn = 0; turn < 5 && attempts.length === 0; turn += 1) {
+      await createBasicAutopilotAi().step({ player });
+    }
+    expect(attempts.slice(0, 3)).toEqual(['high', 'low', 'no_level']);
+  });
+});

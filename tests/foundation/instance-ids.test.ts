@@ -6,7 +6,7 @@ describe('CINST: Instance IDs', () => {
   it('each Campaign instance Type numbers its Campaign instances from 1, and an undone creation frees its number', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'instance-ids' }));
-    const ids = () => ok(engine.player.queries.getCurrentState()).agents.map((agent) => agent.id);
+    const ids = () => ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
     expect(ids()).toEqual(['agent-1', 'agent-2', 'agent-3', 'agent-4']);
 
     ok(await engine.player.actions.dismissAgents(['agent-2']));

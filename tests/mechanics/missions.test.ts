@@ -18,7 +18,11 @@ import { injectedRandom, seededRandom } from '../../src/engine/random.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
 import type { GdrCatalog } from '../../src/gdr/index.ts';
-import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
+import {
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
+  turnReportView,
+} from '../../src/engine/views/views.ts';
 import {
   act,
   BOOTSTRAP_GDRS as bootstrap,
@@ -93,7 +97,7 @@ describe('MISSION: examples', () => {
       'initiate',
       'initiate',
     ]);
-    const view = currentStateView(state, gdrs).missionSites[0]!;
+    const view = currentLiveWorldStateView(state, gdrs).missionSites[0]!;
     expect(view).toMatchObject({
       enemiesCombatRating: 120,
       rewards: { money: 5, fundingChange: 0, panicReductionHundredths: 100 },
@@ -113,9 +117,9 @@ describe('MISSION: examples', () => {
     expect(site(state, s1).state).toMatchObject({ lifecycle: 'Deployed', turnsUntilExpiration: 4 });
     // An Deployed Mission site is an Unfinished Mission site: it blocks its Lead and is in Current world state.
     expect(
-      currentStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
+      currentRetiredWorldStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
     ).toMatchObject({ available: false, status: 'Inactive' });
-    expect(currentStateView(state, gdrs).missionSites.map((item) => item.id)).toEqual([s1]);
+    expect(currentLiveWorldStateView(state, gdrs).missionSites.map((item) => item.id)).toEqual([s1]);
     expect(mission(state, m1)).toMatchObject({
       archetype: 'standard_mission',
       constants: { missionSite: s1, turnDeployed: 6, teamSent: ids },
@@ -241,15 +245,15 @@ describe('MISSION: examples', () => {
     }
     expect([money(state), funding(state), state.world.current.panicHundredths]).toEqual([385, 20, 900]);
     expect(
-      currentStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
+      currentRetiredWorldStateView(state, gdrs).leads.find((lead) => lead.id === 'locate_red_dawn_member'),
     ).toMatchObject({ available: false, status: 'Archived', completionCount: 1 });
     expectRejected(state, 'deployAgents', { missionSite: s1, agents: [a1] }, 'mission_site_not_active');
     // A Won Mission and its Concluded Mission site are Retired: in World history, not Current world state.
-    expect(currentStateView(state, gdrs).missionSites).toHaveLength(0);
-    expect(historyView(state, gdrs).retained.missions.map((m) => m.id)).toEqual([m1]);
-    expect(historyView(state, gdrs).retained.missionSites.map((item) => [item.id, item.lifecycle])).toEqual([
-      [s1, 'Concluded'],
-    ]);
+    expect(currentLiveWorldStateView(state, gdrs).missionSites).toHaveLength(0);
+    expect(currentRetiredWorldStateView(state, gdrs).missions.map((m) => m.id)).toEqual([m1]);
+    expect(
+      currentRetiredWorldStateView(state, gdrs).missionSites.map((item) => [item.id, item.lifecycle]),
+    ).toEqual([[s1, 'Concluded']]);
     // A Concluded Mission site never counts down.
     const later = advance(state);
     expect(site(later, s1).state).toMatchObject({ lifecycle: 'Concluded', turnsUntilExpiration: 4 });
@@ -261,7 +265,7 @@ describe('MISSION: examples', () => {
       'foil_sabotage',
     );
     const s2 = created.site;
-    const view = currentStateView(created.state, gdrs).missionSites[0]!;
+    const view = currentLiveWorldStateView(created.state, gdrs).missionSites[0]!;
     expect(view).toMatchObject({
       kind: 'Response',
       enemiesCombatRating: 400,
@@ -395,7 +399,7 @@ describe('MISSION: examples', () => {
     const s5 = addMissionSite(s4.state, 'foil_recruitment_push', { turnsUntilExpiration: 2 });
     state = act(s5.state, 'deployAgents', { missionSite: s3.site, agents: ids.slice(0, 8) });
     state = act(state, 'deployAgents', { missionSite: s4.site, agents: ids.slice(8, 12) });
-    expect(currentStateView(state, gdrs).agency.transportCap).toBe(12);
+    expect(currentLiveWorldStateView(state, gdrs).agency.transportCap).toBe(12);
     const injected = { ...winning(state, s3.site), ...winning(state, s4.site) };
     const forward = advance(state, injected);
     const reversed = advance(state, injected, gdrs, (items) => [...items].reverse());
@@ -943,7 +947,7 @@ describe('RECOVER: examples', () => {
       s.assignment = { kind: 'Recovery' };
       s.status = 'InTransit';
     });
-    const view = (s: CampaignState) => currentStateView(s, gdrs).agents.find((a) => a.id === a1)!;
+    const view = (s: CampaignState) => currentLiveWorldStateView(s, gdrs).agents.find((a) => a.id === a1)!;
     expect(view(state)).toMatchObject({
       healthRecoveryRateHundredths: 60,
       recoveryTurnsRemaining: 5,

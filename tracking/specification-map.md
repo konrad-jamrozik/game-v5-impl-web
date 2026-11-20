@@ -59,6 +59,7 @@
 - scripts/trace-campaign.ts
 - scripts/campaign-report.ts
 - tests/engine/campaign.test.ts
+- tests/mechanics/initiative-operation-level.test.ts
 
 ## BOOT: Bootstrap GDRs
 
@@ -97,6 +98,9 @@
 - src/gdr/types.ts
 - tests/mechanics/combat.test.ts
 - tests/mechanics/review-gaps.test.ts
+- tests/mechanics/detached-combat.test.ts
+- src/engine/turn/advance.ts
+- src/cli/cli.ts
 
 ## COMP: Compendium
 
@@ -229,6 +233,12 @@ No files.
 - tests/foundation/autopilot.test.ts
 - tests/foundation/final-review.test.ts
 - tests/engine/campaign.test.ts
+- src/engine/mechanics/combat/detached-combat.ts
+- tests/mechanics/detached-combat.test.ts
+- tests/mechanics/initiative-operation-level.test.ts
+- src/cli/cli.ts
+- src/engine/rules.ts
+- src/engine/game-rules.ts
 
 ## DOM: Domain Model
 
@@ -434,6 +444,8 @@ No files.
 - src/ai/basic/basic-autopilot-ai.ts
 - tests/helpers/game.ts
 - tests/foundation/final-review.test.ts
+- tests/mechanics/initiative-operation-level.test.ts
+- src/cli/cli.ts
 
 ## LICENSE: Implementation License
 
@@ -594,6 +606,13 @@ No files.
 ## REL: Artifact Relationships
 
 No files.
+
+## REUSE: Rule Reuse
+
+- src/engine/mechanics/combat/combat.ts
+- src/engine/turn/advance.ts
+- src/engine/mechanics/combat/detached-combat.ts
+- tests/mechanics/detached-combat.test.ts
 
 ## SAVES: Saves
 
@@ -804,3 +823,6 @@ No files.
 - src/engine/state/create.ts
 - tests/foundation/action-record.test.ts
 - src/engine/player-api.ts
+- src/web/store.ts
+- src/cli/cli.ts
+- tests/cli/cli.test.ts

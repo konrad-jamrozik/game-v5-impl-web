@@ -5,6 +5,7 @@ import { produce } from 'immer';
 import { detach } from '../kernel/values.ts';
 import { GAME_BUILD, type GdrCatalog } from '../gdr/index.ts';
 import { applyGameAction } from './actions/actions.ts';
+import { detachedCombat } from './mechanics/combat/detached-combat.ts';
 import { seededRandom, type Random } from './random.ts';
 import { reject, type Rejection } from './result.ts';
 import type { ActionRecord, ConfigurationValueDescriptor, GameRules } from './rules.ts';
@@ -16,10 +17,13 @@ import {
   articleForTermView,
   availableActionsView,
   compendiumArticlesView,
-  currentStateView,
+  campaignConfigurationView,
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
   estimateTeamProgressGain,
   gameDataView,
   historyView,
+  initiativeOperationLevelsView,
   inspectCampaignState,
   placeInPlay,
   previewDeployment,
@@ -165,9 +169,11 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       );
     },
 
-    currentStateView: (state) => currentStateView(state, gdrs),
+    currentLiveWorldStateView: (state) => currentLiveWorldStateView(state, gdrs),
+    currentRetiredWorldStateView: (state) => currentRetiredWorldStateView(state, gdrs),
+    campaignConfigurationView: (state) => campaignConfigurationView(state),
     turnReportView: (state) => turnReportView(state),
-    historyView: (state) => historyView(state, gdrs),
+    historyView: (state) => historyView(state),
     availableActionsView: (state) => availableActionsView(state, gdrs),
     inspect: (timeline) => inspectCampaignState(timeline),
     placeInPlay: (state) => placeInPlay(state),
@@ -198,6 +204,18 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
         return estimateTeamProgressGain(state, gdrs, args['agents']);
       }
       throw new Error(`There is no query ${query}`);
+    },
+    extraDeveloperQuery(query) {
+      if (query === 'initiativeOperationLevels') {
+        return initiativeOperationLevelsView(gdrs);
+      }
+      throw new Error(`There is no developer query ${query}`);
+    },
+    developerTool(state, tool, args) {
+      if (tool === 'fightCombat') {
+        return detachedCombat(state.world.current, gdrs, args);
+      }
+      throw new Error(`There is no developer tool ${tool}`);
     },
   };
 }

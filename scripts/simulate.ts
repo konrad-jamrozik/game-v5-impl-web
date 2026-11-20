@@ -32,7 +32,7 @@ for (let i = first; i < first + seeds; i += 1) {
     throw new Error(engaged.error.message);
   }
   const result = await engine.session.autopilot.whenDisengaged(engaged.value.engagementId);
-  const state = engine.player.queries.getCurrentState();
+  const state = engine.player.queries.getCurrentLiveWorldState();
   if (!result.ok || !state.ok) {
     throw new Error('simulation failed');
   }

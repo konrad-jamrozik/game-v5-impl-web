@@ -887,7 +887,7 @@ describe('COMP: Player API', () => {
         await engine.session.autopilot.engage('basic', { kind: 'turnAdvancements', count: 1 }),
       );
       ok(await engine.session.autopilot.whenDisengaged(engagementId));
-      expect(ok(engine.player.queries.getCurrentState()).ending).toBeNull();
+      expect(ok(engine.player.queries.getCurrentLiveWorldState()).ending).toBeNull();
       turns += 1;
     }
     expect(has('locate_red_dawn_safehouse_article')).toBe(true);

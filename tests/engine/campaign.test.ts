@@ -26,14 +26,15 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'c' }));
     let turns = 0;
-    while (ok(engine.player.queries.getCurrentState()).ending === null && turns < 400) {
+    while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null && turns < 400) {
       await playTurn(engine);
       turns += 1;
     }
-    const state = ok(engine.player.queries.getCurrentState());
+    const state = ok(engine.player.queries.getCurrentLiveWorldState());
     expect(state.ending).toMatchObject({ ending: 'Victory', reasons: ['CampaignObjectiveAchieved'] });
     expect(state.factions.every((faction) => faction.eliminated)).toBe(true);
-    expect(state.leads.every((lead) => lead.status === 'Archived' && lead.completionCount >= 1)).toBe(true);
+    const leads = ok(engine.player.queries.getCurrentRetiredWorldState()).leads;
+    expect(leads.every((lead) => lead.status === 'Archived' && lead.completionCount >= 1)).toBe(true);
     expect(ok(engine.session.getStatus())).toMatchObject({ devMode: false, campaignEnded: true });
     // After a Campaign ending every Player action is rejected and every query keeps answering.
     expect(errorCode(await engine.player.actions.advanceTurn())).toBe('campaign_ended');
@@ -47,13 +48,13 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'idle' }));
     let turns = 0;
-    while (ok(engine.player.queries.getCurrentState()).ending === null && turns < 100) {
+    while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null && turns < 100) {
       ok(await engine.player.actions.advanceTurn());
       turns += 1;
     }
     // 500 money, income 20, upkeep 40: money is below zero after the 26th Advance turn.
     expect(turns).toBe(26);
-    expect(ok(engine.player.queries.getCurrentState()).ending).toEqual({
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).ending).toEqual({
       ending: 'Defeat',
       reasons: ['MoneyBelowZero'],
       turn: 26,
@@ -63,12 +64,12 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
   it('reaches Defeat by an existential operation not stopped when Mission sites are ignored', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'panic' }));
-    const agents = ok(engine.player.queries.getCurrentState()).agents.map((agent) => agent.id);
+    const agents = ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
     ok(await engine.player.actions.assignAgents(agents, 'Contracting'));
     let turns = 0;
-    while (ok(engine.player.queries.getCurrentState()).ending === null && turns < 2000) {
+    while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null && turns < 2000) {
       // Every rested Agent back on Standby returns to Contracting, so that money never runs out.
-      const rested = ok(engine.player.queries.getCurrentState())
+      const rested = ok(engine.player.queries.getCurrentLiveWorldState())
         .agents.filter(
           (agent) => agent.assignment?.kind === 'Standby' && agent.canBeAssigned && agent.exhaustion === 0,
         )
@@ -79,7 +80,7 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
       ok(await engine.player.actions.advanceTurn());
       turns += 1;
     }
-    const state = ok(engine.player.queries.getCurrentState());
+    const state = ok(engine.player.queries.getCurrentLiveWorldState());
     // At the Bootstrap scale an ignored operation raises Panic by at most 3 points, so the first ignored operation of
     // level 6 loses the Campaign long before Panic reaches its limit, and leaves Panic as it was.
     expect(state.ending).toMatchObject({ ending: 'Defeat', reasons: ['ExistentialOperationNotStopped'] });
@@ -91,7 +92,7 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
     // Returning to a World state before the ending: the Turn-end Autosave of the last Turn.
     const target = ok(await engine.session.timeline.undoToAutosave());
     expect(target.turn).toBe(state.ending!.turn);
-    expect(ok(engine.player.queries.getCurrentState()).ending).toBeNull();
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).ending).toBeNull();
     expect((await engine.player.actions.advanceTurn()).ok).toBe(true);
   });
 });
@@ -108,7 +109,7 @@ describe('Campaign runs', () => {
       ok(await engine.session.campaign.create({ seed: `run-${seed}` }));
       const result = await autopilot(engine, { kind: 'turnAdvancements', count: 1000 });
       expect(result.reason, `seed ${seed}: ${result.detail ?? ''}`).toBe('campaignEnded');
-      const ending = ok(engine.player.queries.getCurrentState()).ending?.ending ?? 'none';
+      const ending = ok(engine.player.queries.getCurrentLiveWorldState()).ending?.ending ?? 'none';
       endings[ending] = (endings[ending] ?? 0) + 1;
     }
     expect(Object.keys(endings).every((ending) => ending === 'Victory' || ending === 'Defeat')).toBe(true);
@@ -122,7 +123,7 @@ describe('Campaign runs', () => {
     ok(await engine.session.campaign.create({ seed: 'poor' }));
     const result = await autopilot(engine, { kind: 'turnAdvancements', count: 50 });
     expect(result.reason).toBe('campaignEnded');
-    expect(ok(engine.player.queries.getCurrentState()).ending).toMatchObject({
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).ending).toMatchObject({
       ending: 'Defeat',
       reasons: ['MoneyBelowZero'],
     });
@@ -135,7 +136,7 @@ describe('Campaign runs', () => {
 
     const stepwise = await startEngine();
     ok(await stepwise.engine.session.campaign.create({ seed: 'limits' }));
-    while (ok(stepwise.engine.player.queries.getCurrentState()).turn < 13) {
+    while (ok(stepwise.engine.player.queries.getCurrentLiveWorldState()).turn < 13) {
       // AUTO, Autopilot limits: one action never advances the Turn, which is left to the player.
       const result = await autopilot(stepwise.engine, { kind: 'singleAction' });
       if (result.reason === 'advanceTurnWithheld') {
@@ -219,7 +220,7 @@ describe('DETERM and TIMELINE with the real game', () => {
           let states = [placeOf(engine)];
           let position = 0;
           for (const step of steps) {
-            const view = ok(engine.player.queries.getCurrentState());
+            const view = ok(engine.player.queries.getCurrentLiveWorldState());
             const available = ok(engine.player.queries.getAvailableActions());
             const [agent] = available.assignableAgents;
             let committed = false;
@@ -275,11 +276,11 @@ describe('DETERM and TIMELINE with the real game', () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'ids' }));
     ok(await engine.player.actions.hireAgent());
-    const hired = ok(engine.player.queries.getCurrentState()).agents.at(-1)!;
+    const hired = ok(engine.player.queries.getCurrentLiveWorldState()).agents.at(-1)!;
     ok(await engine.session.timeline.undoAction());
-    expect(ok(engine.player.queries.getCurrentState()).agents).toHaveLength(4);
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents).toHaveLength(4);
     ok(await engine.session.timeline.redoAction());
-    expect(ok(engine.player.queries.getCurrentState()).agents.at(-1)).toEqual(hired);
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents.at(-1)).toEqual(hired);
   });
 });
 
@@ -298,7 +299,7 @@ describe('ENG: Information boundary with the real game', () => {
         ok(engine.session.developer.enable());
       }
       const results = [
-        engine.player.queries.getCurrentState(),
+        engine.player.queries.getCurrentLiveWorldState(),
         engine.player.queries.getTurnReport(),
         engine.player.queries.getHistory(),
         engine.player.queries.getAvailableActions(),
@@ -323,7 +324,7 @@ describe('ENG: Information boundary with the real game', () => {
       name: 'Spy',
       async step(api: Parameters<ReturnType<typeof createBasicAutopilotAi>['step']>[0]) {
         seen = JSON.stringify([
-          api.player.queries.getCurrentState(),
+          api.player.queries.getCurrentLiveWorldState(),
           api.player.queries.getAvailableActions(),
           api.player.queries.getHistory(),
         ]);
@@ -334,7 +335,7 @@ describe('ENG: Information boundary with the real game', () => {
     ok(await engine.session.campaign.create({ seed: 'same view' }));
     ok(engine.session.developer.enable());
     const before = JSON.stringify([
-      engine.player.queries.getCurrentState(),
+      engine.player.queries.getCurrentLiveWorldState(),
       engine.player.queries.getAvailableActions(),
       engine.player.queries.getHistory(),
     ]);
@@ -345,15 +346,15 @@ describe('ENG: Information boundary with the real game', () => {
   it('a returned view cannot change Campaign state', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'detached' }));
-    const view = ok(engine.player.queries.getCurrentState()) as any;
+    const view = ok(engine.player.queries.getCurrentLiveWorldState()) as any;
     view.agency.money = 1_000_000;
     view.agents.length = 0;
     const inspected = inspect(engine);
     expect(() => {
       currentWorld(inspected).liveWorldState.agency.state.money = 7;
     }).toThrow();
-    expect(ok(engine.player.queries.getCurrentState())).toMatchObject({ agency: { money: 500 } });
-    expect(ok(engine.player.queries.getCurrentState()).agents).toHaveLength(4);
+    expect(ok(engine.player.queries.getCurrentLiveWorldState())).toMatchObject({ agency: { money: 500 } });
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents).toHaveLength(4);
     expect(() => {
       (ok(engine.player.queries.getGameData()) as any).economy.hireCost = 1;
     }).toThrow();
@@ -398,7 +399,7 @@ describe('DEV with the real game', () => {
     ok(engine.session.developer.disable());
     ok(await engine.session.timeline.undoAction());
     ok(await engine.session.timeline.undoAction());
-    expect(ok(engine.player.queries.getCurrentState())).toMatchObject({
+    expect(ok(engine.player.queries.getCurrentLiveWorldState())).toMatchObject({
       agency: { money: 500, servingAgents: 4 },
     });
   });
@@ -407,7 +408,7 @@ describe('DEV with the real game', () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'override' }));
     ok(engine.session.developer.enable());
-    const [agent] = ok(engine.player.queries.getCurrentState()).agents;
+    const [agent] = ok(engine.player.queries.getCurrentLiveWorldState()).agents;
     const outcome = 'investigation.requiredProgress.criminal_organizations';
     expect(errorCode(await engine.developer.actions.overrideRandomOutcome('no.such.outcome', true))).toBe(
       'invalid_input',
@@ -438,9 +439,9 @@ describe('DEV with the real game', () => {
     expect(actual()).toBe(4);
     expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([]);
     // Player API reports the Actual required progress only as unknown.
-    expect(ok(engine.player.queries.getCurrentState()).investigations[0]!.actualRequiredProgress).toBe(
-      'unknown',
-    );
+    expect(
+      ok(engine.player.queries.getCurrentLiveWorldState()).investigations[0]!.actualRequiredProgress,
+    ).toBe('unknown');
     // The override is a Timeline entry, so replay reproduces it: undo the start and redo it.
     ok(await engine.session.timeline.undoAction());
     ok(await engine.session.timeline.redoAction());

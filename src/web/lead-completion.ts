@@ -2,10 +2,13 @@
  * LVIEW, Selected Lead: what a Lead's completion does, one line for each Effect of its `on_completion`. Pure
  * presentation over the Player API views; no gameplay rule.
  */
-import type { CurrentStateView, GameDataView, LeadView } from '../engine/index.ts';
+import type { CurrentLiveWorldStateView, GameDataView, LeadView } from '../engine/index.ts';
 
 /** The name of the Faction a Lead concerns, or its FactionArchetype when no Faction of the Campaign has it. */
-export function leadFactionName(lead: LeadView, state: Pick<CurrentStateView, 'factions'>): string | null {
+export function leadFactionName(
+  lead: LeadView,
+  state: Pick<CurrentLiveWorldStateView, 'factions'>,
+): string | null {
   if (lead.factionArchetype === null) {
     return null;
   }
@@ -41,7 +44,7 @@ export function onCompletionText(line: OnCompletionLine): string {
 export function onCompletionLines(
   lead: LeadView,
   gameData: Pick<GameDataView, 'missionSiteArchetypes'> | null,
-  state: Pick<CurrentStateView, 'factions'>,
+  state: Pick<CurrentLiveWorldStateView, 'factions'>,
 ): OnCompletionLine[] {
   const lines: OnCompletionLine[] = [];
   const site = lead.createsMissionSite;

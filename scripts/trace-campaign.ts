@@ -24,7 +24,7 @@ for (let t = 0; t < turns; t += 1) {
     throw new Error(engaged.error.message);
   }
   await engine.session.autopilot.whenDisengaged(engaged.value.engagementId);
-  const state = engine.player.queries.getCurrentState();
+  const state = engine.player.queries.getCurrentLiveWorldState();
   const report = engine.player.queries.getTurnReport();
   if (!state.ok || !report.ok || report.value === null) {
     break;

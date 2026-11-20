@@ -4,8 +4,8 @@
  */
 import type {
   ConsequenceRecord,
-  CurrentStateView,
-  HistoryView,
+  CurrentLiveWorldStateView,
+  CurrentRetiredWorldStateView,
   InvestigationView,
   LeadView,
   MissionSiteView,
@@ -103,20 +103,20 @@ export function showsTurnSummary(requestedTurn: number | null, report: TurnRepor
 
 export function turnSummary(
   report: TurnReport,
-  state: CurrentStateView,
-  history: HistoryView | null,
+  state: CurrentLiveWorldStateView,
+  retired: CurrentRetiredWorldStateView | null,
   siteArchetypeName: (archetype: string) => string,
 ): TurnSummaryModel {
   const sites = new Map<string, MissionSiteView>();
-  for (const site of [...(history?.retained.missionSites ?? []), ...state.missionSites]) {
+  for (const site of [...(retired?.missionSites ?? []), ...state.missionSites]) {
     sites.set(site.id, site);
   }
   const investigations = new Map<string, InvestigationView>();
-  for (const item of [...(history?.retained.investigations ?? []), ...state.investigations]) {
+  for (const item of [...(retired?.investigations ?? []), ...state.investigations]) {
     investigations.set(item.id, item);
   }
-  const missions = new Map((history?.retained.missions ?? []).map((mission) => [mission.id, mission]));
-  const leads = new Map(state.leads.map((lead) => [lead.id, lead]));
+  const missions = new Map((retired?.missions ?? []).map((mission) => [mission.id, mission]));
+  const leads = new Map((retired?.leads ?? []).map((lead) => [lead.id, lead]));
   const factionName = (id: string) => state.factions.find((faction) => faction.id === id)?.name ?? id;
   const siteName = (id: string, archetype?: string) => {
     const site = sites.get(id);

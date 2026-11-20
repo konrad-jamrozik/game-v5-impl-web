@@ -46,7 +46,7 @@ for (let seed = 0; seed < seeds; seed += 1) {
   await engine.session.campaign.create({ seed: `measure-${seed}` });
   const times: number[] = [];
   for (;;) {
-    const state = engine.player.queries.getCurrentState();
+    const state = engine.player.queries.getCurrentLiveWorldState();
     if (!state.ok || state.value.ending !== null || state.value.turn > 1000) {
       break;
     }
@@ -79,7 +79,7 @@ engine.session.developer.enable();
 await engine.developer.actions.addAgents(extraAgents);
 const times: number[] = [];
 for (let turn = 0; turn < stressTurns; turn += 1) {
-  const state = engine.player.queries.getCurrentState();
+  const state = engine.player.queries.getCurrentLiveWorldState();
   if (!state.ok || state.value.ending !== null) {
     break;
   }

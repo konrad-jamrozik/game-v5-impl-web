@@ -4,7 +4,7 @@
  * Detail view covers it. The globe, a decoration, is drawn in the Globe stage behind every Detail view.
  */
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import type { AutosaveStatus, CurrentStateView } from '../../engine/index.ts';
+import type { AutosaveStatus, CurrentLiveWorldStateView } from '../../engine/index.ts';
 import { PLACE_NAME_KEY, PlaceContext, type PlaceContextValue } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
 import {
@@ -93,7 +93,7 @@ const NOTHING_RESTORED: Readonly<Record<string, unknown>> = {};
 /** CSCR, View trail: a place is a Detail view's, or the Turn summary's together with the place it was shown over. */
 type TrailId = DetailViewId | typeof TURN_SUMMARY;
 
-export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: CurrentStateView }) {
+export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: CurrentLiveWorldStateView }) {
   const { session, player } = theEngine();
   const [open, setOpen] = useState<OpenView | null>(null);
   // CSCR, View trail: empty whenever the Campaign screen is shown anew, e.g. after a Campaign is loaded.
@@ -431,10 +431,11 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     }
   };
 
+  const leads = snapshot.retired?.leads ?? [];
   /** CSCR, Detail views: the counts the navigation buttons show. */
   const counts: Partial<Record<DetailViewId, number>> = {
     missions: state.missionSites.filter((site) => site.lifecycle === 'Active').length,
-    leads: activeInvestigationRows(state).length + leadsToInvestigate(state).length,
+    leads: activeInvestigationRows(state, leads).length + leadsToInvestigate(state, leads).length,
     agents: state.agency.servingAgents,
   };
   /**
@@ -494,7 +495,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             <span className="fact-value" data-testid="turns-since-faction-activity">
               {turnsSinceLastFactionActivity(state.turn, [
                 ...state.missionSites,
-                ...(snapshot.history?.retained.missionSites ?? []),
+                ...(snapshot.retired?.missionSites ?? []),
               ])}
             </span>
           </div>
@@ -640,7 +641,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             ))}
           </nav>
 
-          <SituationPanel state={state} onShow={show} />
+          <SituationPanel state={state} leads={leads} onShow={show} />
 
           <footer className="side-footer">
             <AutopilotBar snapshot={snapshot} />
@@ -726,7 +727,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
 
       {summaryOpen && snapshot.report !== null ? (
         <TurnSummary
-          model={turnSummary(snapshot.report, state, snapshot.history, (archetype) =>
+          model={turnSummary(snapshot.report, state, snapshot.retired, (archetype) =>
             siteArchetypeName(snapshot, archetype),
           )}
           currentTurn={state.turn}
@@ -756,7 +757,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
 function OpenDetailView(props: {
   open: OpenView;
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   locked: string | null;
   selected: readonly string[];
   onSelect: (ids: readonly string[]) => void;

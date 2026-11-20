@@ -58,7 +58,7 @@ describe('IndexedDB storage', () => {
     ok(await first.player.actions.advanceTurn());
     ok(await first.player.actions.hireAgent());
     ok(await first.session.globalConfiguration.set('musicVolume', 30));
-    const before = ok(first.player.queries.getCurrentState());
+    const before = ok(first.player.queries.getCurrentLiveWorldState());
     const campaignId = ok(first.session.getStatus()).campaignId;
 
     const second = await start(factory);
@@ -70,7 +70,7 @@ describe('IndexedDB storage', () => {
     const current = saves.find((save) => save.campaignId === campaignId && save.autosaveKind === 'current');
     expect(current).toBeDefined();
     ok(await second.session.saves.load(current?.saveId ?? ''));
-    expect(ok(second.player.queries.getCurrentState())).toEqual(before);
+    expect(ok(second.player.queries.getCurrentLiveWorldState())).toEqual(before);
     expect(ok(second.session.timeline.getStatus()).canUndoAction).toBe(true);
   });
 });

@@ -1,7 +1,11 @@
 /** SITP, GUI Completion estimate and Progress circle, and Turn summary: which groups show, in which order, and when the Turn summary shows. */
 import { describe, expect, it } from 'vite-plus/test';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
+import {
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
+  turnReportView,
+} from '../../src/engine/views/views.ts';
 import { completionEstimate, progressCircle } from '../../src/web/completion.ts';
 import { situationGroups } from '../../src/web/situation.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/web/turn-summary.ts';
@@ -22,8 +26,8 @@ const siteName = (archetype: string) =>
 describe('GUI: Situation panel', () => {
   it('lists its groups in order, each with its count, leaving out the empty ones', () => {
     const state = withAgents(newCampaign(), 4);
-    const view = currentStateView(state, gdrs);
-    const groups = situationGroups(view);
+    const view = currentLiveWorldStateView(state, gdrs);
+    const groups = situationGroups(view, currentRetiredWorldStateView(state, gdrs).leads);
     expect(groups.map((group) => group.id)).toEqual(['leads', 'agents']);
     const leads = groups.find((group) => group.id === 'leads');
     expect(leads?.id === 'leads' && leads.rows.map((lead) => lead.id)).toContain(MEMBER);
@@ -42,7 +46,10 @@ describe('GUI: Situation panel', () => {
     state = startMember(state, a1, 4);
     state = advance(state);
     state = advance(state);
-    const groups = situationGroups(currentStateView(state, gdrs));
+    const groups = situationGroups(
+      currentLiveWorldStateView(state, gdrs),
+      currentRetiredWorldStateView(state, gdrs).leads,
+    );
     const active = groups[0]!;
     expect(active.id).toBe('investigations');
     if (active.id !== 'investigations') {
@@ -56,16 +63,18 @@ describe('GUI: Situation panel', () => {
   });
 
   it('is empty, i.e. says that nothing needs attention, when every group is left out', () => {
-    const view = currentStateView(withAgents(newCampaign(), 2), gdrs);
+    const view = currentLiveWorldStateView(withAgents(newCampaign(), 2), gdrs);
     expect(
-      situationGroups({
-        ...view,
-        investigations: [],
-        leads: [],
-        missionSites: [],
-        agents: [],
-        agency: { ...view.agency, trainingAgents: view.agency.trainingCap },
-      }),
+      situationGroups(
+        {
+          ...view,
+          investigations: [],
+          missionSites: [],
+          agents: [],
+          agency: { ...view.agency, trainingAgents: view.agency.trainingCap },
+        },
+        [],
+      ),
     ).toEqual([]);
   });
 });
@@ -148,8 +157,8 @@ describe('GUI: Turn summary', () => {
   it('lists the completed Investigation with the gain of its last Advance turn, and the Mission site it created', () => {
     const model = turnSummary(
       turnReportView(state)!,
-      currentStateView(state, gdrs),
-      historyView(state, gdrs),
+      currentLiveWorldStateView(state, gdrs),
+      currentRetiredWorldStateView(state, gdrs),
       siteName,
     );
     expect(model.missions).toEqual([]);

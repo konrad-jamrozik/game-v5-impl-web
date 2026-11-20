@@ -2,7 +2,7 @@ import { buildGdrCatalog } from './catalog.ts';
 import { GDR_HASH, PACKAGE_VERSION, RAW_GDR_FILES } from './generated/raw-gdrs.ts';
 import type { GdrCatalog } from './types.ts';
 
-export { buildGdrCatalog, type RawGdrFile } from './catalog.ts';
+export { buildGdrCatalog, COMBAT_GDR_VALUE_NAMES, withCombatGdrValues, type RawGdrFile } from './catalog.ts';
 export { GDR_HASH, PACKAGE_VERSION, RAW_GDR_FILES };
 export type * from './types.ts';
 

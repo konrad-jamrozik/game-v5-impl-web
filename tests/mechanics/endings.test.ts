@@ -5,7 +5,7 @@ import { applyPendingPanicChange, checkEnding } from '../../src/engine/mechanics
 import { isRejection } from '../../src/engine/result.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView } from '../../src/engine/views/views.ts';
+import { currentLiveWorldStateView } from '../../src/engine/views/views.ts';
 import {
   act,
   addMissionSite,
@@ -39,7 +39,7 @@ const set = (
     world.turn = values.turn ?? world.turn;
   });
 
-const ending = (state: CampaignState) => currentStateView(state, gdrs).ending;
+const ending = (state: CampaignState) => currentLiveWorldStateView(state, gdrs).ending;
 const check = (values: {
   panicHundredths?: number;
   panicLimit?: number;
@@ -96,7 +96,7 @@ describe('ENDING: examples', () => {
     const again = advanceTurnOf(state, gdrs);
     expect(isRejection(again) && again.code).toBe('campaign_ended');
     expect(ending(state)).toEqual({ ending: 'Defeat', reasons: ['PanicAtTheLimit'], turn: 12 });
-    expect(currentStateView(state, gdrs)).toMatchObject({
+    expect(currentLiveWorldStateView(state, gdrs)).toMatchObject({
       panicHundredths: 10_000,
       panicLimit: 100,
       turn: 13,
@@ -251,7 +251,7 @@ describe('ENDING: examples', () => {
   });
 
   it('Player-visible information', () => {
-    const view = currentStateView(newCampaign(), gdrs);
+    const view = currentLiveWorldStateView(newCampaign(), gdrs);
     expect(view).toMatchObject({ panicHundredths: 0, panicLimit: 100, ending: null });
     expect(JSON.stringify(view)).not.toMatch(/pending/i);
   });

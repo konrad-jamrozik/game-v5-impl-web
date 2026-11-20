@@ -5,7 +5,11 @@ import { advanceTurnOf } from '../../src/engine/game-rules.ts';
 import type { Random } from '../../src/engine/random.ts';
 import { isRejection } from '../../src/engine/result.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView, historyView } from '../../src/engine/views/views.ts';
+import {
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
+  historyView,
+} from '../../src/engine/views/views.ts';
 import { chance, seedRng, uniformBelow, uniformInt, type RngState } from '../../src/kernel/index.ts';
 import {
   act,
@@ -52,7 +56,7 @@ const setFaction = (state: CampaignState, level: string, untilLevel: number | nu
     faction.state.turnsUntilNextOperation = untilOperation;
   });
 const series = (state: CampaignState) => {
-  const { moneyAtStartOfTurn, moneyAtEndOfTurn } = historyView(state, gdrs).turnSeries;
+  const { moneyAtStartOfTurn, moneyAtEndOfTurn } = historyView(state).turnSeries;
   return { start: moneyAtStartOfTurn.map((v) => v.value), end: moneyAtEndOfTurn.map((v) => v.value) };
 };
 
@@ -95,7 +99,7 @@ describe('TURN: examples', () => {
     expect(state.world.current.turn).toBe(2);
     expect(series(state)).toEqual({ start: [500, 480], end: [500] });
 
-    const view = currentStateView(state, gdrs);
+    const view = currentLiveWorldStateView(state, gdrs);
     expect(view.agency).toMatchObject({ projectedIncome: 80, projectedUpkeep: 40 });
     expect(view.investigations[0]!.projectedProgressGain).toBe(100);
 
@@ -117,7 +121,7 @@ describe('TURN: examples', () => {
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 58, turnsUntilNextOperation: 13 });
     expect(series(state)).toEqual({ start: [500, 480, 520], end: [500, 480] });
     expect(state.world.current.turn).toBe(3);
-    expect(historyView(state, gdrs).entries.map((entry) => entry.turn)).toEqual([1, 2]);
+    expect(historyView(state).entries.map((entry) => entry.turn)).toEqual([1, 2]);
   });
 
   it('Deployment, Combat, return, and recovery', () => {
@@ -159,7 +163,7 @@ describe('TURN: examples', () => {
       status: 'InTransit',
     });
     // In Turn 6 neither survivor can be assigned: both are In transit.
-    const survivors = currentStateView(state, gdrs).agents.filter((a) => a.id === a1 || a.id === a2);
+    const survivors = currentLiveWorldStateView(state, gdrs).agents.filter((a) => a.id === a1 || a.id === a2);
     expect(survivors.map((a) => a.canBeAssigned)).toEqual([false, false]);
     expect(report.recovery).toEqual([]);
     expect(state.world.current.missionSites[created.site]!.state.turnsUntilExpiration).toBe(4);
@@ -177,9 +181,9 @@ describe('TURN: examples', () => {
       status: 'Recovering',
     });
     // round up((30 − 18) / 0.60) = 20.
-    expect(currentStateView(state, gdrs).agents.find((a) => a.id === wounded)!.recoveryTurnsRemaining).toBe(
-      20,
-    );
+    expect(
+      currentLiveWorldStateView(state, gdrs).agents.find((a) => a.id === wounded)!.recoveryTurnsRemaining,
+    ).toBe(20);
     state = advance(state);
     expect(units(agent(state, wounded).state)).toMatchObject({
       currentHealthHundredths: 1860,
@@ -270,7 +274,7 @@ describe('TURN: examples', () => {
     expect(series(forward).start.at(-1)).toBe(995);
     const again = advanceTurnOf(forward, gdrs);
     expect(isRejection(again) && again.reason).toBe('campaign_ended');
-    expect(currentStateView(forward, gdrs).turn).toBe(151);
+    expect(currentLiveWorldStateView(forward, gdrs).turn).toBe(151);
   });
 
   it('The last Faction Eliminated while Panic reaches the limit: the raid fails', () => {
@@ -361,7 +365,7 @@ describe('TURN: examples', () => {
     state = advance(state);
     expect(expiration()).toEqual(['Expired', 'Expired']);
     expect(state.world.current.panicHundredths).toBe(1300);
-    expect(currentStateView(state, gdrs).leads[0]!.status).toBe('Available');
+    expect(currentRetiredWorldStateView(state, gdrs).leads[0]!.status).toBe('Available');
   });
 
   it('Money below zero, Defeat, and Turn close', () => {
@@ -416,7 +420,7 @@ describe('TURN: examples', () => {
     // Step 5: max(0, 0 + 5 − 1) = 4; step 6: max(0, 4 − 1) = 3.
     expect(funding(forward)).toBe(3);
     expect(forward.world.current.panicHundredths).toBe(2000 - 200 + 800 + 800);
-    expect(currentStateView(forward, gdrs).agency.projectedIncome).toBe(3);
+    expect(currentLiveWorldStateView(forward, gdrs).agency.projectedIncome).toBe(3);
   });
 
   it('Step-start values', () => {

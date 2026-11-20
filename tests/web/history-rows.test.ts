@@ -6,7 +6,7 @@ import { ok, startEngine } from '../helpers/engine.ts';
 
 function rowsOf(engine: Engine) {
   return historyRows({
-    state: ok(engine.player.queries.getCurrentState()),
+    state: ok(engine.player.queries.getCurrentLiveWorldState()),
     history: ok(engine.player.queries.getHistory()),
   });
 }
@@ -15,7 +15,7 @@ describe('HVIEW: the current Turn row', () => {
   it('is the only row before the first Advance turn, follows undo and redo, and sits on top afterwards', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'history rows' }));
-    const start = ok(engine.player.queries.getCurrentState());
+    const start = ok(engine.player.queries.getCurrentLiveWorldState());
     let rows = rowsOf(engine);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
@@ -32,7 +32,7 @@ describe('HVIEW: the current Turn row', () => {
     });
 
     ok(await engine.player.actions.hireAgent());
-    const hired = ok(engine.player.queries.getCurrentState());
+    const hired = ok(engine.player.queries.getCurrentLiveWorldState());
     rows = rowsOf(engine);
     expect(rows[0]).toMatchObject({
       now: true,
@@ -61,7 +61,7 @@ describe('HVIEW: the current Turn row', () => {
   it('is left out once the Campaign has a Campaign ending', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'idle' }));
-    while (ok(engine.player.queries.getCurrentState()).ending === null) {
+    while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null) {
       ok(await engine.player.actions.advanceTurn());
     }
     const rows = rowsOf(engine);

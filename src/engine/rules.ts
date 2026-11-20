@@ -72,7 +72,9 @@ export interface GameRules<S extends ShellState> {
   /** Whether a decoded value has the shape of Campaign state, for loading a Campaign save. */
   isCampaignState(value: unknown): value is S;
 
-  currentStateView(state: S): unknown;
+  currentLiveWorldStateView(state: S): unknown;
+  currentRetiredWorldStateView(state: S): unknown;
+  campaignConfigurationView(state: S): unknown;
   turnReportView(state: S): unknown;
   historyView(state: S): unknown;
   availableActionsView(state: S): unknown;
@@ -95,4 +97,14 @@ export interface GameRules<S extends ShellState> {
   placeInPlay(state: S): unknown;
   /** A further Player API query, by name; it returns only Player-visible information. */
   extraPlayerQuery?(state: S, query: string, args: unknown): unknown;
+  /**
+   * A further `developer.queries` operation other than `getCampaignState()`, by name, e.g. the Initiative operation
+   * levels of the Game build (LEAD); it reads values derived from the Game build only.
+   */
+  extraDeveloperQuery?(query: string): unknown;
+  /**
+   * DEV, Developer tools: a `developer.tools` operation, by name, e.g. `fightCombat` (COMBAT, Detached Combat). It
+   * reads the World state only for what its arguments name, changes nothing, and returns its result or a rejection.
+   */
+  developerTool?(state: S, tool: string, args: unknown): unknown;
 }

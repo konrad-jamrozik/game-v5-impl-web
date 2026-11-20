@@ -4,7 +4,11 @@ import { exhaustionOf } from '../../src/engine/mechanics/agents/agents.ts';
 import { contractingContribution, fundingAfter, income } from '../../src/engine/mechanics/economy/economy.ts';
 import { createGameRules } from '../../src/engine/game-rules.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView, historyView } from '../../src/engine/views/views.ts';
+import {
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
+  historyView,
+} from '../../src/engine/views/views.ts';
 import {
   act,
   addMissionSite,
@@ -28,9 +32,9 @@ import {
   effectiveValuesOf,
 } from '../helpers/game.ts';
 
-const agency = (state: CampaignState) => currentStateView(state, gdrs).agency;
+const agency = (state: CampaignState) => currentLiveWorldStateView(state, gdrs).agency;
 const series = (state: CampaignState) => {
-  const { moneyAtStartOfTurn, moneyAtEndOfTurn } = historyView(state, gdrs).turnSeries;
+  const { moneyAtStartOfTurn, moneyAtEndOfTurn } = historyView(state).turnSeries;
   return { start: moneyAtStartOfTurn.map((v) => v.value), end: moneyAtEndOfTurn.map((v) => v.value) };
 };
 const setMoney = (state: CampaignState, value: number, fund?: number) =>
@@ -123,7 +127,7 @@ describe('ECON: examples', () => {
       world.agents[c3]!.state.skillHundredths = 15000;
       world.agents[c3]!.state.exactExhaustionHundredths = 6900;
     });
-    const view = currentStateView(state, gdrs);
+    const view = currentLiveWorldStateView(state, gdrs);
     expect(view.agents.slice(0, 3).map((a) => a.effectiveSkill)).toEqual([100, 83, 91]);
     expect(contractingContribution(83, gdrs.economy).toString()).toBe('1449/50');
     expect(contractingContribution(91, gdrs.economy).toString()).toBe('1473/50');
@@ -296,7 +300,7 @@ describe('ECON: examples', () => {
       killedBy: null,
     });
     expect(agency(next)).toMatchObject({ money: 120, projectedUpkeep: 30 });
-    expect(historyView(next, gdrs).retained.agents.map((a) => a.id)).toEqual([a1, a2, a6]);
+    expect(currentRetiredWorldStateView(next, gdrs).agents.map((a) => a.id)).toEqual([a1, a2, a6]);
   });
 
   it('Transport cap', () => {

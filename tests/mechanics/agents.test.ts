@@ -13,7 +13,11 @@ import {
 } from '../../src/engine/mechanics/agents/agents.ts';
 import { ratio } from '../../src/kernel/index.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
-import { currentStateView, historyView, turnReportView } from '../../src/engine/views/views.ts';
+import {
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
+  turnReportView,
+} from '../../src/engine/views/views.ts';
 import {
   act,
   addMissionSite,
@@ -153,7 +157,7 @@ describe('AGENT: examples', () => {
       expect(effectiveSkill(valuesOf(a.state), p)).toBe(100);
       expect(canBeAssigned(a.state)).toBe(true);
     }
-    const view = currentStateView(state, gdrs);
+    const view = currentLiveWorldStateView(state, gdrs);
     expect(view.agents.every((a) => a.canBeAssigned && a.effectiveSkill === 100)).toBe(true);
   });
 
@@ -345,7 +349,7 @@ describe('AGENT: examples', () => {
       world.agents[a3]!.state.exactExhaustionHundredths = 3100;
       world.agents[a4]!.state.exactExhaustionHundredths = 3000;
     });
-    const view = currentStateView(state, gdrs);
+    const view = currentLiveWorldStateView(state, gdrs);
     expect(view.agents.map((a) => a.fitForWork)).toEqual([false, false, false, true]);
     expectRejected(
       state,
@@ -403,7 +407,7 @@ describe('AGENT: examples', () => {
       { agents: [a2], assignment: 'Training' },
       'agents_not_fit_for_work',
     );
-    expect(currentStateView(state, gdrs).agents.find((a) => a.id === a3)?.fitForWork).toBe(true);
+    expect(currentLiveWorldStateView(state, gdrs).agents.find((a) => a.id === a3)?.fitForWork).toBe(true);
     // a1 arrives in the next Advance turn and then recovers 5 per Advance turn, to 30 after eight of them.
     state = advance(state);
     for (let turn = 0; turn < 8; turn += 1) {
@@ -624,8 +628,12 @@ describe('AGENT: examples', () => {
       },
     ]);
     expect(agent(state, a1).state.participationHistory).toEqual([{ kind: 'Mission', id: m1 }]);
-    expect(currentStateView(state, gdrs).agents.find((item) => item.id === a1)!.experience).toBe(a1Gain);
-    expect(historyView(state, gdrs).retained.agents.find((item) => item.id === a2)!.experience).toBe(0);
+    expect(currentLiveWorldStateView(state, gdrs).agents.find((item) => item.id === a1)!.experience).toBe(
+      a1Gain,
+    );
+    expect(currentRetiredWorldStateView(state, gdrs).agents.find((item) => item.id === a2)!.experience).toBe(
+      0,
+    );
   });
 
   it('Mission growth: the survival skill gain by Missions survived', () => {
@@ -681,9 +689,9 @@ describe('AGENT: examples', () => {
       turnTerminated: fightTurn,
       killedBy: { enemy: fatal.attacker, missionSite: lost.site },
     });
-    // WHIST: the Killed Agent is Retired and getHistory() returns its Service record.
-    expect(currentStateView(state, gdrs).agents.some((a) => a.id === a2)).toBe(false);
-    expect(historyView(state, gdrs).retained.agents.find((a) => a.id === a2)).toMatchObject({
+    // WHIST: the Killed Agent is Retired and getCurrentRetiredWorldState() returns its Service record.
+    expect(currentLiveWorldStateView(state, gdrs).agents.some((a) => a.id === a2)).toBe(false);
+    expect(currentRetiredWorldStateView(state, gdrs).agents.find((a) => a.id === a2)).toMatchObject({
       turnTerminated: fightTurn,
       killedBy: { enemy: fatal.attacker, missionSite: lost.site },
     });
@@ -714,7 +722,7 @@ describe('AGENT: examples', () => {
       world.agents[a7]!.state.assignment = null;
     });
     const where = (id: string) => {
-      const found = currentStateView(state, gdrs).agents.find((a) => a.id === id);
+      const found = currentLiveWorldStateView(state, gdrs).agents.find((a) => a.id === id);
       return found === undefined ? null : { inBase: found.inBase, away: found.away };
     };
     expect(where(a1)).toEqual({ inBase: true, away: false });

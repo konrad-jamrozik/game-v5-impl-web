@@ -5,7 +5,12 @@ import { injectedRandom } from '../../src/engine/random.ts';
 import { createCampaignState } from '../../src/engine/state/create.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView, gameDataView, turnReportView } from '../../src/engine/views/views.ts';
+import {
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
+  gameDataView,
+  turnReportView,
+} from '../../src/engine/views/views.ts';
 import { RAW_GDR_FILES, buildGdrCatalog } from '../../src/gdr/index.ts';
 import {
   addMissionSite,
@@ -253,9 +258,10 @@ describe('FACTION: examples', () => {
     // Its Active Mission site is Cancelled, it creates no Response Mission site, and it does not win the Campaign.
     expect(sites(state).map((item) => item.state.lifecycle)).toEqual(['Cancelled']);
     expect(state.world.current.ending).toBeNull();
-    expect(currentStateView(state, gdrs).leads.find((lead) => lead.id === 'terminate_red_dawn')!.status).toBe(
-      'Archived',
-    );
+    expect(
+      currentRetiredWorldStateView(state, gdrs).leads.find((lead) => lead.id === 'terminate_red_dawn')!
+        .status,
+    ).toBe('Archived');
   });
 
   it('Several Factions', () => {
@@ -343,7 +349,7 @@ describe('FACTION: examples', () => {
 
   it('Player-visible information', () => {
     let state = setFaction(newCampaign(), { untilLevel: 45, untilOperation: 25 });
-    const [view] = currentStateView(state, gdrs).factions;
+    const [view] = currentLiveWorldStateView(state, gdrs).factions;
     // FACTION, Player-visible information: neither the Faction activity level nor either countdown.
     expect(view).toEqual({
       id: onlyFaction(state).id,
@@ -352,10 +358,10 @@ describe('FACTION: examples', () => {
       eliminated: false,
       eliminatedTurn: null,
     });
-    const text = JSON.stringify(currentStateView(state, gdrs));
+    const text = JSON.stringify(currentLiveWorldStateView(state, gdrs));
     expect(text).not.toMatch(/turnsUntilNext|"45"|:45[,}]|activityLevel|faint/i);
     state = setFaction(state, { level: 'total_war', untilLevel: null });
-    const final = currentStateView(state, gdrs).factions[0]!;
+    const final = currentLiveWorldStateView(state, gdrs).factions[0]!;
     expect(Object.keys(final)).toEqual(['id', 'archetype', 'name', 'eliminated', 'eliminatedTurn']);
     // No FactionActivityLevel GDR is Player-visible.
     expect(JSON.stringify(gameDataView(gdrs))).not.toMatch(/activityLevel|operationEveryTurns|Total war/i);

@@ -5,7 +5,7 @@
 import type { ReactNode } from 'react';
 import type {
   CombatReport,
-  CurrentStateView,
+  CurrentLiveWorldStateView,
   MissionGrowthRecord,
   MissionSiteView,
   TurnReport,
@@ -41,7 +41,7 @@ function Section(props: { title: string; count: number; testId: string; children
 
 export function TurnReportView(props: {
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   onOpen: (target: ReportTarget) => void;
   onOpenSummary: () => void;
   onClose: () => void;
@@ -85,7 +85,7 @@ export function TurnReportView(props: {
   const heading = `Turn ${report.turn} ended · Turn ${report.turn + 1} began`;
   if (shownCombat !== undefined) {
     const mission = report.missions.find((item) => item.mission === shownCombat.mission);
-    const site = [...state.missionSites, ...(snapshot.history?.retained.missionSites ?? [])].find(
+    const site = [...state.missionSites, ...(snapshot.retired?.missionSites ?? [])].find(
       (item) => item.id === mission?.missionSite,
     );
     const siteName = site?.name ?? mission?.missionSite;
@@ -154,19 +154,19 @@ export function TurnReportView(props: {
 function Sections(props: {
   report: TurnReport;
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   onOpen: (target: ReportTarget) => void;
   onCombat: (mission: string) => void;
 }) {
   const { report, snapshot, state, onOpen } = props;
   const sites: readonly MissionSiteView[] = [
     ...state.missionSites,
-    ...(snapshot.history?.retained.missionSites ?? []),
+    ...(snapshot.retired?.missionSites ?? []),
   ];
   const site = (id: string) => sites.find((item) => item.id === id);
   const archetypeName = (archetype: string) =>
     snapshot.gameData?.missionSiteArchetypes.find((item) => item.id === archetype)?.name ?? archetype;
-  const leadName = (lead: string) => state.leads.find((item) => item.id === lead)?.name ?? lead;
+  const leadName = (lead: string) => snapshot.retired?.leads.find((item) => item.id === lead)?.name ?? lead;
   const factionName = (faction: string) =>
     state.factions.find((item) => item.id === faction)?.name ?? faction;
   const siteRow = (id: string, what: ReactNode) => (

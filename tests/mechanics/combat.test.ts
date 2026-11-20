@@ -19,15 +19,19 @@ import {
   units,
 } from '../helpers/game.ts';
 
+/**
+ * Fights a Combat and, as the Mission resolution step does, applies its final values to the Combatants it was given,
+ * so that a test can read them there.
+ */
 function fight(agents: Combatant[], enemies: Combatant[], injected: Injected): CombatReport {
-  return fightCombat({
-    missionId: 'm1',
-    agents,
-    enemies,
-    combat: gdrs.combatParameters,
-    agentParameters: gdrs.agentParameters,
-    random: injectedRandom(injected),
-  });
+  const outputs = fightCombat(
+    { agents, enemies, combat: gdrs.combatParameters, agentParameters: gdrs.agentParameters },
+    injectedRandom(injected),
+  );
+  [...agents, ...enemies].forEach((combatant, index) =>
+    Object.assign(combatant.state, [...outputs.agents, ...outputs.enemies][index]),
+  );
+  return { mission: 'm1', ...outputs.report };
 }
 
 const participant = (report: CombatReport, id: string) => report.participants.find((p) => p.id === id)!;
@@ -432,14 +436,15 @@ describe('COMBAT: examples', () => {
     );
     expect(noPenalty.agentParameters.skillPenaltyPctPerExhaustion).toBe(0);
     const tired = combatAgent('a1', { exhaustion: 100 });
-    const report = fightCombat({
-      missionId: 'm1',
-      agents: [tired],
-      enemies: [combatEnemy('e1', 'initiate')],
-      combat: noPenalty.combatParameters,
-      agentParameters: noPenalty.agentParameters,
-      random: injectedRandom({}),
-    });
+    const { report } = fightCombat(
+      {
+        agents: [tired],
+        enemies: [combatEnemy('e1', 'initiate')],
+        combat: noPenalty.combatParameters,
+        agentParameters: noPenalty.agentParameters,
+      },
+      injectedRandom({}),
+    );
     expect(effectiveSkill(tired.state, noPenalty.agentParameters)).toBe(100);
     expect(report.outcome).toBe('Wiped');
   });

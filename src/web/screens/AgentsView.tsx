@@ -13,7 +13,11 @@ import {
   type SortingState,
 } from '@tanstack/react-table';
 import { useEffect, useMemo, useRef } from 'react';
-import type { AgentView, CurrentStateView, HistoryView } from '../../engine/index.ts';
+import type {
+  AgentView,
+  CurrentLiveWorldStateView,
+  CurrentRetiredWorldStateView,
+} from '../../engine/index.ts';
 import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
 import { decimalText, wholeText } from '../format.ts';
 import { ASSIGNMENTS, blockedBy, type OrderAssignment, type Selectability } from '../agent-selection.ts';
@@ -88,8 +92,8 @@ function byId(a: string, b: string): number {
 /** AVIEW, Agent table: an Assignment names its Lead or Mission site, and an Agent In transit says so. */
 export function assignmentText(
   agent: AgentView,
-  state: CurrentStateView,
-  history?: HistoryView | null,
+  state: CurrentLiveWorldStateView,
+  retired?: CurrentRetiredWorldStateView | null,
 ): string {
   const assignment = agent.assignment;
   let text: string;
@@ -98,7 +102,7 @@ export function assignmentText(
   } else if (assignment.kind === 'Investigation') {
     const investigation =
       state.investigations.find((item) => item.id === assignment.investigation) ??
-      history?.retained.investigations.find((item) => item.id === assignment.investigation);
+      retired?.investigations.find((item) => item.id === assignment.investigation);
     text = `Investigation · ${investigation?.leadName ?? assignment.investigation}`;
   } else if (assignment.kind === 'Deployed') {
     const mission = state.missions.find((item) => item.id === assignment.mission);
@@ -130,14 +134,14 @@ function assignmentTone(agent: AgentView): string {
  */
 export function memorialDetails(
   agent: AgentView,
-  state: CurrentStateView,
-  history: HistoryView | null,
+  state: CurrentLiveWorldStateView,
+  retired: CurrentRetiredWorldStateView | null,
 ): string {
   const killedBy = agent.killedBy;
   if (agent.agentStatus !== 'Killed' || killedBy === null) {
     return agent.agentStatus;
   }
-  const sites = [...state.missionSites, ...(history?.retained.missionSites ?? [])];
+  const sites = [...state.missionSites, ...(retired?.missionSites ?? [])];
   const site = sites.find((item) => item.id === killedBy.missionSite);
   // GUI, Enemy labels: an Enemy label is unique only within its Mission site, so the Mission site is named with it.
   const label = site === undefined ? undefined : enemyLabels(site.enemies).get(killedBy.enemy);
@@ -172,7 +176,7 @@ function FunnelIcon() {
 
 export function AgentsView(props: {
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   selected: readonly string[];
   locked: string | null;
   onSelect: (ids: readonly string[]) => void;
@@ -215,10 +219,10 @@ export function AgentsView(props: {
   const memorial = memorialOn;
   const terminated = useMemo(
     () =>
-      [...(snapshot.history?.retained.agents ?? [])].sort(
+      [...(snapshot.retired?.agents ?? [])].sort(
         (a, b) => (b.turnTerminated ?? 0) - (a.turnTerminated ?? 0) || byId(a.id, b.id),
       ),
-    [snapshot.history],
+    [snapshot.retired],
   );
 
   // AVIEW, Assignment filters: the Agents each button of Assign to would succeed with alone, as PAPI, Action preview
@@ -337,7 +341,7 @@ export function AgentsView(props: {
       }),
       // AVIEW, Agent table: the effective weapon damage.
       helper.accessor('effectiveWeaponDamage', { header: 'Damage' }),
-      helper.accessor((agent) => assignmentText(agent, state, snapshot.history), {
+      helper.accessor((agent) => assignmentText(agent, state, snapshot.retired), {
         id: 'assignment',
         header: 'Assignment',
         cell: (cell) => <span className={assignmentTone(cell.row.original)}>{cell.getValue()}</span>,
@@ -353,7 +357,7 @@ export function AgentsView(props: {
         ),
       }),
     ],
-    [state, snapshot.history, levels],
+    [state, snapshot.retired, levels],
   );
 
   const table = useReactTable({
@@ -562,7 +566,7 @@ export function AgentsView(props: {
         <Memorial
           agents={terminated}
           state={state}
-          history={snapshot.history}
+          retired={snapshot.retired}
           onOpen={(id) => {
             openDetails(id);
           }}
@@ -659,15 +663,15 @@ type MemorialKey =
 /** AVIEW, Memorial: one row per Terminated Agent, newest Turn terminated first, sorted by any column header. */
 function Memorial(props: {
   agents: readonly AgentView[];
-  state: CurrentStateView;
-  history: HistoryView | null;
+  state: CurrentLiveWorldStateView;
+  retired: CurrentRetiredWorldStateView | null;
   onOpen: (id: string) => void;
 }) {
   // VIS, Tables: up to four sort tiers over the default order, newest Turn terminated first and then by Instance ID.
   const [tiers, setTiers] = usePlaceState<SortTier<MemorialKey>[]>('memorialTiers', []);
   const unsorted = props.agents.map((agent) => ({
     agent,
-    details: memorialDetails(agent, props.state, props.history),
+    details: memorialDetails(agent, props.state, props.retired),
     ...memorialNumbers(agent),
   }));
   type Row = (typeof unsorted)[number];
@@ -762,16 +766,16 @@ function Memorial(props: {
   );
 }
 
-function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: CurrentStateView }) {
+function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: CurrentLiveWorldStateView }) {
   const { agent, snapshot, state } = props;
-  const retained = snapshot.history?.retained;
+  const retired = snapshot.retired;
   /** AVIEW, Agent details: a Terminated Agent shows its Final max health and no exhaustion. */
   const terminated = agent.agentStatus === 'Killed' || agent.agentStatus === 'Dismissed';
   const participation = agent.participationHistory.map((item) => {
     if (item.kind === 'Investigation') {
       const investigation =
         state.investigations.find((one) => one.id === item.id) ??
-        retained?.investigations.find((one) => one.id === item.id);
+        retired?.investigations.find((one) => one.id === item.id);
       return {
         key: `i-${item.id}`,
         what: `Investigation · ${investigation?.leadName ?? item.id}`,
@@ -779,9 +783,8 @@ function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: Curr
       };
     }
     const mission =
-      state.missions.find((one) => one.id === item.id) ??
-      retained?.missions.find((one) => one.id === item.id);
-    const site = [...state.missionSites, ...(retained?.missionSites ?? [])].find(
+      state.missions.find((one) => one.id === item.id) ?? retired?.missions.find((one) => one.id === item.id);
+    const site = [...state.missionSites, ...(retired?.missionSites ?? [])].find(
       (one) => one.id === mission?.missionSite,
     );
     return {
@@ -821,7 +824,7 @@ function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: Curr
           </>
         )}
         <dt>Assignment</dt>
-        <dd>{assignmentText(agent, state, snapshot.history)}</dd>
+        <dd>{assignmentText(agent, state, snapshot.retired)}</dd>
       </dl>
       <div className="label">Participation history</div>
       {participation.length === 0 ? (

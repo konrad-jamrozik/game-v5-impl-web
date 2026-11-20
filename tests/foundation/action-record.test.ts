@@ -25,7 +25,7 @@ describe('WHIST: Action record', () => {
       { operation: 'hireAgent', args: {}, moneyChange: -gdrs.economy.hireCost },
     ]);
     expect(ended.world.history.currentActions).toEqual([]);
-    expect(historyView(ended, gdrs).entries.at(-1)!.actions).toHaveLength(2);
+    expect(historyView(ended).entries.at(-1)!.actions).toHaveLength(2);
   });
 
   it('lists a Player cheat action with its money change, and neither a rejected action nor one with no effect', () => {
@@ -44,28 +44,28 @@ describe('WHIST: Open History entry', () => {
   it('example: follows the World state through undo and redo, and becomes the History entry', () => {
     const start = newCampaign({ money: 500 });
     // Before the first committed Advance turn, the Open History entry of Turn 1 is all getHistory() returns.
-    expect(historyView(start, gdrs).entries).toEqual([]);
-    expect(historyView(start, gdrs).openEntry).toMatchObject({ turn: 1, actions: [] });
+    expect(historyView(start).entries).toEqual([]);
+    expect(historyView(start).openEntry).toMatchObject({ turn: 1, actions: [] });
     const once = act(start, 'hireAgent');
     const twice = act(once, 'hireAgent');
-    const open = historyView(twice, gdrs).openEntry;
+    const open = historyView(twice).openEntry;
     expect(open.actions).toHaveLength(2);
     expect(open.turnStart).toEqual(start.world.history.currentTurnStart);
     expect(open.turnEnd.servingAgents).toBe(open.turnStart.servingAgents + 2);
     expect(open.turnEnd.money).toBe(500 - 2 * gdrs.economy.hireCost);
     // Undo restores the earlier World state, whose Open History entry lacks the undone item and its Agent.
-    const undone = historyView(once, gdrs).openEntry;
+    const undone = historyView(once).openEntry;
     expect(undone.actions).toHaveLength(1);
     expect(undone.turnEnd.servingAgents).toBe(open.turnStart.servingAgents + 1);
     // Advance turn makes it the History entry of Turn 1, and Turn 2 starts with an empty one.
     const ended = advance(twice);
-    const entry = historyView(ended, gdrs).entries.at(-1)!;
+    const entry = historyView(ended).entries.at(-1)!;
     expect({
       turn: entry.turn,
       turnStart: entry.turnStart,
       turnEnd: entry.turnEnd,
       actions: entry.actions,
     }).toEqual(open);
-    expect(historyView(ended, gdrs).openEntry).toMatchObject({ turn: 2, actions: [] });
+    expect(historyView(ended).openEntry).toMatchObject({ turn: 2, actions: [] });
   });
 });

@@ -7,8 +7,10 @@ import { z } from 'zod';
 import { EngineDefect, Rational, q } from '../kernel/index.ts';
 import { parseCompendiumArticle, validateCompendiumArticles, type RawGdr } from './compendium-articles.ts';
 import type {
+  AgentParametersGdr,
   AnyGdr,
   BackgroundArtworkGdr,
+  CombatParametersGdr,
   CompendiumArticleGdr,
   Condition,
   FactionActivityLevelGdr,
@@ -176,6 +178,27 @@ function conditionReferences(item: Condition): { missionSiteArchetypes: string[]
 }
 const range = z.tuple([z.int(), z.int()]);
 
+/** COMBAT, Combat inputs and outputs, item 4: the values of CombatParameters, by authored name. */
+const combatParameterFields = {
+  weapon_damage_range: decimal,
+  retreat_below_agent_rating_fraction: decimal,
+  retreat_at_enemy_to_agent_rating: decimal,
+  incapacitation_skill_fraction: decimal,
+};
+
+/** COMBAT, Combat inputs and outputs, item 4: the values of AgentParameters that a Combat reads, by authored name. */
+const combatAgentParameterFields = {
+  exhaustion_incapacitation: whole(0),
+  exhaustion_free_points: whole(0),
+  skill_penalty_pct_per_exhaustion: whole(0),
+  exhaustion_per_attack: whole(0),
+  exhaustion_per_defense: whole(0),
+  experience_per_attack_hit: whole(0),
+  experience_per_attack_miss: whole(0),
+  experience_per_defense_hit: whole(0),
+  experience_per_defense_miss: whole(0),
+};
+
 const schemas = {
   AgentArchetype: z
     .strictObject({
@@ -199,11 +222,7 @@ const schemas = {
       id,
       type: z.literal('AgentParameters'),
       initial_roster_size: whole(0),
-      exhaustion_incapacitation: whole(0),
-      exhaustion_free_points: whole(0),
-      skill_penalty_pct_per_exhaustion: whole(0),
-      exhaustion_per_attack: whole(0),
-      exhaustion_per_defense: whole(0),
+      ...combatAgentParameterFields,
       exhaustion_per_mission: whole(0),
       exhaustion_per_pct_killed: whole(0),
       exhaustion_per_contracting_turn: whole(0),
@@ -212,10 +231,6 @@ const schemas = {
       exhaustion_work_start_max: whole(0),
       exhaustion_work_limit: whole(0),
       training_skill_gain_per_turn: hundredths(0),
-      experience_per_attack_hit: whole(0),
-      experience_per_attack_miss: whole(0),
-      experience_per_defense_hit: whole(0),
-      experience_per_defense_miss: whole(0),
       // AGENT, Agent GDR validation, rule 5: a list of one or more whole numbers of at least 0.
       experience_per_mission_survived: z.array(whole(0)).min(1),
     })
@@ -266,10 +281,7 @@ const schemas = {
     .strictObject({
       id,
       type: z.literal('CombatParameters'),
-      weapon_damage_range: decimal,
-      retreat_below_agent_rating_fraction: decimal,
-      retreat_at_enemy_to_agent_rating: decimal,
-      incapacitation_skill_fraction: decimal,
+      ...combatParameterFields,
     })
     .transform((g) => ({
       type: g.type,
@@ -617,6 +629,108 @@ const DETAIL_VIEW_NAMES = [
 
 type TypeName = keyof typeof schemas;
 
+/** COMBAT, Combat GDR validation: the rules that relate the values of CombatParameters. */
+function combatParametersProblems(combatParameters: CombatParametersGdr): string[] {
+  const problems: string[] = [];
+  if (combatParameters.weaponDamageRange.lt(0) || combatParameters.weaponDamageRange.gt(1)) {
+    problems.push('CombatParameters: weapon_damage_range must be from 0 to 1');
+  }
+  if (
+    combatParameters.retreatBelowAgentRatingFraction.lt(0) ||
+    combatParameters.retreatAtEnemyToAgentRating.lt(0)
+  ) {
+    problems.push('CombatParameters: the retreat thresholds must be at least 0');
+  }
+  if (
+    combatParameters.incapacitationSkillFraction.lt(0) ||
+    combatParameters.incapacitationSkillFraction.gte(1)
+  ) {
+    problems.push('CombatParameters: incapacitation_skill_fraction must be at least 0 and less than 1');
+  }
+  return problems;
+}
+
+/** COMBAT, Combat GDR validation, and AGENT, Agent GDR validation: the rules that relate values of AgentParameters. */
+function agentParametersProblems(agentParameters: AgentParametersGdr): string[] {
+  const problems: string[] = [];
+  if (agentParameters.exhaustionPerAttack + agentParameters.exhaustionPerDefense < 1) {
+    problems.push('AgentParameters: every attack must tire someone');
+  }
+  // AGENT, Agent GDR validation, rule 6: exhaustion thresholds are ordered.
+  if (agentParameters.exhaustionWorkStartMax >= agentParameters.exhaustionWorkLimit) {
+    problems.push('AgentParameters: exhaustion_work_start_max must be less than exhaustion_work_limit');
+  }
+  if (agentParameters.exhaustionWorkLimit > agentParameters.exhaustionIncapacitation) {
+    problems.push('AgentParameters: exhaustion_work_limit must be at most exhaustion_incapacitation');
+  }
+  return problems;
+}
+
+/** The property of CombatParameters or AgentParameters that holds each GDR value a Combat reads. */
+const COMBAT_GDR_VALUE_PROPERTIES: Readonly<Record<string, readonly ['combat' | 'agent', string]>> = {
+  weapon_damage_range: ['combat', 'weaponDamageRange'],
+  retreat_below_agent_rating_fraction: ['combat', 'retreatBelowAgentRatingFraction'],
+  retreat_at_enemy_to_agent_rating: ['combat', 'retreatAtEnemyToAgentRating'],
+  incapacitation_skill_fraction: ['combat', 'incapacitationSkillFraction'],
+  exhaustion_incapacitation: ['agent', 'exhaustionIncapacitation'],
+  exhaustion_free_points: ['agent', 'exhaustionFreePoints'],
+  skill_penalty_pct_per_exhaustion: ['agent', 'skillPenaltyPctPerExhaustion'],
+  exhaustion_per_attack: ['agent', 'exhaustionPerAttack'],
+  exhaustion_per_defense: ['agent', 'exhaustionPerDefense'],
+  experience_per_attack_hit: ['agent', 'experiencePerAttackHit'],
+  experience_per_attack_miss: ['agent', 'experiencePerAttackMiss'],
+  experience_per_defense_hit: ['agent', 'experiencePerDefenseHit'],
+  experience_per_defense_miss: ['agent', 'experiencePerDefenseMiss'],
+};
+
+/** COMBAT, Combat inputs and outputs, item 4: the authored names of the GDR values a Combat reads. */
+export const COMBAT_GDR_VALUE_NAMES: readonly string[] = Object.keys(COMBAT_GDR_VALUE_PROPERTIES);
+
+/**
+ * COMBAT, Detached Combat, GDR values: the given CombatParameters and AgentParameters with some of the GDR values a
+ * Combat reads replaced, by authored name, e.g. `{ incapacitation_skill_fraction: 0.2 }`. Each value is read by the
+ * schema the Game build's GDRs are read by, and the result must pass the same Combat GDR validation and Agent GDR
+ * validation; otherwise the first problem is returned. A decimal value may be given as a number or as its text.
+ */
+export function withCombatGdrValues(
+  base: { readonly combat: CombatParametersGdr; readonly agent: AgentParametersGdr },
+  values: Readonly<Record<string, unknown>>,
+): { combat: CombatParametersGdr; agent: AgentParametersGdr } | { problem: string } {
+  const combat: Record<string, unknown> = { ...base.combat };
+  const agent: Record<string, unknown> = { ...base.agent };
+  const fields: Record<string, z.ZodType> = { ...combatParameterFields, ...combatAgentParameterFields };
+  for (const [name, value] of Object.entries(values)) {
+    const property = COMBAT_GDR_VALUE_PROPERTIES[name];
+    const schema = fields[name];
+    if (property === undefined || schema === undefined) {
+      return { problem: `${name} is not a GDR value a Combat reads` };
+    }
+    // A decimal value is authored as a whole number or as its decimal text; see the schema `decimal`.
+    const authored =
+      schema === decimal &&
+      (typeof value === 'string' || (typeof value === 'number' && !Number.isInteger(value)))
+        ? { $decimal: String(value) }
+        : value;
+    let parsed: { success: true; data: unknown } | { success: false };
+    try {
+      parsed = schema.safeParse(authored);
+    } catch {
+      parsed = { success: false };
+    }
+    if (!parsed.success) {
+      return { problem: `${name}: ${JSON.stringify(value)} is not a permitted value` };
+    }
+    const [owner, key] = property;
+    (owner === 'combat' ? combat : agent)[key] = parsed.data;
+  }
+  const result = {
+    combat: combat as unknown as CombatParametersGdr,
+    agent: agent as unknown as AgentParametersGdr,
+  };
+  const problem = [...combatParametersProblems(result.combat), ...agentParametersProblems(result.agent)][0];
+  return problem === undefined ? result : { problem };
+}
+
 function isTypeName(value: unknown): value is TypeName {
   return typeof value === 'string' && Object.hasOwn(schemas, value);
 }
@@ -744,33 +858,10 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     }
   }
   if (combatParameters) {
-    if (combatParameters.weaponDamageRange.lt(0) || combatParameters.weaponDamageRange.gt(1)) {
-      problems.push('CombatParameters: weapon_damage_range must be from 0 to 1');
-    }
-    if (
-      combatParameters.retreatBelowAgentRatingFraction.lt(0) ||
-      combatParameters.retreatAtEnemyToAgentRating.lt(0)
-    ) {
-      problems.push('CombatParameters: the retreat thresholds must be at least 0');
-    }
-    if (
-      combatParameters.incapacitationSkillFraction.lt(0) ||
-      combatParameters.incapacitationSkillFraction.gte(1)
-    ) {
-      problems.push('CombatParameters: incapacitation_skill_fraction must be at least 0 and less than 1');
-    }
+    problems.push(...combatParametersProblems(combatParameters));
   }
   if (agentParameters) {
-    if (agentParameters.exhaustionPerAttack + agentParameters.exhaustionPerDefense < 1) {
-      problems.push('AgentParameters: every attack must tire someone');
-    }
-    // AGENT, Agent GDR validation, rule 6: exhaustion thresholds are ordered.
-    if (agentParameters.exhaustionWorkStartMax >= agentParameters.exhaustionWorkLimit) {
-      problems.push('AgentParameters: exhaustion_work_start_max must be less than exhaustion_work_limit');
-    }
-    if (agentParameters.exhaustionWorkLimit > agentParameters.exhaustionIncapacitation) {
-      problems.push('AgentParameters: exhaustion_work_limit must be at most exhaustion_incapacitation');
-    }
+    problems.push(...agentParametersProblems(agentParameters));
   }
 
   // INVSTG, Investigation GDR validation, rule 4: a decimal number with at most two digits after the decimal point,

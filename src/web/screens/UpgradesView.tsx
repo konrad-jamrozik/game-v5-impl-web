@@ -1,18 +1,21 @@
 /** UVIEW: the Upgrades View, one card per Upgrade with what one more purchase changes and whether it is affordable. */
-import type { CurrentStateView, UpgradeView } from '../../engine/index.ts';
+import type { CurrentLiveWorldStateView, UpgradeView } from '../../engine/index.ts';
 import { decimalText } from '../format.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { Button, Tally } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
-const CAPS: Record<string, { name: string; value: (state: CurrentStateView) => number }> = {
+const CAPS: Record<string, { name: string; value: (state: CurrentLiveWorldStateView) => number }> = {
   agent_cap: { name: 'Agent cap', value: (state) => state.agency.agentCap },
   transport_cap: { name: 'Transport cap', value: (state) => state.agency.transportCap },
   training_cap: { name: 'Training cap', value: (state) => state.agency.trainingCap },
 };
 
 /** ECON, Rate Upgrades: each rate is a Decimal quantity, in hundredths. */
-const RATES: Record<string, { name: string; unit: string; value: (state: CurrentStateView) => number }> = {
+const RATES: Record<
+  string,
+  { name: string; unit: string; value: (state: CurrentLiveWorldStateView) => number }
+> = {
   training_skill_gain: {
     name: 'Training skill gain',
     unit: '',
@@ -41,7 +44,7 @@ interface Change {
   readonly after: string;
 }
 
-function change(upgrade: UpgradeView, state: CurrentStateView): Change {
+function change(upgrade: UpgradeView, state: CurrentLiveWorldStateView): Change {
   const cap = CAPS[upgrade.effect];
   if (cap !== undefined) {
     const now = cap.value(state);
@@ -79,7 +82,7 @@ function change(upgrade: UpgradeView, state: CurrentStateView): Change {
 
 export function UpgradesView(props: {
   snapshot: Snapshot;
-  state: CurrentStateView;
+  state: CurrentLiveWorldStateView;
   locked: string | null;
   onClose: () => void;
 }) {

@@ -1,6 +1,12 @@
 /**
  * COMBAT: how one Combat is fought. A Combat is a function of its two sides, their current values, the GDR values,
  * and its named random outcomes, and of nothing else; see COMBAT, Combat inputs and outputs.
+ *
+ * COMBAT, Fighting a Combat, and REUSE, Shared implementation: `fightCombat` is the one implementation of Fighting a
+ * Combat. Exactly two callers have a Combat fought with it: the Mission resolution step (TURN, `applyAdvanceTurn`), which
+ * builds its inputs from the World state and applies its outputs, and `developer.tools.fightCombat(setup)`
+ * (`detached-combat.ts`), which builds its inputs from its setup, derives its random outcomes from the Detached seed,
+ * and returns its outputs.
  */
 import {
   EngineDefect,
@@ -14,13 +20,23 @@ import {
 import type { AgentParametersGdr, CombatParametersGdr } from '../../../gdr/index.ts';
 import type { Random } from '../../random.ts';
 import type {
+  AgentState,
   AttackRecord,
   CombatOutcome,
   CombatParticipantReport,
   CombatReport,
   CombatantCondition,
+  EnemyState,
 } from '../../state/types.ts';
-import { clampExhaustion, effectiveSkill, exhaustionOf } from '../agents/agents.ts';
+import {
+  agentCombatantValues,
+  clampExhaustion,
+  effectiveSkill,
+  effectiveWeaponDamage,
+  enemyCombatantValues,
+  exhaustionOf,
+  type AgentUpgradeBonus,
+} from '../agents/agents.ts';
 
 /**
  * The values of a Combatant that a Combat reads and changes, in the form of an Agent: base skill, current
@@ -42,6 +58,47 @@ export interface CombatantState {
 export interface Combatant {
   readonly id: string;
   readonly state: CombatantState;
+}
+
+/**
+ * COMBAT, Combat inputs and outputs, item 3: an Agent's current values as a Combat reads them, with its effective max
+ * health, current health, and effective weapon damage.
+ */
+export function agentCombatantState(agent: AgentState, bonus: AgentUpgradeBonus): CombatantState {
+  return { ...agentCombatantValues(agent, bonus), weaponDamage: effectiveWeaponDamage(agent, bonus) };
+}
+
+/**
+ * COMBAT, Combat inputs and outputs, item 3: an Enemy's current values in the hundredths form of an Agent; its whole
+ * values are written back after the Combat; see DEC-056.
+ */
+export function enemyCombatantState(enemy: EnemyState): CombatantState {
+  return { ...enemyCombatantValues(enemy), weaponDamage: enemy.baseWeaponDamage };
+}
+
+/** COMBAT, Combat inputs and outputs: every input of a Combat other than its random outcomes. */
+export interface CombatInputs {
+  /** The Agents' side, in its fixed order. */
+  readonly agents: readonly Combatant[];
+  /** The Enemies' side, in its fixed order. */
+  readonly enemies: readonly Combatant[];
+  readonly combat: CombatParametersGdr;
+  readonly agentParameters: AgentParametersGdr;
+}
+
+/**
+ * COMBAT, Combat report: every fact of the Combat report but the Mission, which influences nothing in the Combat and
+ * which the Mission resolution step supplies.
+ */
+export type FoughtCombatReport = Omit<CombatReport, 'mission'>;
+
+/** COMBAT, Combat inputs and outputs: the outputs of a Combat. */
+export interface CombatOutputs {
+  readonly report: FoughtCombatReport;
+  /** The final values of the Agents' side, in its fixed order: the changed current health and Exact exhaustion. */
+  readonly agents: readonly CombatantState[];
+  /** The final values of the Enemies' side, in its fixed order. */
+  readonly enemies: readonly CombatantState[];
 }
 
 /**
@@ -110,18 +167,12 @@ interface Fighter {
 }
 
 /**
- * Fights one Combat to its end. It changes the current health and exhaustion of the Combatants it is given and
- * returns the Combat report; an Agent whose final condition is dead is Killed, which the caller records.
+ * COMBAT, Fighting a Combat: fights one Combat to its end, from its inputs and the random source of its random
+ * outcomes, and returns its outputs. It changes nothing it is given: applying the outputs belongs to the caller, e.g.
+ * writing back the final current health and exhaustion, and recording an Agent whose final condition is dead as Killed.
  */
-export function fightCombat(input: {
-  missionId: string;
-  agents: readonly Combatant[];
-  enemies: readonly Combatant[];
-  combat: CombatParametersGdr;
-  agentParameters: AgentParametersGdr;
-  random: Random;
-}): CombatReport {
-  const { combat, agentParameters, random } = input;
+export function fightCombat(input: CombatInputs, random: Random): CombatOutputs {
+  const { combat, agentParameters } = input;
   const ids = [...input.agents, ...input.enemies].map((combatant) => combatant.id);
   if (input.agents.length === 0 || new Set(ids).size !== ids.length) {
     throw new EngineDefect('A Combat needs at least one Agent and no Combatant twice');
@@ -131,14 +182,14 @@ export function fightCombat(input: {
   const able = (fighter: Fighter): boolean =>
     fighter.state.currentHealthHundredths > 0 && !fighter.incapacitated;
 
-  // Combat start, step 1 and 2.
+  // Combat start, step 1 and 2. Each Combatant fights on its own copy of its values, so the inputs stay unchanged.
   const enter = (combatant: Combatant, side: 'agent' | 'enemy'): Fighter => {
     const incapacitated = meetsIncapacitationCondition(combatant.state, combat, agentParameters);
     const effective = effectiveSkill(combatant.state, agentParameters);
     return {
       id: combatant.id,
       side,
-      state: combatant.state,
+      state: { ...combatant.state },
       incapacitated,
       damageDealtHundredths: 0,
       damageTakenHundredths: 0,
@@ -338,13 +389,16 @@ export function fightCombat(input: {
   };
 
   return {
-    mission: input.missionId,
-    outcome,
-    rounds,
-    agents: agents.map((fighter) => fighter.id),
-    enemies: enemies.map((fighter) => fighter.id),
-    participants: [...agents, ...enemies].map(finish),
-    ratings,
-    log,
+    report: {
+      outcome,
+      rounds,
+      agents: agents.map((fighter) => fighter.id),
+      enemies: enemies.map((fighter) => fighter.id),
+      participants: [...agents, ...enemies].map(finish),
+      ratings,
+      log,
+    },
+    agents: agents.map((fighter) => ({ ...fighter.state })),
+    enemies: enemies.map((fighter) => ({ ...fighter.state })),
   };
 }

@@ -159,12 +159,14 @@ export const testRules: GameRules<TestState> = {
     );
   },
 
-  currentStateView: (state) => ({
+  currentLiveWorldStateView: (state) => ({
     turn: state.world.current.turn,
     money: state.world.current.money,
     agents: [...state.world.current.agents],
-    configuration: { ...state.configuration },
   }),
+  // The test game has no Retired Campaign instance and records no fact for the rest of the Campaign.
+  currentRetiredWorldStateView: () => ({}),
+  campaignConfigurationView: (state) => ({ ...state.configuration }),
   turnReportView: (state) => {
     const report = state.world.history.reports.at(-1);
     return report ? { ...report } : null;
@@ -246,7 +248,7 @@ export async function startHarness(
       return result.value as TestState;
     },
     view() {
-      const result = harness.core.playerQuery(CONTROLLER, 'currentState');
+      const result = harness.core.playerQuery(CONTROLLER, 'currentLiveWorldState');
       if (!result.ok) {
         throw new Error(result.error.message);
       }

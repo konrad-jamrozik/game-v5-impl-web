@@ -55,7 +55,7 @@ describe('TIMELINE: examples', () => {
     expect(expectOk(h.core.getStatus(CONTROLLER)).devMode).toBe(false);
     for (let i = 2; i >= 0; i -= 1) {
       expectOk(await h.core.undoAction(CONTROLLER));
-      h.core.playerQuery(CONTROLLER, 'currentState');
+      h.core.playerQuery(CONTROLLER, 'currentLiveWorldState');
       expect(h.state()).toEqual(states[i]);
     }
     for (let i = 1; i <= 3; i += 1) {

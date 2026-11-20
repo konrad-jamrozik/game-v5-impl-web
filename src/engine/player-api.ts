@@ -128,6 +128,11 @@ export interface MissionSiteView {
   readonly origin: MissionSiteOrigin;
   /** The Lead that created an Initiative Mission site. */
   readonly lead: string | null;
+  /**
+   * LEAD, Initiative operation level of an Initiative Mission site: that of the Lead that created it; none for a
+   * Response Mission site, and for one whose Lead has none.
+   */
+  readonly initiativeOperationLevel: number | null;
   /** The Faction operation level of a Response Mission site. */
   readonly operationLevel: { readonly id: string; readonly level: number; readonly name: string } | null;
   readonly targetFaction: string;
@@ -209,6 +214,8 @@ export interface LeadView {
   readonly winsCampaign: boolean;
   /** LEAD, Missions from a Lead: the number of Completed Investigations of the Lead. */
   readonly completionCount: number;
+  /** LEAD, Initiative operation level of the Lead; null for a Lead that has none. */
+  readonly initiativeOperationLevel: number | null;
   /**
    * Whether the Lead is available. Which conditions of Lead availability hold, and so why a Lead is not available, is
    * not Player-visible (LEAD, Player-visible information).
@@ -268,8 +275,12 @@ export interface AgencyView {
   readonly hireCost: number;
 }
 
-/** `player.queries.getCurrentState()`: Current world state and Campaign configuration. */
-export interface CurrentStateView {
+/**
+ * `player.queries.getCurrentLiveWorldState()`: the Player-visible Live world state of the Current world state, i.e.
+ * every Campaign instance still in play and every other value of the world; see WHIST, Current world state, Turn
+ * report, and history.
+ */
+export interface CurrentLiveWorldStateView {
   readonly turn: number;
   /** ENDING, Panic: a Decimal quantity from 0 to 100, in hundredths, e.g. 2435 for 24.35%. */
   readonly panicHundredths: number;
@@ -281,13 +292,11 @@ export interface CurrentStateView {
     readonly reasons: readonly EndingReason[];
     readonly turn: number;
   } | null;
-  readonly configuration: { readonly startingMoney: number; readonly startingFunding: number };
   readonly agency: AgencyView;
   /** Serving Agents. */
   readonly agents: readonly AgentView[];
   /** Active Investigations. */
   readonly investigations: readonly InvestigationView[];
-  readonly leads: readonly LeadView[];
   /** Active and Deployed Mission sites. */
   readonly missionSites: readonly MissionSiteView[];
   /** Deployed Missions. */
@@ -296,8 +305,36 @@ export interface CurrentStateView {
 }
 
 /**
- * `player.queries.getHistory()`: the History entries, the Turn series, and the Campaign instances retained in World
- * history; see DEC-015.
+ * `player.queries.getCurrentRetiredWorldState()`: the Player-visible Retired world state of the Current world state,
+ * i.e. every Retired Campaign instance with its Player-visible properties at their final values, and every fact
+ * recorded once for the rest of the Campaign, e.g. the discovered Leads; see WHIST, Current world state, Turn report,
+ * and history.
+ */
+export interface CurrentRetiredWorldStateView {
+  /** Every discovered Lead. */
+  readonly leads: readonly LeadView[];
+  /** Killed and Dismissed Agents. */
+  readonly agents: readonly AgentView[];
+  /** Completed and Abandoned Investigations. */
+  readonly investigations: readonly InvestigationView[];
+  /** Concluded, Expired, and Cancelled Mission sites. */
+  readonly missionSites: readonly MissionSiteView[];
+  /** Won and Lost Missions. */
+  readonly missions: readonly MissionView[];
+}
+
+/**
+ * `player.queries.getCampaignConfiguration()`: the Player-visible Campaign configuration; see WHIST, Current world
+ * state, Turn report, and history.
+ */
+export interface CampaignConfigurationView {
+  readonly startingMoney: number;
+  readonly startingFunding: number;
+}
+
+/**
+ * `player.queries.getHistory()`: the History, i.e. the History entries, the Open History entry, and the Turn series;
+ * see WHIST, Current world state, Turn report, and history.
  */
 export interface HistoryView {
   readonly entries: readonly HistoryEntry[];
@@ -309,16 +346,6 @@ export interface HistoryView {
   readonly turnSeries: {
     readonly moneyAtStartOfTurn: readonly TurnSeriesValue[];
     readonly moneyAtEndOfTurn: readonly TurnSeriesValue[];
-  };
-  readonly retained: {
-    /** Killed and Dismissed Agents. */
-    readonly agents: readonly AgentView[];
-    /** Completed and Abandoned Investigations. */
-    readonly investigations: readonly InvestigationView[];
-    /** Concluded, Expired, and Cancelled Mission sites. */
-    readonly missionSites: readonly MissionSiteView[];
-    /** Won and Lost Missions. */
-    readonly missions: readonly MissionView[];
   };
 }
 
@@ -492,7 +519,9 @@ export interface PlayerActionRequest {
 /** Player API: ordinary gameplay queries and actions. */
 export interface PlayerApi {
   readonly queries: {
-    getCurrentState(): Result<CurrentStateView>;
+    getCurrentLiveWorldState(): Result<CurrentLiveWorldStateView>;
+    getCurrentRetiredWorldState(): Result<CurrentRetiredWorldStateView>;
+    getCampaignConfiguration(): Result<CampaignConfigurationView>;
     /** None before the first committed Advance turn. */
     getTurnReport(): Result<TurnReport | null>;
     getHistory(): Result<HistoryView>;

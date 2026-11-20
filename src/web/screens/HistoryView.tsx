@@ -109,15 +109,15 @@ export function HistoryView({
     }
   }, [emptied, current]);
   const state = snapshot.state;
-  const retained = snapshot.history?.retained;
-  const investigations = [...(state?.investigations ?? []), ...(retained?.investigations ?? [])];
-  const missionSites = [...(state?.missionSites ?? []), ...(retained?.missionSites ?? [])];
+  const retired = snapshot.retired;
+  const investigations = [...(state?.investigations ?? []), ...(retired?.investigations ?? [])];
+  const missionSites = [...(state?.missionSites ?? []), ...(retired?.missionSites ?? [])];
   const archetypes = snapshot.gameData?.missionSiteArchetypes ?? [];
   const missionSiteName = (archetype: string): string =>
     archetypes.find((item) => item.id === archetype)?.name ?? archetype;
   const names: ActionNames = {
     lead: (id) =>
-      state?.leads.find((lead) => lead.id === id)?.name ??
+      retired?.leads.find((lead) => lead.id === id)?.name ??
       investigations.find((item) => item.lead === id)?.leadName ??
       id,
     investigationLead: (id) => investigations.find((item) => item.id === id)?.leadName ?? id,

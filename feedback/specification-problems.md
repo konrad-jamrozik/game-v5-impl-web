@@ -660,7 +660,7 @@
 - **Description:** `criminal_organizations` and `peace_on_earth` have no Faction, so they have no Faction's chain to
   be measured along.
 - **Links:** DEC-070
-- **Resolution:** Open
+- **Resolution:** Resolved in ca416c4676ae9cdb1ca7cb3f4a3ef32d99656a20, which the Implementation follows since this update: BASICAI ranks Leads by the Initiative operation level, which every Lead has, with or without a Faction.
 
 ## PROB-047: The least width of a pane without a table is unstated
 
@@ -672,4 +672,26 @@
   one, a wide table, e.g. Agents to add in the Leads View, can squeeze the selected Lead's pane to a few words a line
   at a common window width, e.g. 1500 px.
 - **Links:** DEC-072
+- **Resolution:** Open
+
+## PROB-048: How a Detached Combat identifies its participants and which explicit values it accepts
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** COMBAT, Detached Combat: "Each participant is identified by its side and position in
+  it"; "when an explicit value lies outside Attribute ranges in Agents for its side".
+- **Description:** The spec states neither the form of a participant's identification nor a range for effective
+  weapon damage, which Attribute ranges does not cover, nor whether one EnemyArchetype may be named twice, nor how
+  GDR values are named in the setup.
+- **Links:** DEC-073
+- **Resolution:** Open
+
+## PROB-049: The form of the result of `getInitiativeOperationLevels()` is unstated
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** LEAD, Reading Initiative operation levels: "and names each one that has none".
+- **Description:** The spec says what the query reports but not how it names the Leads and MissionSiteArchetypes
+  without a level.
+- **Links:** DEC-074
 - **Resolution:** Open

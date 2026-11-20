@@ -314,6 +314,11 @@
   and history, that `getHistory()` returns every Retired Campaign instance, so that part is now conformance. The two
   added queries remain this decision.
 - **Links:** PROB-006
+- **Update:** Overridden in part by Specification revision 11a376b2f068199a2c5411eebdee68418cec6859, whose WHIST,
+  Current world state, Turn report, and history, replaces `getCurrentState()` with `getCurrentLiveWorldState()`,
+  `getCurrentRetiredWorldState()`, and `getCampaignConfiguration()`: Retired Campaign instances and the discovered
+  Leads now come from `getCurrentRetiredWorldState()`, and `getHistory()` returns only the History. `getGameData()`
+  and `previewDeployment(missionSite, agents)` remain this decision.
 
 ## DEC-016: Contents of the Turn report and of a History entry
 
@@ -1246,6 +1251,9 @@
   which each Lead was discovered is; with the Bootstrap GDRs it orders each Faction's Leads exactly as the chain of
   prerequisites did.
 - **Links:** PROB-037, DEC-036
+- **Update:** Overridden by Specification revision ca416c4676ae9cdb1ca7cb3f4a3ef32d99656a20, whose BASICAI ranks
+  Leads by the Player-visible Initiative operation level under LEAD, Initiative operation level, instead of the
+  Turns of discovery.
 - **Update:** Adopted by Specification revision e62a195798946a3cc8e054784a7c4255da548aa7 under BASICAI, Information.
 
 ## DEC-061: Stale mentions of Lead prerequisites are read as the Lead's `discovered_when`
@@ -1416,6 +1424,9 @@
 - **Option chosen:** Treating them as their own chain.
 - **Why:** It extends DEC-060 without a special case and never delays the first or the last Lead of the Victory path.
 - **Links:** PROB-046
+- **Update:** Overridden by Specification revision ca416c4676ae9cdb1ca7cb3f4a3ef32d99656a20: every Lead, with or
+  without a Faction, has an Initiative operation level, and the Basic Autopilot AI ranks by it, e.g.
+  `criminal_organizations` at 0 and `peace_on_earth` at 8.
 
 ## DEC-071: The "On completion" lines of a Lead follow one fixed order, and so do its Data sheet Effects
 
@@ -1451,3 +1462,39 @@
 - **Why:** VIS names a least width for every pane but states none for a pane without a table, and the selected Lead's
   "On completion" lines need room to be read.
 - **Links:** PROB-047
+
+## DEC-073: The setup, identification, and value ranges of a Detached Combat
+
+- **Category:** Gap resolution
+- **Affected specifications:** COMBAT, Detached Combat: "Each participant is identified by its side and position in
+  it, together with the Instance ID or identifier its entry named, if any"; "when an explicit value lies outside
+  Attribute ranges in Agents for its side"; REUSE, Agreement test.
+- **Description:** `developer.tools.fightCombat(setup)` names its participants `agent#N` and `enemy#N`, with the
+  named Instance ID or identifier beside it. An explicit Agent may have a base skill and current health with two
+  decimals; an explicit Enemy has whole numbers. Effective weapon damage, which Attribute ranges does not cover, is a
+  whole number of at least 1, as a Weapon GDR requires. The duplicate rule covers only Agents and Enemies of the
+  Current campaign, so one EnemyArchetype may appear any number of times. GDR values are given by their authored
+  names, limited to the 13 values the Combat reads, and must still pass the whole GDR validation together with the
+  values not overridden. An Agent named by Instance ID fights with the Upgrade bonus of the Current world state. The
+  random source is derived from the Detached seed as a Campaign seed is, so a Detached seed equal to the Campaign
+  seed repeats the Campaign's first draws; the Agreement test relies on that to supply equal random outcomes. The
+  CLI command `fight` takes the setup as JSON.
+- **Options considered:** Identifiers made up from Instance IDs; positions only; a seed prefix for Detached seeds.
+- **Option chosen:** Side and position, with the named identifier; no seed prefix.
+- **Why:** Explicit Combatants have no Instance ID, and side and position are what the spec names first; one way of
+  deriving random outcomes from a seed keeps the Agreement test free of a second random source.
+- **Links:** PROB-048
+
+## DEC-074: The result of `developer.queries.getInitiativeOperationLevels()`
+
+- **Category:** Gap resolution
+- **Affected specifications:** LEAD, Reading Initiative operation levels: "reports the level of every Lead and of
+  every MissionSiteArchetype of kind initiative ... and names each one that has none".
+- **Description:** The query returns every Lead and every initiative MissionSiteArchetype with its identifier, name,
+  and level, `null` for none, in Game build order, and also the identifiers of those without a level in two lists.
+  The CLI command is `levels`. The levels are calculated once per Game build.
+- **Options considered:** Only the levels; levels with a separate list of those without one.
+- **Option chosen:** Levels with a separate list of those without one.
+- **Why:** A balancing tool reads one level by identifier, and the lists name the ones without a level, as the
+  spec asks, without a scan.
+- **Links:** PROB-049

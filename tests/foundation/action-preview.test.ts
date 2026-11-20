@@ -10,7 +10,7 @@ async function campaign(): Promise<Engine> {
 }
 
 function agentIds(engine: Engine): string[] {
-  return ok(engine.player.queries.getCurrentState()).agents.map((agent) => agent.id);
+  return ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
 }
 
 describe('PAPI, Action preview', () => {
@@ -30,7 +30,7 @@ describe('PAPI, Action preview', () => {
         string,
         (...args: unknown[]) => Promise<{ ok: boolean; error?: { reason: string | null; message: string } }>
       >;
-      const before = JSON.stringify(ok(engine.player.queries.getCurrentState()));
+      const before = JSON.stringify(ok(engine.player.queries.getCurrentLiveWorldState()));
       const result =
         request.name === 'assignAgents'
           ? await actions['assignAgents']!(request.args['agents'], request.args['assignment'])
@@ -44,14 +44,14 @@ describe('PAPI, Action preview', () => {
       if (result.ok) {
         ok(await engine.session.timeline.undoAction());
       }
-      expect(JSON.stringify(ok(engine.player.queries.getCurrentState()))).toBe(before);
+      expect(JSON.stringify(ok(engine.player.queries.getCurrentLiveWorldState()))).toBe(before);
     }
   });
 
   it('changes nothing and is not a Player action', async () => {
     const engine = await campaign();
     const [a1] = agentIds(engine) as [string];
-    const state = JSON.stringify(ok(engine.player.queries.getCurrentState()));
+    const state = JSON.stringify(ok(engine.player.queries.getCurrentLiveWorldState()));
     const timeline = JSON.stringify(ok(engine.session.timeline.getStatus()));
     ok(
       engine.player.queries.previewAction({
@@ -60,7 +60,7 @@ describe('PAPI, Action preview', () => {
       }),
     );
     ok(engine.player.queries.previewAction({ name: 'advanceTurn', args: {} }));
-    expect(JSON.stringify(ok(engine.player.queries.getCurrentState()))).toBe(state);
+    expect(JSON.stringify(ok(engine.player.queries.getCurrentLiveWorldState()))).toBe(state);
     expect(JSON.stringify(ok(engine.session.timeline.getStatus()))).toBe(timeline);
   });
 

@@ -6,7 +6,8 @@ import type { CampaignState } from '../../src/engine/state/types.ts';
 import {
   articleForTermView,
   compendiumArticlesView,
-  currentStateView,
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
   gameDataView,
 } from '../../src/engine/views/views.ts';
 import { finalCondition } from '../../src/web/combat-log.ts';
@@ -66,7 +67,8 @@ function sheetOf(state: CampaignState, id: string): DataSheet | null {
   }
   return dataSheet(shown, {
     gameData: gameDataView(gdrs),
-    state: currentStateView(state, gdrs),
+    state: currentLiveWorldStateView(state, gdrs),
+    retired: currentRetiredWorldStateView(state, gdrs),
     articles,
     articleForTerm: (term) => articleForTermView(state, gdrs, term),
   });
@@ -372,7 +374,8 @@ describe('COMPV: Subject data sheets', () => {
     const responseRows = rowsOf(
       dataSheet(shown, {
         gameData: gameDataView(gdrs),
-        state: currentStateView(newCampaign(), gdrs),
+        state: currentLiveWorldStateView(newCampaign(), gdrs),
+        retired: currentRetiredWorldStateView(newCampaign(), gdrs),
         articles,
         articleForTerm: () => null,
       }),
@@ -396,7 +399,8 @@ describe('COMPV: Subject data sheets', () => {
     const state = newCampaign();
     const sources = {
       gameData: gameDataView(gdrs),
-      state: currentStateView(state, gdrs),
+      state: currentLiveWorldStateView(state, gdrs),
+      retired: currentRetiredWorldStateView(state, gdrs),
       articles: compendiumArticlesView(state, gdrs),
       articleForTerm: () => null,
     };

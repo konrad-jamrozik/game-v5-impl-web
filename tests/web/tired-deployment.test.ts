@@ -1,6 +1,6 @@
 /** GUI, Warning on deploying tired Agents. */
 import { describe, expect, it } from 'vite-plus/test';
-import { currentStateView } from '../../src/engine/views/views.ts';
+import { currentLiveWorldStateView } from '../../src/engine/views/views.ts';
 import { tiredDeploymentMessage } from '../../src/web/tired-deployment.ts';
 import { agentIds, gdrs, newCampaign, tweak } from '../helpers/game.ts';
 
@@ -12,7 +12,7 @@ describe('GUI: Warning on deploying tired Agents', () => {
     world.agents[a2]!.state.exactExhaustionHundredths = 2000;
     world.agents[a3]!.state.exactExhaustionHundredths = 4700;
   });
-  const view = currentStateView(state, gdrs);
+  const view = currentLiveWorldStateView(state, gdrs);
 
   it('gives no warning for a team whose every Agent has exhaustion below 20', () => {
     expect(tiredDeploymentMessage(view, [a1])).toBeNull();

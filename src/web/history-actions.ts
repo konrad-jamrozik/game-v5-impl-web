@@ -9,7 +9,7 @@ export function expenditures(actions: readonly ActionRecordItem[]): number {
   return actions.reduce((sum, item) => (item.moneyChange < 0 ? sum - item.moneyChange : sum), 0);
 }
 
-/** The names a line uses, resolved through the current state and `getHistory()`. */
+/** The names a line uses, resolved through the Live and Retired world state queries. */
 export interface ActionNames {
   lead(id: string): string;
   /** The `name` of the Lead of an Investigation. */

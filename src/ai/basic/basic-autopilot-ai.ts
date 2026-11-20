@@ -7,7 +7,7 @@
 import type {
   AgentView,
   AutopilotAi,
-  CurrentStateView,
+  CurrentLiveWorldStateView,
   GameDataView,
   LeadView,
   MissionSiteView,
@@ -83,8 +83,8 @@ class Turn {
     return result.value;
   }
 
-  private state(): CurrentStateView {
-    return this.unwrap(this.player.queries.getCurrentState());
+  private state(): CurrentLiveWorldStateView {
+    return this.unwrap(this.player.queries.getCurrentLiveWorldState());
   }
 
   /** Commits an action unless the same action was rejected earlier this turn. Returns whether it committed. */
@@ -159,7 +159,7 @@ class Turn {
    * contribution is rate × (1 + (effective skill − 100) / 500), so 500 times it is the whole number
    * rate × (400 + effective skill). `without` leaves one Agent out.
    */
-  private expectedIncome(state: CurrentStateView, without: string | null = null): number {
+  private expectedIncome(state: CurrentLiveWorldStateView, without: string | null = null): number {
     const rate = this.data.economy['contractingIncomePerAgent'] ?? 0;
     const timesFiveHundred = state.agents
       .filter((agent) => agent.assignment?.kind === 'Contracting' && agent.id !== without)
@@ -167,12 +167,12 @@ class Turn {
     return state.agency.funding + Math.floor(timesFiveHundred / 500);
   }
 
-  private incomeTarget(state: CurrentStateView): number {
+  private incomeTarget(state: CurrentLiveWorldStateView): number {
     return ceilDiv(state.agency.projectedUpkeep * this.t.incomeTargetPct, 100);
   }
 
   /** The target size of the Agent reserve. */
-  private reserveTarget(state: CurrentStateView): number {
+  private reserveTarget(state: CurrentLiveWorldStateView): number {
     return Math.floor((state.agency.servingAgents * this.t.reservePct) / 100);
   }
 
@@ -180,7 +180,7 @@ class Turn {
    * The Expected reserve: the Rested Agents, plus every other Agent whose Current assignment is Standby or Recovery,
    * In transit or not.
    */
-  private expectedReserve(state: CurrentStateView): number {
+  private expectedReserve(state: CurrentLiveWorldStateView): number {
     return state.agents.filter(
       (agent) =>
         this.isRested(agent) || agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Recovery',
@@ -188,7 +188,7 @@ class Turn {
   }
 
   /** How many Rested Agents there are beyond the target size of the Agent reserve. */
-  private beyondReserve(state: CurrentStateView): number {
+  private beyondReserve(state: CurrentLiveWorldStateView): number {
     const rested = state.agents.filter((agent) => this.isRested(agent)).length;
     return Math.max(0, rested - this.reserveTarget(state));
   }
@@ -197,7 +197,7 @@ class Turn {
    * The Fresh Agents beyond the Agent reserve, in order of preference. The most rested are taken for work first,
    * so the Rested Agents left over form the Agent reserve.
    */
-  private freshBeyondReserve(state: CurrentStateView, standbyOnly = false): AgentView[] {
+  private freshBeyondReserve(state: CurrentLiveWorldStateView, standbyOnly = false): AgentView[] {
     const fresh = this.byPreference(
       state.agents.filter(
         (agent) => this.isFresh(agent) && (!standbyOnly || agent.assignment?.kind === 'Standby'),
@@ -206,7 +206,7 @@ class Turn {
     return fresh.slice(0, this.beyondReserve(state));
   }
 
-  private savingsFloor(state: CurrentStateView): number {
+  private savingsFloor(state: CurrentLiveWorldStateView): number {
     return ceilDiv(state.agency.projectedUpkeep * this.t.savingsFloorTurns, 2);
   }
 
@@ -217,7 +217,7 @@ class Turn {
    * because a winning team can then still be formed.
    */
   private winningTeam(
-    state: CurrentStateView,
+    state: CurrentLiveWorldStateView,
     enemiesRating: number,
     enemyCount: number,
     rested: readonly AgentView[],
@@ -261,7 +261,7 @@ class Turn {
    * `exhaustion_free_points`, and an Agent on Contracting whose exhaustion is above the Recall threshold while
    * Expected income still covers projected upkeep with the margin without it.
    */
-  private async recallTired(state: CurrentStateView): Promise<boolean> {
+  private async recallTired(state: CurrentLiveWorldStateView): Promise<boolean> {
     const trainingLimit = this.param('exhaustionFreePoints') - this.param('exhaustionPerTrainingTurn');
     for (const agent of state.agents) {
       const kind = agent.assignment?.kind;
@@ -288,7 +288,7 @@ class Turn {
    * (step 2) every Agent on Standby or Training that is Fit for work may go, the Agent reserve too; otherwise
    * (step 5) only Fresh Agents beyond the Agent reserve.
    */
-  private async restoreIncome(state: CurrentStateView, urgent: boolean): Promise<boolean> {
+  private async restoreIncome(state: CurrentLiveWorldStateView, urgent: boolean): Promise<boolean> {
     const target = urgent ? state.agency.projectedUpkeep : this.incomeTarget(state);
     if (this.expectedIncome(state) >= target) {
       return false;
@@ -313,7 +313,7 @@ class Turn {
   }
 
   /** Step 3: deploy to the most urgent Mission site for which a winning team can be formed. */
-  private async deploy(state: CurrentStateView): Promise<boolean> {
+  private async deploy(state: CurrentLiveWorldStateView): Promise<boolean> {
     const urgency = (site: MissionSiteView) => (site.kind === 'Response' ? 0 : 1);
     const sites = state.missionSites
       .filter((site) => site.lifecycle === 'Active')
@@ -342,7 +342,7 @@ class Turn {
    * Standby, only while Expected income still covers projected upkeep with the margin without it. A recalled Agent
    * counts toward the Expected reserve at once, so no more Agents are recalled than the shortfall.
    */
-  private async refillReserve(state: CurrentStateView): Promise<boolean> {
+  private async refillReserve(state: CurrentLiveWorldStateView): Promise<boolean> {
     if (this.expectedReserve(state) >= this.reserveTarget(state)) {
       return false;
     }
@@ -363,7 +363,7 @@ class Turn {
   }
 
   /** Step 6: bring the number of Agents investigating Leads up to its target share. */
-  private async investigate(state: CurrentStateView): Promise<boolean> {
+  private async investigate(state: CurrentLiveWorldStateView): Promise<boolean> {
     const investigating = state.agents.filter((agent) => agent.assignment?.kind === 'Investigation').length;
     const target =
       this.t.baseInvestigators + Math.floor(state.agency.servingAgents / this.t.investigatorsPerRoster);
@@ -374,11 +374,12 @@ class Turn {
     }
     const team = candidates.slice(0, count).map((agent) => agent.id);
     const rested = this.byPreference(state.agents.filter((agent) => this.isRested(agent)));
+    const retired = this.unwrap(this.player.queries.getCurrentRetiredWorldState());
     // A Lead that creates no Mission site advances progression by its completion alone, so it is always worth
     // investigating. One that creates a Mission site is worth it only if a winning team for that Mission site could be
     // formed now.
     const worthInvestigating = (leadId: string): boolean => {
-      const lead = state.leads.find((item) => item.id === leadId);
+      const lead = retired.leads.find((item) => item.id === leadId);
       if (lead === undefined) {
         return false;
       }
@@ -404,43 +405,25 @@ class Turn {
     }
     // A Lead whose completion wins the Campaign comes first, then one whose completion makes a Faction Eliminated,
     // directly or through a Won Mission at the Mission site it creates, then the one furthest along its Faction's
-    // chain. What discovers a Lead is not Player-visible, so the chain behind a Lead is read from the Turns in which
-    // the Leads were discovered, which the Leads discovered of the History entries report: the discovered Leads of
-    // the same Faction discovered in an earlier Turn are behind it, and a Lead no History entry reports was
-    // discovered at campaign creation, before Turn 1. A Lead of no Faction has no chain. Equal Leads keep the order
-    // Player API lists them in.
+    // chain. What discovers a Lead is not Player-visible, so how far along its chain a Lead is is read as its
+    // Initiative operation level, which Player API returns with the Lead; a Lead with no level comes after every Lead
+    // with one. Equal Leads keep the order Player API lists them in.
     const eliminates = (lead: LeadView): boolean =>
       lead.eliminatesFaction ||
       this.data.missionSiteArchetypes.find((item) => item.id === lead.createsMissionSite)?.onWin
         ?.eliminatesTargetFaction === true;
-    const history = this.unwrap(this.player.queries.getHistory());
-    const discoveredIn = new Map<string, number>();
-    for (const entry of history.entries) {
-      for (const lead of entry.report.discoveredLeads) {
-        discoveredIn.set(lead, entry.turn);
-      }
-    }
-    // The Leads a Mission from which is Won, read from the retained Mission sites and Missions.
+    // The Leads a Mission from which is Won, read from the Retired Mission sites and Missions.
     const wonSites = new Set(
-      history.retained.missions
-        .filter((mission) => mission.lifecycle === 'Won')
-        .map((mission) => mission.missionSite),
+      retired.missions.filter((mission) => mission.lifecycle === 'Won').map((mission) => mission.missionSite),
     );
     const missionWon = new Set(
-      history.retained.missionSites
+      retired.missionSites
         .filter((site) => site.lead !== null && wonSites.has(site.id))
         .map((site) => site.lead),
     );
-    const chainLength = (lead: LeadView): number =>
-      lead.factionArchetype === null
-        ? 0
-        : state.leads.filter(
-            (behind) =>
-              behind.factionArchetype === lead.factionArchetype &&
-              (discoveredIn.get(behind.id) ?? 0) < (discoveredIn.get(lead.id) ?? 0),
-          ).length;
+    const chainPosition = (lead: LeadView): number => lead.initiativeOperationLevel ?? -1;
     const rank = (lead: LeadView): number => (lead.winsCampaign ? 2 : eliminates(lead) ? 1 : 0);
-    const leads = [...state.leads].sort((a, b) => rank(b) - rank(a) || chainLength(b) - chainLength(a));
+    const leads = [...retired.leads].sort((a, b) => rank(b) - rank(a) || chainPosition(b) - chainPosition(a));
     // A Lead a Mission from which was already Won is investigated again only when no other Lead qualifies.
     const ordered = [
       ...leads.filter((lead) => !missionWon.has(lead.id)),
@@ -461,7 +444,7 @@ class Turn {
    * Step 7: order the remaining Fresh Agents on Standby to Training while the Training cap allows, the Agent reserve
    * too, then those beyond the Agent reserve to Contracting.
    */
-  private async employIdle(state: CurrentStateView): Promise<boolean> {
+  private async employIdle(state: CurrentLiveWorldStateView): Promise<boolean> {
     const places = Math.max(0, state.agency.trainingCap - state.agency.trainingAgents);
     const toTraining = this.byPreference(
       state.agents.filter((agent) => this.isFresh(agent) && agent.assignment?.kind === 'Standby'),
@@ -482,7 +465,7 @@ class Turn {
   }
 
   /** Step 8: while money stays above the Savings floor, make the most needed purchase. */
-  private async purchase(state: CurrentStateView): Promise<boolean> {
+  private async purchase(state: CurrentLiveWorldStateView): Promise<boolean> {
     const agency = state.agency;
     // Stay solvent: while Expected income does not cover projected upkeep, nothing is bought.
     if (this.expectedIncome(state) < agency.projectedUpkeep) {

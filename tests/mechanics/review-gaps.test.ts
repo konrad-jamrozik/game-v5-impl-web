@@ -8,7 +8,7 @@ import { eliminateFaction } from '../../src/engine/mechanics/factions/factions.t
 import { injectedRandom } from '../../src/engine/random.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
-import { currentStateView } from '../../src/engine/views/views.ts';
+import { currentLiveWorldStateView, currentRetiredWorldStateView } from '../../src/engine/views/views.ts';
 import {
   act,
   addMissionSite,
@@ -47,7 +47,7 @@ describe('AGENT: gaps', () => {
   it('Adding Agents: no upper limit applies, and it succeeds above the Agent cap', () => {
     const state = act(newCampaign(), 'addAgents', { count: 10_001 }, 'developer');
     expect(agents(state)).toHaveLength(10_005);
-    expect(currentStateView(state, gdrs).agency.agentCap).toBe(20);
+    expect(currentLiveWorldStateView(state, gdrs).agency.agentCap).toBe(20);
   });
 
   it('Transit: Investigation started and completed (destination ends)', () => {
@@ -172,14 +172,15 @@ describe('COMBAT: gaps', () => {
     injected: Record<string, (number | boolean)[]>,
     catalog = gdrs,
   ) =>
-    fightCombat({
-      missionId: 'm1',
-      agents: agentsSide,
-      enemies,
-      combat: catalog.combatParameters,
-      agentParameters: catalog.agentParameters,
-      random: injectedRandom(injected),
-    });
+    fightCombat(
+      {
+        agents: agentsSide,
+        enemies,
+        combat: catalog.combatParameters,
+        agentParameters: catalog.agentParameters,
+      },
+      injectedRandom(injected),
+    ).report;
 
   it('Edge cases: Damage of 0 removes no current health but still raises exhaustion', () => {
     const catalog = catalogWith((raw) => (raw.get('combat_parameters')['weapon_damage_range'] = 1));
@@ -264,7 +265,10 @@ describe('ECON and MISSION: gaps', () => {
     const s3 = addMissionSite(s2.state, 'apprehend_member', { lead: 'locate_red_dawn_safehouse' });
     state = act(s3.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, 3) });
     state = act(state, 'deployAgents', { missionSite: s2.site, agents: [ids[3]] });
-    expect(currentStateView(state, gdrs).agency).toMatchObject({ deployedAgents: 4, transportCap: 4 });
+    expect(currentLiveWorldStateView(state, gdrs).agency).toMatchObject({
+      deployedAgents: 4,
+      transportCap: 4,
+    });
     expectRejected(state, 'deployAgents', { missionSite: s3.site, agents: [ids[4]] }, 'transport_cap');
   });
 
@@ -369,7 +373,7 @@ describe('RECOVER: gaps', () => {
     let state = setAssignment(newCampaign(), [agentIds(newCampaign())[0]!], 'Recovery');
     const [f1] = agentIds(state) as [string];
     state = tweak(state, (world) => (world.agents[f1]!.state.exactExhaustionHundredths = 1200));
-    expect(currentStateView(state, gdrs).agents[0]!.recoveryTurnsRemaining).toBe(0);
+    expect(currentLiveWorldStateView(state, gdrs).agents[0]!.recoveryTurnsRemaining).toBe(0);
     state = advance(state);
     expect(units(agent(state, f1).state)).toMatchObject({
       currentHealth: 30,
@@ -451,6 +455,6 @@ describe('INVSTG and LEAD: gaps', () => {
       raw.pruneArticles();
     });
     const state = advance(newCampaign({ catalog }), {}, catalog);
-    expect(currentStateView(state, catalog).leads).toEqual([]);
+    expect(currentRetiredWorldStateView(state, catalog).leads).toEqual([]);
   });
 });

@@ -10,7 +10,8 @@ import {
   type AutopilotStatus,
   type AvailableActionsView,
   type CompendiumArticleView,
-  type CurrentStateView,
+  type CurrentLiveWorldStateView,
+  type CurrentRetiredWorldStateView,
   type Engine,
   type GameDataView,
   type GameStorage,
@@ -33,7 +34,9 @@ export interface Snapshot {
   readonly status: SessionStatus;
   readonly configuration: GlobalConfigurationReport;
   /** Absent without a Current campaign. */
-  readonly state: CurrentStateView | null;
+  readonly state: CurrentLiveWorldStateView | null;
+  /** Absent without a Current campaign. */
+  readonly retired: CurrentRetiredWorldStateView | null;
   readonly actions: AvailableActionsView | null;
   readonly report: TurnReport | null;
   readonly history: HistoryView | null;
@@ -175,7 +178,8 @@ export function snapshot(): Snapshot {
     key,
     status,
     configuration,
-    state: has ? valueOf(game.player.queries.getCurrentState()) : null,
+    state: has ? valueOf(game.player.queries.getCurrentLiveWorldState()) : null,
+    retired: has ? valueOf(game.player.queries.getCurrentRetiredWorldState()) : null,
     actions: has ? valueOf(game.player.queries.getAvailableActions()) : null,
     report: has ? valueOf(game.player.queries.getTurnReport()) : null,
     history: has ? valueOf(game.player.queries.getHistory()) : null,

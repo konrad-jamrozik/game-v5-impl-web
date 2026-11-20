@@ -2,7 +2,12 @@
  * SITP, Groups: the one-line groups of the Situation panel, in the order SITP lists them, each left out when it has
  * nothing to show. Pure presentation over the Player API views; no gameplay rule.
  */
-import type { CurrentStateView, InvestigationView, LeadView, MissionSiteView } from '../engine/index.ts';
+import type {
+  CurrentLiveWorldStateView,
+  InvestigationView,
+  LeadView,
+  MissionSiteView,
+} from '../engine/index.ts';
 import {
   completionEstimate,
   progressCircle,
@@ -44,8 +49,11 @@ export const GROUP_TITLES: Record<SituationGroup['id'], string> = {
 };
 
 /** The Active Investigations, each with its Lead, Progress circle, and Completion estimate. */
-export function activeInvestigationRows(state: CurrentStateView): ActiveInvestigationRow[] {
-  const leadsById = new Map(state.leads.map((lead) => [lead.id, lead]));
+export function activeInvestigationRows(
+  state: CurrentLiveWorldStateView,
+  leads: readonly LeadView[],
+): ActiveInvestigationRow[] {
+  const leadsById = new Map(leads.map((lead) => [lead.id, lead]));
   return state.investigations
     .filter((item) => item.lifecycle === 'Active')
     .map((investigation) => {
@@ -60,15 +68,18 @@ export function activeInvestigationRows(state: CurrentStateView): ActiveInvestig
 }
 
 /** The Discovered Leads that are Available and have no Active Investigation. */
-export function leadsToInvestigate(state: CurrentStateView): LeadView[] {
+export function leadsToInvestigate(state: CurrentLiveWorldStateView, leads: readonly LeadView[]): LeadView[] {
   const investigated = new Set(
     state.investigations.filter((item) => item.lifecycle === 'Active').map((item) => item.lead),
   );
-  return state.leads.filter((lead) => lead.status === 'Available' && !investigated.has(lead.id));
+  return leads.filter((lead) => lead.status === 'Available' && !investigated.has(lead.id));
 }
 
 /** The Situation panel's groups; an empty result means that nothing needs attention. */
-export function situationGroups(state: CurrentStateView): SituationGroup[] {
+export function situationGroups(
+  state: CurrentLiveWorldStateView,
+  leads: readonly LeadView[],
+): SituationGroup[] {
   const groups: SituationGroup[] = [];
 
   const sites = state.missionSites.filter((site) => site.lifecycle === 'Active');
@@ -76,14 +87,14 @@ export function situationGroups(state: CurrentStateView): SituationGroup[] {
     groups.push({ id: 'missionSites', count: sites.length, rows: sites });
   }
 
-  const investigations = activeInvestigationRows(state);
+  const investigations = activeInvestigationRows(state, leads);
   if (investigations.length > 0) {
     groups.push({ id: 'investigations', count: investigations.length, rows: investigations });
   }
 
-  const leads = leadsToInvestigate(state);
-  if (leads.length > 0) {
-    groups.push({ id: 'leads', count: leads.length, rows: leads });
+  const toInvestigate = leadsToInvestigate(state, leads);
+  if (toInvestigate.length > 0) {
+    groups.push({ id: 'leads', count: toInvestigate.length, rows: toInvestigate });
   }
 
   const standby = state.agents.filter((agent) => agent.assignment?.kind === 'Standby').length;

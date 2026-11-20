@@ -1,6 +1,6 @@
 /** VIS, Agent condition; AVIEW, Assignment filters and Agent table. */
 import { describe, expect, it } from 'vite-plus/test';
-import { currentStateView } from '../../src/engine/views/views.ts';
+import { currentLiveWorldStateView } from '../../src/engine/views/views.ts';
 import { blockedBy, isSelectable, type Selectability } from '../../src/web/agent-selection.ts';
 import { exhaustionTone, healthColor } from '../../src/web/condition-scale.ts';
 import {
@@ -43,7 +43,7 @@ describe('AVIEW: Assignment filters and Blocked by', () => {
     world.agents[a5]!.state.status = 'Recovering';
     setCurrentHealth(world.agents[a5]!.state, 1000);
   });
-  const agents = currentStateView(state, gdrs).agents;
+  const agents = currentLiveWorldStateView(state, gdrs).agents;
   const view = (id: string) => agents.find((agent) => agent.id === id)!;
   const base: Selectability = {
     acceptedAlone: { Standby: [a1, a3], Contracting: [a4], Training: [a4] },

@@ -3,14 +3,17 @@
  * exhaustion of 20 or more, the GUI warns the Player, naming each such Agent with its exhaustion and effective skill,
  * and asks to confirm. It is a warning, not a block.
  */
-import type { CurrentStateView } from '../engine/index.ts';
+import type { CurrentLiveWorldStateView } from '../engine/index.ts';
 import { confirmOrGoBack } from './sound-player.ts';
 
 /** The exhaustion from which the GUI warns; a constant of the GUI, not a GDR value, because no game rule reads it. */
 export const TIRED_DEPLOYMENT_EXHAUSTION = 20;
 
 /** The warning text for deploying `agentIds`, or null when no Agent of the team is tired. */
-export function tiredDeploymentMessage(state: CurrentStateView, agentIds: readonly string[]): string | null {
+export function tiredDeploymentMessage(
+  state: CurrentLiveWorldStateView,
+  agentIds: readonly string[],
+): string | null {
   const team = new Set(agentIds);
   const tired = state.agents.filter(
     (agent) => team.has(agent.id) && agent.exhaustion >= TIRED_DEPLOYMENT_EXHAUSTION,
@@ -29,7 +32,10 @@ export function tiredDeploymentMessage(state: CurrentStateView, agentIds: readon
 }
 
 /** Warns the Player before deploying tired Agents; true when the Player confirms or nothing needs a warning. */
-export function confirmTiredDeployment(state: CurrentStateView, agentIds: readonly string[]): boolean {
+export function confirmTiredDeployment(
+  state: CurrentLiveWorldStateView,
+  agentIds: readonly string[],
+): boolean {
   const message = tiredDeploymentMessage(state, agentIds);
   return message === null || confirmOrGoBack(message);
 }

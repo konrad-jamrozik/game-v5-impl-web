@@ -5,7 +5,11 @@
  * (COMP); this view shows the segments as reported and adds the Data sheet of a Subject article.
  */
 import { Fragment, useEffect, useRef, type RefObject } from 'react';
-import type { ArticleSegmentView, CompendiumArticleView, CurrentStateView } from '../../engine/index.ts';
+import type {
+  ArticleSegmentView,
+  CompendiumArticleView,
+  CurrentLiveWorldStateView,
+} from '../../engine/index.ts';
 import {
   articlesOf,
   categoryOf,
@@ -136,7 +140,11 @@ function SheetParts(props: { parts: readonly SheetPart[]; onOpen: (article: stri
   );
 }
 
-export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateView; onClose: () => void }) {
+export function CompendiumView(props: {
+  snapshot: Snapshot;
+  state: CurrentLiveWorldStateView;
+  onClose: () => void;
+}) {
   const { snapshot, state } = props;
   const all: readonly CompendiumArticleView[] = snapshot.articles ?? [];
   const searchField = useRef<HTMLInputElement>(null);
@@ -174,11 +182,12 @@ export function CompendiumView(props: { snapshot: Snapshot; state: CurrentStateV
     show(id);
   };
   const sheet =
-    article === null || snapshot.gameData === null
+    article === null || snapshot.gameData === null || snapshot.retired === null
       ? null
       : dataSheet(article, {
           gameData: snapshot.gameData,
           state,
+          retired: snapshot.retired,
           articles: all,
           articleForTerm: (text) => {
             const found = theEngine().player.queries.getArticleForTerm(text);

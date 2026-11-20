@@ -45,7 +45,9 @@ import {
   activeInvestigationOf,
   completionCount,
   factionOfLead,
+  initiativeOperationLevels,
   leadAvailability,
+  leadInitiativeOperationLevel,
   leadOfMissionSite,
   leadStatus,
 } from '../mechanics/leads/leads.ts';
@@ -58,7 +60,9 @@ import type {
   AgentView,
   AvailableActionsView,
   ConsequenceView,
-  CurrentStateView,
+  CampaignConfigurationView,
+  CurrentLiveWorldStateView,
+  CurrentRetiredWorldStateView,
   CompendiumArticleView,
   DeploymentPreview,
   EnemyView,
@@ -205,13 +209,15 @@ function missionSiteView(site: MissionSite, world: CurrentWorldState, gdrs: GdrC
       ? (gdrs.factionOperationLevels.find((item) => item.id === origin.operationLevel) ?? null)
       : null;
   const enemies = site.state.enemies.map((id) => must(world.enemies[id], `Enemy ${id}`));
+  const lead = leadOfMissionSite(site, world.investigations);
   return {
     id: site.id,
     archetype: site.archetype,
     name: archetype.name,
     kind: site.constants.kind,
     origin: { ...origin },
-    lead: leadOfMissionSite(site, world.investigations),
+    lead,
+    initiativeOperationLevel: lead === null ? null : leadInitiativeOperationLevel(lead, gdrs),
     operationLevel: level === null ? null : { id: level.id, level: level.level, name: level.name },
     targetFaction: site.constants.targetFaction,
     turnCreated: site.constants.turnCreated,
@@ -307,6 +313,7 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog): LeadView[] {
       eliminatesFaction: lead.onCompletion.eliminateFaction,
       winsCampaign: lead.onCompletion.winCampaign,
       completionCount: completionCount(lead.id, world.investigations),
+      initiativeOperationLevel: leadInitiativeOperationLevel(lead.id, gdrs),
       available: availability.available,
       status: leadStatus(availability),
       canBeInvestigatedNow: availability.available && active === null,
@@ -370,8 +377,8 @@ function siteIsCurrent(site: MissionSite): boolean {
   return site.state.lifecycle === 'Active' || site.state.lifecycle === 'Deployed';
 }
 
-/** `player.queries.getCurrentState()`. */
-export function currentStateView(state: CampaignState, gdrs: GdrCatalog): CurrentStateView {
+/** `player.queries.getCurrentLiveWorldState()`; see WHIST, Current world state, Turn report, and history. */
+export function currentLiveWorldStateView(state: CampaignState, gdrs: GdrCatalog): CurrentLiveWorldStateView {
   const world = state.world.current;
   return {
     turn: world.turn,
@@ -381,10 +388,6 @@ export function currentStateView(state: CampaignState, gdrs: GdrCatalog): Curren
       world.ending === null || world.endingTurn === null
         ? null
         : { ending: world.ending, reasons: [...world.endingReasons], turn: world.endingTurn },
-    configuration: {
-      startingMoney: state.configuration.startingMoney,
-      startingFunding: state.configuration.startingFunding,
-    },
     agency: agencyView(world, gdrs),
     agents: Object.values(world.agents)
       .filter((agent) => isServing(agent.state))
@@ -394,7 +397,6 @@ export function currentStateView(state: CampaignState, gdrs: GdrCatalog): Curren
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle === 'Active')
       .map((investigation) => investigationView(investigation, world, gdrs)),
-    leads: leadViews(world, gdrs),
     missionSites: Object.values(world.missionSites)
       .filter((site) => siteIsCurrent(site))
       .map((site) => missionSiteView(site, world, gdrs)),
@@ -405,13 +407,46 @@ export function currentStateView(state: CampaignState, gdrs: GdrCatalog): Curren
   };
 }
 
+/** `player.queries.getCurrentRetiredWorldState()`; see WHIST, Current world state, Turn report, and history. */
+export function currentRetiredWorldStateView(
+  state: CampaignState,
+  gdrs: GdrCatalog,
+): CurrentRetiredWorldStateView {
+  const world = state.world.current;
+  return {
+    leads: leadViews(world, gdrs),
+    agents: Object.values(world.agents)
+      .filter((agent) => !isServing(agent.state))
+      .map((agent) =>
+        agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths, bonusOf(world, gdrs)),
+      ),
+    investigations: Object.values(world.investigations)
+      .filter((investigation) => investigation.state.lifecycle !== 'Active')
+      .map((investigation) => investigationView(investigation, world, gdrs)),
+    missionSites: Object.values(world.missionSites)
+      .filter((site) => !siteIsCurrent(site))
+      .map((site) => missionSiteView(site, world, gdrs)),
+    missions: Object.values(world.missions)
+      .filter((mission) => mission.state.lifecycle !== 'Deployed')
+      .map((mission) => missionView(mission, world)),
+  };
+}
+
+/** `player.queries.getCampaignConfiguration()`; see WHIST, Current world state, Turn report, and history. */
+export function campaignConfigurationView(state: CampaignState): CampaignConfigurationView {
+  return {
+    startingMoney: state.configuration.startingMoney,
+    startingFunding: state.configuration.startingFunding,
+  };
+}
+
 /** `player.queries.getTurnReport()`. */
 export function turnReportView(state: CampaignState): TurnReport | null {
   return detach(state.world.history.turnReport);
 }
 
-/** `player.queries.getHistory()`. */
-export function historyView(state: CampaignState, gdrs: GdrCatalog): HistoryView {
+/** `player.queries.getHistory()`: only the History; see WHIST, Current world state, Turn report, and history. */
+export function historyView(state: CampaignState): HistoryView {
   const world = state.world.current;
   const history = state.world.history;
   return {
@@ -425,22 +460,6 @@ export function historyView(state: CampaignState, gdrs: GdrCatalog): HistoryView
     turnSeries: {
       moneyAtStartOfTurn: detach(history.moneyAtStartOfTurn),
       moneyAtEndOfTurn: detach(history.moneyAtEndOfTurn),
-    },
-    retained: {
-      agents: Object.values(world.agents)
-        .filter((agent) => !isServing(agent.state))
-        .map((agent) =>
-          agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths, bonusOf(world, gdrs)),
-        ),
-      investigations: Object.values(world.investigations)
-        .filter((investigation) => investigation.state.lifecycle !== 'Active')
-        .map((investigation) => investigationView(investigation, world, gdrs)),
-      missionSites: Object.values(world.missionSites)
-        .filter((site) => !siteIsCurrent(site))
-        .map((site) => missionSiteView(site, world, gdrs)),
-      missions: Object.values(world.missions)
-        .filter((mission) => mission.state.lifecycle !== 'Deployed')
-        .map((mission) => missionView(mission, world)),
     },
   };
 }
@@ -867,6 +886,50 @@ export function inspectCampaignState(timeline: {
       turnReport: current.world.history.turnReport,
     }),
   );
+}
+
+/** One Lead or MissionSiteArchetype with its Initiative operation level; null names one that has none. */
+export interface InitiativeOperationLevelEntry {
+  readonly id: string;
+  readonly name: string;
+  readonly level: number | null;
+}
+
+/**
+ * `developer.queries.getInitiativeOperationLevels()`: LEAD, Reading Initiative operation levels. The level of every
+ * Lead and of every MissionSiteArchetype of kind initiative of the Game build, discovered or not, in Game build order;
+ * each one that has none is named in its list with a null level, and again in the matching `without` list.
+ */
+export interface InitiativeOperationLevelsView {
+  readonly leads: readonly InitiativeOperationLevelEntry[];
+  readonly missionSiteArchetypes: readonly InitiativeOperationLevelEntry[];
+  readonly leadsWithoutLevel: readonly string[];
+  readonly missionSiteArchetypesWithoutLevel: readonly string[];
+}
+
+/** `developer.queries.getInitiativeOperationLevels()`: reads only the Game build, never Campaign state. */
+export function initiativeOperationLevelsView(gdrs: GdrCatalog): InitiativeOperationLevelsView {
+  const levels = initiativeOperationLevels(gdrs);
+  const leads = gdrs.leads.map((lead) => ({
+    id: lead.id,
+    name: lead.name,
+    level: levels.leads.get(lead.id) ?? null,
+  }));
+  const missionSiteArchetypes = gdrs.missionSiteArchetypes
+    .filter((item) => item.kind === 'initiative')
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      level: levels.missionSiteArchetypes.get(item.id) ?? null,
+    }));
+  return deepFreeze({
+    leads,
+    missionSiteArchetypes,
+    leadsWithoutLevel: leads.filter((item) => item.level === null).map((item) => item.id),
+    missionSiteArchetypesWithoutLevel: missionSiteArchetypes
+      .filter((item) => item.level === null)
+      .map((item) => item.id),
+  });
 }
 
 /** SAVES, Saving: the World state, the History, and the Turn report. */

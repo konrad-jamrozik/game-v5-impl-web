@@ -57,7 +57,7 @@ describe('AUTO: examples', () => {
       scriptedAi('single', core, [
         async (api) => {
           for (let i = 0; i < 5; i += 1) {
-            api.core.playerQuery(api.principal, 'currentState');
+            api.core.playerQuery(api.principal, 'currentLiveWorldState');
           }
           const rejected = (await api.act('spend', { amount: 10 ** 9 })) as { ok: boolean };
           seen.push(`rejected:${!rejected.ok}`);
@@ -179,7 +179,7 @@ describe('AUTO: examples', () => {
     expect(expectOk(h.core.getStatus(CONTROLLER)).autopilot?.engagementId).toBe(engagementId);
     expect(expectOk(h.core.getAutopilotStatus(CONTROLLER, engagementId)).status).toBe('active');
     // Allowed during an engagement: queries, statuses, Global configuration.
-    expect(h.core.playerQuery(CONTROLLER, 'currentState').ok).toBe(true);
+    expect(h.core.playerQuery(CONTROLLER, 'currentLiveWorldState').ok).toBe(true);
     expect(h.core.getTimelineStatus(CONTROLLER).ok).toBe(true);
     expect((await h.core.setGlobalSetting(CONTROLLER, 'musicVolume', 30)).ok).toBe(true);
     // Unavailable during an engagement.
@@ -274,7 +274,7 @@ describe('DEV: examples', () => {
     const h = await withAis((core) => [
       scriptedAi('x', core, [
         async (api) => {
-          seen.push(JSON.stringify(api.core.playerQuery(api.principal, 'currentState')));
+          seen.push(JSON.stringify(api.core.playerQuery(api.principal, 'currentLiveWorldState')));
           seen.push(JSON.stringify(await api.act('spend', { amount: 10 ** 9 })));
           seen.push(JSON.stringify(api.core.developerQuery(api.principal)));
           await api.act('gain', { amount: 1 });
@@ -287,7 +287,7 @@ describe('DEV: examples', () => {
     const hidden = (expectOk(h.core.developerQuery(CONTROLLER)) as { world: { current: { hidden: number } } })
       .world.current.hidden;
     expect(hidden).toBeGreaterThan(0);
-    expect(JSON.stringify(h.core.playerQuery(CONTROLLER, 'currentState'))).not.toContain('hidden');
+    expect(JSON.stringify(h.core.playerQuery(CONTROLLER, 'currentLiveWorldState'))).not.toContain('hidden');
     await run(h, 'x', { kind: 'singleAction' });
     for (const text of seen) {
       expect(text).not.toContain('hidden');

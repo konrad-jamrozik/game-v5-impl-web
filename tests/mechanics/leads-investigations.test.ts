@@ -13,9 +13,9 @@ import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import { isServing, type CampaignState } from '../../src/engine/state/types.ts';
 import { isRejection } from '../../src/engine/result.ts';
 import {
-  currentStateView,
+  currentLiveWorldStateView,
+  currentRetiredWorldStateView,
   estimateTeamProgressGain,
-  historyView,
   turnReportView,
 } from '../../src/engine/views/views.ts';
 import type { GdrCatalog } from '../../src/gdr/index.ts';
@@ -51,7 +51,7 @@ import {
 useLegacyCatalog();
 
 const leads = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
-  Object.fromEntries(currentStateView(state, catalog).leads.map((lead) => [lead.id, lead]));
+  Object.fromEntries(currentRetiredWorldStateView(state, catalog).leads.map((lead) => [lead.id, lead]));
 /**
  * The numbers of the conditions of LEAD, Lead availability, that do not hold, for each discovered Lead. They are not
  * Player-visible, so they are read from the engine's own rule, not from Player API.
@@ -72,7 +72,9 @@ const blocking = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
       }),
   );
 const statuses = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
-  Object.fromEntries(currentStateView(state, catalog).leads.map((lead) => [lead.id, lead.status]));
+  Object.fromEntries(
+    currentRetiredWorldStateView(state, catalog).leads.map((lead) => [lead.id, lead.status]),
+  );
 /** LEAD, Turn report: the Leads discovered in the most recent Advance turn, and the same list in its History entry. */
 const discovered = (state: CampaignState) => {
   const listed = turnReportView(state)?.discoveredLeads;
@@ -163,7 +165,9 @@ describe('LEAD: examples', () => {
     expect(Object.keys(view[MEMBER]!)).not.toEqual(
       expect.arrayContaining([expect.stringMatching(/discovered|condition|blocking|requires/i)]),
     );
-    expect(JSON.stringify(currentStateView(state, gdrs))).not.toMatch(/safehouse|locate_red_dawn_hq/);
+    expect(JSON.stringify(currentLiveWorldStateView(state, gdrs))).not.toMatch(
+      /safehouse|locate_red_dawn_hq/,
+    );
     expect(turnReportView(state)).toBeNull();
   });
 
@@ -218,12 +222,13 @@ describe('LEAD: examples', () => {
       eliminatesFaction: false,
       winsCampaign: false,
       completionCount: 0,
+      initiativeOperationLevel: 2,
       available: true,
       status: 'Available',
       canBeInvestigatedNow: true,
       activeInvestigation: null,
     });
-    expect(JSON.stringify(currentStateView(state, gdrs))).not.toContain(HQ);
+    expect(JSON.stringify(currentLiveWorldStateView(state, gdrs))).not.toContain(HQ);
     // member is a Completed Lead, whose Completed Investigation revealed its Required progress.
     expect(leads(state)[MEMBER]).toMatchObject({
       assessed: true,
@@ -356,7 +361,7 @@ describe('LEAD: examples', () => {
     expect(blocking(state, catalog)['test_lead']).toEqual([4]);
     expect(statuses(state, catalog)['test_lead']).toBe('Archived');
     expect(state.world.current.missions[missionAt(state, hq.site)]!.state.lifecycle).toBe('Won');
-    expect(currentStateView(state, catalog).missionSites).toHaveLength(0);
+    expect(currentLiveWorldStateView(state, catalog).missionSites).toHaveLength(0);
   });
 
   it('Faction Eliminated in the Advance turn that discovers a Lead', () => {
@@ -388,7 +393,9 @@ describe('LEAD: examples', () => {
     expect(blocking(state, catalog)).toEqual({ [MEMBER]: [4], test_lead: [4] });
     expect(statuses(state, catalog)).toEqual({ [MEMBER]: 'Archived', test_lead: 'Archived' });
     // safehouse and hq stay undiscovered: no Mission against Red Dawn can be Won any more.
-    expect(JSON.stringify(currentStateView(state, catalog))).not.toMatch(/locate_red_dawn_(safehouse|hq)/);
+    expect(JSON.stringify(currentLiveWorldStateView(state, catalog))).not.toMatch(
+      /locate_red_dawn_(safehouse|hq)/,
+    );
   });
 
   it('Two Leads requiring the same MissionSiteArchetype', () => {
@@ -741,7 +748,7 @@ describe('LEAD: Leads that concern no Faction or create no Mission site, with th
 
 describe('INVSTG: examples', () => {
   const view = (state: CampaignState, id: string, catalog: GdrCatalog = gdrs) =>
-    currentStateView(state, catalog).investigations.find((item) => item.id === id)!;
+    currentLiveWorldStateView(state, catalog).investigations.find((item) => item.id === id)!;
   const progressOf = (state: CampaignState, id: string) =>
     state.world.current.investigations[id]!.state.progress;
   const parameters = gdrs.investigationParameters;
@@ -788,7 +795,7 @@ describe('INVSTG: examples', () => {
       requiredProgress: 'unknown',
       requiredProgressRange: 'unknown',
     });
-    expect(JSON.stringify(currentStateView(state, gdrs).investigations)).not.toMatch(
+    expect(JSON.stringify(currentLiveWorldStateView(state, gdrs).investigations)).not.toMatch(
       /"actualRequiredProgress":4/,
     );
     const rows: [number, boolean, string, string][] = [];
@@ -840,7 +847,7 @@ describe('INVSTG: examples', () => {
       participationHistory: [{ kind: 'Investigation', id: i1.id }],
     });
     expect(effectiveSkill(valuesOf(agent(state, a1).state), gdrs.agentParameters)).toBe(100);
-    expect(historyView(state, gdrs).retained.investigations[0]).toMatchObject({
+    expect(currentRetiredWorldStateView(state, gdrs).investigations[0]).toMatchObject({
       id: i1.id,
       projectedProgressGain: null,
       actualRequiredProgress: 'unknown',
@@ -1513,7 +1520,7 @@ describe('INVSTG: Team progress estimate', () => {
     expect(estimateTeamProgressGain(state, gdrs, [a1, a2])).toBe(174);
     const started = act(state, 'startInvestigation', { lead: 'locate_red_dawn_member', agents: [a1, a2] });
     // The Investigation they start has a projected progress gain of 0 until they arrive.
-    expect(currentStateView(started, gdrs).investigations[0]?.projectedProgressGain).toBe(0);
+    expect(currentLiveWorldStateView(started, gdrs).investigations[0]?.projectedProgressGain).toBe(0);
     expect(estimateTeamProgressGain(started, gdrs, [a1, a2])).toBe(174);
     // A Current team together with Agents to add.
     expect(estimateTeamProgressGain(started, gdrs, [a1, a2, a3])).toBe(

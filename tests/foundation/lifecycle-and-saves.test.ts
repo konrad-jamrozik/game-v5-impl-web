@@ -11,7 +11,7 @@ describe('LIFE: examples', () => {
     const h = await startHarness();
     expect(status(h).hasCurrentCampaign).toBe(false);
     expect(status(h).devMode).toBe(false);
-    const query = h.core.playerQuery(CONTROLLER, 'currentState');
+    const query = h.core.playerQuery(CONTROLLER, 'currentLiveWorldState');
     expect(query.ok).toBe(false);
     expect(!query.ok && query.error.code).toBe('no_current_campaign');
     const action = await h.act('gain', { amount: 1 });
@@ -107,7 +107,7 @@ describe('DETERM: examples', () => {
     expectOk(await h.cheat('addMoney', { amount: 7 }));
     record();
     if (withNoise) {
-      h.core.playerQuery(CONTROLLER, 'currentState');
+      h.core.playerQuery(CONTROLLER, 'currentLiveWorldState');
       const rejected = await h.act('spend', { amount: 1_000_000 });
       expect(rejected.ok).toBe(false);
     }
@@ -174,7 +174,14 @@ describe('DETERM: examples', () => {
       if (devMode) {
         h.core.enableDevMode(CONTROLLER);
       }
-      for (const query of ['currentState', 'turnReport', 'history', 'availableActions'] as const) {
+      for (const query of [
+        'currentLiveWorldState',
+        'currentRetiredWorldState',
+        'campaignConfiguration',
+        'turnReport',
+        'history',
+        'availableActions',
+      ] as const) {
         expect(JSON.stringify(h.core.playerQuery(CONTROLLER, query))).not.toContain('hidden seed 123');
       }
     }

@@ -1,5 +1,7 @@
-/** LEAD (Leads and Progression): Lead discovery, Lead availability, and Lead status. */
-import type { LeadGdr, MissionSiteArchetypeGdr } from '../../../gdr/index.ts';
+/**
+ * LEAD (Leads and Progression): Lead discovery, Lead availability, Lead status, and the Initiative operation level.
+ */
+import type { Condition, LeadGdr, MissionSiteArchetypeGdr } from '../../../gdr/index.ts';
 import type { Faction, Investigation, Mission, MissionSite } from '../../state/types.ts';
 import { conditionHolds } from '../conditions/conditions.ts';
 import { missionSiteCanExist } from '../missions/missions.ts';
@@ -164,4 +166,102 @@ export function activeInvestigationOf(
       (item) => item.constants.lead === leadId && item.state.lifecycle === 'Active',
     ) ?? null
   );
+}
+
+/**
+ * LEAD, Initiative operation level: the level of every Lead and of every MissionSiteArchetype of kind initiative of a
+ * Game build, by GDR identifier, in Game build order; null for one that has none.
+ */
+export interface InitiativeOperationLevels {
+  readonly leads: ReadonlyMap<string, number | null>;
+  readonly missionSiteArchetypes: ReadonlyMap<string, number | null>;
+}
+
+/** The lowest of several values, ignoring those without one; none when none has one. */
+function lowest(values: readonly (number | null)[]): number | null {
+  const present = values.filter((value): value is number => value !== null);
+  return present.length === 0 ? null : Math.min(...present);
+}
+
+/** The Lead and MissionSiteArchetype GDRs whose Initiative operation levels were last calculated, by Lead list. */
+const levelsByBuild = new WeakMap<readonly LeadGdr[], InitiativeOperationLevels>();
+
+/**
+ * LEAD, Initiative operation level: a Derived value of the Game build, calculated from the Lead and
+ * MissionSiteArchetype GDRs alone, once per Game build. Every Lead starts with no value and the equations are applied
+ * to every Lead again and again until no value changes; values only fall, so the calculation ends.
+ */
+export function initiativeOperationLevels(gdrs: {
+  readonly leads: readonly LeadGdr[];
+  readonly missionSiteArchetypes: readonly MissionSiteArchetypeGdr[];
+}): InitiativeOperationLevels {
+  const known = levelsByBuild.get(gdrs.leads);
+  if (known !== undefined) {
+    return known;
+  }
+  const kinds = new Map(gdrs.missionSiteArchetypes.map((item) => [item.id, item.kind]));
+  const required = new Map<string, number | null>(gdrs.leads.map((lead) => [lead.id, null]));
+  const levelOf = (lead: LeadGdr): number | null => {
+    const value = required.get(lead.id) ?? null;
+    return value === null ? null : value + (createsMissionSite(lead) ? 1 : 0);
+  };
+  // The lowest level among the Leads, of the given Faction when one is given, whose `create_mission_site` names it.
+  const archetypeLevel = (archetype: string, faction: { readonly of: string | null } | null): number | null =>
+    lowest(
+      gdrs.leads
+        .filter(
+          (lead) =>
+            lead.onCompletion.createMissionSite === archetype &&
+            (faction === null || lead.faction === faction.of),
+        )
+        .map(levelOf),
+    );
+  const requiredOf = (condition: Condition, lead: LeadGdr): number | null => {
+    switch (condition.kind) {
+      case 'lead_completed':
+        return required.get(condition.lead) ?? null;
+      case 'mission_won':
+        // A Response Mission site needs no Initiative Mission to be Won first.
+        return kinds.get(condition.missionSiteArchetype) === 'response'
+          ? 0
+          : archetypeLevel(condition.missionSiteArchetype, { of: lead.faction });
+      case 'all': {
+        const values = condition.conditions.map((item) => requiredOf(item, lead));
+        return values.includes(null) ? null : Math.max(0, ...(values as number[]));
+      }
+      case 'any':
+        return lowest(condition.conditions.map((item) => requiredOf(item, lead)));
+      case 'not':
+        return 0;
+    }
+  };
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const lead of gdrs.leads) {
+      const next = lead.discoveredWhen === null ? 0 : requiredOf(lead.discoveredWhen, lead);
+      if (next !== required.get(lead.id)) {
+        required.set(lead.id, next);
+        changed = true;
+      }
+    }
+  }
+  const levels: InitiativeOperationLevels = {
+    leads: new Map(gdrs.leads.map((lead) => [lead.id, levelOf(lead)])),
+    missionSiteArchetypes: new Map(
+      gdrs.missionSiteArchetypes
+        .filter((item) => item.kind === 'initiative')
+        .map((item) => [item.id, archetypeLevel(item.id, null)]),
+    ),
+  };
+  levelsByBuild.set(gdrs.leads, levels);
+  return levels;
+}
+
+/** LEAD, Initiative operation level of one Lead; null for one that has none. */
+export function leadInitiativeOperationLevel(
+  leadId: string,
+  gdrs: Parameters<typeof initiativeOperationLevels>[0],
+): number | null {
+  return initiativeOperationLevels(gdrs).leads.get(leadId) ?? null;
 }

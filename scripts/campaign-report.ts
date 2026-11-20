@@ -41,7 +41,7 @@ for (let i = first; i < first + seeds; i += 1) {
   );
   await engine.session.globalConfiguration.set('autosaveLimit', 0);
   await engine.session.campaign.create({ seed: `simulation-${i}` });
-  const initialRoster = engine.player.queries.getCurrentState();
+  const initialRoster = engine.player.queries.getCurrentLiveWorldState();
   if (!initialRoster.ok) {
     throw new Error(initialRoster.error.message);
   }
@@ -53,9 +53,10 @@ for (let i = first; i < first + seeds; i += 1) {
     throw new Error(engaged.error.message);
   }
   const result = await engine.session.autopilot.whenDisengaged(engaged.value.engagementId);
-  const state = engine.player.queries.getCurrentState();
+  const state = engine.player.queries.getCurrentLiveWorldState();
   const history = engine.player.queries.getHistory();
-  if (!result.ok || !state.ok || !history.ok) {
+  const retiredState = engine.player.queries.getCurrentRetiredWorldState();
+  if (!result.ok || !state.ok || !history.ok || !retiredState.ok) {
     throw new Error('simulation failed');
   }
   if (result.value.reason === 'aiFailed') {
@@ -63,7 +64,7 @@ for (let i = first; i < first + seeds; i += 1) {
     continue;
   }
   const view = state.value;
-  const sites = [...view.missionSites, ...history.value.retained.missionSites];
+  const sites = [...view.missionSites, ...retiredState.value.missionSites];
   const targetOf = new Map(sites.map((site) => [site.id, site.targetFaction]));
   const best = new Map<string, number>();
   for (const entry of history.value.entries) {
@@ -75,15 +76,15 @@ for (let i = first; i < first + seeds; i += 1) {
       }
     }
   }
-  const allAgents = [...view.agents, ...history.value.retained.agents];
+  const allAgents = [...view.agents, ...retiredState.value.agents];
   const killed = allAgents.filter((agent) => agent.agentStatus === 'Killed').length;
   const hired = allAgents.length - initialRoster.value.agents.length;
   const peak = Math.max(0, ...history.value.entries.map((entry) => entry.report.panicAfterHundredths));
   const tiers = view.factions.map((faction) => String(best.get(faction.id) ?? 0)).join('/');
   const eliminated = view.factions.filter((faction) => faction.eliminated).length;
-  const completed = view.leads.filter((lead) => lead.completionCount > 0).length;
+  const completed = retiredState.value.leads.filter((lead) => lead.completionCount > 0).length;
   const ending = view.ending;
   console.log(
-    `| ${i} | ${ending?.ending ?? 'none'} | ${ending?.reasons.join(', ') ?? ''} | ${ending?.turn ?? `${view.turn - 1} (limit)`} | ${tiers} | ${eliminated}/3 | ${hired} | ${killed} | ${hundredths(peak)}% | ${completed}/${view.leads.length} discovered |`,
+    `| ${i} | ${ending?.ending ?? 'none'} | ${ending?.reasons.join(', ') ?? ''} | ${ending?.turn ?? `${view.turn - 1} (limit)`} | ${tiers} | ${eliminated}/3 | ${hired} | ${killed} | ${hundredths(peak)}% | ${completed}/${retiredState.value.leads.length} discovered |`,
   );
 }

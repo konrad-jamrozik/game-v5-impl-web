@@ -82,12 +82,12 @@ describe('File storage', () => {
 
   it('keeps a Campaign across Sessions: a second Session loads what the first saved', async () => {
     const first = await start(new FileStorage(dir));
-    const saved = await run(first, ['new seed-one', 'hire', 'next', 'save', 'state']);
+    const saved = await run(first, ['new seed-one', 'hire', 'next', 'save', 'live']);
     const saveId = parse(saved[3]).value.saveId as string;
     const stateBefore = parse(saved[4]).value;
 
     const second = await start(new FileStorage(dir));
-    const loaded = await run(second, [`load ${saveId}`, 'state']);
+    const loaded = await run(second, [`load ${saveId}`, 'live']);
     expect(parse(loaded[0]).ok).toBe(true);
     expect(parse(loaded[1]).value).toEqual(stateBefore);
     expect((await readdir(join(dir, 'saves'))).length).toBeGreaterThan(0);
@@ -97,9 +97,27 @@ describe('File storage', () => {
 describe('Terminal CLI', () => {
   it('prints exactly what the engine API returns, in JSON mode', async () => {
     const engine = await start(new MemoryStorage());
-    const lines = await run(engine, ['new s', 'state', 'actions', 'report', 'history', 'timeline', 'ais']);
+    const lines = await run(engine, [
+      'new s',
+      'live',
+      'actions',
+      'report',
+      'history',
+      'timeline',
+      'ais',
+      'retired',
+      'campaignconfig',
+      'leads',
+    ]);
     expect(parse(lines[1]).value).toEqual(
-      JSON.parse(JSON.stringify(ok(engine.player.queries.getCurrentState()))),
+      JSON.parse(JSON.stringify(ok(engine.player.queries.getCurrentLiveWorldState()))),
+    );
+    expect(parse(lines[7]).value).toEqual(
+      JSON.parse(JSON.stringify(ok(engine.player.queries.getCurrentRetiredWorldState()))),
+    );
+    expect(parse(lines[8]).value).toEqual(ok(engine.player.queries.getCampaignConfiguration()));
+    expect(parse(lines[9]).value).toEqual(
+      JSON.parse(JSON.stringify(ok(engine.player.queries.getCurrentRetiredWorldState()).leads)),
     );
     expect(parse(lines[2]).value).toEqual(
       JSON.parse(JSON.stringify(ok(engine.player.queries.getAvailableActions()))),
@@ -135,7 +153,15 @@ describe('Terminal CLI', () => {
     ok(await viaApi.player.actions.purchaseUpgrade('training_cap'));
     ok(await viaApi.player.actions.advanceTurn());
 
-    expect(ok(viaCli.player.queries.getCurrentState())).toEqual(ok(viaApi.player.queries.getCurrentState()));
+    expect(ok(viaCli.player.queries.getCurrentLiveWorldState())).toEqual(
+      ok(viaApi.player.queries.getCurrentLiveWorldState()),
+    );
+    expect(ok(viaCli.player.queries.getCurrentRetiredWorldState())).toEqual(
+      ok(viaApi.player.queries.getCurrentRetiredWorldState()),
+    );
+    expect(ok(viaCli.player.queries.getCampaignConfiguration())).toEqual(
+      ok(viaApi.player.queries.getCampaignConfiguration()),
+    );
     expect(ok(viaCli.player.queries.getHistory())).toEqual(ok(viaApi.player.queries.getHistory()));
   });
 
@@ -153,7 +179,7 @@ describe('Terminal CLI', () => {
     const engine = await start(new FileStorage(dir));
     const lines = await run(
       engine,
-      ['new full-campaign', 'auto basic turns 400', 'state', 'agents', 'factions'],
+      ['new full-campaign', 'auto basic turns 400', 'live', 'agents', 'factions'],
       false,
     );
     expect(lines[1]).toMatch(/^reason: campaignEnded$/m);
@@ -173,13 +199,51 @@ describe('Terminal CLI', () => {
       'addmoney 5',
       'addagents 2',
       'inspect',
+      'levels',
       'dev off',
+      'levels',
     ]);
     expect(parse(lines[1]).error.code).toBe('dev_mode_disabled');
     expect(parse(lines[3]).ok).toBe(true);
     expect(parse(lines[4]).ok).toBe(true);
     expect(parse(lines[5]).value.timeline).toBeDefined();
-    expect(ok(engine.player.queries.getCurrentState()).agency.money).toBe(505);
+    expect(parse(lines[6]).value.leads).toContainEqual(
+      expect.objectContaining({ id: 'locate_red_dawn_outpost', level: 3 }),
+    );
+    expect(parse(lines[8]).error.code).toBe('dev_mode_disabled');
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agency.money).toBe(505);
+  });
+
+  it('fights a Detached Combat from a setup given as JSON, only in Dev mode', async () => {
+    const engine = await start(new MemoryStorage());
+    const fight =
+      'fight {"agents":[{"kind":"explicit","baseSkill":100,"currentHealth":30,"effectiveMaxHealth":30,' +
+      '"exhaustion":0,"effectiveWeaponDamage":10}],"enemies":{"missionSiteArchetype":"raid_outpost"},"seed":"1"}';
+    const lines = await run(engine, [
+      'new s',
+      fight,
+      'dev on',
+      fight,
+      'fight {not json',
+      'fight {"agents":[]}',
+    ]);
+    expect(parse(lines[1]).error.code).toBe('dev_mode_disabled');
+    const result = parse(lines[3]);
+    expect(result.ok).toBe(true);
+    expect(result.value.combatReport.log.length).toBeGreaterThan(0);
+    expect(result.value.participants[0]).toMatchObject({
+      id: 'agent#1',
+      side: 'agent',
+      position: 1,
+      named: null,
+    });
+    expect(parse(lines[4]).error.code).toBe('invalid_command');
+    expect(parse(lines[5]).error.reason).toBe('empty_agents_side');
+    // The readable form carries the whole result, its Combat log included.
+    const readableLines = await run(engine, [fight], false);
+    expect(readableLines[0]).toContain('combatReport:');
+    expect(readableLines[0]).toContain('log:');
+    expect(readableLines[0]).toContain('agent#1');
   });
 
   it('prints the whole result in both Output forms', async () => {
@@ -188,7 +252,7 @@ describe('Terminal CLI', () => {
     const [json] = await run(engine, ['agents']);
     const [text] = await run(engine, ['agents'], false);
     const agents = parse(json).value as Record<string, unknown>[];
-    expect(agents).toHaveLength(ok(engine.player.queries.getCurrentState()).agents.length);
+    expect(agents).toHaveLength(ok(engine.player.queries.getCurrentLiveWorldState()).agents.length);
     // Every scalar of every Agent appears in the readable form, under its own key.
     for (const agent of agents) {
       for (const [key, value] of Object.entries(agent)) {

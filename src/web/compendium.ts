@@ -3,7 +3,12 @@
  * its Article history, and the Data sheet of each kind of subject. Pure presentation over what Player API reports; it
  * replaces no Placeholder and finds no Article link in a resolved text.
  */
-import type { CompendiumArticleView, CurrentStateView, GameDataView } from '../engine/index.ts';
+import type {
+  CompendiumArticleView,
+  CurrentLiveWorldStateView,
+  CurrentRetiredWorldStateView,
+  GameDataView,
+} from '../engine/index.ts';
 import { decimalText } from './format.ts';
 
 export const GUIDE = 'Guide';
@@ -190,7 +195,8 @@ export interface DataSheet {
 /** What a Data sheet is built from: everything Player API reports that a Data sheet shows. */
 export interface SheetSources {
   readonly gameData: GameDataView;
-  readonly state: CurrentStateView;
+  readonly state: CurrentLiveWorldStateView;
+  readonly retired: CurrentRetiredWorldStateView;
   /** The Player-visible articles. */
   readonly articles: readonly Article[];
   /** COMP, Article term lookup: the identifier of the Player-visible article with that Article term, or null. */
@@ -278,7 +284,7 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
   if (article.category !== 'subject' || type === undefined || subject === null) {
     return null;
   }
-  const { gameData, state, articles } = sources;
+  const { gameData, state, retired, articles } = sources;
   const aboutSubject = (subjectType: string, id: string) =>
     articles.find((item) => item.subjectType === subjectType && item.subject === id);
   /** Referenced GDRs: shown by its `name`, as an Article link to the Subject article about it when there is one. */
@@ -373,12 +379,12 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
       rows.push([
         'Leads',
         listed('Lead', (id) =>
-          state.leads.some((lead) => lead.id === id && lead.factionArchetype === subject),
+          retired.leads.some((lead) => lead.id === id && lead.factionArchetype === subject),
         ),
       ]);
       break;
     case 'Lead': {
-      const lead = state.leads.find((item) => item.id === subject);
+      const lead = retired.leads.find((item) => item.id === subject);
       if (lead !== undefined) {
         // COMPV, Lead data sheet: a Lead without `faction` has no Faction row.
         const archetype = lead.factionArchetype;
@@ -475,7 +481,7 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
           rows.push([
             'Revealed by',
             listed('Lead', (id) =>
-              state.leads.some((lead) => lead.id === id && lead.createsMissionSite === subject),
+              retired.leads.some((lead) => lead.id === id && lead.createsMissionSite === subject),
             ),
           ]);
         }

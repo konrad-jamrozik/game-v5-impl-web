@@ -4,7 +4,7 @@
  * the CLI. Each result is printed in one of the two Output forms of CLI, readable text or one line of JSON, and both
  * carry the whole value the operation returned; see DEC-027.
  */
-import type { AutopilotLimit, Engine, Result } from '../engine/index.ts';
+import type { AutopilotLimit, DetachedCombatSetup, Engine, Result } from '../engine/index.ts';
 
 export interface CliOutput {
   /** Whether to print each result as one line of JSON, for scripts and LLM players. */
@@ -86,8 +86,8 @@ const HELP = `Commands
              edit <preset> <key> <value> | unedit <preset> <key> | adjust [<key> <value>]...
              saves | load <saveId> | save | delete <saveId> | deletecampaign <campaignId>
              config | set <setting> <value> | reset <setting>
-  Look       state | agents | leads | investigations | sites | missions | factions | upgrades
-             report | history | retained | actions | gamedata | articles | term <text...>
+  Look       live | retired | campaignconfig | agents | leads | investigations | sites | missions | factions
+             upgrades | report | history | actions | gamedata | articles | term <text...>
              preview <site> <agent...>
   Act        assign <Standby|Contracting|Training> <agent...> | hire | dismiss <agent...> | buy <upgrade>
              investigate <lead> <agent...> | join <investigation> <agent...> | deploy <site> <agent...> | next
@@ -95,10 +95,12 @@ const HELP = `Commands
   Autopilot  ais | auto <ai> <limit> | engage <ai> <limit> | autostatus <engagement> | disengage <engagement>
              wait <engagement>; <limit> is single (one action), turn (this Turn's actions), or turns <count>;
              auto engages and waits
-  Developer  dev on | dev off | inspect | addmoney <amount> | addagents <count> | override <outcome> <value>
+  Developer  dev on | dev off | inspect | levels | addmoney <amount> | addagents <count>
+             override <outcome> <value> | fight <setup JSON>
   Other      help | quit
 Each command prints the whole result of its operation; --json prints it as one line of JSON. The commands agents,
-leads, investigations, sites, missions, factions, and upgrades print that part of state; retained that part of history.`;
+investigations, sites, missions, factions, and upgrades print that part of the Live world state; leads that part of the
+Retired world state.`;
 
 function parseValue(text: string): string | number | boolean {
   if (text === 'true' || text === 'false') {
@@ -151,7 +153,8 @@ export function createCli(engine: Engine, out: CliOutput) {
     return null;
   }
 
-  const state = () => player.queries.getCurrentState();
+  const state = () => player.queries.getCurrentLiveWorldState();
+  const retired = () => player.queries.getCurrentRetiredWorldState();
   const autopilotUsage = (command: string) =>
     usage(command, `usage: ${command} <ai> single | ${command} <ai> turn | ${command} <ai> turns <count>`);
 
@@ -223,8 +226,12 @@ export function createCli(engine: Engine, out: CliOutput) {
       case 'reset':
         return print(command, await session.globalConfiguration.reset(first));
 
-      case 'state':
+      case 'live':
         return print(command, state());
+      case 'retired':
+        return print(command, retired());
+      case 'campaignconfig':
+        return print(command, player.queries.getCampaignConfiguration());
       case 'agents':
         return print(
           command,
@@ -233,7 +240,7 @@ export function createCli(engine: Engine, out: CliOutput) {
       case 'leads':
         return print(
           command,
-          part(state(), (v) => v.leads),
+          part(retired(), (v) => v.leads),
         );
       case 'investigations':
         return print(
@@ -264,11 +271,6 @@ export function createCli(engine: Engine, out: CliOutput) {
         return print(command, player.queries.getTurnReport());
       case 'history':
         return print(command, player.queries.getHistory());
-      case 'retained':
-        return print(
-          command,
-          part(player.queries.getHistory(), (h) => h.retained),
-        );
       case 'actions':
         return print(command, player.queries.getAvailableActions());
       case 'gamedata':
@@ -350,6 +352,8 @@ export function createCli(engine: Engine, out: CliOutput) {
         return print(command, first === 'on' ? session.developer.enable() : session.developer.disable());
       case 'inspect':
         return print(command, developer.queries.getCampaignState());
+      case 'levels':
+        return print(command, developer.queries.getInitiativeOperationLevels());
       case 'addmoney':
         return print(command, await developer.actions.addMoney(Number(first)));
       case 'addagents':
@@ -359,6 +363,21 @@ export function createCli(engine: Engine, out: CliOutput) {
           command,
           await developer.actions.overrideRandomOutcome(first, parseValue(rest[0] ?? '')),
         );
+      case 'fight': {
+        // `fight <setup JSON>`: developer.tools.fightCombat with the rest of the line as its setup, e.g.
+        // fight {"agents":[{"kind":"agent","id":"agent-1"}],"enemies":{"missionSiteArchetype":"raid_outpost"},"seed":"1"}
+        const text = line.trim().slice(command.length).trim();
+        let setup: unknown;
+        try {
+          setup = JSON.parse(text);
+        } catch {
+          return usage(
+            command,
+            'usage: fight <setup JSON>, e.g. fight {"agents":[...],"enemies":[...],"seed":"1"}',
+          );
+        }
+        return print(command, developer.tools.fightCombat(setup as DetachedCombatSetup));
+      }
       default:
         return usage(command, `Unknown command "${command}". Type help.`);
     }
