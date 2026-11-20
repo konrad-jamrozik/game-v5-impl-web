@@ -64,6 +64,11 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   the Upgrade `max_health` with `armor` (effect `agent_armor`) and deletes `max_health_article`; and rewords six
   other articles. The copy is still identical to the specification's `content/` directory, and has 166 YAML files
   holding 284 GDRs.
+- `combat/combat_parameters.yaml` and `compendium/compendium_articles/mechanics_combat.yaml`: patched unchanged from
+  specification commit `d1286d1cd52fca9f428f77e03c51ec59229fd781` on 2026-11-20, rewording the comments of
+  `target_base_weight` and `target_preferred_hit_chance` and the Combat article's Chance to hit and Agent target for
+  the rounded hit chance and the Selection weight's usefulness. The copy is still identical to the specification's
+  `content/` directory.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

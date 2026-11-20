@@ -214,12 +214,6 @@ export function Section(props: { title: string; children: ReactNode; aside?: Rea
   );
 }
 
-/** A Probability given as a pair of whole numbers, shown as a percentage for reading. */
-export function percent(pair: { n: number | string; d: number | string }): string {
-  const d = Number(pair.d);
-  return d === 0 ? '-' : `${Math.round((Number(pair.n) / d) * 100)}%`;
-}
-
 export function signed(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }

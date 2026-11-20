@@ -5,9 +5,11 @@ import {
   combatRating,
   damageBounds,
   fightCombat,
+  hitChance,
   type Combatant,
 } from '../../src/engine/mechanics/combat/combat.ts';
 import { injectedRandom, type Random } from '../../src/engine/random.ts';
+import { ratio } from '../../src/kernel/index.ts';
 import type { CombatReport } from '../../src/engine/state/types.ts';
 import {
   catalogWith,
@@ -80,16 +82,52 @@ describe('COMBAT: examples', () => {
     ).toThrow();
   });
 
-  it('Hit probabilities', () => {
-    const rows: [number, number, number, number][] = [
-      [100, 40, 10000, 11600],
-      [40, 100, 1600, 11600],
-      [100, 120, 10000, 24400],
-      [300, 100, 90000, 100000],
-      [100, 100, 10000, 20000],
-      [1, 1, 1, 2],
+  it('Hit chance: rounded down to thousandths and kept from 1 to 999', () => {
+    // The examples of COMBAT, Hit outcome, and the clamp: 1 against 50 rounds down to 0, which the clamp raises to 1.
+    expect(hitChance(200, 100)).toBe(800);
+    expect(hitChance(973, 60)).toBe(996);
+    expect(hitChance(107, 40)).toBe(877);
+    expect(hitChance(1, 50)).toBe(1);
+    expect(hitChance(1, 1000)).toBe(1);
+    expect(hitChance(1000, 1)).toBe(999);
+    expect(hitChance(100000, 1)).toBe(999);
+  });
+
+  it('Hit chance: the hit outcome is drawn with hit chance / 1000, never the unrounded ratio', () => {
+    // 973 against 60 is 946729 / 950329, about 0.99621; the hit outcome must be drawn with exactly 996 / 1000.
+    const chances: string[] = [];
+    const base = injectedRandom({ 'combat.hit.a1': [false], 'combat.hit.e1': [false] });
+    const random: Random = {
+      ...base,
+      chance(outcome, probability) {
+        chances.push(`${outcome} ${probability.toString()}`);
+        throw new Error('first hit outcome');
+      },
+    };
+    expect(() =>
+      fightCombat(
+        {
+          agents: [combatAgent('a1', { skill: 973 })],
+          enemies: [combatAgent('e1', { skill: 60 })],
+          combat: gdrs.combatParameters,
+          agentParameters: gdrs.agentParameters,
+        },
+        random,
+      ),
+    ).toThrow('first hit outcome');
+    expect(chances).toEqual([`combat.hit.a1 ${ratio(996, 1000).toString()}`]);
+  });
+
+  it('Hit chances recorded in the Combat log', () => {
+    const rows: [number, number, number][] = [
+      [100, 40, 862],
+      [40, 100, 137],
+      [100, 120, 409],
+      [300, 100, 900],
+      [100, 100, 500],
+      [1, 1, 500],
     ];
-    for (const [a, d, n, total] of rows) {
+    for (const [a, d, chance] of rows) {
       const report = fight(
         [combatAgent('a1', { skill: a })],
         [
@@ -107,7 +145,7 @@ describe('COMBAT: examples', () => {
         ],
         { 'combat.hit.a1': misses(200), 'combat.hit.e1': misses(200) },
       );
-      expect(report.log[0]).toMatchObject({ a, d, hitProbability: { n, d: total } });
+      expect(report.log[0]).toMatchObject({ a, d, hitChance: chance });
     }
   });
 
@@ -203,6 +241,47 @@ describe('COMBAT: examples', () => {
       ['e1', 100],
       ['e2', 86],
       ['e3', 40],
+    ]);
+  });
+
+  it('Selection weights are discounted by the part of a hit a frail Enemy could not take', () => {
+    // COMBAT, Target selection: an Agent of effective skill 1000 and effective weapon damage 25. The Enemy of 250 with
+    // health 50 takes a whole hit: 94.1%, weight 86. The Enemy of 100 with health 20 takes 20 of 25: 99.0%, hit-chance
+    // weight 81, round up(81 × 20 / 25) = 65. The same Enemy with armor 5 takes all 25 again: 81.
+    const enemy = (id: string, skill: number, health: number, armor: number): Combatant => ({
+      id,
+      state: {
+        skillHundredths: skill * 100,
+        currentHealthHundredths: health * 100,
+        maxHealth: health,
+        exactExhaustionHundredths: 0,
+        weaponDamage: 10,
+        armor,
+      },
+    });
+    const draws: (readonly [string, number])[][] = [];
+    const base = injectedRandom({});
+    expect(() =>
+      fightCombat(
+        {
+          agents: [combatAgent('a1', { skill: 1000, weaponDamage: 25 })],
+          enemies: [enemy('e1', 250, 50, 0), enemy('e2', 100, 20, 0), enemy('e3', 100, 20, 5)],
+          combat: gdrs.combatParameters,
+          agentParameters: gdrs.agentParameters,
+        },
+        {
+          ...base,
+          weighted(outcome, entries) {
+            draws.push([...entries]);
+            throw new Error(outcome);
+          },
+        },
+      ),
+    ).toThrow('combat.target.a1');
+    expect(draws[0]).toEqual([
+      ['e1', 86],
+      ['e2', 65],
+      ['e3', 81],
     ]);
   });
 
@@ -304,25 +383,15 @@ describe('COMBAT: examples', () => {
     expect(report.enemies).toEqual(['e1', 'e2']);
     // From Combat round 2, a2 (100) acts before the wounded a1 (76); a2's hit in Combat round 3 ends the Combat at
     // once, so a1 does not attack in it.
-    expect(
-      report.log.map((x) => [
-        x.round,
-        x.attacker,
-        x.defender,
-        x.a,
-        x.d,
-        x.hitProbability.n,
-        x.hitProbability.d,
-      ]),
-    ).toEqual([
-      [1, 'a1', 'e1', 100, 40, 10000, 11600],
-      [1, 'a2', 'e2', 100, 40, 10000, 11600],
-      [1, 'e1', 'a1', 16, 100, 256, 10256],
-      [1, 'e2', 'a1', 10, 100, 100, 10100],
-      [2, 'a2', 'e2', 100, 10, 10000, 10100],
-      [2, 'a1', 'e1', 76, 16, 5776, 6032],
-      [2, 'e2', 'a2', 10, 100, 100, 10100],
-      [3, 'a2', 'e2', 100, 10, 10000, 10100],
+    expect(report.log.map((x) => [x.round, x.attacker, x.defender, x.a, x.d, x.hitChance])).toEqual([
+      [1, 'a1', 'e1', 100, 40, 862],
+      [1, 'a2', 'e2', 100, 40, 862],
+      [1, 'e1', 'a1', 16, 100, 24],
+      [1, 'e2', 'a1', 10, 100, 9],
+      [2, 'a2', 'e2', 100, 10, 990],
+      [2, 'a1', 'e1', 76, 16, 957],
+      [2, 'e2', 'a2', 10, 100, 9],
+      [3, 'a2', 'e2', 100, 10, 990],
     ]);
     expect(report.log.map((x) => x.healthRemovedHundredths)).toEqual([1200, 1500, 0, 700, 0, 800, 0, 500]);
     expect(report.log.map((x) => x.damage)).toEqual([12, 15, null, 7, null, 9, null, 5]);
@@ -391,7 +460,7 @@ describe('COMBAT: examples', () => {
     expect(report.rounds).toBe(1);
     expect(units(a1.state)).toMatchObject({ currentHealth: 9, exhaustion: 2 });
     expect(participant(report, 'a1').final).toMatchObject({ effectiveSkill: 30, condition: 'ableToFight' });
-    expect(report.log[1]!.hitProbability).toEqual({ n: 14400, d: 24400 });
+    expect(report.log[1]!.hitChance).toBe(590);
   });
 
   it('Wiped, with the Retreated check also holding', () => {
@@ -421,7 +490,7 @@ describe('COMBAT: examples', () => {
       attacker: 'a1',
       a: 31,
       d: 20,
-      hitProbability: { n: 961, d: 1361 },
+      hitChance: 706,
       attackerIncapacitated: true,
     });
     expect(report.log[2]).toMatchObject({ attacker: 'e1', defender: 'a2' });

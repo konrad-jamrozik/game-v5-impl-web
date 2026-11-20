@@ -1562,8 +1562,10 @@
   passes the two arguments to the rules' `developerTool` as one object `{ setup, count }`. The CLI command
   `fightbatch <count> <setup JSON>` calls it. Both Developer tools and the Mission resolution step call the one
   implementation `fight` in `combat.ts`, which builds the Combat report only when asked; it keeps each Combatant's
-  effective skill until an attack changes it and computes each Selection weight once per pair of effective skills,
-  which changes no result and makes a Combat of 300 Agents about five times faster.
+  effective skill until an attack changes it and computes each Selection weight once per combination of the two
+  effective skills, the attacker's effective weapon damage, and the candidate's current health plus current armor, the
+  only values it depends on since specification commit `82034028f5675e67ccbaecd133db93e4cdd946b5`, which changes no
+  result and makes a Combat of 300 Agents about five times faster.
 - **Options considered:** Per-Combat summaries and totals; totals only; a mode of `fightCombat`.
 - **Option chosen:** Per-Combat summaries and totals, from a separate operation.
 - **Why:** The totals are what a balancing tool reads, and the per-Combat summaries let it find the Combat to look at in

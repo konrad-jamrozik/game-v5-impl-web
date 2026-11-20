@@ -13,13 +13,13 @@ import type {
 import { armorText, combatLogRow, finalCondition } from '../combat-log.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
-import { progressGain, progressPoints, wholeText } from '../format.ts';
+import { hitChanceText, progressGain, progressPoints, wholeText } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
 import { turnSummaryHasContent } from '../turn-summary.ts';
 import { backLabel, turnSummaryPlace } from '../view-trail.ts';
-import { Button, percent, Grid } from '../ui.tsx';
+import { Button, Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 /** Where selecting an item of the Turn report leads. */
@@ -351,13 +351,17 @@ function Sections(props: {
   );
 }
 
-/** VIS, Tables: the fixed widths of the participants table, the Combat log, and the Combat ratings table. */
+/**
+ * VIS, Tables: the fixed widths of the participants table, the Combat log, and the Combat ratings table, each column
+ * wide enough for the widest value of its quantity, e.g. "1234 → 1234" in Eff. skill, "123 → 123/123" in Health,
+ * "123 → 123" in Armor, and "99.9% (1234 vs 1234)" in Hit chance.
+ */
 const PARTICIPANT_WIDTHS = [
   '112px',
   '92px',
-  '104px',
   '120px',
-  '72px',
+  '140px',
+  '104px',
   '104px',
   '72px',
   '64px',
@@ -365,7 +369,7 @@ const PARTICIPANT_WIDTHS = [
   '72px',
   '128px',
 ];
-const LOG_WIDTHS = ['72px', '120px', '120px', '164px', '300px'];
+const LOG_WIDTHS = ['72px', '120px', '120px', '184px', '300px'];
 
 /**
  * TRVIEW, Combat report: the Exp of one participant. A survivor shows its Mission experience as one total in Positive,
@@ -550,7 +554,7 @@ function CombatReportDetails(props: {
                     <td>{props.nameOf(attack.attacker)}</td>
                     <td>{props.nameOf(attack.defender)}</td>
                     <td className="num">
-                      {percent(attack.hitProbability)} ({attack.a} vs {attack.d})
+                      {hitChanceText(attack.hitChance)} ({attack.a} vs {attack.d})
                     </td>
                     <td className={`log-outcome ${row.tone === 'muted' ? 'muted' : `tone-${row.tone}`}`}>
                       {row.outcome}

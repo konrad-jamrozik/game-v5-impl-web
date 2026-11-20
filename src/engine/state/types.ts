@@ -253,8 +253,8 @@ export interface AttackRecord {
   readonly a: number;
   /** The defender's effective skill. */
   readonly d: number;
-  /** The hit Probability as the pair of whole numbers A² and A² + D². */
-  readonly hitProbability: { readonly n: number; readonly d: number };
+  /** COMBAT, Hit outcome: the hit chance in thousandths, from 1 to 999; the hit was drawn with hit chance / 1000. */
+  readonly hitChance: number;
   readonly hit: boolean;
   /** Absent, not zero, for a miss. */
   readonly damage: number | null;

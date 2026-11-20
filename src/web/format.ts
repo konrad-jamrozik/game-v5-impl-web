@@ -22,6 +22,15 @@ export function wholeText(hundredths: number): string {
   return String(Math.floor(hundredths / 100));
 }
 
+/**
+ * COMBAT, Player-visible information: a hit chance, held in thousandths, shown as a percentage with exactly one
+ * decimal place, exactly and never rounded again, e.g. 996 as "99.6%" and 800 as "80.0%".
+ */
+export function hitChanceText(thousandths: number): string {
+  const whole = Math.floor(thousandths / 10);
+  return `${whole}.${thousandths - whole * 10}%`;
+}
+
 /** Investigation progress, counted in hundredths, shown as whole progress points rounded down, e.g. 449 as 4. */
 export function progressPoints(hundredths: number): string {
   return wholeText(hundredths);

@@ -10,16 +10,7 @@
  * `developer.tools.fightCombatBatch(setup, count)`, without it. The two Developer tools (`detached-combat.ts`) build
  * their inputs from their setup, derive their random outcomes from the Detached seed, and return their outputs.
  */
-import {
-  EngineDefect,
-  fromHundredths,
-  must,
-  q,
-  ratio,
-  roundDown,
-  roundUp,
-  toStored,
-} from '../../../kernel/index.ts';
+import { EngineDefect, fromHundredths, must, q, ratio, roundDown, roundUp } from '../../../kernel/index.ts';
 import type { AgentParametersGdr, CombatParametersGdr } from '../../../gdr/index.ts';
 import type { Random } from '../../random.ts';
 import type {
@@ -172,6 +163,17 @@ export function damageBounds(weaponDamage: number, combat: CombatParametersGdr):
     lo: roundUp(q(weaponDamage).mul(q(1).sub(combat.weaponDamageRange))),
     hi: roundDown(q(weaponDamage).mul(q(1).add(combat.weaponDamageRange))),
   };
+}
+
+/**
+ * COMBAT, Hit outcome: the hit chance of an attack by effective skill A on effective skill D, in thousandths,
+ * min(999, max(1, round down(1000 × A² / (A² + D²)))). The hit outcome is a hit with the Probability hit chance / 1000,
+ * and the hit chance is what the player is shown, e.g. 996 as "99.6%".
+ */
+export function hitChance(a: number, d: number): number {
+  const aSquared = BigInt(a) * BigInt(a);
+  const thousandths = roundDown(ratio(1000n * aSquared, aSquared + BigInt(d) * BigInt(d)));
+  return Math.min(999, Math.max(1, thousandths));
 }
 
 interface Fighter {
@@ -328,24 +330,29 @@ function fight(
 
   /**
    * COMBAT, Target selection: 1 for every candidate of an attacking Enemy; for an attacking Agent,
-   * target_base_weight − round down(|100 × target_preferred_hit_chance − 100 × A² / (A² + D²)|), evaluated exactly.
+   * round up(hit-chance weight × usefulness), where the hit-chance weight is
+   * target_base_weight − round down(|100 × target_preferred_hit_chance − hit chance / 10|) and the usefulness is
+   * min(w, H) / w, with w the attacker's effective weapon damage and H the candidate's current health plus current
+   * armor. Both are evaluated exactly and rounded once each.
    */
   const selectionWeight = (attacker: Fighter, candidate: Fighter): number => {
     if (attacker.side === 'enemy') {
       return 1;
     }
-    // The weight is a function of the two effective skills alone, so each pair is evaluated once per Combat.
-    const key = `${eff(attacker)}:${eff(candidate)}`;
+    const w = attacker.state.weaponDamage;
+    // An Enemy's current health is a whole number of health points, so H is whole.
+    const h = candidate.state.currentHealthHundredths / 100 + candidate.currentArmor;
+    // The weight is a function of these four values alone, so each combination is evaluated once per Combat.
+    const key = `${eff(attacker)}:${eff(candidate)}:${w}:${h}`;
     const known = weights.get(key);
     if (known !== undefined) {
       return known;
     }
-    const a = BigInt(eff(attacker));
-    const d = BigInt(eff(candidate));
-    const hitPct = ratio(100n * a * a, a * a + d * d);
-    const difference = combat.targetPreferredHitChance.mul(100).sub(hitPct);
+    const chance = hitChance(eff(attacker), eff(candidate));
+    const difference = combat.targetPreferredHitChance.mul(100).sub(ratio(chance, 10));
     const distance = difference.lt(0) ? difference.neg() : difference;
-    const weight = combat.targetBaseWeight - roundDown(distance);
+    const hitChanceWeight = combat.targetBaseWeight - roundDown(distance);
+    const weight = roundUp(ratio(BigInt(hitChanceWeight) * BigInt(Math.min(w, h)), BigInt(w)));
     weights.set(key, weight);
     return weight;
   };
@@ -354,9 +361,8 @@ function fight(
   const attack = (round: number, attacker: Fighter, defender: Fighter): void => {
     const a = eff(attacker);
     const d = eff(defender);
-    const aSquared = BigInt(a) * BigInt(a);
-    const sum = aSquared + BigInt(d) * BigInt(d);
-    const hit = random.chance(`combat.hit.${attacker.id}`, ratio(aSquared, sum));
+    const chance = hitChance(a, d);
+    const hit = random.chance(`combat.hit.${attacker.id}`, ratio(chance, 1000));
     let damage: number | null = null;
     let armorRemoved = 0;
     let healthRemovedHundredths = 0;
@@ -408,7 +414,7 @@ function fight(
       defender: defender.id,
       a,
       d,
-      hitProbability: { n: toStored(aSquared), d: toStored(sum) },
+      hitChance: chance,
       hit,
       damage,
       armorRemoved,

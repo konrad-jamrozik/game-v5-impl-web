@@ -374,7 +374,8 @@ function Participants(props: { site: MissionSiteView; record: HistoryMission }) 
             testId={`concluded-${key}-combat-rating`}
           />
         </div>
-        <Grid widths={['150px', '112px', '150px', '136px']} className="compact">
+        {/* VIS, Tables: Skill holds "1234 → 1234" and Health "123 → 123". */}
+        <Grid widths={['150px', '120px', '150px', '136px']} className="compact">
           <thead>
             <tr>
               <th>{which === 'enemy' ? 'Enemy' : 'Agent'}</th>

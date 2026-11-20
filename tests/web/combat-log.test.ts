@@ -13,7 +13,7 @@ function attack(attacker: string, hit: boolean, extra: Partial<Attack> = {}): At
     defender: attacker === 'agent-1' ? 'enemy-1' : 'agent-1',
     a: 100,
     d: 40,
-    hitProbability: { n: 10000, d: 11600 },
+    hitChance: 862,
     hit,
     damage: hit ? 14 : null,
     armorRemoved: 0,
