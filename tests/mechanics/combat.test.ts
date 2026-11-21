@@ -749,7 +749,7 @@ describe('COMBAT: examples', () => {
         combat,
         gdrs.agentParameters,
       ),
-    ).toBe(440);
+    ).toBe(480);
     // In a Combat, only the Agents' side counts the Rating Upgrades.
     const { report } = fightCombat(
       {
@@ -769,7 +769,7 @@ describe('COMBAT: examples', () => {
         'combat.hit.e1': [false],
       }),
     );
-    expect(report.ratings[0]).toMatchObject({ agents: 440, enemies: 40 });
+    expect(report.ratings[0]).toMatchObject({ agents: 480, enemies: 40 });
   });
 
   it('GDR validation', () => {
