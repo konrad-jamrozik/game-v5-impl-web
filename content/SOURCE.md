@@ -84,6 +84,10 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 - `combat/combat_parameters.yaml`: patched unchanged from specification commit
   `4ecfa26dfb61b47738dc148191fd9a9e67fec52d` on 2026-11-20, raising `rating_bonus_per_upgrade` from 0.01 to 0.02. The
   copy is still identical to the specification's `content/` directory.
+- `combat/combat_parameters.yaml` and `compendium/compendium_articles/mechanics_combat.yaml`: patched unchanged from
+  specification commit `2bcd50764ec95431f83ba963e79d0efe469ef253` on 2026-11-20, replacing `rating_bonus_per_upgrade`
+  with `rating_bonus_per_weapon_damage_upgrade` 0.02 and `rating_bonus_per_armor_upgrade` 0.01, and rewording the
+  Combat article's Combat rating to match. The copy is still identical to the specification's `content/` directory.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

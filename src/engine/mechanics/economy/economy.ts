@@ -67,18 +67,31 @@ export function agentUpgradeBonus(
   };
 }
 
+/** COMBAT, Combat rating: the two counts of the Rating Upgrades of a side, each a whole number of at least 0. */
+export interface RatingUpgrades {
+  readonly weaponDamage: number;
+  readonly armor: number;
+}
+
+/** COMBAT, Combat rating: the Rating Upgrades of the Enemies' side, 0 of each. */
+export const NO_RATING_UPGRADES: RatingUpgrades = { weaponDamage: 0, armor: 0 };
+
 /**
- * ECON, Rating Upgrades: the Rating Upgrades of the Agents' side, Σ Acquisitions(U) over every Upgrade U whose effect is
- * agent_weapon_damage or agent_armor; each acquisition counts once, whatever its Increment.
+ * ECON, Rating Upgrades: the Weapon damage Rating Upgrades of the Agents' side, Σ Acquisitions(U) over every Upgrade U
+ * whose effect is agent_weapon_damage, and its Armor Rating Upgrades, the same over agent_armor; each acquisition counts
+ * once, whatever its Increment.
  */
-export function ratingUpgrades(upgrades: readonly UpgradeGdr[], acquisitions: Acquisitions): number {
-  let total = 0;
+export function ratingUpgrades(upgrades: readonly UpgradeGdr[], acquisitions: Acquisitions): RatingUpgrades {
+  let weaponDamage = 0;
+  let armor = 0;
   for (const upgrade of upgrades) {
-    if (upgrade.effect === 'agent_weapon_damage' || upgrade.effect === 'agent_armor') {
-      total += acquisitions[upgrade.id] ?? 0;
+    if (upgrade.effect === 'agent_weapon_damage') {
+      weaponDamage += acquisitions[upgrade.id] ?? 0;
+    } else if (upgrade.effect === 'agent_armor') {
+      armor += acquisitions[upgrade.id] ?? 0;
     }
   }
-  return total;
+  return { weaponDamage, armor };
 }
 
 /** ECON, Agency caps: cap = base + Σ increment × acquisitions over the Upgrades of the cap's effect. */

@@ -13,6 +13,7 @@
 import { EngineDefect, fromHundredths, must, q, ratio, roundDown, roundUp } from '../../../kernel/index.ts';
 import type { AgentParametersGdr, CombatParametersGdr } from '../../../gdr/index.ts';
 import type { Random } from '../../random.ts';
+import { NO_RATING_UPGRADES, type RatingUpgrades } from '../economy/economy.ts';
 import type {
   AgentState,
   AttackRecord,
@@ -87,7 +88,7 @@ export interface CombatInputs {
   /** The Enemies' side, in its fixed order. */
   readonly enemies: readonly Combatant[];
   /** COMBAT, Combat inputs and outputs, item 4: the Rating Upgrades of the Agents' side as the Combat begins. */
-  readonly ratingUpgrades: number;
+  readonly ratingUpgrades: RatingUpgrades;
   readonly combat: CombatParametersGdr;
   readonly agentParameters: AgentParametersGdr;
 }
@@ -160,20 +161,28 @@ export function baseCombatRating(
 }
 
 /**
- * COMBAT, Combat rating: ⌊base × (1 + rating_bonus_per_upgrade × Rating Upgrades)⌋, computed exactly and rounded down
- * once. The Enemies' side has 0 Rating Upgrades, so its Combat rating equals its base Combat rating.
+ * COMBAT, Combat rating: ⌊base × (1 + rating_bonus_per_weapon_damage_upgrade × Weapon damage Rating Upgrades +
+ * rating_bonus_per_armor_upgrade × Armor Rating Upgrades)⌋, computed exactly and rounded down once. The Enemies' side
+ * has 0 Rating Upgrades, so its Combat rating equals its base Combat rating.
  */
-export function raiseCombatRating(base: number, ratingUpgrades: number, combat: CombatParametersGdr): number {
-  if (ratingUpgrades === 0) {
+export function raiseCombatRating(
+  base: number,
+  ratingUpgrades: RatingUpgrades,
+  combat: CombatParametersGdr,
+): number {
+  if (ratingUpgrades.weaponDamage === 0 && ratingUpgrades.armor === 0) {
     return base;
   }
-  return roundDown(q(base).mul(q(1).add(combat.ratingBonusPerUpgrade.mul(ratingUpgrades))));
+  const bonus = combat.ratingBonusPerWeaponDamageUpgrade
+    .mul(ratingUpgrades.weaponDamage)
+    .add(combat.ratingBonusPerArmorUpgrade.mul(ratingUpgrades.armor));
+  return roundDown(q(base).mul(q(1).add(bonus)));
 }
 
 /** COMBAT, Combat rating of a side: its base Combat rating raised by its Rating Upgrades. */
 export function combatRating(
   side: readonly CombatantState[],
-  ratingUpgrades: number,
+  ratingUpgrades: RatingUpgrades,
   combat: CombatParametersGdr,
   agentParameters: AgentParametersGdr,
 ): number {
@@ -311,7 +320,7 @@ function fight(
   const rating = (side: readonly Fighter[]): number =>
     raiseCombatRating(
       side.reduce((sum, fighter) => (able(fighter) ? sum + eff(fighter) : sum), 0),
-      side === agents ? input.ratingUpgrades : 0,
+      side === agents ? input.ratingUpgrades : NO_RATING_UPGRADES,
       combat,
     );
   const startRating = rating(agents);

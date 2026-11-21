@@ -267,8 +267,15 @@ describe('COMBAT: Detached Combat', () => {
     const base = { agents: [{ kind: 'agent', id: a1 }], enemies, seed: 'x' };
     expect(rejection(state, base)).toBe('accepted');
     expect(rejection(state, { ...base, agents: [] })).toBe('empty_agents_side');
-    expect(rejection(state, { ...base, ratingUpgrades: -1 })).toBe('invalid_rating_upgrades');
-    expect(rejection(state, { ...base, ratingUpgrades: 1.5 })).toBe('invalid_rating_upgrades');
+    expect(rejection(state, { ...base, ratingUpgrades: { weaponDamage: -1, armor: 0 } })).toBe(
+      'invalid_rating_upgrades',
+    );
+    expect(rejection(state, { ...base, ratingUpgrades: { weaponDamage: 0, armor: 1.5 } })).toBe(
+      'invalid_rating_upgrades',
+    );
+    expect(rejection(state, { ...base, ratingUpgrades: { weaponDamage: 1 } })).toBe(
+      'invalid_rating_upgrades',
+    );
     expect(
       rejection(state, {
         ...base,

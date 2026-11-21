@@ -176,7 +176,7 @@ describe('COMBAT: gaps', () => {
       {
         agents: agentsSide,
         enemies,
-        ratingUpgrades: 0,
+        ratingUpgrades: { weaponDamage: 0, armor: 0 },
         combat: catalog.combatParameters,
         agentParameters: catalog.agentParameters,
       },

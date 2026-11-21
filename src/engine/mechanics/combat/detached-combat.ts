@@ -10,7 +10,7 @@ import { withCombatGdrValues, type GdrCatalog } from '../../../gdr/index.ts';
 import { seededRandom, type Random } from '../../random.ts';
 import { reject, type Rejection } from '../../result.ts';
 import { isServing, type CurrentWorldState } from '../../state/types.ts';
-import { agentUpgradeBonus, ratingUpgrades } from '../economy/economy.ts';
+import { agentUpgradeBonus, ratingUpgrades, type RatingUpgrades } from '../economy/economy.ts';
 import { createEnemy, createMissionSite } from '../missions/missions.ts';
 import {
   agentCombatantState,
@@ -62,10 +62,10 @@ export interface DetachedCombatSetup {
    */
   readonly enemies: readonly DetachedEnemyEntry[] | { readonly missionSiteArchetype: string };
   /**
-   * The Rating Upgrades of the Agents' side, a whole number of at least 0, under COMBAT, Combat rating; those of the
-   * Current world state when left out.
+   * The Rating Upgrades of the Agents' side, the Weapon damage count and the Armor count, each a whole number of at
+   * least 0, under COMBAT, Combat rating; those of the Current world state when left out.
    */
-  readonly ratingUpgrades?: number;
+  readonly ratingUpgrades?: RatingUpgrades;
   /**
    * A value for any GDR value a Combat reads, by authored name, e.g. `{ "incapacitation_skill_fraction": 0.2 }`; every
    * other one is the Game build's. A decimal value may be given as a number or as its text.
@@ -316,11 +316,18 @@ export function buildDetachedCombat(
   }
 
   const givenRatingUpgrades = setup['ratingUpgrades'];
-  if (givenRatingUpgrades !== undefined && !isWhole(givenRatingUpgrades, 0)) {
-    return reject('invalid_rating_upgrades', 'ratingUpgrades must be a whole number of at least 0.');
+  let agentRatingUpgrades: RatingUpgrades = ratingUpgrades(gdrs.upgrades, world.agency.state.acquisitions);
+  if (givenRatingUpgrades !== undefined) {
+    const weaponDamage = isRecord(givenRatingUpgrades) ? givenRatingUpgrades['weaponDamage'] : undefined;
+    const armor = isRecord(givenRatingUpgrades) ? givenRatingUpgrades['armor'] : undefined;
+    if (!isWhole(weaponDamage, 0) || !isWhole(armor, 0)) {
+      return reject(
+        'invalid_rating_upgrades',
+        'ratingUpgrades must hold weaponDamage and armor, each a whole number of at least 0.',
+      );
+    }
+    agentRatingUpgrades = { weaponDamage, armor };
   }
-  const agentRatingUpgrades =
-    givenRatingUpgrades ?? ratingUpgrades(gdrs.upgrades, world.agency.state.acquisitions);
 
   const gdrValues = setup['gdrValues'] ?? {};
   if (!isRecord(gdrValues)) {

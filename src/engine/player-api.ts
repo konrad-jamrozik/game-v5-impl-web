@@ -299,10 +299,10 @@ export interface AgencyView {
    */
   readonly agentArmor: number;
   /**
-   * ECON, Rating Upgrades: the Rating Upgrades of the Agents' side, the acquisitions of every Weapon damage and Armor
-   * Upgrade, which raise every Combat rating of a side of Agents.
+   * ECON, Rating Upgrades: the Rating Upgrades of the Agents' side, the acquisitions of every Weapon damage Upgrade and
+   * of every Armor Upgrade counted apart, which raise every Combat rating of a side of Agents.
    */
-  readonly ratingUpgrades: number;
+  readonly ratingUpgrades: { readonly weaponDamage: number; readonly armor: number };
   readonly servingAgents: number;
   readonly deployedAgents: number;
   readonly trainingAgents: number;

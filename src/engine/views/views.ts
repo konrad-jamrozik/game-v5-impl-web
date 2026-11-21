@@ -29,6 +29,8 @@ import {
   agencyCaps,
   agentUpgradeBonus,
   ratingUpgrades,
+  NO_RATING_UPGRADES,
+  type RatingUpgrades,
   contractingAtAssignment,
   countDeployed,
   countServing,
@@ -116,7 +118,7 @@ function bonusOf(world: CurrentWorldState, gdrs: GdrCatalog): AgentUpgradeBonus 
 }
 
 /** ECON, Rating Upgrades: the Rating Upgrades of the Agents' side in this World state. */
-function ratingUpgradesOf(world: CurrentWorldState, gdrs: GdrCatalog): number {
+function ratingUpgradesOf(world: CurrentWorldState, gdrs: GdrCatalog): RatingUpgrades {
   return ratingUpgrades(gdrs.upgrades, world.agency.state.acquisitions);
 }
 
@@ -130,7 +132,7 @@ function agentView(
   gdrs: GdrCatalog,
   healthRecoveryPctHundredths: number,
   bonus: AgentUpgradeBonus,
-  agentRatingUpgrades: number,
+  agentRatingUpgrades: RatingUpgrades,
 ): AgentView {
   const s = agent.state;
   const serving = isServing(s);
@@ -251,7 +253,7 @@ function missionSiteView(site: MissionSite, world: CurrentWorldState, gdrs: GdrC
     enemies: enemies.map((enemy) => enemyView(enemy, gdrs)),
     enemiesCombatRating: combatRating(
       enemies.map((enemy) => enemyCombatant(enemy.state)),
-      0,
+      NO_RATING_UPGRADES,
       gdrs.combatParameters,
       gdrs.agentParameters,
     ),
@@ -674,7 +676,7 @@ export function previewDeployment(
         ? null
         : combatRating(
             site.state.enemies.map((id) => enemyCombatant(must(world.enemies[id], `Enemy ${id}`).state)),
-            0,
+            NO_RATING_UPGRADES,
             gdrs.combatParameters,
             gdrs.agentParameters,
           ),

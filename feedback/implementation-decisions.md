@@ -1488,6 +1488,11 @@
 - **Option chosen:** Side and position, with the named identifier; no seed prefix.
 - **Why:** Explicit Combatants have no Instance ID, and side and position are what the spec names first; one way of
   deriving random outcomes from a seed keeps the Agreement test free of a second random source.
+- **Update:** Since Specification revision 2bcd50764ec95431f83ba963e79d0efe469ef253, COMBAT, Combat rating: a side has
+  two counts of Rating Upgrades, and CombatParameters has `rating_bonus_per_weapon_damage_upgrade` and
+  `rating_bonus_per_armor_upgrade` instead of `rating_bonus_per_upgrade`, so the setup's `ratingUpgrades` is an object
+  `{ weaponDamage, armor }`, each a whole number of at least 0, the AgencyView reports it as such, and the setup may
+  name 17 GDR values.
 - **Links:** PROB-048
 
 ## DEC-074: The result of `developer.queries.getInitiativeOperationLevels()`
