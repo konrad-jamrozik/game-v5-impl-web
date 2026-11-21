@@ -501,6 +501,10 @@
 - **Update:** Since Specification revision 6d285418c687298382827f62007d0ab06ff8dc62, CTEST, Limits: the win rates
   and medians this decision recorded, and the comparisons that chose its values, are removed, and so are the scripts
   that measured them.
+- **Update:** Since Specification revision 629a98bbeed6b288c806ba0c7113e9e0a00b4608, BASICAI, Game designer values:
+  the target roster of 20 plus 10 for each such Upgrade and the Transport cap of 40% of the roster are the Game
+  designer's, overriding the game-ts starting values this decision chose; `baseRoster`, `rosterPerUpgrade`, and
+  `transportCapPct` hold them. The Training cap of 30% stays this decision's choice.
 - **Links:** None.
 
 ## DEC-022: Properties and name of a Campaign configuration preset

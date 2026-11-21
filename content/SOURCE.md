@@ -77,6 +77,10 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `mechanics_missions.yaml`: patched unchanged from specification commit `66d59d824adc4085f76b8ce1b5e825dfcab5f719`
   on 2026-11-20, saying that starting work needs full health and that deploying needs only that the Agent could still
   fight. The copy is still identical to the specification's `content/` directory.
+- `missions/mission_site_archetypes.yaml`: patched unchanged from specification commit
+  `629a98bbeed6b288c806ba0c7113e9e0a00b4608` on 2026-11-20, changing the `enemies` counts of `raid_outpost`,
+  `raid_training_facility`, `raid_logistics_hub`, `raid_command_center`, `raid_regional_stronghold`, and `raid_hq`. The
+  copy is still identical to the specification's `content/` directory.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in
