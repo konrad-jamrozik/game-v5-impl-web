@@ -22,14 +22,13 @@ async function playTurn(engine: Engine): Promise<void> {
 }
 
 describe('A Campaign is playable through Player API without Dev mode', () => {
-  // PROB-050: the Basic Autopilot AI no longer reaches Victory with the Bootstrap GDRs, so this run checks only that
-  // it plays 400 Turns, or to an ending, without an engine defect. Victory itself is checked on a scripted Campaign in
-  // tests/mechanics/endings.test.ts, and the Player API after an ending below, after Defeat.
-  it('plays 400 Turns with the Basic Autopilot AI', async () => {
+  // CTEST, Limits: a Campaign test plays at most 200 Turns and checks only that play runs. Victory itself is checked on
+  // a scripted Campaign in tests/mechanics/endings.test.ts, and the Player API after an ending below, after Defeat.
+  it('plays 200 Turns with the Basic Autopilot AI', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'c' }));
     let turns = 0;
-    while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null && turns < 400) {
+    while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null && turns < 200) {
       await playTurn(engine);
       turns += 1;
     }
@@ -105,35 +104,21 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
 });
 
 describe('Campaign runs', () => {
-  // 1 Campaign seed in the quick check and 200 in the full check, which sets CAMPAIGN_SEEDS through the test mode.
-  const seeds = Number(process.env['CAMPAIGN_SEEDS'] ?? '1');
-
-  // PROB-050: with the Bootstrap GDRs the Basic Autopilot AI no longer reliably reaches an ending, so a run may also
-  // stop at its limit, and the share of Victories is not checked.
-  it(`the Basic Autopilot AI plays ${seeds} Campaign seed(s) with no engine defect`, async () => {
-    for (let seed = 0; seed < seeds; seed += 1) {
-      const { engine } = await startEngine();
-      ok(await engine.session.globalConfiguration.set('autosaveLimit', 0));
-      ok(await engine.session.campaign.create({ seed: `run-${seed}` }));
-      const result = await autopilot(engine, { kind: 'turnAdvancements', count: 1000 });
-      expect(['campaignEnded', 'limitReached'], `seed ${seed}: ${result.detail ?? ''}`).toContain(
-        result.reason,
-      );
-      const ending = ok(engine.player.queries.getCurrentLiveWorldState()).ending?.ending ?? null;
-      expect([null, 'Victory', 'Defeat']).toContain(ending);
-    }
+  // CTEST, Limits: at most 2 Campaigns of at most 200 Turns per test, checking only that play runs, never the ending.
+  it('the Basic Autopilot AI plays a Campaign under Autopilot with no engine defect', async () => {
+    const { engine } = await startEngine();
+    ok(await engine.session.globalConfiguration.set('autosaveLimit', 0));
+    ok(await engine.session.campaign.create({ seed: 'run-0' }));
+    const result = await autopilot(engine, { kind: 'turnAdvancements', count: 200 });
+    expect(['campaignEnded', 'limitReached'], result.detail ?? '').toContain(result.reason);
   });
 
-  it('the Basic Autopilot AI ends in Defeat when the Campaign starts with no money', async () => {
+  it('the Basic Autopilot AI plays with no engine defect when the Campaign starts with no money', async () => {
     const { engine } = await startEngine();
     ok(engine.session.newCampaignSetup.setPresetEdit('standard', { key: 'startingMoney', value: 0 }));
     ok(await engine.session.campaign.create({ seed: 'poor' }));
     const result = await autopilot(engine, { kind: 'turnAdvancements', count: 50 });
-    expect(result.reason).toBe('campaignEnded');
-    expect(ok(engine.player.queries.getCurrentLiveWorldState()).ending).toMatchObject({
-      ending: 'Defeat',
-      reasons: ['MoneyBelowZero'],
-    });
+    expect(['campaignEnded', 'limitReached'], result.detail ?? '').toContain(result.reason);
   });
 
   it('the Basic Autopilot AI writes no Autopilot memory and plays the same under every Autopilot limit', async () => {
@@ -159,28 +144,32 @@ describe('Campaign runs', () => {
     ]);
   });
 
-  it('the Basic Autopilot AI plays with the tuning parameters it is given', async () => {
-    const play = async (thresholds: Partial<BasicAiThresholds>) => {
-      const ai = createBasicAutopilotAi({ ...BASIC_AI_THRESHOLDS, ...thresholds });
-      const { engine } = await startEngine({ autopilotAis: [ai] });
-      ok(await engine.session.globalConfiguration.set('autosaveLimit', 0));
-      ok(await engine.session.campaign.create({ seed: 'tuning' }));
-      await autopilot(engine, { kind: 'turnAdvancements', count: 60 });
-      return ok(engine.player.queries.getCurrentLiveWorldState());
-    };
-    const acquisitions = (state: { agency: { upgrades: readonly { id: string; acquisitions: number }[] } }) =>
-      Object.fromEntries(state.agency.upgrades.map((upgrade) => [upgrade.id, upgrade.acquisitions]));
-    // The default parameters are BASIC_AI_THRESHOLDS: the same play as with no parameters given.
+  // CTEST, Limits: each test below plays at most 2 Campaigns.
+  const play = async (thresholds: Partial<BasicAiThresholds>) => {
+    const ai = createBasicAutopilotAi({ ...BASIC_AI_THRESHOLDS, ...thresholds });
+    const { engine } = await startEngine({ autopilotAis: [ai] });
+    ok(await engine.session.globalConfiguration.set('autosaveLimit', 0));
+    ok(await engine.session.campaign.create({ seed: 'tuning' }));
+    await autopilot(engine, { kind: 'turnAdvancements', count: 60 });
+    return ok(engine.player.queries.getCurrentLiveWorldState());
+  };
+
+  it('the Basic Autopilot AI built with BASIC_AI_THRESHOLDS plays as with no parameters given', async () => {
     const defaults = await play({});
     const plain = await startEngine();
     ok(await plain.engine.session.globalConfiguration.set('autosaveLimit', 0));
     ok(await plain.engine.session.campaign.create({ seed: 'tuning' }));
     await autopilot(plain.engine, { kind: 'turnAdvancements', count: 60 });
     expect(ok(plain.engine.player.queries.getCurrentLiveWorldState())).toEqual(defaults);
-    // An Upgrade of weight 0 is never bought.
+  });
+
+  it('the Basic Autopilot AI never buys an Upgrade of weight 0', async () => {
     const noWeapons = await play({ upgradeWeights: { weapon_damage: 0 } });
-    expect(acquisitions(noWeapons)['weapon_damage']).toBe(0);
-    // A Training share of 0 leaves Training empty.
+    const weapons = noWeapons.agency.upgrades.find((upgrade) => upgrade.id === 'weapon_damage');
+    expect(weapons?.acquisitions).toBe(0);
+  });
+
+  it('the Basic Autopilot AI leaves Training empty with a Training share of 0', async () => {
     const noTraining = await play({ trainingSharePct: 0 });
     expect(noTraining.agency.trainingAgents).toBe(0);
   });
@@ -201,29 +190,39 @@ function placeOf(engine: Engine): unknown {
 }
 
 describe('DETERM and TIMELINE with the real game', () => {
-  it('the same Campaign seed and Player actions give equal Campaign state, also after save and load', async () => {
+  // CTEST, Limits: each test below plays at most 2 Campaigns.
+  /** Plays the Campaign seed `replay` for 20 Turns, saves, and plays 25 more. */
+  async function replay() {
     const first = await startEngine();
     ok(await first.engine.session.campaign.create({ seed: 'replay' }));
     await autopilot(first.engine, { kind: 'turnAdvancements', count: 20 });
     const { saveId } = ok(await first.engine.session.saves.save());
     const middle = inspect(first.engine);
     await autopilot(first.engine, { kind: 'turnAdvancements', count: 25 });
-    const end = inspect(first.engine);
+    return { storage: first.storage, saveId, middle, end: inspect(first.engine) };
+  }
 
+  it('the same Campaign seed and Player actions give equal Campaign state', async () => {
+    const { middle, end } = await replay();
     const second = await startEngine();
     ok(await second.engine.session.campaign.create({ seed: 'replay' }));
     await autopilot(second.engine, { kind: 'turnAdvancements', count: 20 });
     expect(inspect(second.engine)).toEqual(middle);
     await autopilot(second.engine, { kind: 'turnAdvancements', count: 25 });
     expect(inspect(second.engine)).toEqual(end);
+  });
 
-    // Another Session over the same Game storage continues from the Campaign save exactly.
-    const loaded = await startEngine({ storage: first.storage });
+  it('another Session over the same Game storage continues from the Campaign save exactly', async () => {
+    const { storage, saveId, middle, end } = await replay();
+    const loaded = await startEngine({ storage });
     ok(await loaded.engine.session.saves.load(saveId));
     expect(inspect(loaded.engine)).toEqual(middle);
     await autopilot(loaded.engine, { kind: 'turnAdvancements', count: 25 });
     expect(inspect(loaded.engine)).toEqual(end);
+  });
 
+  it('another Campaign seed gives another Campaign state', async () => {
+    const { end } = await replay();
     const other = await startEngine();
     ok(await other.engine.session.campaign.create({ seed: 'another seed' }));
     await autopilot(other.engine, { kind: 'turnAdvancements', count: 45 });

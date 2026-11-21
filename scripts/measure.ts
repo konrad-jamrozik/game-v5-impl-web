@@ -1,13 +1,16 @@
 /**
- * Measures the size of Campaign saves and the time of one Advance turn on long Campaigns.
+ * Measures the size of Campaign saves and the time of one Advance turn.
  * Usage: node scripts/measure.ts [seeds] [extraAgents] [stressTurns]
- * It plays Campaigns with the Basic Autopilot AI, and one stress Campaign in which cheats keep a large roster in
- * play for many Turns.
+ * It plays Campaigns with the Basic Autopilot AI, at most 2 of at most 200 Turns each under CTEST, Limits, and one
+ * scripted stress Campaign in which cheats keep a large roster in play for many Turns.
  */
 import { createBasicAutopilotAi } from '../src/ai/index.ts';
 import { MemoryStorage, createEngine, type Engine } from '../src/engine/index.ts';
 
-const seeds = Number(process.argv[2] ?? 20);
+/** CTEST, Limits: at most 2 Campaigns of the Basic Autopilot AI, each of at most 200 Turns. */
+const MAX_CAMPAIGNS = 2;
+const MAX_TURNS = 200;
+const seeds = Math.min(MAX_CAMPAIGNS, Number(process.argv[2] ?? 1));
 const extraAgents = Number(process.argv[3] ?? 300);
 const stressTurns = Number(process.argv[4] ?? 300);
 
@@ -47,7 +50,7 @@ for (let seed = 0; seed < seeds; seed += 1) {
   const times: number[] = [];
   for (;;) {
     const state = engine.player.queries.getCurrentLiveWorldState();
-    if (!state.ok || state.value.ending !== null || state.value.turn > 1000) {
+    if (!state.ok || state.value.ending !== null || state.value.turn > MAX_TURNS) {
       break;
     }
     const began = performance.now();

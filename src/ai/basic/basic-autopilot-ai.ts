@@ -358,22 +358,37 @@ class Turn {
   }
 
   /**
-   * Step 4: while the Expected reserve is below its target size, recall the least exhausted Agent on Contracting to
-   * Standby, only while Expected income still covers projected upkeep with the margin without it. A recalled Agent
-   * counts toward the Expected reserve at once, so no more Agents are recalled than the shortfall.
+   * Step 4: while the Expected reserve is below its target size, recall one Agent at a time to Standby: the most
+   * exhausted Agent that does not already count toward the Expected reserve, i.e. any Agent on Contracting and any
+   * Agent on Training that is not a Deployable Agent; on equal exhaustion an Agent on Training before an Agent on
+   * Contracting, then the order of the roster. An Agent on Contracting whose recall would leave Expected income short
+   * of projected upkeep with the margin is passed over. A recalled Agent counts toward the Expected reserve at once,
+   * so no more Agents are recalled than the shortfall.
    */
   private async refillReserve(state: CurrentLiveWorldStateView): Promise<boolean> {
     if (this.expectedReserve(state) >= this.reserveTarget(state)) {
       return false;
     }
-    const contracting = state.agents
+    const trainingFirst = (agent: AgentView) => (agent.assignment?.kind === 'Training' ? 0 : 1);
+    const candidates = state.agents
       .map((agent, index) => ({ agent, index }))
-      .filter(({ agent }) => agent.canBeAssigned && agent.assignment?.kind === 'Contracting')
-      .sort((a, b) => a.agent.exhaustion - b.agent.exhaustion || a.index - b.index)
+      .filter(
+        ({ agent }) =>
+          agent.canBeAssigned &&
+          (agent.assignment?.kind === 'Contracting' ||
+            (agent.assignment?.kind === 'Training' && !this.isDeployable(agent))),
+      )
+      .sort(
+        (a, b) =>
+          b.agent.exhaustion - a.agent.exhaustion ||
+          trainingFirst(a.agent) - trainingFirst(b.agent) ||
+          a.index - b.index,
+      )
       .map((item) => item.agent);
-    for (const agent of contracting) {
+    for (const agent of candidates) {
       if (
-        this.expectedIncome(state, agent.id) >= this.incomeTarget(state) &&
+        (agent.assignment?.kind === 'Training' ||
+          this.expectedIncome(state, agent.id) >= this.incomeTarget(state)) &&
         (await this.act(`recall ${agent.id}`, () => this.player.actions.assignAgents([agent.id], 'Standby')))
       ) {
         return true;

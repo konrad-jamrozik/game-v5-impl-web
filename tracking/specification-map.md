@@ -59,9 +59,6 @@
 ## BASICAI: Basic Autopilot AI
 
 - src/ai/
-- scripts/simulate.ts
-- scripts/trace-campaign.ts
-- scripts/campaign-report.ts
 - tests/engine/campaign.test.ts
 - tests/mechanics/initiative-operation-level.test.ts
 
@@ -197,6 +194,12 @@ No files.
 - src/engine/timeline/campaign-runtime.ts
 - tests/engine/campaign.test.ts
 - tests/helpers/engine.ts
+
+## CTEST: Campaign Tests
+
+- tests/engine/campaign.test.ts
+- scripts/measure.ts
+- vite.config.ts
 
 ## CVIEW: Charts View
 

@@ -171,7 +171,7 @@ const generated = [
   'playwright-report/',
 ];
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   // Relative asset URLs, so the build works under the GitHub Pages project path /game-v5-impl-web/.
   base: './',
   plugins: [react()],
@@ -181,8 +181,6 @@ export default defineConfig(({ mode }) => ({
   test: {
     include: ['tests/**/*.test.ts'],
     testTimeout: 120_000,
-    // The full check runs the tests in the mode `full`, where a test with a size runs large.
-    env: { CAMPAIGN_SEEDS: mode === 'full' ? '200' : '1' },
   },
   fmt: {
     printWidth: 110,

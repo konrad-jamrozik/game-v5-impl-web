@@ -28,7 +28,6 @@ npm run web:dev        # the web UI at http://localhost:5175
 npm run cli            # the terminal CLI; type help
 npm run cli -- --json  # the terminal CLI with one line of JSON per result, for scripts and LLM players
 npm run test:browser   # Playwright tests of the web UI; first run: npx playwright install chromium
-node scripts/simulate.ts 200   # 200 Campaigns played by the Basic Autopilot AI
 node scripts/measure.ts        # Campaign save size and Advance turn time
 ```
 
@@ -132,13 +131,13 @@ indented `key: value` lines and tables, or with `--json` as one line of JSON. Ga
 
 Measured with `node scripts/measure.ts` on the development machine:
 
-| Campaign                                                   | Turns | Advance turn                     | Largest Campaign save |
-| ---------------------------------------------------------- | ----- | -------------------------------- | --------------------- |
-| Longest of 20 Campaigns of the Basic Autopilot AI          | 117   | median 0.7 ms, max 2.3 ms a Turn | 114 KiB               |
-| Stress Campaign with 300 Agents added by a cheat operation | 238   | median 3.4 ms, max 7.3 ms        | 255 KiB               |
+| Campaign                                                   | Turns | Advance turn                    | Largest Campaign save |
+| ---------------------------------------------------------- | ----- | ------------------------------- | --------------------- |
+| A Campaign of the Basic Autopilot AI, 200 Turns played     | 201   | median 5.9 ms, max 55 ms a Turn | 680 KiB               |
+| Stress Campaign with 300 Agents added by a cheat operation | 301   | median 4.7 ms, max 89 ms        | 669 KiB               |
 
-The Save size limit is 100 MiB. With the thresholds of DEC-021 the Basic Autopilot AI won 200 of 200 Campaigns of
-different Campaign seeds.
+The Save size limit is 100 MiB. Under CTEST, Limits, the script plays at most 2 Campaigns of the Basic Autopilot AI,
+each of at most 200 Turns, and measures no balance.
 
 ## License
 

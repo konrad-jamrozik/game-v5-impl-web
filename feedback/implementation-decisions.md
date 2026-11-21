@@ -478,31 +478,18 @@
   Transport cap and the Training cap are kept at 25% and 30% of the roster, the game-ts values. The Basic Autopilot AI decides one Player
   action at a time: after every Player action it reads the current state and starts its Turn routine again, so that
   it plays the same whatever its Autopilot limit is. A team is formed in the order of preference BASICAI states and,
-  when that order gives no winning team, with the most capable Rested Agents first. Among equally good choices it
+  when that order gives no winning team, with the most capable Deployable Agents first. Among equally good choices it
   takes the first in the order of the roster, of the Mission sites, or of the Leads. Among Agents of equal preference the one with the higher effective skill comes first, then the order of
   the roster. The Expected income target and the Savings floor are rounded up. It buys nothing while Expected income
   is below projected upkeep, and it hires before it buys Agent cap. Otherwise it rotates among the Upgrades other than
   the Cap Upgrades: it buys the one bought least often, the cheaper first among equals, and buys nothing while that
-  one costs more than its budget. A Player action that was rejected is not tried again in that Turn. With these
-  thresholds it won 200 of 200 Campaigns of different Campaign seeds, in a median of 233 Turns (minimum 197, maximum
-  281), at specification revision e3bd230499aa61d126f94320c17f8d3347f54be3. With the Transport cap and Training cap at 50% it had won 200 of 200 in a
-  median of 214 Turns after the Base health and Rate Upgrades of specification commit
-  a7dfd0a94b474cdea154c0d2b4935ccce9a795d4. Before them, when the only Upgrade improving Agents was the one with the
-  effect `agent_weapon_damage`, the median was 192 Turns, after the Investigation rework of
-  specification commit 438b909e6ef6bf0cd581856d790a318ac8879628, i.e. a rolled Actual required progress, team efficiency,
-  and Progress loss; after the exhaustion rework of specification commit e10913ff6cb326b4834eaa45c02d71ce5cbebf92 the
-  median was 172 Turns, and before it 91 Turns.
-- **Options considered:** The game-ts starting values unchanged; values tuned against whole Campaigns.
-- **Option chosen:** Tuned values.
+  one costs more than its budget. A Player action that was rejected is not tried again in that Turn.
+- **Options considered:** The game-ts starting values unchanged; other values.
+- **Option chosen:** The game-ts starting values, apart from the neutral values of the Tuning parameters beyond the
+  goals, and a roster target that counts only the Upgrades that improve Agents.
 - **Why:** With a roster target that counts every Upgrade, each Agent cap purchase called for the next and the
-  roster grew without bound. The Transport cap and Training cap compare as follows over the same 100 Campaign seeds at
-  specification revision e3bd230499aa61d126f94320c17f8d3347f54be3: at 25% and 30% the Basic Autopilot AI won 100 of 100, in a median of 232 Turns,
-  with a median final roster of 44; at 50% each it won 94 of 100 and lost 6 at the Panic limit, in a median of 267
-  Turns. When the only Upgrade improving Agents was the Weapon damage Upgrade, the roster stayed small, 25% of it gave
-  no team large enough to win `raid_hq`, and 50% was kept instead; the roster now grows with five such Upgrades, so
-  the game-ts values win again.
-- **Update:** The Transport cap and Training cap were 50% each until the comparison above at specification revision
-  e3bd230499aa61d126f94320c17f8d3347f54be3.
+  roster grew without bound. Balance is the Game designer's to judge, e.g. with the Spec repo's Autopilot Bench;
+  under CTEST, Limits, the implementer plays no Campaigns to tune these values and records no win rates.
 - **Update:** BASICAI, Tuning parameters: the values above are `BASIC_AI_THRESHOLDS` in `src/ai/basic/`, and
   `createBasicAutopilotAi(thresholds)` builds the Basic Autopilot AI from any other set, e.g. for the Spec repo's
   Autopilot Bench. The Game build passes none and so plays with `BASIC_AI_THRESHOLDS`. The Tuning parameters beyond the
@@ -510,6 +497,9 @@
   i.e. weight 1 for every Upgrade. With them the rotation orders by acquisitions plus one, divided by the weight, which
   orders as acquisitions alone, so the Game build plays exactly as before. `enemiesPerAgent` may be fractional, and a
   team then needs the number of Enemies divided by it, rounded up.
+- **Update:** Since Specification revision 6d285418c687298382827f62007d0ab06ff8dc62, CTEST, Limits: the win rates
+  and medians this decision recorded, and the comparisons that chose its values, are removed, and so are the scripts
+  that measured them.
 - **Links:** None.
 
 ## DEC-022: Properties and name of a Campaign configuration preset
@@ -677,8 +667,9 @@
   check, and deploys `dist/` to GitHub Pages; `.github/workflows/daily-check.yml` runs the full check once a day and
   on manual dispatch. The quick check is `npm run check`, which takes under 10 seconds, and the full check is
   `npm run check:full`: the quick check, then every test in the Vitest mode `full` with `npm run test:large`, then
-  the Playwright tests of `npm run test:browser`. One test has a size: the Basic Autopilot AI plays 1 Campaign seed
-  in the quick check and 200 in the mode `full`, which sets `CAMPAIGN_SEEDS` in `vite.config.ts`.
+  the Playwright tests of `npm run test:browser`. Since Specification revision
+  6d285418c687298382827f62007d0ab06ff8dc62 no test has a size: under CTEST, Limits, a test of the Basic Autopilot AI
+  plays at most 2 Campaigns of at most 200 Turns in either check, so the mode `full` runs the same tests.
 - **Options considered:** Follow the guidance; deploy by hand from the implementer's machine.
 - **Option chosen:** Follow the guidance.
 - **Why:** A push reaches players without waiting for checks the implementer already ran, and the daily full check
