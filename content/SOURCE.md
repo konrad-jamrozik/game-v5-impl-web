@@ -88,6 +88,15 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   specification commit `2bcd50764ec95431f83ba963e79d0efe469ef253` on 2026-11-20, replacing `rating_bonus_per_upgrade`
   with `rating_bonus_per_weapon_damage_upgrade` 0.02 and `rating_bonus_per_armor_upgrade` 0.01, and rewording the
   Combat article's Combat rating to match. The copy is still identical to the specification's `content/` directory.
+- Every file that changed between specification commits `2bcd50764ec95431f83ba963e79d0efe469ef253` and
+  `47755c145388d4f1933f0499e28407d005a14697`, outside the Cut content under `content/cut/`: patched unchanged from
+  specification commit `47755c145388d4f1933f0499e28407d005a14697` on 2026-11-20. It shortens each Faction's chain to
+  six tiers, deleting `raid_training_facility`, `raid_command_center`, and 12 Leads; replaces five Response
+  MissionSiteArchetypes with `foil_infrastructure_attack`, `foil_prison_break`, `foil_bioweapon_release`, and
+  `foil_warhead_launch`; deletes `operation_level_6` and makes `operation_level_5` the existential level; deletes 19
+  CompendiumArticle files, adds four, and rewords seven. The Cut content is not copied, under Implementation
+  Placement. The copy is still identical to the specification's `content/` directory outside `content/cut/`, and has
+  151 YAML files holding 253 GDRs.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

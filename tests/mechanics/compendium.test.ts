@@ -104,9 +104,9 @@ const bodyOf = (list: readonly CatalogCompendiumArticle[], id: string) =>
   shown(resolveArticles(list).find((item) => item.article.id === id)!.body);
 
 describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
-  it('supplies 6 Guide articles, 26 Mechanics articles, and 111 Subject articles, in the order of their identifiers', () => {
+  it('supplies 6 Guide articles, 26 Mechanics articles, and 96 Subject articles, in the order of their identifiers', () => {
     const all = bootstrapGdrCatalog().compendiumArticles;
-    expect(all).toHaveLength(143);
+    expect(all).toHaveLength(128);
     expect(all.filter((article) => article.category === 'guide').map((article) => article.id)).toEqual([
       'guide_agency',
       'guide_agents',
@@ -123,7 +123,7 @@ describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
       expect(article.subject).toBeNull();
     }
     const subjects = all.filter((article) => article.category === 'subject');
-    expect(subjects).toHaveLength(111);
+    expect(subjects).toHaveLength(96);
     // BOOT, Compendium GDRs: the Armor `service_armor` has a Subject article, and `no_armor` none.
     expect(
       subjects.filter((article) => article.subjectType === 'Armor').map((article) => article.subject),

@@ -68,28 +68,22 @@ describe('LEAD, Initiative operation level with the Bootstrap GDRs', () => {
     ['interrogate_red_dawn_handler', 2],
     ['locate_red_dawn_outpost', 3],
     ['interrogate_red_dawn_soldier', 3],
-    ['locate_red_dawn_training_facility', 4],
-    ['interrogate_red_dawn_lieutenant', 4],
-    ['locate_red_dawn_logistics_hub', 5],
-    ['interrogate_red_dawn_commander', 5],
-    ['locate_red_dawn_command_center', 6],
-    ['analyze_red_dawn_command_structure', 6],
-    ['locate_red_dawn_regional_stronghold', 7],
-    ['interrogate_red_dawn_high_commander', 7],
-    ['locate_red_dawn_hq', 8],
-    ['interrogate_red_dawn_cult_leader', 8],
-    ['terminate_red_dawn', 8],
-    ['peace_on_earth', 8],
+    ['locate_red_dawn_logistics_hub', 4],
+    ['interrogate_red_dawn_commander', 4],
+    ['locate_red_dawn_regional_stronghold', 5],
+    ['interrogate_red_dawn_high_commander', 5],
+    ['locate_red_dawn_hq', 6],
+    ['interrogate_red_dawn_cult_leader', 6],
+    ['terminate_red_dawn', 6],
+    ['peace_on_earth', 6],
   ];
   const ARCHETYPE_LEVELS: readonly (readonly [string, number])[] = [
     ['apprehend_member', 1],
     ['raid_safehouse', 2],
     ['raid_outpost', 3],
-    ['raid_training_facility', 4],
-    ['raid_logistics_hub', 5],
-    ['raid_command_center', 6],
-    ['raid_regional_stronghold', 7],
-    ['raid_hq', 8],
+    ['raid_logistics_hub', 4],
+    ['raid_regional_stronghold', 5],
+    ['raid_hq', 6],
   ];
   const levels = initiativeOperationLevels(bootstrapGdrCatalog());
 
@@ -238,13 +232,13 @@ describe('LEAD, Reading Initiative operation levels', () => {
     const report = ok(engine.developer.queries.getInitiativeOperationLevels());
     const catalog = bootstrapGdrCatalog();
     expect(report.leads.map((item) => item.id)).toEqual(catalog.leads.map((item) => item.id));
-    expect(report.leads).toContainEqual({ id: 'locate_red_dawn_hq', name: expect.any(String), level: 8 });
+    expect(report.leads).toContainEqual({ id: 'locate_red_dawn_hq', name: expect.any(String), level: 6 });
     expect(report.missionSiteArchetypes).toContainEqual({
       id: 'raid_hq',
       name: expect.any(String),
-      level: 8,
+      level: 6,
     });
-    expect(report.missionSiteArchetypes).toHaveLength(8);
+    expect(report.missionSiteArchetypes).toHaveLength(6);
     expect(report.leadsWithoutLevel).toEqual([]);
     expect(report.missionSiteArchetypesWithoutLevel).toEqual([]);
     // A query: it changes no Campaign state.

@@ -62,7 +62,7 @@ describe('ENDING: examples', () => {
   it('Panic is summed, clamped, and reaches Defeat', () => {
     let state = set(newCampaign(), { panicHundredths: 9995, money: 40, funding: 0, turn: 12 });
     const raid = addMissionSite(state, 'raid_safehouse');
-    const response = addMissionSite(raid.state, 'foil_coup_attempt', { turnsUntilExpiration: 1 });
+    const response = addMissionSite(raid.state, 'counter_civilian_terror', { turnsUntilExpiration: 1 });
     state = act(response.state, 'deployAgents', { missionSite: raid.site, agents: agentIds(response.state) });
     state = advance(state, winning(state, raid.site));
     const report = state.world.history.turnReport!;
@@ -73,11 +73,11 @@ describe('ENDING: examples', () => {
       panicReductionHundredths: 10,
     });
     expect(report.expiredMissionSites[0]!.consequence).toMatchObject({
-      panicIncreaseHundredths: 300,
-      fundingChange: -16,
+      panicIncreaseHundredths: 100,
+      fundingChange: -8,
       defeat: false,
     });
-    // 99.95 − 0.10 + 3.00 is clamped to 100.
+    // 99.95 − 0.10 + 1.00 is clamped to 100.
     expect(report.panicHundredths).toEqual({ before: 9995, after: 10_000 });
     expect(state.world.current).toMatchObject({
       panicHundredths: 10_000,
@@ -150,8 +150,8 @@ describe('ENDING: examples', () => {
       ending: 'Defeat',
       reasons: ['PanicAtTheLimit', 'MoneyBelowZero', 'ExistentialOperationNotStopped'],
     });
-    let state = set(newCampaign(), { panicHundredths: 9800, money: 35, funding: 0 });
-    state = advance(addMissionSite(state, 'foil_coup_attempt', { turnsUntilExpiration: 1 }).state);
+    let state = set(newCampaign(), { panicHundredths: 9900, money: 35, funding: 0 });
+    state = advance(addMissionSite(state, 'counter_civilian_terror', { turnsUntilExpiration: 1 }).state);
     expect(state.world.current).toMatchObject({
       panicHundredths: 10_000,
       ending: 'Defeat',
@@ -161,7 +161,7 @@ describe('ENDING: examples', () => {
   });
 
   it('An existential operation not stopped loses the Campaign outright, with Panic unchanged', () => {
-    // Expired: the Response Mission site of Faction operation level 6.
+    // Expired: a Response Mission site of Faction operation level 5.
     let state = set(newCampaign(), { panicHundredths: 3500, turn: 40 });
     state = advance(addMissionSite(state, 'defend_against_hq_assault', { turnsUntilExpiration: 1 }).state);
     expect(state.world.history.turnReport!.expiredMissionSites[0]!.consequence).toMatchObject({
@@ -206,7 +206,7 @@ describe('ENDING: examples', () => {
     const peace = finishingInvestigation(state, 'peace_on_earth', a1);
     // An existential operation not stopped and Panic at the limit in the same Advance turn.
     const response = addMissionSite(peace.state, 'defend_against_hq_assault', { turnsUntilExpiration: 1 });
-    const foil = addMissionSite(response.state, 'foil_coup_attempt', { turnsUntilExpiration: 1 });
+    const foil = addMissionSite(response.state, 'counter_civilian_terror', { turnsUntilExpiration: 1 });
     state = advance(foil.state);
     expect(state.world.current.investigations[peace.investigation]!.state.lifecycle).toBe('Completed');
     expect(state.world.current).toMatchObject({
@@ -307,7 +307,7 @@ describe('ENDING: examples', () => {
     ).toBe(1);
     // ENDING, Defeat Effect kind and Victory Effect kind: the value is `true`; any other value is invalid.
     expectDefective(
-      (raw) => (raw.get('operation_level_6')['on_ignored_or_lost'] = [effect('defeat', false)]),
+      (raw) => (raw.get('operation_level_5')['on_ignored_or_lost'] = [effect('defeat', false)]),
     );
     expectDefective((raw) => (raw.get('peace_on_earth')['on_completion'] = [effect('win_campaign', 1)]));
     // ENDING, Panic Effect kind: at most two decimal places.
@@ -321,7 +321,7 @@ describe('ENDING: examples', () => {
           (raw.get('operation_level_1')['on_ignored_or_lost'] = [effect('panic', { $decimal: '0.25' })]),
       ).factionOperationLevels[0]!.onIgnoredOrLost.panicIncreaseHundredths,
     ).toBe(25);
-    expect(gdrs.factionOperationLevels.find((level) => level.level === 6)!.onIgnoredOrLost).toEqual({
+    expect(gdrs.factionOperationLevels.find((level) => level.level === 5)!.onIgnoredOrLost).toEqual({
       panicIncreaseHundredths: 0,
       funding: 0,
       defeat: true,

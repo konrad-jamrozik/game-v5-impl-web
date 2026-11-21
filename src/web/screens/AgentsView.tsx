@@ -55,8 +55,8 @@ const SERVING_WIDTHS = ['36px', '104px', '116px', '84px', '64px', '96px', '132px
 /** VIS, Tables: the fixed widths of the Memorial table. */
 /**
  * AVIEW, Memorial: Killed by holds the longest Enemy label of the GDRs with a two-digit number, e.g.
- * "high-commander-12", and Where the longest MissionSiteArchetype `name` with a three-digit number, e.g. "Defend
- * against city government assault #123", so that neither is ever cut short.
+ * "high-commander-12", and Where the longest MissionSiteArchetype `name` with a three-digit number, e.g. "Foil
+ * nuclear plant bombing #123", so that neither is ever cut short.
  */
 const MEMORIAL_WIDTHS = [
   '104px',
@@ -69,7 +69,7 @@ const MEMORIAL_WIDTHS = [
   '88px',
   '80px',
   '200px',
-  '400px',
+  '300px',
 ];
 
 /** AVIEW, Row filters: exactly one is on at a time. */

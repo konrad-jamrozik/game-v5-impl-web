@@ -88,7 +88,7 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
     }
     const state = ok(engine.player.queries.getCurrentLiveWorldState());
     // At the Bootstrap scale an ignored operation raises Panic by at most 3 points, so the first ignored operation of
-    // level 6 loses the Campaign long before Panic reaches its limit, and leaves Panic as it was.
+    // level 5 loses the Campaign long before Panic reaches its limit, and leaves Panic as it was.
     expect(state.ending).toMatchObject({ ending: 'Defeat', reasons: ['ExistentialOperationNotStopped'] });
     expect(state.panicHundredths).toBeGreaterThan(0);
     expect(state.panicHundredths).toBeLessThan(10_000);

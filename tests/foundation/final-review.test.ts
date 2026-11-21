@@ -134,15 +134,15 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('BOOT: the Bootstrap GDRs', () => {
-  it('supplies 284 GDRs, and a Victory path through the Leads of every Faction to Peace on Earth', () => {
-    // BOOT, GDR files: 23 files that each hold every GDR of one Type, and one file for each of the 143 Compendium
+  it('supplies 253 GDRs, and a Victory path through the Leads of every Faction to Peace on Earth', () => {
+    // BOOT, GDR files: 23 files that each hold every GDR of one Type, and one file for each of the 128 Compendium
     // articles in the one directory that holds one file per GDR.
     const articleFiles = RAW_GDR_FILES.filter((file) =>
       file.path.startsWith('compendium/compendium_articles/'),
     );
-    expect(articleFiles).toHaveLength(143);
-    expect(RAW_GDR_FILES).toHaveLength(23 + 143);
-    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(284);
+    expect(articleFiles).toHaveLength(128);
+    expect(RAW_GDR_FILES).toHaveLength(23 + 128);
+    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(253);
     const catalog = bootstrapGdrCatalog();
     // BOOT, Bootstrap scope: the counts of the GDRs that grew.
     expect([
@@ -154,7 +154,7 @@ describe('BOOT: the Bootstrap GDRs', () => {
       catalog.missionSiteArchetypes.filter((site) => site.kind === 'response').length,
       catalog.factionActivityLevels.size,
       catalog.factionOperationLevels.length,
-    ]).toEqual([9, 9, 2, 56, 8, 16, 8, 6]);
+    ]).toEqual([9, 9, 2, 44, 6, 15, 8, 5]);
     expect(catalog.factionArchetypes.map((faction) => [faction.id, faction.initialActivityLevel])).toEqual([
       ['red_dawn', 'faint'],
       ['exalt', 'dormant'],
@@ -193,11 +193,11 @@ describe('BOOT: the Bootstrap GDRs', () => {
         lead = following[0]!;
         path.push(lead.id);
       }
-      expect(path).toHaveLength(18);
-      expect(path.filter((id) => byId(id).onCompletion.createMissionSite !== null)).toHaveLength(8);
+      expect(path).toHaveLength(14);
+      expect(path.filter((id) => byId(id).onCompletion.createMissionSite !== null)).toHaveLength(6);
       expect(path.at(-1)).toBe(`terminate_${faction.id}`);
       expect(path.every((id) => byId(id).faction === faction.id)).toBe(true);
-      // The locate Leads of tiers 1 to 7 can be completed again; the HQ Lead only until its Mission is Won.
+      // The locate Leads of tiers 1 to 5 can be completed again; the HQ Lead only until its Mission is Won.
       expect(byId(`locate_${faction.id}_outpost`).investigateAgain).toBe('always');
       expect(byId(`locate_${faction.id}_hq`).investigateAgain).toBe('until_mission_won');
       expect(byId(`${faction.id}_profile`).investigateAgain).toBe('never');

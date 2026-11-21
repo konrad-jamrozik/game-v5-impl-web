@@ -604,8 +604,11 @@ describe('MISSION: examples', () => {
       'foil_business_extortion',
     ]);
     expect(offered(2, null)).toHaveLength(3);
-    // A level that offers only one MissionSiteArchetype repeats it.
-    expect(offered(6, 'defend_against_hq_assault')).toEqual(['defend_against_hq_assault']);
+    // The existential level offers three as well.
+    expect(offered(5, 'defend_against_hq_assault')).toEqual([
+      'foil_bioweapon_release',
+      'foil_warhead_launch',
+    ]);
 
     // The previous operation is read from the Faction's latest Response Mission site, whatever became of it, and the
     // previous operation of another Faction plays no part.
@@ -750,16 +753,16 @@ describe('MISSION: examples', () => {
       panicIncreaseHundredths: 0,
     });
     // A `defeat` Effect of a Faction operation level applies when its Response Mission is Lost or its site Expired.
-    const level6 = bootstrap.factionOperationLevels.find((item) => item.level === 6)!;
+    const level5 = bootstrap.factionOperationLevels.find((item) => item.level === 5)!;
     const hqAssault = bootstrap.missionSiteArchetypes.find(
       (item) => item.id === 'defend_against_hq_assault',
     )!;
-    expect(consequencesOf('Lost', hqAssault, level6)).toMatchObject({
+    expect(consequencesOf('Lost', hqAssault, level5)).toMatchObject({
       defeat: true,
       panicIncreaseHundredths: 0,
     });
-    expect(consequencesOf('Expired', hqAssault, level6)).toMatchObject({ defeat: true });
-    expect(consequencesOf('Won', hqAssault, level6)).toMatchObject({ defeat: false, money: 0 });
+    expect(consequencesOf('Expired', hqAssault, level5)).toMatchObject({ defeat: true });
+    expect(consequencesOf('Won', hqAssault, level5)).toMatchObject({ defeat: false, money: 1000 });
   });
 
   it('GDR validation', () => {
@@ -829,8 +832,8 @@ describe('MISSION: examples', () => {
       onWin: { money: 30, funding: 5 },
       onIgnoredOrLost: { panicIncreaseHundredths: 10, funding: -1, defeat: false },
     });
-    expect(level(bootstrap, 6)).toMatchObject({
-      onWin: { money: 0, funding: 0 },
+    expect(level(bootstrap, 5)).toMatchObject({
+      onWin: { money: 1000, funding: 80 },
       onIgnoredOrLost: { panicIncreaseHundredths: 0, funding: 0, defeat: true },
     });
     // Order has no meaning, and an empty or omitted Effect list is valid and changes nothing.
