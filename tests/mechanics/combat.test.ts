@@ -725,9 +725,9 @@ describe('COMBAT: examples', () => {
 
   it('Combat rating with Rating Upgrades', () => {
     const combat = gdrs.combatParameters;
-    // COMBAT, Combat rating, the two examples: ⌊5,000 × 1.19⌋ and ⌊101 × 1.03⌋.
-    expect(raiseCombatRating(5000, 19, combat)).toBe(5950);
-    expect(raiseCombatRating(101, 3, combat)).toBe(104);
+    // COMBAT, Combat rating, the two examples: ⌊5,000 × 1.38⌋ and ⌊101 × 1.06⌋.
+    expect(raiseCombatRating(5000, 19, combat)).toBe(6900);
+    expect(raiseCombatRating(101, 3, combat)).toBe(107);
     expect(raiseCombatRating(101, 0, combat)).toBe(101);
     // ECON, Rating Upgrades: every acquisition of a Weapon damage or Armor Upgrade counts once; no other Upgrade does.
     expect(

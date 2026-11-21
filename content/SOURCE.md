@@ -81,6 +81,9 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `629a98bbeed6b288c806ba0c7113e9e0a00b4608` on 2026-11-20, changing the `enemies` counts of `raid_outpost`,
   `raid_training_facility`, `raid_logistics_hub`, `raid_command_center`, `raid_regional_stronghold`, and `raid_hq`. The
   copy is still identical to the specification's `content/` directory.
+- `combat/combat_parameters.yaml`: patched unchanged from specification commit
+  `4ecfa26dfb61b47738dc148191fd9a9e67fec52d` on 2026-11-20, raising `rating_bonus_per_upgrade` from 0.01 to 0.02. The
+  copy is still identical to the specification's `content/` directory.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in
