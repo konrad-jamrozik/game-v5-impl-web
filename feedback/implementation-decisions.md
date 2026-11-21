@@ -474,8 +474,9 @@
   reserve is 20% of the roster, rounded down. The Expected income target is 120% of projected upkeep. The Savings
   floor is five turns of half the projected upkeep. A team needs a Combat rating above 120% of the Enemies' Combat
   rating and one Agent for every three Enemies. Agents investigating Leads number 1 plus 1 for every 10 Agents. The
-  target roster is 8 plus 4 for each Upgrade bought whose effect improves Agents, not for the cap Upgrades. The
-  Transport cap and the Training cap are kept at 25% and 30% of the roster, the game-ts values. The Basic Autopilot AI decides one Player
+  target roster is 20 plus 10 for each Upgrade bought whose effect improves Agents, not for the cap Upgrades. The
+  Transport cap is kept at 40% of the roster and the Training cap at 30%; the Game designer values of BASICAI set the
+  roster target and the Transport cap, and 30% is the game-ts value. The Basic Autopilot AI decides one Player
   action at a time: after every Player action it reads the current state and starts its Turn routine again, so that
   it plays the same whatever its Autopilot limit is. A team is formed in the order of preference BASICAI states and,
   when that order gives no winning team, with the most capable Deployable Agents first. Among equally good choices it
