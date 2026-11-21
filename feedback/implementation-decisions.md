@@ -1493,6 +1493,11 @@
   `rating_bonus_per_armor_upgrade` instead of `rating_bonus_per_upgrade`, so the setup's `ratingUpgrades` is an object
   `{ weaponDamage, armor }`, each a whole number of at least 0, the AgencyView reports it as such, and the setup may
   name 17 GDR values.
+- **Update:** Since Specification revision ad21119f69038c17c84c41cf38093db5c2f5cf20, COMBAT, Combat rating: the Combat rating weighs each
+  Combatant's effective skill by its rating factor and a side by its team size factor, and no side has Rating
+  Upgrades, so the setup has no `ratingUpgrades`, which is ignored when given, as every other part the setup does not
+  name, and the AgencyView no longer reports it. CombatParameters has seven rating values in place of the two rating
+  bonuses, so the setup may name 22 GDR values.
 - **Links:** PROB-048
 
 ## DEC-074: The result of `developer.queries.getInitiativeOperationLevels()`

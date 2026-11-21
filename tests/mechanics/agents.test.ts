@@ -593,6 +593,8 @@ describe('AGENT: examples', () => {
       setCurrentHealth(world.agents[a2]!.state, 500);
       // Every other Enemy is dead at Combat start, so it never attacks and is never a target.
       world.enemies[soldier]!.state.healthLost = world.enemies[soldier]!.state.baseHealth - 20;
+      // Without its armor, each hit of a1 removes current health, as in this example before Enemies wore armor.
+      world.enemies[soldier]!.state.baseArmor = 0;
       for (const id of enemies.filter((item) => item !== soldier)) {
         world.enemies[id]!.state.healthLost = world.enemies[id]!.state.baseHealth;
       }

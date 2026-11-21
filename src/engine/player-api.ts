@@ -90,8 +90,8 @@ export interface AgentView {
   /** COMBAT, Combat rating: the base Combat rating of the Agent alone, its effective skill; absent when Terminated. */
   readonly baseCombatRating: number | null;
   /**
-   * COMBAT, Combat rating: the base Combat rating raised by the Rating Upgrades of the Agents' side; absent when
-   * Terminated.
+   * COMBAT, Combat rating: that of a side holding the Agent alone, its effective skill times its rating factor, rounded
+   * down, or 0 when it is not able to fight; absent when Terminated.
    */
   readonly combatRating: number | null;
   readonly participationHistory: readonly Participation[];
@@ -298,11 +298,6 @@ export interface AgencyView {
    * AgentArchetype's `armor` references plus the Upgrade bonus of agent_armor; reported even with no Serving Agent.
    */
   readonly agentArmor: number;
-  /**
-   * ECON, Rating Upgrades: the Rating Upgrades of the Agents' side, the acquisitions of every Weapon damage Upgrade and
-   * of every Armor Upgrade counted apart, which raise every Combat rating of a side of Agents.
-   */
-  readonly ratingUpgrades: { readonly weaponDamage: number; readonly armor: number };
   readonly servingAgents: number;
   readonly deployedAgents: number;
   readonly trainingAgents: number;

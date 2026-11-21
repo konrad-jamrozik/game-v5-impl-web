@@ -76,10 +76,20 @@ export interface CombatParametersGdr {
   /** COMBAT, Target selection: the Selection weight at exactly the preferred hit Probability; a whole number. */
   readonly targetBaseWeight: number;
   readonly targetPreferredHitChance: Rational;
-  /** COMBAT, Combat rating: the fraction of its base Combat rating by which each Weapon damage Rating Upgrade raises a side's. */
-  readonly ratingBonusPerWeaponDamageUpgrade: Rational;
-  /** COMBAT, Combat rating: the fraction of its base Combat rating by which each Armor Rating Upgrade raises a side's. */
-  readonly ratingBonusPerArmorUpgrade: Rational;
+  /** COMBAT, Combat rating: the effective max health at which health neither raises nor lowers the rating factor. */
+  readonly ratingBaseHealth: number;
+  /** COMBAT, Combat rating: what each point of effective max health above or below its base adds to the rating factor. */
+  readonly ratingBonusPerHealth: Rational;
+  /** COMBAT, Combat rating: the effective armor at which armor neither raises nor lowers the rating factor. */
+  readonly ratingBaseArmor: number;
+  /** COMBAT, Combat rating: what each point of effective armor above or below its base adds to the rating factor. */
+  readonly ratingBonusPerArmor: Rational;
+  /** COMBAT, Combat rating: the effective weapon damage at which it neither raises nor lowers the rating factor. */
+  readonly ratingBaseWeaponDamage: number;
+  /** COMBAT, Combat rating: what each point of effective weapon damage above or below its base adds to the factor. */
+  readonly ratingBonusPerWeaponDamage: Rational;
+  /** COMBAT, Combat rating: the exponent of the number of a side's Combatants able to fight; from 1 to 2. */
+  readonly ratingTeamSizeExponent: Rational;
 }
 
 export interface RecoveryParametersGdr {

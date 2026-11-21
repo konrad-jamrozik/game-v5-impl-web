@@ -104,9 +104,9 @@ const bodyOf = (list: readonly CatalogCompendiumArticle[], id: string) =>
   shown(resolveArticles(list).find((item) => item.article.id === id)!.body);
 
 describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
-  it('supplies 6 Guide articles, 26 Mechanics articles, and 96 Subject articles, in the order of their identifiers', () => {
+  it('supplies 6 Guide articles, 26 Mechanics articles, and 103 Subject articles, in the order of their identifiers', () => {
     const all = bootstrapGdrCatalog().compendiumArticles;
-    expect(all).toHaveLength(128);
+    expect(all).toHaveLength(135);
     expect(all.filter((article) => article.category === 'guide').map((article) => article.id)).toEqual([
       'guide_agency',
       'guide_agents',
@@ -123,11 +123,20 @@ describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
       expect(article.subject).toBeNull();
     }
     const subjects = all.filter((article) => article.category === 'subject');
-    expect(subjects).toHaveLength(96);
-    // BOOT, Compendium GDRs: the Armor `service_armor` has a Subject article, and `no_armor` none.
+    expect(subjects).toHaveLength(103);
+    // BOOT, Compendium GDRs: every Armor but `no_armor` has a Subject article.
     expect(
       subjects.filter((article) => article.subjectType === 'Armor').map((article) => article.subject),
-    ).toEqual(['service_armor']);
+    ).toEqual([
+      'assault_armor',
+      'ballistic_vest',
+      'heavy_armor',
+      'juggernaut_suit',
+      'padded_jacket',
+      'plate_carrier',
+      'service_armor',
+      'tactical_armor',
+    ]);
     for (const article of subjects) {
       expect(article.id).toBe(`${article.subject}_article`);
     }
@@ -709,18 +718,26 @@ describe('COMP: Article visibility and Player-visible information', () => {
     ]) {
       expect(ids).not.toContain(id);
     }
-    // Every Guide article and Mechanics article, and every Agent, Armor, and Upgrade article, in Game build order,
-    // with the articles about the Met subjects: the Enemies of Apprehend member, which the discovered first Lead
-    // creates, their Weapons, and the Agents' Service weapon.
+    // Every Guide article and Mechanics article, and every Agent and Upgrade article, in Game build order, with the
+    // articles about the Met subjects: the Enemies of Apprehend member, which the discovered first Lead creates, their
+    // Weapons and Armors, and the Agents' Service weapon and Service armor.
     const all = gdrs.compendiumArticles;
     const always = all.filter(
       (article) =>
-        article.category !== 'subject' ||
-        ['AgentArchetype', 'Armor', 'Upgrade'].includes(article.subjectType ?? ''),
+        article.category !== 'subject' || ['AgentArchetype', 'Upgrade'].includes(article.subjectType ?? ''),
     );
-    expect(always).toHaveLength(6 + 26 + 1 + 1 + 8);
+    expect(always).toHaveLength(6 + 26 + 1 + 8);
     const operative = gdrs.enemyArchetypes.get('operative')!;
-    const met = new Set(['initiate', 'operative', 'pistol', operative.weapon, gdrs.agentArchetype.weapon]);
+    const met = new Set([
+      'initiate',
+      'operative',
+      'pistol',
+      operative.weapon,
+      gdrs.agentArchetype.weapon,
+      gdrs.enemyArchetypes.get('initiate')!.armor,
+      operative.armor,
+      gdrs.agentArchetype.armor,
+    ]);
     expect(ids).toEqual(
       all
         .filter(
@@ -945,7 +962,7 @@ describe('COMP: Met subjects', () => {
     expect([...subjects].sort()).toEqual(
       ['field_agent', 'service_weapon', 'service_armor', ...upgrades, 'criminal_organizations'].sort(),
     );
-    expect([...metSubjects(state.world.current, catalog)]).toEqual(['service_weapon']);
+    expect([...metSubjects(state.world.current, catalog)]).toEqual(['service_weapon', 'service_armor']);
   });
 
   it('an Enemy is met once a Player-visible MissionSiteArchetype lists it, and its Weapon with it', () => {

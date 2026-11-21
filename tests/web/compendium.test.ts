@@ -261,6 +261,7 @@ describe('COMPV: Subject data sheets', () => {
   it('Enemy data sheet: lists only the Player-visible Mission sites it appears at', () => {
     const soldier = gdrs.enemyArchetypes.get('soldier')!;
     const weapon = gdrs.weapons.get(soldier.weapon)!;
+    const armor = gdrs.armors.get(soldier.armor)!;
     // At campaign creation no Player-visible Mission site holds a Soldier, so its article is not Player-visible (COMP,
     // Met subjects).
     expect(() => sheetOf(newCampaign(), 'soldier')).toThrow(/No Player-visible article about soldier/);
@@ -271,8 +272,8 @@ describe('COMPV: Subject data sheets', () => {
       Skill: String(soldier.skill),
       Health: String(soldier.baseHealth),
       Weapon: `[${weapon.name}] · damage ${weapon.damage}`,
-      // `no_armor` has no Subject article, so "None" is not a link.
-      Armor: 'None · armor 0',
+      // BOOT: the Soldier wears the Ballistic vest, which has a Subject article.
+      Armor: `[${armor.name}] · armor ${armor.armor}`,
     });
     const holding = gdrs.missionSiteArchetypes.filter((site) =>
       site.enemies.some(([enemy]) => enemy === 'soldier'),

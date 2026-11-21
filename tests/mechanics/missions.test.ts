@@ -99,7 +99,9 @@ describe('MISSION: examples', () => {
     ]);
     const view = currentLiveWorldStateView(state, gdrs).missionSites[0]!;
     expect(view).toMatchObject({
-      enemiesCombatRating: 120,
+      // COMBAT, Combat rating: three initiates of effective skill 40, max health 20, and weapon damage 10 rate
+      // ⌊3 ^ 0.2 × 3 × 40 × 0.9⌋.
+      enemiesCombatRating: 134,
       rewards: { money: 5, fundingChange: 0, panicReductionHundredths: 100 },
       mission: null,
       lead: 'locate_red_dawn_member',
@@ -271,7 +273,7 @@ describe('MISSION: examples', () => {
     const view = currentLiveWorldStateView(created.state, gdrs).missionSites[0]!;
     expect(view).toMatchObject({
       kind: 'Response',
-      enemiesCombatRating: 400,
+      enemiesCombatRating: 604,
       rewards: { money: 30, fundingChange: 5 },
       penalties: { panicIncreaseHundredths: 800, fundingChange: -1, defeat: false },
       operationLevel: { id: 'operation_level_2', level: 2 },
@@ -353,6 +355,12 @@ describe('MISSION: examples', () => {
 
     // Won: four Agents prevail in three Combat rounds.
     let won = act(created.state, 'deployAgents', { missionSite: s2, agents: [a1, a2, a3, a4] });
+    // Without their armor, two hits of 15 kill each soldier in the first Combat round, as the script below assumes.
+    won = tweak(won, (world) => {
+      for (const id of [e5, e6]) {
+        world.enemies[id]!.state.baseArmor = 0;
+      }
+    });
     const hits = (count: number, damage: number[]) => ({ hit: new Array<boolean>(count).fill(true), damage });
     const agentScript = hits(3, [15, 15, 5]);
     won = advance(won, {

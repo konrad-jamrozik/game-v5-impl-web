@@ -186,8 +186,13 @@ const combatParameterFields = {
   incapacitation_skill_fraction: decimal,
   target_base_weight: whole(1),
   target_preferred_hit_chance: decimal,
-  rating_bonus_per_weapon_damage_upgrade: decimal,
-  rating_bonus_per_armor_upgrade: decimal,
+  rating_base_health: whole(0),
+  rating_bonus_per_health: decimal,
+  rating_base_armor: whole(0),
+  rating_bonus_per_armor: decimal,
+  rating_base_weapon_damage: whole(0),
+  rating_bonus_per_weapon_damage: decimal,
+  rating_team_size_exponent: decimal,
 };
 
 /** COMBAT, Combat inputs and outputs, item 4: the values of AgentParameters that a Combat reads, by authored name. */
@@ -304,8 +309,13 @@ const schemas = {
       incapacitationSkillFraction: g.incapacitation_skill_fraction,
       targetBaseWeight: g.target_base_weight,
       targetPreferredHitChance: g.target_preferred_hit_chance,
-      ratingBonusPerWeaponDamageUpgrade: g.rating_bonus_per_weapon_damage_upgrade,
-      ratingBonusPerArmorUpgrade: g.rating_bonus_per_armor_upgrade,
+      ratingBaseHealth: g.rating_base_health,
+      ratingBonusPerHealth: g.rating_bonus_per_health,
+      ratingBaseArmor: g.rating_base_armor,
+      ratingBonusPerArmor: g.rating_bonus_per_armor,
+      ratingBaseWeaponDamage: g.rating_base_weapon_damage,
+      ratingBonusPerWeaponDamage: g.rating_bonus_per_weapon_damage,
+      ratingTeamSizeExponent: g.rating_team_size_exponent,
     })),
   RecoveryParameters: z
     .strictObject({
@@ -658,12 +668,22 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
   ) {
     problems.push('CombatParameters: the retreat thresholds must be at least 0');
   }
-  // COMBAT, Combat GDR validation, rule 5: the rating bonuses are at least 0.
-  if (combatParameters.ratingBonusPerWeaponDamageUpgrade.lt(0)) {
-    problems.push('CombatParameters: rating_bonus_per_weapon_damage_upgrade must be at least 0');
+  // COMBAT, Combat GDR validation, rule 5: the rating bonuses are at least 0, the rating bases whole numbers of at
+  // least 0 (the schema), and the team size exponent from 1 to 2 with at most two digits after the decimal point.
+  for (const [name, value] of [
+    ['rating_bonus_per_health', combatParameters.ratingBonusPerHealth],
+    ['rating_bonus_per_armor', combatParameters.ratingBonusPerArmor],
+    ['rating_bonus_per_weapon_damage', combatParameters.ratingBonusPerWeaponDamage],
+  ] as const) {
+    if (value.lt(0)) {
+      problems.push(`CombatParameters: ${name} must be at least 0`);
+    }
   }
-  if (combatParameters.ratingBonusPerArmorUpgrade.lt(0)) {
-    problems.push('CombatParameters: rating_bonus_per_armor_upgrade must be at least 0');
+  const exponent = combatParameters.ratingTeamSizeExponent;
+  if (exponent.lt(1) || exponent.gt(2) || !exponent.mul(100).isWhole()) {
+    problems.push(
+      'CombatParameters: rating_team_size_exponent must be from 1 to 2 with at most two digits after the decimal point',
+    );
   }
   if (
     combatParameters.incapacitationSkillFraction.lt(0) ||
@@ -710,8 +730,13 @@ const COMBAT_GDR_VALUE_PROPERTIES: Readonly<Record<string, readonly ['combat' | 
   incapacitation_skill_fraction: ['combat', 'incapacitationSkillFraction'],
   target_base_weight: ['combat', 'targetBaseWeight'],
   target_preferred_hit_chance: ['combat', 'targetPreferredHitChance'],
-  rating_bonus_per_weapon_damage_upgrade: ['combat', 'ratingBonusPerWeaponDamageUpgrade'],
-  rating_bonus_per_armor_upgrade: ['combat', 'ratingBonusPerArmorUpgrade'],
+  rating_base_health: ['combat', 'ratingBaseHealth'],
+  rating_bonus_per_health: ['combat', 'ratingBonusPerHealth'],
+  rating_base_armor: ['combat', 'ratingBaseArmor'],
+  rating_bonus_per_armor: ['combat', 'ratingBonusPerArmor'],
+  rating_base_weapon_damage: ['combat', 'ratingBaseWeaponDamage'],
+  rating_bonus_per_weapon_damage: ['combat', 'ratingBonusPerWeaponDamage'],
+  rating_team_size_exponent: ['combat', 'ratingTeamSizeExponent'],
   exhaustion_incapacitation: ['agent', 'exhaustionIncapacitation'],
   exhaustion_free_points: ['agent', 'exhaustionFreePoints'],
   skill_penalty_pct_per_exhaustion: ['agent', 'skillPenaltyPctPerExhaustion'],

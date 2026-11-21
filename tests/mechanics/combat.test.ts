@@ -1,11 +1,10 @@
 /** Tests, from the former Acceptance examples, of COMBAT. */
 import { describe, expect, it } from 'vite-plus/test';
 import { effectiveSkill } from '../../src/engine/mechanics/agents/agents.ts';
-import { ratingUpgrades } from '../../src/engine/mechanics/economy/economy.ts';
 import {
   baseCombatRating,
   combatRating,
-  raiseCombatRating,
+  ratingFactor,
   damageBounds,
   fightCombat,
   hitChance,
@@ -33,7 +32,6 @@ function fight(agents: Combatant[], enemies: Combatant[], injected: Injected): C
     {
       agents,
       enemies,
-      ratingUpgrades: { weaponDamage: 0, armor: 0 },
       combat: gdrs.combatParameters,
       agentParameters: gdrs.agentParameters,
     },
@@ -50,18 +48,18 @@ const misses = (count: number) => new Array<boolean>(count).fill(false);
 
 describe('COMBAT: examples', () => {
   it('Enemy creation', () => {
-    const rows: [string, number, number, number][] = [
-      ['initiate', 40, 20, 8],
-      ['soldier', 120, 30, 14],
-      ['operative', 60, 25, 10],
-      ['handler', 80, 25, 10],
-      ['lieutenant', 140, 30, 16],
-      ['elite', 250, 40, 20],
-      ['commander', 300, 40, 22],
-      ['high_commander', 500, 50, 28],
-      ['cult_leader', 800, 80, 32],
+    const rows: [string, number, number, number, number][] = [
+      ['initiate', 40, 20, 8, 0],
+      ['soldier', 120, 30, 14, 20],
+      ['operative', 60, 25, 10, 0],
+      ['handler', 80, 25, 10, 5],
+      ['lieutenant', 140, 30, 16, 25],
+      ['elite', 250, 40, 20, 40],
+      ['commander', 300, 40, 22, 50],
+      ['high_commander', 500, 50, 28, 60],
+      ['cult_leader', 800, 80, 32, 80],
     ];
-    for (const [archetype, skill, health, damage] of rows) {
+    for (const [archetype, skill, health, damage, armor] of rows) {
       const enemy = combatEnemy('e', archetype).state;
       // A Combat holds an Enemy's whole values in hundredths, as an Agent holds its own; see DEC-056.
       expect(enemy).toEqual({
@@ -70,8 +68,9 @@ describe('COMBAT: examples', () => {
         maxHealth: health,
         exactExhaustionHundredths: 0,
         weaponDamage: damage,
-        // BOOT, Combat GDRs: every EnemyArchetype wears `no_armor`.
-        armor: 0,
+        // BOOT, Combat GDRs: `initiate` and `operative` wear `no_armor`, and each EnemyArchetype from `handler` up an
+        // Armor of its own.
+        armor,
       });
       expect(effectiveSkill(enemy, gdrs.agentParameters)).toBe(skill);
     }
@@ -118,7 +117,6 @@ describe('COMBAT: examples', () => {
         {
           agents: [combatAgent('a1', { skill: 973 })],
           enemies: [combatAgent('e1', { skill: 60 })],
-          ratingUpgrades: { weaponDamage: 0, armor: 0 },
           combat: gdrs.combatParameters,
           agentParameters: gdrs.agentParameters,
         },
@@ -193,7 +191,6 @@ describe('COMBAT: examples', () => {
         {
           agents: [combatAgent('a1'), combatAgent('a2'), a4],
           enemies: [combatEnemy('e1', 'initiate'), combatAgent('e2', { skill: 50 }), combatAgent('e3')],
-          ratingUpgrades: { weaponDamage: 0, armor: 0 },
           combat: gdrs.combatParameters,
           agentParameters: gdrs.agentParameters,
         },
@@ -234,7 +231,6 @@ describe('COMBAT: examples', () => {
         {
           agents: [combatAgent('a1', { skill: 200 })],
           enemies: [combatAgent('e1'), combatAgent('e2', { skill: 50 }), combatAgent('e3', { skill: 400 })],
-          ratingUpgrades: { weaponDamage: 0, armor: 0 },
           combat: gdrs.combatParameters,
           agentParameters: gdrs.agentParameters,
         },
@@ -278,7 +274,6 @@ describe('COMBAT: examples', () => {
         {
           agents: [combatAgent('a1', { skill: 1000, weaponDamage: 25 })],
           enemies: [enemy('e1', 250, 50, 0), enemy('e2', 100, 20, 0), enemy('e3', 100, 20, 5)],
-          ratingUpgrades: { weaponDamage: 0, armor: 0 },
           combat: gdrs.combatParameters,
           agentParameters: gdrs.agentParameters,
         },
@@ -307,7 +302,6 @@ describe('COMBAT: examples', () => {
         {
           agents: [combatAgent('a1'), combatAgent('a2')],
           enemies: [combatAgent('e1'), combatEnemy('e2', 'initiate')],
-          ratingUpgrades: { weaponDamage: 0, armor: 0 },
           combat: gdrs.combatParameters,
           agentParameters: gdrs.agentParameters,
         },
@@ -337,19 +331,20 @@ describe('COMBAT: examples', () => {
   });
 
   it('Phase order: from the highest to the lowest effective skill, ties in the fixed order', () => {
-    // a2 (120) acts first, then a1 and a3 (90 each) in the fixed order; a3's hit kills the soldier.
+    // a2 (120) acts first, then a1 and a3 (90 each) in the fixed order; a3's hit of 50 kills the soldier through its
+    // 20 armor.
     const report = fight(
       [
         combatAgent('a1', { skill: 90 }),
         combatAgent('a2', { skill: 120 }),
-        combatAgent('a3', { skill: 90, weaponDamage: 30 }),
+        combatAgent('a3', { skill: 90, weaponDamage: 50 }),
       ],
       [combatEnemy('e1', 'soldier')],
       {
         'combat.hit.a1': [false],
         'combat.hit.a2': [false],
         'combat.hit.a3': [true],
-        'combat.damage.a3': [30],
+        'combat.damage.a3': [50],
       },
     );
     expect(report.log.map((attack) => attack.attacker)).toEqual(['a2', 'a1', 'a3']);
@@ -367,8 +362,10 @@ describe('COMBAT: examples', () => {
     });
     expect([report.outcome, report.rounds, report.log.length]).toEqual(['Prevailed', 1, 1]);
     expect(report.ratings).toEqual([
-      { round: 0, agents: 200, enemies: 40 },
-      { round: 1, agents: 200, enemies: 0 },
+      // COMBAT, Combat rating: a1 rates 100 × 1.2 for its weapon damage 20, a2 100, and the side ⌊220 × 2 ^ 0.2⌋; the
+      // initiate rates ⌊40 × 0.86⌋.
+      { round: 0, agents: 252, enemies: 34 },
+      { round: 1, agents: 252, enemies: 0 },
     ]);
     expect(participant(report, 'a2').final.exhaustion).toBe(0);
   });
@@ -414,10 +411,12 @@ describe('COMBAT: examples', () => {
       defenderAfter: { currentHealthHundredths: 0, exhaustion: 3 },
     });
     expect(report.ratings).toEqual([
-      { round: 0, agents: 200, enemies: 80 },
-      { round: 1, agents: 176, enemies: 26 },
-      { round: 2, agents: 176, enemies: 10 },
-      { round: 3, agents: 176, enemies: 0 },
+      // COMBAT, Combat rating: ⌊200 × 2 ^ 0.2⌋ and ⌊80 × 0.86 × 2 ^ 0.2⌋ at the start; then ⌊176 × 2 ^ 0.2⌋ and
+      // ⌊(16 + 10) × 0.86 × 2 ^ 0.2⌋, ⌊10 × 0.86⌋ for the last initiate, and 0.
+      { round: 0, agents: 229, enemies: 79 },
+      { round: 1, agents: 202, enemies: 25 },
+      { round: 2, agents: 202, enemies: 8 },
+      { round: 3, agents: 202, enemies: 0 },
     ]);
     expect(participant(report, 'a1').final).toEqual({
       currentHealthHundredths: 2300,
@@ -497,7 +496,8 @@ describe('COMBAT: examples', () => {
       'combat.damage.a2': [10, 13],
       'combat.hit.e1': [false],
     });
-    expect(report.ratings[0]!.agents).toBe(131);
+    // COMBAT, Combat rating: ⌊(31 + 100) × 2 ^ 0.2⌋.
+    expect(report.ratings[0]!.agents).toBe(150);
     // a2 (100) acts before a1 (31); a1 then attacks the wounded initiate and its own attack Incapacitates it.
     expect(report.log[0]).toMatchObject({ attacker: 'a2', defender: 'e1', healthRemovedHundredths: 1000 });
     expect(report.log[1]).toMatchObject({
@@ -592,7 +592,8 @@ describe('COMBAT: examples', () => {
       effectiveSkill: 30,
       condition: 'incapacitated',
     });
-    expect(initiate.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 19 });
+    // COMBAT, Combat rating: the initiate's effective skill 19 rates ⌊19 × 0.86⌋.
+    expect(initiate.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 16 });
 
     const soldier = fight([combatAgent('a1')], [combatEnemy('e1', 'soldier')], {
       'combat.hit.a1': misses(200),
@@ -601,7 +602,8 @@ describe('COMBAT: examples', () => {
     expect(soldier.outcome).toBe('Retreated');
     expect(soldier.rounds).toBe(41);
     expect(soldier.ratings[40]).toMatchObject({ agents: 50 });
-    expect(soldier.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 57 });
+    // COMBAT, Combat rating: the soldier's effective skill 57 rates ⌊57 × 1.16⌋ for its armor 20 and weapon damage 14.
+    expect(soldier.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 66 });
   });
 
   it('Effects of an attack: current armor absorbs hits before current health, and only within its Combat', () => {
@@ -622,7 +624,6 @@ describe('COMBAT: examples', () => {
     const inputs = {
       agents: [combatAgent('a1', { armor: 25 })],
       enemies: [enemy],
-      ratingUpgrades: { weaponDamage: 0, armor: 0 },
       combat: catalog.combatParameters,
       agentParameters: catalog.agentParameters,
     };
@@ -673,93 +674,115 @@ describe('COMBAT: examples', () => {
   });
 
   it('Combat ratings of Mission sites', () => {
+    // COMBAT, Combat rating, with the Bootstrap values: an initiate rates 40 × 0.86 = 34.4, a soldier 120 × (1 + 0.004 ×
+    // 20 + 0.02 × 4) = 139.2, and a commander 300 × (1 + 0.01 × 10 + 0.004 × 50 + 0.02 × 12) = 462; a side of n is
+    // rated ⌊n ^ 0.2 × their sum⌋.
     const rating = (enemies: [string, number][]) =>
       combatRating(
         enemies.flatMap(([archetype, count]) =>
           Array.from({ length: count }, (_, i) => combatEnemy(`e${i}`, archetype).state),
         ),
-        { weaponDamage: 0, armor: 0 },
         gdrs.combatParameters,
         gdrs.agentParameters,
       );
-    expect(rating([['initiate', 3]])).toBe(120);
-    expect(rating([['initiate', 5]])).toBe(200);
+    expect(rating([['initiate', 1]])).toBe(34);
+    expect(rating([['initiate', 3]])).toBe(128);
+    expect(rating([['initiate', 5]])).toBe(237);
     expect(
       rating([
         ['initiate', 4],
         ['soldier', 2],
       ]),
-    ).toBe(400);
+    ).toBe(595);
     expect(
       rating([
         ['initiate', 8],
         ['soldier', 1],
       ]),
-    ).toBe(440);
+    ).toBe(643);
     expect(
       rating([
         ['initiate', 6],
         ['soldier', 3],
         ['commander', 1],
       ]),
-    ).toBe(900);
+    ).toBe(1721);
     const four = [combatAgent('a1'), combatAgent('a2'), combatAgent('a3'), combatAgent('a4')];
     expect(
       combatRating(
         four.map((a) => a.state),
-        { weaponDamage: 0, armor: 0 },
         gdrs.combatParameters,
         gdrs.agentParameters,
       ),
-    ).toBe(400);
+    ).toBe(527);
+    // An Agent that is not able to fight adds nothing, and the side counts only those able to fight.
     four[3] = combatAgent('a4', { exhaustion: 100 });
     expect(
       combatRating(
         four.map((a) => a.state),
-        { weaponDamage: 0, armor: 0 },
         gdrs.combatParameters,
         gdrs.agentParameters,
       ),
-    ).toBe(300);
+    ).toBe(373);
+    expect(combatRating([], gdrs.combatParameters, gdrs.agentParameters)).toBe(0);
   });
 
-  it('Combat rating with Rating Upgrades', () => {
+  it('Combat rating: rating factor and team size factor', () => {
     const combat = gdrs.combatParameters;
-    // COMBAT, Combat rating, the two examples: ⌊5,000 × 1.27⌋ and ⌊101 × 1.08⌋.
-    expect(raiseCombatRating(5000, { weaponDamage: 8, armor: 11 }, combat)).toBe(6350);
-    expect(raiseCombatRating(101, { weaponDamage: 3, armor: 2 }, combat)).toBe(109);
-    expect(raiseCombatRating(101, { weaponDamage: 0, armor: 0 }, combat)).toBe(101);
-    // Each Weapon damage Rating Upgrade is worth 2% and each Armor Rating Upgrade 1%: ⌊101 × 1.06⌋ and ⌊101 × 1.03⌋.
-    expect(raiseCombatRating(101, { weaponDamage: 3, armor: 0 }, combat)).toBe(107);
-    expect(raiseCombatRating(101, { weaponDamage: 0, armor: 3 }, combat)).toBe(104);
-    // ECON, Rating Upgrades: every acquisition of a Weapon damage Upgrade counts once toward the Weapon damage count and
-    // every acquisition of an Armor Upgrade once toward the Armor count; no other Upgrade counts.
+    // COMBAT, Combat rating, the examples: an Agent of effective skill 101 with effective armor 10 and effective weapon
+    // damage 16 has a rating factor of 1.16 and a Combat rating of ⌊117.16⌋; four such Agents of effective skill 100
+    // rate ⌊464 × 4 ^ 0.2⌋ = 612.
+    const upgraded = (id: string, skill: number) => combatAgent(id, { skill, armor: 10, weaponDamage: 16 });
+    expect(ratingFactor(upgraded('a1', 101).state, combat).toString()).toBe('29/25');
+    expect(combatRating([upgraded('a1', 101).state], combat, gdrs.agentParameters)).toBe(117);
+    const team = ['a1', 'a2', 'a3', 'a4'].map((id) => upgraded(id, 100));
     expect(
-      ratingUpgrades(gdrs.upgrades, { weapon_damage: 8, armor: 11, agent_cap: 5, health_recovery: 2 }),
-    ).toEqual({ weaponDamage: 8, armor: 11 });
-    expect(ratingUpgrades(gdrs.upgrades, {})).toEqual({ weaponDamage: 0, armor: 0 });
-    const four = [combatAgent('a1'), combatAgent('a2'), combatAgent('a3'), combatAgent('a4')];
+      combatRating(
+        team.map((a) => a.state),
+        combat,
+        gdrs.agentParameters,
+      ),
+    ).toBe(612);
     expect(
       baseCombatRating(
-        four.map((a) => a.state),
+        team.map((a) => a.state),
         combat,
         gdrs.agentParameters,
       ),
     ).toBe(400);
+    // The three terms add: health, armor, and weapon damage below their bases lower the factor, and it never falls
+    // below 0.
+    expect(ratingFactor(combatEnemy('e1', 'initiate').state, combat).toString()).toBe('43/50');
+    expect(
+      ratingFactor({ ...combatAgent('a1').state, maxHealth: 1, weaponDamage: 1 }, combat).toString(),
+    ).toBe('53/100');
+    const steep = catalogWith((raw) => (raw.get('combat_parameters')['rating_bonus_per_weapon_damage'] = 1));
+    expect(
+      ratingFactor({ ...combatAgent('a1').state, weaponDamage: 1 }, steep.combatParameters).toString(),
+    ).toBe('0');
+    // With rating_team_size_exponent 1 a side rates as the sum of its Combatants, rounded down once.
+    const linear = catalogWith((raw) => (raw.get('combat_parameters')['rating_team_size_exponent'] = 1));
     expect(
       combatRating(
-        four.map((a) => a.state),
-        { weaponDamage: 5, armor: 5 },
-        combat,
+        team.map((a) => a.state),
+        linear.combatParameters,
         gdrs.agentParameters,
       ),
-    ).toBe(460);
-    // In a Combat, only the Agents' side counts the Rating Upgrades.
+    ).toBe(464);
+    // Exponent 2, the square law: ⌊464 × 4⌋.
+    const square = catalogWith((raw) => (raw.get('combat_parameters')['rating_team_size_exponent'] = 2));
+    expect(
+      combatRating(
+        team.map((a) => a.state),
+        square.combatParameters,
+        gdrs.agentParameters,
+      ),
+    ).toBe(1856);
+    // In a Combat, Agents and Enemies are rated alike, by their effective values; the Upgrades count only through them.
     const { report } = fightCombat(
       {
-        agents: four,
+        agents: team,
         enemies: [combatEnemy('e1', 'initiate')],
-        ratingUpgrades: { weaponDamage: 5, armor: 5 },
         combat,
         agentParameters: gdrs.agentParameters,
       },
@@ -773,7 +796,20 @@ describe('COMBAT: examples', () => {
         'combat.hit.e1': [false],
       }),
     );
-    expect(report.ratings[0]).toMatchObject({ agents: 460, enemies: 40 });
+    expect(report.ratings[0]).toMatchObject({ agents: 612, enemies: 34 });
+    // COMBAT, Combat GDR validation, rule 5.
+    expectDefective((raw) => (raw.get('combat_parameters')['rating_bonus_per_armor'] = -1));
+    expectDefective((raw) => (raw.get('combat_parameters')['rating_base_health'] = -1));
+    expectDefective((raw) => (raw.get('combat_parameters')['rating_base_armor'] = { $decimal: '0.5' }));
+    expectDefective(
+      (raw) => (raw.get('combat_parameters')['rating_team_size_exponent'] = { $decimal: '0.9' }),
+    );
+    expectDefective(
+      (raw) => (raw.get('combat_parameters')['rating_team_size_exponent'] = { $decimal: '2.5' }),
+    );
+    expectDefective(
+      (raw) => (raw.get('combat_parameters')['rating_team_size_exponent'] = { $decimal: '1.234' }),
+    );
   });
 
   it('GDR validation', () => {
@@ -809,7 +845,6 @@ describe('COMBAT: examples', () => {
       {
         agents: [tired],
         enemies: [combatEnemy('e1', 'initiate')],
-        ratingUpgrades: { weaponDamage: 0, armor: 0 },
         combat: noPenalty.combatParameters,
         agentParameters: noPenalty.agentParameters,
       },

@@ -54,7 +54,6 @@ describe('REUSE: the incapacitation condition read by deployAgents', () => {
           {
             agents: [{ id: a1, state: agentCombatantState(agent(state, a1).state, bonus) }],
             enemies: [combatEnemy('e1', enemyArchetype)],
-            ratingUpgrades: { weaponDamage: 0, armor: 0 },
             combat: gdrs.combatParameters,
             agentParameters: gdrs.agentParameters,
           },

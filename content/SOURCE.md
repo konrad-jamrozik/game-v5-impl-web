@@ -97,6 +97,14 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   CompendiumArticle files, adds four, and rewords seven. The Cut content is not copied, under Implementation
   Placement. The copy is still identical to the specification's `content/` directory outside `content/cut/`, and has
   151 YAML files holding 253 GDRs.
+- Every file that changed between specification commits `47755c145388d4f1933f0499e28407d005a14697` and
+  `ad21119f69038c17c84c41cf38093db5c2f5cf20`, outside the Cut content under `content/cut/`: patched unchanged from
+  specification commit `ad21119f69038c17c84c41cf38093db5c2f5cf20` on 2026-11-20. It gives every EnemyArchetype from `handler` up
+  an Armor of its own, adding seven Armors and their seven CompendiumArticle files; makes the `weapon_damage` Upgrade
+  +2 for 2000 and the `armor` Upgrade +5 for 1000; replaces the two rating bonuses of
+  `combat/combat_parameters.yaml` with the seven rating values; and rewords the Combat article's Combat rating. The
+  copy is still identical to the specification's `content/` directory outside `content/cut/`, and has 158 YAML
+  files holding 267 GDRs.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

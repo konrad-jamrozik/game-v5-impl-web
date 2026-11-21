@@ -10,10 +10,19 @@
  * `developer.tools.fightCombatBatch(setup, count)`, without it. The two Developer tools (`detached-combat.ts`) build
  * their inputs from their setup, derive their random outcomes from the Detached seed, and return their outputs.
  */
-import { EngineDefect, fromHundredths, must, q, ratio, roundDown, roundUp } from '../../../kernel/index.ts';
+import {
+  EngineDefect,
+  fromHundredths,
+  must,
+  q,
+  ratio,
+  roundDown,
+  roundUp,
+  toStored,
+  type Rational,
+} from '../../../kernel/index.ts';
 import type { AgentParametersGdr, CombatParametersGdr } from '../../../gdr/index.ts';
 import type { Random } from '../../random.ts';
-import { NO_RATING_UPGRADES, type RatingUpgrades } from '../economy/economy.ts';
 import type {
   AgentState,
   AttackRecord,
@@ -87,8 +96,6 @@ export interface CombatInputs {
   readonly agents: readonly Combatant[];
   /** The Enemies' side, in its fixed order. */
   readonly enemies: readonly Combatant[];
-  /** COMBAT, Combat inputs and outputs, item 4: the Rating Upgrades of the Agents' side as the Combat begins. */
-  readonly ratingUpgrades: RatingUpgrades;
   readonly combat: CombatParametersGdr;
   readonly agentParameters: AgentParametersGdr;
 }
@@ -161,32 +168,74 @@ export function baseCombatRating(
 }
 
 /**
- * COMBAT, Combat rating: ⌊base × (1 + rating_bonus_per_weapon_damage_upgrade × Weapon damage Rating Upgrades +
- * rating_bonus_per_armor_upgrade × Armor Rating Upgrades)⌋, computed exactly and rounded down once. The Enemies' side
- * has 0 Rating Upgrades, so its Combat rating equals its base Combat rating.
+ * COMBAT, Combat rating: the rating factor of a Combatant, max(0, 1 + rating_bonus_per_health × (effective max health −
+ * rating_base_health) + rating_bonus_per_armor × (effective armor − rating_base_armor) + rating_bonus_per_weapon_damage ×
+ * (effective weapon damage − rating_base_weapon_damage)), exact and never rounded. It reads the effective armor, never
+ * the current armor.
  */
-export function raiseCombatRating(
-  base: number,
-  ratingUpgrades: RatingUpgrades,
-  combat: CombatParametersGdr,
-): number {
-  if (ratingUpgrades.weaponDamage === 0 && ratingUpgrades.armor === 0) {
-    return base;
-  }
-  const bonus = combat.ratingBonusPerWeaponDamageUpgrade
-    .mul(ratingUpgrades.weaponDamage)
-    .add(combat.ratingBonusPerArmorUpgrade.mul(ratingUpgrades.armor));
-  return roundDown(q(base).mul(q(1).add(bonus)));
+export function ratingFactor(combatant: CombatantState, combat: CombatParametersGdr): Rational {
+  const factor = q(1)
+    .add(combat.ratingBonusPerHealth.mul(combatant.maxHealth - combat.ratingBaseHealth))
+    .add(combat.ratingBonusPerArmor.mul(combatant.armor - combat.ratingBaseArmor))
+    .add(combat.ratingBonusPerWeaponDamage.mul(combatant.weaponDamage - combat.ratingBaseWeaponDamage));
+  return factor.lt(0) ? q(0) : factor;
 }
 
-/** COMBAT, Combat rating of a side: its base Combat rating raised by its Rating Upgrades. */
+/** One Combatant able to fight, as the Combat rating of its side reads it. */
+export interface RatedCombatant {
+  readonly effectiveSkill: number;
+  readonly state: CombatantState;
+}
+
+/**
+ * COMBAT, Combat rating: ⌊n ^ (rating_team_size_exponent − 1) × S⌋, where S = Σ effective skill × rating factor over
+ * the n Combatants able to fight, given here. The team size factor is in general irrational, so it is never computed:
+ * with rating_team_size_exponent − 1 = p / q in lowest terms, the result is the largest whole R ≥ 0 with
+ * R^q ≤ S^q × n^p, decided in whole numbers. A side with none has a Combat rating of 0.
+ */
+export function rateSide(members: readonly RatedCombatant[], combat: CombatParametersGdr): number {
+  if (members.length === 0) {
+    return 0;
+  }
+  let sum = q(0);
+  for (const member of members) {
+    sum = sum.add(q(member.effectiveSkill).mul(ratingFactor(member.state, combat)));
+  }
+  const exponent = combat.ratingTeamSizeExponent.sub(1);
+  if (exponent.n === 0n) {
+    return roundDown(sum);
+  }
+  const p = exponent.n;
+  const qq = exponent.d;
+  const right = sum.n ** qq * BigInt(members.length) ** p;
+  const scale = sum.d ** qq;
+  const fits = (r: bigint): boolean => r ** qq * scale <= right;
+  // n ^ (p / q) ≤ n, because p / q ≤ 1, so the result lies from 0 to ⌊S⌋ × n + n.
+  let lo = 0n;
+  let hi = (sum.floor() + 1n) * BigInt(members.length) + 1n;
+  while (hi - lo > 1n) {
+    const mid = (lo + hi) / 2n;
+    if (fits(mid)) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return toStored(lo);
+}
+
+/** COMBAT, Combat rating of a side: its Combatants able to fight, each weighed by its rating factor, and its size. */
 export function combatRating(
   side: readonly CombatantState[],
-  ratingUpgrades: RatingUpgrades,
   combat: CombatParametersGdr,
   agentParameters: AgentParametersGdr,
 ): number {
-  return raiseCombatRating(baseCombatRating(side, combat, agentParameters), ratingUpgrades, combat);
+  return rateSide(
+    side
+      .filter((combatant) => isAbleToFight(combatant, combat, agentParameters))
+      .map((state) => ({ effectiveSkill: effectiveSkill(state, agentParameters), state })),
+    combat,
+  );
 }
 
 /** COMBAT, Damage outcome: the inclusive bounds of the damage of a hit by a Combatant with weapon damage w. */
@@ -316,11 +365,11 @@ function fight(
   const agents = input.agents.map((combatant) => enter(combatant, 'agent'));
   const enemies = input.enemies.map((combatant) => enter(combatant, 'enemy'));
 
-  // COMBAT, Combat rating: the Agents' side counts its Rating Upgrades; the Enemies' side has none.
+  // COMBAT, Combat rating: each Combatant able to fight weighed by its rating factor, which reads its effective values,
+  // never its current armor, and the side by its size; Agents and Enemies alike.
   const rating = (side: readonly Fighter[]): number =>
-    raiseCombatRating(
-      side.reduce((sum, fighter) => (able(fighter) ? sum + eff(fighter) : sum), 0),
-      side === agents ? input.ratingUpgrades : NO_RATING_UPGRADES,
+    rateSide(
+      side.filter(able).map((fighter) => ({ effectiveSkill: eff(fighter), state: fighter.state })),
       combat,
     );
   const startRating = rating(agents);

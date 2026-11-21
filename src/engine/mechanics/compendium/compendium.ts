@@ -22,20 +22,21 @@ function missionSiteArchetypeVisible(archetype: string, world: LeadWorld, gdrs: 
 
 /**
  * COMP, Met subjects: the identifiers of the EnemyArchetypes listed in the `enemies` of a Player-visible
- * MissionSiteArchetype, and of the Weapons that the AgentArchetype or such an EnemyArchetype carries. A Derived value
+ * MissionSiteArchetype, and of the Weapons and Armors that the AgentArchetype or such an EnemyArchetype carries. A Derived value
  * of the World state, never stored.
  */
 export function metSubjects(world: LeadWorld, gdrs: GdrCatalog): ReadonlySet<string> {
-  const met = new Set<string>([gdrs.agentArchetype.weapon]);
+  const met = new Set<string>([gdrs.agentArchetype.weapon, gdrs.agentArchetype.armor]);
   for (const archetype of gdrs.missionSiteArchetypes) {
     if (!missionSiteArchetypeVisible(archetype.id, world, gdrs)) {
       continue;
     }
     for (const [enemy] of archetype.enemies) {
       met.add(enemy);
-      const weapon = gdrs.enemyArchetypes.get(enemy)?.weapon;
-      if (weapon !== undefined) {
-        met.add(weapon);
+      const archetype = gdrs.enemyArchetypes.get(enemy);
+      if (archetype !== undefined) {
+        met.add(archetype.weapon);
+        met.add(archetype.armor);
       }
     }
   }
@@ -45,8 +46,8 @@ export function metSubjects(world: LeadWorld, gdrs: GdrCatalog): ReadonlySet<str
 /**
  * COMP, Article visibility: an article whose `visible_when` does not hold is not Player-visible. Otherwise a Guide
  * article or a Mechanics article is always Player-visible, and a Subject article exactly when its subject is
- * Player-visible, as the specification that owns the subject's Type declares it, and, for an EnemyArchetype or a
- * Weapon, a Met subject. `met` is `metSubjects(world, gdrs)`, passed in when the caller already has it.
+ * Player-visible, as the specification that owns the subject's Type declares it, and, for an EnemyArchetype, a
+ * Weapon, or an Armor, a Met subject. `met` is `metSubjects(world, gdrs)`, passed in when the caller already has it.
  */
 export function articleVisible(
   article: CatalogCompendiumArticle,
@@ -67,16 +68,15 @@ export function articleVisible(
     return lead !== undefined && leadDiscovered(lead, world);
   };
   switch (article.subjectType) {
-    // AGENT, ECON, Player-visible information: in every World state; COMBAT, Player-visible information, and COMP,
-    // Article visibility: an Armor too, which needs no Met subject.
+    // AGENT, ECON, Player-visible information: in every World state.
     case 'AgentArchetype':
     case 'Upgrade':
-    case 'Armor':
       return true;
     // COMBAT, Player-visible information: in every World state; COMP, Met subjects: the article also needs its
     // subject to be a Met subject.
     case 'EnemyArchetype':
     case 'Weapon':
+    case 'Armor':
       return (met ?? metSubjects(world, gdrs)).has(subject);
     // FACTION, Player-visible information: while a Faction whose Archetype it is exists.
     case 'FactionArchetype':

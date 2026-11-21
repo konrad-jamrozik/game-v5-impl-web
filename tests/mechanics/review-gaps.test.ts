@@ -176,7 +176,6 @@ describe('COMBAT: gaps', () => {
       {
         agents: agentsSide,
         enemies,
-        ratingUpgrades: { weaponDamage: 0, armor: 0 },
         combat: catalog.combatParameters,
         agentParameters: catalog.agentParameters,
       },
@@ -300,14 +299,15 @@ describe('ECON and MISSION: gaps', () => {
     const participant = state.world.history.turnReport!.combatReports[0]!.participants.find(
       (item) => item.id === a1,
     )!;
+    // BOOT: the `weapon_damage` Upgrade adds 2, and the `armor` Upgrade, made a Max health Upgrade here, 5.
     expect(participant.start).toMatchObject({
-      weaponDamage: 11,
-      maxHealth: 31,
-      currentHealthHundredths: 3100,
+      weaponDamage: 12,
+      maxHealth: 35,
+      currentHealthHundredths: 3500,
     });
-    // The hardest hit of an effective weapon damage of 11 is above the highest that 10 allows.
+    // The hardest hit of an effective weapon damage of 12 is above the highest that 10 allows.
     const hits = state.world.history.turnReport!.combatReports[0]!.log.filter((item) => item.attacker === a1);
-    expect(hits[0]!.damage).toBe(damageBounds(11, gdrs.combatParameters).hi);
+    expect(hits[0]!.damage).toBe(damageBounds(12, gdrs.combatParameters).hi);
   });
 
   it('Weapon damage Upgrade: a later purchase also raises Agents created after an earlier one', () => {
@@ -316,7 +316,7 @@ describe('ECON and MISSION: gaps', () => {
     state = act(state, 'hireAgent');
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
     expect(agentIds(state).map((id) => effectiveValuesOf(state, id).weaponDamage)).toEqual([
-      12, 12, 12, 12, 12,
+      14, 14, 14, 14, 14,
     ]);
     expect(agents(state).map((a) => a.state.baseWeaponDamage)).toEqual([10, 10, 10, 10, 10]);
   });

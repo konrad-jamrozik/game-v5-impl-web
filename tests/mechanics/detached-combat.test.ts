@@ -37,7 +37,7 @@ import {
  * three Armor Upgrades bought, so that their current armor absorbs hits.
  */
 function deployedCampaign(): { state: CampaignState; team: string[]; site: string } {
-  let state = withAgents(newCampaign({ money: 1500 }), 4);
+  let state = withAgents(newCampaign({ money: 3000 }), 4);
   for (let i = 0; i < 3; i += 1) {
     state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
   }
@@ -267,14 +267,12 @@ describe('COMBAT: Detached Combat', () => {
     const base = { agents: [{ kind: 'agent', id: a1 }], enemies, seed: 'x' };
     expect(rejection(state, base)).toBe('accepted');
     expect(rejection(state, { ...base, agents: [] })).toBe('empty_agents_side');
-    expect(rejection(state, { ...base, ratingUpgrades: { weaponDamage: -1, armor: 0 } })).toBe(
-      'invalid_rating_upgrades',
+    // COMBAT, Combat GDR validation, rule 5, for a rating value given as a GDR value.
+    expect(rejection(state, { ...base, gdrValues: { rating_team_size_exponent: 2.5 } })).toBe(
+      'invalid_gdr_value',
     );
-    expect(rejection(state, { ...base, ratingUpgrades: { weaponDamage: 0, armor: 1.5 } })).toBe(
-      'invalid_rating_upgrades',
-    );
-    expect(rejection(state, { ...base, ratingUpgrades: { weaponDamage: 1 } })).toBe(
-      'invalid_rating_upgrades',
+    expect(rejection(state, { ...base, gdrValues: { rating_bonus_per_armor: -0.01 } })).toBe(
+      'invalid_gdr_value',
     );
     expect(
       rejection(state, {
