@@ -402,7 +402,8 @@ describe('MISSION: examples', () => {
 
   it('A Won raid_hq Mission eliminates Red Dawn and cancels an Active Mission site', () => {
     let state = withAgents(newCampaign({ money: 100_000 }), 12);
-    for (let i = 0; i < 4; i += 1) {
+    // Two Transport cap Upgrades of +4 raise the Transport cap from 4 to 12.
+    for (let i = 0; i < 2; i += 1) {
       state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
     }
     state = set(state, { money: 1000 + 30, funding: 25, panicHundredths: 4000, turn: 150 });

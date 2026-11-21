@@ -110,6 +110,11 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `rating_bonus_per_armor`, and `rating_bonus_per_weapon_damage`, rewording the comments of the rating bases, and
   rewording the Combat article's Combat rating as the mean of an attack half and a toughness half. The copy is still
   identical to the specification's `content/` directory outside `content/cut/`.
+- `economy-and-upgrades/upgrades.yaml`: patched unchanged from specification commit
+  `5d51a48d7a5395467b2f3e3af53a1df015780c68` on 2026-11-21, repricing six Upgrades: `agent_cap` and `training_cap`
+  +4 for 500, `transport_cap` +4 for 2000, `training_skill_gain` +0.2 for 1000, `exhaustion_recovery` +1 for 1000, and
+  `health_recovery` +1 for 1000. The copy is still identical to the specification's `content/` directory outside
+  `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

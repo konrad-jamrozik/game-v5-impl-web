@@ -132,7 +132,6 @@ describe('Terminal CLI', () => {
     const viaCli = await start(new MemoryStorage());
     await run(viaCli, [
       'new same-seed',
-      'hire',
       'assign Contracting agent-2 agent-3',
       'investigate criminal_organizations agent-4',
       'next',
@@ -144,7 +143,7 @@ describe('Terminal CLI', () => {
 
     const viaApi = await start(new MemoryStorage());
     ok(await viaApi.session.campaign.create({ seed: 'same-seed' }));
-    ok(await viaApi.player.actions.hireAgent());
+    // No Agent is hired, so that the money left after the undone turn, 500, buys the Training cap Upgrade exactly.
     ok(await viaApi.player.actions.assignAgents(['agent-2', 'agent-3'], 'Contracting'));
     ok(await viaApi.player.actions.startInvestigation('criminal_organizations', ['agent-4']));
     ok(await viaApi.player.actions.advanceTurn());
