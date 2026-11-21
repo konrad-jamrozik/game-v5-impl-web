@@ -168,12 +168,15 @@ export function addExhaustion(agent: Pick<AgentState, 'exactExhaustionHundredths
   agent.exactExhaustionHundredths = clampExhaustion(agent.exactExhaustionHundredths + points * 100);
 }
 
-/** AGENT, Start-work gate: an Agent is Fit for work exactly when its exhaustion is at most exhaustion_work_start_max. */
+/**
+ * AGENT, Start-work gate: an Agent is Fit to start work exactly when its exhaustion is at most
+ * exhaustion_work_start_max and its health lost is 0.
+ */
 export function isFitForWork(
-  agent: Pick<AgentState, 'exactExhaustionHundredths'>,
+  agent: Pick<AgentState, 'exactExhaustionHundredths' | 'healthLostHundredths'>,
   parameters: AgentParametersGdr,
 ): boolean {
-  return exhaustionOf(agent) <= parameters.exhaustionWorkStartMax;
+  return exhaustionOf(agent) <= parameters.exhaustionWorkStartMax && agent.healthLostHundredths === 0;
 }
 
 /** AGENT, Assignments: a Work Assignment is Contracting, Training, or an Investigation. */

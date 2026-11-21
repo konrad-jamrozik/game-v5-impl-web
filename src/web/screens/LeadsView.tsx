@@ -276,7 +276,7 @@ function Team(props: {
   const { lead, investigation, snapshot, state, locked } = props;
   const [checked, setChecked] = useState<readonly string[]>([]);
   const actions = snapshot.actions;
-  // LVIEW, Team: the Agents that can be assigned, whose Assignment is a Base Assignment, and that are Fit for work.
+  // LVIEW, Team: the Agents that can take orders, whose Assignment is a Base Assignment, and that are Fit to start work.
   const candidates = state.agents.filter(
     (agent) => agent.canBeAssigned && isInBase(agent) && agent.fitForWork,
   );
@@ -343,8 +343,8 @@ function Team(props: {
                         (actions?.assignableAgents.includes(member.agent) === true
                           ? null
                           : member.agentStatus === 'InTransit'
-                            ? 'An Agent In transit cannot be assigned until it arrives.'
-                            : 'This Agent cannot be assigned now.')
+                            ? 'An Agent In transit cannot take orders until it arrives.'
+                            : 'This Agent cannot take orders now.')
                       }
                       onClick={() => {
                         // LVIEW, Team: at once, without a confirmation, because Undo Action takes it back.
@@ -365,7 +365,7 @@ function Team(props: {
         <span className="figure secondary">{team.length} checked</span>
       </div>
       {candidates.length === 0 ? (
-        <p className="muted small">No Agent that is Fit for work can be assigned now.</p>
+        <p className="muted small">No Agent that is Fit to start work can take orders now.</p>
       ) : (
         <Grid
           widths={['36px', '104px', '170px', '84px', '80px', '96px']}

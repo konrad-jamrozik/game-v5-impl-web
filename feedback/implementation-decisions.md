@@ -466,9 +466,10 @@
 - **Category:** Asked by the specifications
 - **Affected specifications:** BASICAI, Goals: "The exact thresholds of the goals, e.g. how large a safety margin is,
   are the Implementer's choice".
-- **Description:** A Rested Agent has exhaustion of at most 5, and of at most 25 for urgent income, and is always
-  Fit for work. The Recall threshold is 30, the game-ts value: an Agent on Contracting or Training whose exhaustion
-  is above 30 is recalled to Standby. Expected income sums each contracting Agent's contribution from its current
+- **Description:** A Deployable Agent and a Fully rested Agent are as BASICAI, Glossary defines them, with no
+  threshold of their own. Max assignment exhaustion allowed is `maxAssignmentExhaustionAllowed` 70, its neutral
+  value, i.e. `exhaustion_work_limit` of the Bootstrap GDRs: step 1 recalls no Agent from Training or Contracting, and
+  Forced return ends their work. Expected income sums each contracting Agent's contribution from its current
   effective skill and rounds down once, as ECON, Agency income does. The Agent
   reserve is 20% of the roster, rounded down. The Expected income target is 120% of projected upkeep. The Savings
   floor is five turns of half the projected upkeep. A team needs a Combat rating above 120% of the Enemies' Combat

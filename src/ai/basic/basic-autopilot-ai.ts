@@ -16,8 +16,12 @@ import type {
 } from '../../engine/player-api.ts';
 
 export interface BasicAiThresholds {
-  /** The Recall threshold: an Agent on Contracting with more exhaustion is brought back to Standby. */
-  readonly recallExhaustion: number;
+  /**
+   * Max assignment exhaustion allowed: step 1 recalls an Agent on Training or Contracting with more exhaustion to
+   * Standby. A value of exhaustion_work_limit or more has the effect of exhaustion_work_limit, because Forced return
+   * sends the Agent to Standby first; that is the neutral value, with which step 1 recalls no Agent.
+   */
+  readonly maxAssignmentExhaustionAllowed: number;
   /** The target size of the Agent reserve, as a Percent value of the roster. */
   readonly reservePct: number;
   /** The Expected income to keep, as a Percent value of projected upkeep. */
@@ -57,7 +61,8 @@ export interface BasicAiThresholds {
 
 /** The thresholds of this Game build, tuned against Campaigns of many Campaign seeds; see DEC-021. */
 export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
-  recallExhaustion: 30,
+  // The neutral value: exhaustion_work_limit of the Bootstrap GDRs.
+  maxAssignmentExhaustionAllowed: 70,
   reservePct: 20,
   incomeTargetPct: 120,
   savingsFloorTurns: 5,
@@ -124,37 +129,31 @@ class Turn {
 
   // ---- What the goals measure ---------------------------------------------------------------------
 
-  private param(name: string): number {
-    const value = this.data.agentParameters[name];
-    if (value === undefined) {
-      throw new Error(`AgentParameters has no ${name}.`);
-    }
-    return value;
-  }
-
   private onStandbyOrTraining(agent: AgentView): boolean {
     return agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training';
   }
 
   /**
-   * A Rested Agent: it can be assigned, is on Standby or Training, has its full health, has exhaustion at most
-   * `exhaustion_free_points`, so that exhaustion does not yet lower its effective skill, and is Fit for work, so
-   * that the engine's start-work gate never rejects its new work.
+   * A Deployable Agent: one `deployAgents` accepts. It is In base and can take orders, so it is At assignment on
+   * Standby or Training; it is Fit to start work; and it does not meet the incapacitation condition with its current
+   * values.
    */
-  private isRested(agent: AgentView): boolean {
+  private isDeployable(agent: AgentView): boolean {
     return (
       agent.canBeAssigned &&
-      agent.fitForWork &&
+      agent.inBase &&
       this.onStandbyOrTraining(agent) &&
-      // Current health is effective max health less health lost, so it equals effective max health when none is lost.
-      agent.healthLostHundredths === 0 &&
-      agent.exhaustion <= this.param('exhaustionFreePoints')
+      agent.fitForWork &&
+      agent.ableToFight
     );
   }
 
-  /** A Fresh Agent: a Rested Agent whose exhaustion is 0. Only Fresh Agents receive routine work. */
-  private isFresh(agent: AgentView): boolean {
-    return this.isRested(agent) && agent.exhaustion === 0;
+  /**
+   * A Fully rested Deployable Agent: a Deployable Agent with no health lost and exhaustion 0. Only such Agents
+   * receive routine work.
+   */
+  private isFullyRested(agent: AgentView): boolean {
+    return this.isDeployable(agent) && agent.healthLostHundredths === 0 && agent.exhaustion === 0;
   }
 
   /** Most rested first, Standby before Training, then the more capable, then the order of the roster. */
@@ -196,33 +195,35 @@ class Turn {
   }
 
   /**
-   * The Expected reserve: the Rested Agents, plus every other Agent whose Current assignment is Standby or Recovery,
+   * The Expected reserve: the Deployable Agents, plus every other Agent whose Current assignment is Standby or Recovery,
    * In transit or not.
    */
   private expectedReserve(state: CurrentLiveWorldStateView): number {
     return state.agents.filter(
       (agent) =>
-        this.isRested(agent) || agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Recovery',
+        this.isDeployable(agent) ||
+        agent.assignment?.kind === 'Standby' ||
+        agent.assignment?.kind === 'Recovery',
     ).length;
   }
 
-  /** How many Rested Agents there are beyond the target size of the Agent reserve. */
+  /** How many Deployable Agents there are beyond the target size of the Agent reserve. */
   private beyondReserve(state: CurrentLiveWorldStateView): number {
-    const rested = state.agents.filter((agent) => this.isRested(agent)).length;
-    return Math.max(0, rested - this.reserveTarget(state));
+    const deployable = state.agents.filter((agent) => this.isDeployable(agent)).length;
+    return Math.max(0, deployable - this.reserveTarget(state));
   }
 
   /**
-   * The Fresh Agents beyond the Agent reserve, in order of preference. The most rested are taken for work first,
-   * so the Rested Agents left over form the Agent reserve.
+   * The Fully rested Deployable Agents beyond the Agent reserve, in order of preference. The most rested are taken for
+   * work first, so the Deployable Agents left over form the Agent reserve.
    */
-  private freshBeyondReserve(state: CurrentLiveWorldStateView, standbyOnly = false): AgentView[] {
-    const fresh = this.byPreference(
+  private fullyRestedBeyondReserve(state: CurrentLiveWorldStateView, standbyOnly = false): AgentView[] {
+    const fullyRested = this.byPreference(
       state.agents.filter(
-        (agent) => this.isFresh(agent) && (!standbyOnly || agent.assignment?.kind === 'Standby'),
+        (agent) => this.isFullyRested(agent) && (!standbyOnly || agent.assignment?.kind === 'Standby'),
       ),
     );
-    return fresh.slice(0, this.beyondReserve(state));
+    return fullyRested.slice(0, this.beyondReserve(state));
   }
 
   private savingsFloor(state: CurrentLiveWorldStateView): number {
@@ -230,7 +231,7 @@ class Turn {
   }
 
   /**
-   * A team of Rested Agents whose Combat rating exceeds the Enemies' Combat rating by the safety margin and that
+   * A team of Deployable Agents whose Combat rating exceeds the Enemies' Combat rating by the safety margin and that
    * has enough Agents for the number of Enemies; none when no such team fits within the Transport cap. Agents are
    * taken in the order of preference; when that order gives no winning team, the most capable are taken first,
    * because a winning team can then still be formed.
@@ -239,16 +240,16 @@ class Turn {
     state: CurrentLiveWorldStateView,
     enemiesRating: number,
     enemyCount: number,
-    rested: readonly AgentView[],
+    deployable: readonly AgentView[],
   ): string[] | null {
     const places = state.agency.transportCap - state.agency.deployedAgents;
     // One Agent may answer for a fractional number of Enemies, e.g. 1.5.
     const needed = Math.max(1, Math.ceil(enemyCount / this.t.enemiesPerAgent - 1e-9));
-    const strongestFirst = [...rested]
+    const strongestFirst = [...deployable]
       .map((agent, index) => ({ agent, index }))
       .sort((x, y) => y.agent.effectiveSkill - x.agent.effectiveSkill || x.index - y.index)
       .map((item) => item.agent);
-    for (const candidates of [rested, strongestFirst]) {
+    for (const candidates of [deployable, strongestFirst]) {
       const team: string[] = [];
       for (const agent of candidates) {
         if (team.length >= places) {
@@ -277,22 +278,18 @@ class Turn {
   // information alone, and the Basic Autopilot AI plays the same way whatever its Autopilot limit is.
 
   /**
-   * Step 1: recall an Agent on Training that one more Advance turn of Training would bring above
-   * `exhaustion_free_points`, and an Agent on Contracting whose exhaustion is above the Recall threshold while
-   * Expected income still covers projected upkeep with the margin without it.
+   * Step 1: recall an Agent on Training or Contracting whose exhaustion is above Max assignment exhaustion allowed,
+   * an Agent on Contracting only while Expected income still covers projected upkeep with the margin without it.
    */
   private async recallTired(state: CurrentLiveWorldStateView): Promise<boolean> {
-    const trainingLimit = this.param('exhaustionFreePoints') - this.param('exhaustionPerTrainingTurn');
     for (const agent of state.agents) {
       const kind = agent.assignment?.kind;
-      if (!agent.canBeAssigned) {
+      if (!agent.canBeAssigned || agent.exhaustion <= this.t.maxAssignmentExhaustionAllowed) {
         continue;
       }
       const recall =
-        (kind === 'Training' && agent.exhaustion > trainingLimit) ||
-        (kind === 'Contracting' &&
-          agent.exhaustion > this.t.recallExhaustion &&
-          this.expectedIncome(state, agent.id) >= this.incomeTarget(state));
+        kind === 'Training' ||
+        (kind === 'Contracting' && this.expectedIncome(state, agent.id) >= this.incomeTarget(state));
       if (
         recall &&
         (await this.act(`recall ${agent.id}`, () => this.player.actions.assignAgents([agent.id], 'Standby')))
@@ -305,8 +302,8 @@ class Turn {
 
   /**
    * Steps 2 and 5: order one more Agent to Contracting while Expected income is below the target. For urgent income
-   * (step 2) every Agent on Standby or Training that is Fit for work may go, the Agent reserve too; otherwise
-   * (step 5) only Fresh Agents beyond the Agent reserve.
+   * (step 2) every Agent on Standby or Training that is Fit to start work may go, the Agent reserve too; otherwise
+   * (step 5) only Fully rested Deployable Agents beyond the Agent reserve.
    */
   private async restoreIncome(state: CurrentLiveWorldStateView, urgent: boolean): Promise<boolean> {
     const target = urgent ? state.agency.projectedUpkeep : this.incomeTarget(state);
@@ -322,7 +319,7 @@ class Turn {
             (agent) => agent.canBeAssigned && agent.fitForWork && this.onStandbyOrTraining(agent),
           ),
         )
-      : this.freshBeyondReserve(state);
+      : this.fullyRestedBeyondReserve(state);
     for (const agent of candidates) {
       if (
         await this.act(`contract ${agent.id}`, () =>
@@ -347,9 +344,9 @@ class Turn {
           a.site.turnsUntilExpiration - b.site.turnsUntilExpiration ||
           a.index - b.index,
       );
-    const rested = this.byPreference(state.agents.filter((agent) => this.isRested(agent)));
+    const deployable = this.byPreference(state.agents.filter((agent) => this.isDeployable(agent)));
     for (const { site } of sites) {
-      const team = this.winningTeam(state, site.enemiesCombatRating, site.enemies.length, rested);
+      const team = this.winningTeam(state, site.enemiesCombatRating, site.enemies.length, deployable);
       if (
         team !== null &&
         (await this.act(`deploy ${site.id}`, () => this.player.actions.deployAgents(site.id, team)))
@@ -390,13 +387,13 @@ class Turn {
     const investigating = state.agents.filter((agent) => agent.assignment?.kind === 'Investigation').length;
     const target =
       this.t.baseInvestigators + Math.floor(state.agency.servingAgents / this.t.investigatorsPerRoster);
-    const candidates = this.freshBeyondReserve(state);
+    const candidates = this.fullyRestedBeyondReserve(state);
     const count = Math.min(target - investigating, candidates.length);
     if (count <= 0) {
       return false;
     }
     const team = candidates.slice(0, count).map((agent) => agent.id);
-    const rested = this.byPreference(state.agents.filter((agent) => this.isRested(agent)));
+    const deployable = this.byPreference(state.agents.filter((agent) => this.isDeployable(agent)));
     const retired = this.unwrap(this.player.queries.getCurrentRetiredWorldState());
     // A Lead that creates no Mission site advances progression by its completion alone, so it is always worth
     // investigating. One that creates a Mission site is worth it only if a winning team for that Mission site could be
@@ -414,7 +411,7 @@ class Turn {
         return false;
       }
       const enemyCount = archetype.enemies.reduce((sum, entry) => sum + entry.count, 0);
-      return this.winningTeam(state, archetype.enemiesCombatRating, enemyCount, rested) !== null;
+      return this.winningTeam(state, archetype.enemiesCombatRating, enemyCount, deployable) !== null;
     };
     // Effort is concentrated: an Active Investigation receives Agents before another Lead is started.
     const [active] = state.investigations;
@@ -464,14 +461,14 @@ class Turn {
   }
 
   /**
-   * Step 7: order the remaining Fresh Agents on Standby to Training while the Training cap allows, the Agent reserve
+   * Step 7: order the remaining Fully rested Deployable Agents on Standby to Training while the Training cap allows, the Agent reserve
    * too, then those beyond the Agent reserve to Contracting.
    */
   private async employIdle(state: CurrentLiveWorldStateView): Promise<boolean> {
     const share = Math.floor((state.agency.servingAgents * this.t.trainingSharePct) / 100);
     const places = Math.max(0, Math.min(state.agency.trainingCap, share) - state.agency.trainingAgents);
     const toTraining = this.byPreference(
-      state.agents.filter((agent) => this.isFresh(agent) && agent.assignment?.kind === 'Standby'),
+      state.agents.filter((agent) => this.isFullyRested(agent) && agent.assignment?.kind === 'Standby'),
     )
       .slice(0, places)
       .map((agent) => agent.id);
@@ -481,7 +478,7 @@ class Turn {
     ) {
       return true;
     }
-    const toContracting = this.freshBeyondReserve(state, true).map((agent) => agent.id);
+    const toContracting = this.fullyRestedBeyondReserve(state, true).map((agent) => agent.id);
     return (
       toContracting.length > 0 &&
       (await this.act('contract idle', () => this.player.actions.assignAgents(toContracting, 'Contracting')))

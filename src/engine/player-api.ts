@@ -72,13 +72,20 @@ export interface AgentView {
   /** Absent for a Killed or Dismissed Agent. */
   readonly assignment: Assignment | null;
   readonly canBeAssigned: boolean;
-  /** AGENT, Start-work gate: whether the exhaustion is at most exhaustion_work_start_max. */
+  /**
+   * AGENT, Start-work gate: whether the Agent is Fit to start work, i.e. its exhaustion is at most
+   * exhaustion_work_start_max and its health lost is 0.
+   */
   readonly fitForWork: boolean;
   /** AGENT, Agent statuses: whether the Agent is In base; false for a Terminated Agent. A Derived value. */
   readonly inBase: boolean;
   /** AGENT, Agent statuses: whether the Agent is Away; false for a Terminated Agent. A Derived value. */
   readonly away: boolean;
-  /** Whether the Agent would be able to fight if a Combat began now. */
+  /**
+   * AGENT, Player-visible information: whether the Agent is alive and does not meet the incapacitation condition of
+   * Combat with its current values, i.e. would be able to fight if a Combat began now; `deployAgents` rejects an Agent
+   * for which it is false (MISSION, Deploying Agents, precondition 9).
+   */
   readonly ableToFight: boolean;
   /** COMBAT, Combat rating: the base Combat rating of the Agent alone, its effective skill; absent when Terminated. */
   readonly baseCombatRating: number | null;

@@ -15,6 +15,7 @@
 - tests/mechanics/agents.test.ts
 - tests/mechanics/review-gaps.test.ts
 - tests/mechanics/decimal-quantities.test.ts
+- tests/mechanics/incapacitation-agreement.test.ts
 - tests/helpers/game.ts
 
 ## AUTO: Autopilot
@@ -516,6 +517,8 @@ No files.
 - src/engine/state/invariants.ts
 - tests/mechanics/missions.test.ts
 - tests/mechanics/review-gaps.test.ts
+- tests/mechanics/incapacitation-agreement.test.ts
+- src/engine/mechanics/combat/combat.ts
 - tests/web/situation-and-summary.test.ts
 
 ## MUSIC: Music
@@ -627,6 +630,8 @@ No files.
 - src/engine/turn/advance.ts
 - src/engine/mechanics/combat/detached-combat.ts
 - tests/mechanics/detached-combat.test.ts
+- src/engine/actions/actions.ts
+- tests/mechanics/incapacitation-agreement.test.ts
 
 ## SAVES: Saves
 

@@ -17,7 +17,11 @@ import {
   terminateAgent,
   type AgentUpgradeBonus,
 } from '../mechanics/agents/agents.ts';
-import { damageBounds } from '../mechanics/combat/combat.ts';
+import {
+  agentCombatantState,
+  damageBounds,
+  meetsIncapacitationCondition,
+} from '../mechanics/combat/combat.ts';
 import {
   agencyCaps,
   agentUpgradeBonus,
@@ -104,13 +108,39 @@ function requireOrderable(agents: readonly Agent[]): Rejection | null {
     : null;
 }
 
-/** AGENT, Start-work gate: a new Work Assignment requires every Agent to be Fit for work. */
+/** AGENT, Start-work gate: a new Work Assignment requires every Agent to be Fit to start work. */
 function requireFitForWork(agents: readonly Agent[], gdrs: GdrCatalog): Rejection | null {
   const tired = agents.filter((agent) => !isFitForWork(agent.state, gdrs.agentParameters));
   return tired.length > 0
     ? reject(
         'agents_not_fit_for_work',
-        `These Agents are not Fit for work: their exhaustion is above ${gdrs.agentParameters.exhaustionWorkStartMax}: ${list(tired.map((a) => a.id))}.`,
+        `These Agents are not Fit to start work: their exhaustion is above ${gdrs.agentParameters.exhaustionWorkStartMax}, or they have health lost: ${list(tired.map((a) => a.id))}.`,
+      )
+    : null;
+}
+
+/**
+ * MISSION, Deploying Agents, precondition 9: an Agent that meets the incapacitation condition with its current values
+ * cannot be deployed. REUSE, Rules read by other rules: it calls the one implementation Combat start calls, with the
+ * Agent's values as a Combatant's, built as the Advance turn builds them.
+ */
+function requireNotIncapacitated(
+  world: CurrentWorldState,
+  agents: readonly Agent[],
+  gdrs: GdrCatalog,
+): Rejection | null {
+  const bonus = bonusOf(world, gdrs);
+  const unfit = agents.filter((agent) =>
+    meetsIncapacitationCondition(
+      agentCombatantState(agent.state, bonus),
+      gdrs.combatParameters,
+      gdrs.agentParameters,
+    ),
+  );
+  return unfit.length > 0
+    ? reject(
+        'agents_incapacitated',
+        `These Agents would be Incapacitated at the start of the Combat, so they cannot be deployed: ${list(unfit.map((a) => a.id))}.`,
       )
     : null;
 }
@@ -464,6 +494,10 @@ function deployAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
       'transport_cap',
       `Deploying ${agents.length} more would exceed the Transport cap: ${deployed} of ${cap} places are taken.`,
     );
+  }
+  const incapacitated = requireNotIncapacitated(world, agents, gdrs);
+  if (incapacitated) {
+    return incapacitated;
   }
   const id = newInstanceId(world, 'mission');
   const team = agents.map((agent) => agent.id);

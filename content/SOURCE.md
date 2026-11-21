@@ -73,6 +73,10 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   specification commit `72506c1f3c3149990ca324e42fb14f8417c2416c` on 2026-11-20, adding `rating_bonus_per_upgrade`
   and the Combat article's words on how Weapon damage and Armor Upgrades raise the Combat rating. The copy is still
   identical to the specification's `content/` directory.
+- `compendium/compendium_articles/mechanics_assignments.yaml`, `mechanics_exhaustion.yaml`, and
+  `mechanics_missions.yaml`: patched unchanged from specification commit `66d59d824adc4085f76b8ce1b5e825dfcab5f719`
+  on 2026-11-20, saying that starting work needs full health and that deploying needs only that the Agent could still
+  fight. The copy is still identical to the specification's `content/` directory.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

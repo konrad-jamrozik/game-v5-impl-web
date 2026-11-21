@@ -465,13 +465,15 @@ function Deployment(props: {
 }) {
   const { player } = theEngine();
   const { site, snapshot, state, checked, onCheck } = props;
-  // MVIEW, Deployment: the Agents that can be assigned and are on Standby or Training.
+  // MVIEW, Deployment: the Agents that can take orders, are At assignment on Standby or Training, and do not meet the
+  // incapacitation condition.
   const candidates = state.agents.filter(
     (agent) =>
       agent.canBeAssigned &&
-      // MISSION, Deploying Agents: an Agent In transit can be assigned but not deployed.
       agent.agentStatus === 'AtAssignment' &&
-      (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training'),
+      (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
+      // MISSION, Deploying Agents, precondition 9: an Agent that would be Incapacitated cannot be deployed.
+      agent.ableToFight,
   );
   // MVIEW, Deployment: sorting reorders the rows only; `checked` keeps the order in which the Agents were checked.
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
