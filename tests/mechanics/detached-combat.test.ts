@@ -271,7 +271,14 @@ describe('COMBAT: Detached Combat', () => {
     expect(rejection(state, { ...base, gdrValues: { rating_team_size_exponent: 2.5 } })).toBe(
       'invalid_gdr_value',
     );
-    expect(rejection(state, { ...base, gdrValues: { rating_bonus_per_armor: -0.01 } })).toBe(
+    expect(rejection(state, { ...base, gdrValues: { rating_base_weapon_damage: 0 } })).toBe(
+      'invalid_gdr_value',
+    );
+    expect(rejection(state, { ...base, gdrValues: { rating_base_health: 0, rating_base_armor: 0 } })).toBe(
+      'invalid_gdr_value',
+    );
+    // A removed rating value is no GDR value a Combat reads.
+    expect(rejection(state, { ...base, gdrValues: { rating_bonus_per_armor: 0.004 } })).toBe(
       'invalid_gdr_value',
     );
     expect(

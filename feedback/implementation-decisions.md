@@ -1498,6 +1498,10 @@
   Upgrades, so the setup has no `ratingUpgrades`, which is ignored when given, as every other part the setup does not
   name, and the AgencyView no longer reports it. CombatParameters has seven rating values in place of the two rating
   bonuses, so the setup may name 22 GDR values.
+- **Update:** Since Specification revision d846af54dbc650426c46a02509eca86208e65f03, COMBAT, Combat rating: the rating
+  factor is the mean of an attack half and a toughness half, and CombatParameters has four rating values, without
+  `rating_bonus_per_health`, `rating_bonus_per_armor`, and `rating_bonus_per_weapon_damage`, so the setup may name 19
+  GDR values, and naming a removed one is rejected as `invalid_gdr_value`, as any other name a Combat does not read.
 - **Links:** PROB-048
 
 ## DEC-074: The result of `developer.queries.getInitiativeOperationLevels()`

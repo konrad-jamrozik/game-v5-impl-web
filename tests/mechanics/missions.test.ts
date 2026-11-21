@@ -100,8 +100,8 @@ describe('MISSION: examples', () => {
     const view = currentLiveWorldStateView(state, gdrs).missionSites[0]!;
     expect(view).toMatchObject({
       // COMBAT, Combat rating: three initiates of effective skill 40, max health 20, and weapon damage 10 rate
-      // ⌊3 ^ 0.2 × 3 × 40 × 0.9⌋.
-      enemiesCombatRating: 134,
+      // ⌊3 ^ 0.2 × 3 × 40 × (10 / 10 + 20 / 30) / 2⌋ = ⌊3 ^ 0.2 × 100⌋.
+      enemiesCombatRating: 124,
       rewards: { money: 5, fundingChange: 0, panicReductionHundredths: 100 },
       mission: null,
       lead: 'locate_red_dawn_member',
@@ -273,7 +273,8 @@ describe('MISSION: examples', () => {
     const view = currentLiveWorldStateView(created.state, gdrs).missionSites[0]!;
     expect(view).toMatchObject({
       kind: 'Response',
-      enemiesCombatRating: 604,
+      // COMBAT, Combat rating: four initiates rate 40 × 5/6 each and two soldiers 120 × 23/15 each, ⌊6 ^ 0.2 × 501⌋.
+      enemiesCombatRating: 717,
       rewards: { money: 30, fundingChange: 5 },
       penalties: { panicIncreaseHundredths: 800, fundingChange: -1, defeat: false },
       operationLevel: { id: 'operation_level_2', level: 2 },

@@ -105,6 +105,11 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `combat/combat_parameters.yaml` with the seven rating values; and rewords the Combat article's Combat rating. The
   copy is still identical to the specification's `content/` directory outside `content/cut/`, and has 158 YAML
   files holding 267 GDRs.
+- `combat/combat_parameters.yaml` and `compendium/compendium_articles/mechanics_combat.yaml`: patched unchanged from
+  specification commit `d846af54dbc650426c46a02509eca86208e65f03` on 2026-11-21, removing `rating_bonus_per_health`,
+  `rating_bonus_per_armor`, and `rating_bonus_per_weapon_damage`, rewording the comments of the rating bases, and
+  rewording the Combat article's Combat rating as the mean of an attack half and a toughness half. The copy is still
+  identical to the specification's `content/` directory outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

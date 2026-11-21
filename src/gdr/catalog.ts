@@ -187,11 +187,9 @@ const combatParameterFields = {
   target_base_weight: whole(1),
   target_preferred_hit_chance: decimal,
   rating_base_health: whole(0),
-  rating_bonus_per_health: decimal,
   rating_base_armor: whole(0),
-  rating_bonus_per_armor: decimal,
-  rating_base_weapon_damage: whole(0),
-  rating_bonus_per_weapon_damage: decimal,
+  // COMBAT, Combat GDR validation, rule 5: the divisor of the attack half is at least 1.
+  rating_base_weapon_damage: whole(1),
   rating_team_size_exponent: decimal,
 };
 
@@ -310,11 +308,8 @@ const schemas = {
       targetBaseWeight: g.target_base_weight,
       targetPreferredHitChance: g.target_preferred_hit_chance,
       ratingBaseHealth: g.rating_base_health,
-      ratingBonusPerHealth: g.rating_bonus_per_health,
       ratingBaseArmor: g.rating_base_armor,
-      ratingBonusPerArmor: g.rating_bonus_per_armor,
       ratingBaseWeaponDamage: g.rating_base_weapon_damage,
-      ratingBonusPerWeaponDamage: g.rating_bonus_per_weapon_damage,
       ratingTeamSizeExponent: g.rating_team_size_exponent,
     })),
   RecoveryParameters: z
@@ -668,16 +663,17 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
   ) {
     problems.push('CombatParameters: the retreat thresholds must be at least 0');
   }
-  // COMBAT, Combat GDR validation, rule 5: the rating bonuses are at least 0, the rating bases whole numbers of at
-  // least 0 (the schema), and the team size exponent from 1 to 2 with at most two digits after the decimal point.
-  for (const [name, value] of [
-    ['rating_bonus_per_health', combatParameters.ratingBonusPerHealth],
-    ['rating_bonus_per_armor', combatParameters.ratingBonusPerArmor],
-    ['rating_bonus_per_weapon_damage', combatParameters.ratingBonusPerWeaponDamage],
-  ] as const) {
-    if (value.lt(0)) {
-      problems.push(`CombatParameters: ${name} must be at least 0`);
-    }
+  // COMBAT, Combat GDR validation, rule 5: the rating bases whole numbers, rating_base_weapon_damage at least 1, the
+  // health and armor bases summing to at least 1, and the team size exponent from 1 to 2 with at most two digits after
+  // the decimal point. The schema checks the whole numbers; these checks also cover values a Detached Combat overrides.
+  if (combatParameters.ratingBaseHealth + combatParameters.ratingBaseArmor < 1) {
+    problems.push('CombatParameters: rating_base_health + rating_base_armor must be at least 1');
+  }
+  if (
+    !Number.isInteger(combatParameters.ratingBaseWeaponDamage) ||
+    combatParameters.ratingBaseWeaponDamage < 1
+  ) {
+    problems.push('CombatParameters: rating_base_weapon_damage must be a whole number of at least 1');
   }
   const exponent = combatParameters.ratingTeamSizeExponent;
   if (exponent.lt(1) || exponent.gt(2) || !exponent.mul(100).isWhole()) {
@@ -731,11 +727,8 @@ const COMBAT_GDR_VALUE_PROPERTIES: Readonly<Record<string, readonly ['combat' | 
   target_base_weight: ['combat', 'targetBaseWeight'],
   target_preferred_hit_chance: ['combat', 'targetPreferredHitChance'],
   rating_base_health: ['combat', 'ratingBaseHealth'],
-  rating_bonus_per_health: ['combat', 'ratingBonusPerHealth'],
   rating_base_armor: ['combat', 'ratingBaseArmor'],
-  rating_bonus_per_armor: ['combat', 'ratingBonusPerArmor'],
   rating_base_weapon_damage: ['combat', 'ratingBaseWeaponDamage'],
-  rating_bonus_per_weapon_damage: ['combat', 'ratingBonusPerWeaponDamage'],
   rating_team_size_exponent: ['combat', 'ratingTeamSizeExponent'],
   exhaustion_incapacitation: ['agent', 'exhaustionIncapacitation'],
   exhaustion_free_points: ['agent', 'exhaustionFreePoints'],
