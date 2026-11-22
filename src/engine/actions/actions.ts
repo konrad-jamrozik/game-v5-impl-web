@@ -109,12 +109,12 @@ function requireOrderable(agents: readonly Agent[]): Rejection | null {
 }
 
 /** AGENT, Start-work gate: a new Work Assignment requires every Agent to be Fit to start work. */
-function requireFitForWork(agents: readonly Agent[], gdrs: GdrCatalog): Rejection | null {
-  const tired = agents.filter((agent) => !isFitForWork(agent.state, gdrs.agentParameters));
+function requireFitForWork(agents: readonly Agent[]): Rejection | null {
+  const tired = agents.filter((agent) => !isFitForWork(agent.state));
   return tired.length > 0
     ? reject(
         'agents_not_fit_for_work',
-        `These Agents are not Fit to start work: their exhaustion is above ${gdrs.agentParameters.exhaustionWorkStartMax}, or they have health lost: ${list(tired.map((a) => a.id))}.`,
+        `These Agents are not Fit to start work: they are still resting from exhaustion, or they have health lost: ${list(tired.map((a) => a.id))}.`,
       )
     : null;
 }
@@ -260,7 +260,7 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
     );
   }
   if (assignment === 'Contracting' || assignment === 'Training') {
-    const tired = requireFitForWork(agents, gdrs) ?? requireInBase(agents);
+    const tired = requireFitForWork(agents) ?? requireInBase(agents);
     if (tired) {
       return tired;
     }
@@ -387,7 +387,7 @@ function startInvestigation(
   if (isRejected(agents)) {
     return agents;
   }
-  const blocked = requireOrderable(agents) ?? requireFitForWork(agents, gdrs) ?? requireInBase(agents);
+  const blocked = requireOrderable(agents) ?? requireFitForWork(agents) ?? requireInBase(agents);
   if (blocked) {
     return blocked;
   }
@@ -419,11 +419,7 @@ function startInvestigation(
 }
 
 /** INVSTG, Assigning Agents to an Investigation. */
-function assignAgentsToInvestigation(
-  world: CurrentWorldState,
-  args: Args,
-  gdrs: GdrCatalog,
-): Rejection | null {
+function assignAgentsToInvestigation(world: CurrentWorldState, args: Args): Rejection | null {
   const investigationId = args['investigation'];
   const investigation =
     typeof investigationId === 'string' ? world.investigations[investigationId] : undefined;
@@ -451,7 +447,7 @@ function assignAgentsToInvestigation(
       `These Agents already belong to its Current team: ${list(members.map((a) => a.id))}.`,
     );
   }
-  const tired = requireFitForWork(agents, gdrs) ?? requireInBase(agents);
+  const tired = requireFitForWork(agents) ?? requireInBase(agents);
   if (tired) {
     return tired;
   }
@@ -678,7 +674,7 @@ function dispatchAction(
       case 'startInvestigation':
         return startInvestigation(world, args, gdrs, random);
       case 'assignAgentsToInvestigation':
-        return assignAgentsToInvestigation(world, args, gdrs);
+        return assignAgentsToInvestigation(world, args);
       case 'deployAgents':
         return deployAgents(world, args, gdrs);
     }

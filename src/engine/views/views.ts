@@ -159,7 +159,7 @@ function agentView(
     effectiveArmor: values.armor,
     assignment: s.assignment === null ? null : { ...s.assignment },
     canBeAssigned: canBeAssigned(s),
-    fitForWork: isFitForWork(s, gdrs.agentParameters),
+    fitForWork: isFitForWork(s),
     inBase: isInBase(s),
     away: isAway(s),
     ableToFight: serving && isAbleToFight(values, gdrs.combatParameters, gdrs.agentParameters),
@@ -832,6 +832,12 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         incapacitationSkillFraction: decimalText(gdrs.combatParameters.incapacitationSkillFraction),
         targetBaseWeight: String(gdrs.combatParameters.targetBaseWeight),
         targetPreferredHitChance: decimalText(gdrs.combatParameters.targetPreferredHitChance),
+        // COMBAT, Player-visible information: every property of CombatParameters, including those the Combat rating
+        // reads.
+        ratingBaseHealth: String(gdrs.combatParameters.ratingBaseHealth),
+        ratingBaseArmor: String(gdrs.combatParameters.ratingBaseArmor),
+        ratingBaseWeaponDamage: String(gdrs.combatParameters.ratingBaseWeaponDamage),
+        ratingTeamSizeExponent: decimalText(gdrs.combatParameters.ratingTeamSizeExponent),
       },
       recoveryParameters: numbers(gdrs.recoveryParameters),
       investigationParameters: {

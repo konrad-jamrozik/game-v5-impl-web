@@ -7,22 +7,34 @@ describe('CINST: Instance IDs', () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'instance-ids' }));
     const ids = () => ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
-    expect(ids()).toEqual(['agent-1', 'agent-2', 'agent-3', 'agent-4']);
+    expect(ids()).toEqual([
+      'agent-1',
+      'agent-2',
+      'agent-3',
+      'agent-4',
+      'agent-5',
+      'agent-6',
+      'agent-7',
+      'agent-8',
+    ]);
 
     ok(await engine.player.actions.dismissAgents(['agent-2']));
     ok(await engine.player.actions.hireAgent());
-    expect(ids()).toContain('agent-5');
+    expect(ids()).toContain('agent-9');
     expect(ids()).not.toContain('agent-2');
 
     ok(await engine.session.timeline.undoAction());
-    expect(ids()).not.toContain('agent-5');
+    expect(ids()).not.toContain('agent-9');
     ok(await engine.player.actions.hireAgent());
-    expect(ids()).toContain('agent-5');
+    expect(ids()).toContain('agent-9');
   });
 
   it('the first Mission site of a Campaign is mission-site-1', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'instance-ids' }));
+    // Contracting keeps the Agency solvent while it waits for the first Mission site.
+    const roster = ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
+    ok(await engine.player.actions.assignAgents(roster, 'Contracting'));
     let sites: string[] = [];
     for (let turn = 0; turn < 60 && sites.length === 0; turn += 1) {
       ok(await engine.player.actions.advanceTurn());

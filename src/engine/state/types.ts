@@ -398,16 +398,10 @@ export interface TurnReport {
   readonly upkeep: { readonly servingAgents: number; readonly upkeep: number; readonly moneyAfter: number };
   readonly training: readonly {
     readonly agent: string;
-    /** The Training gain outcome: whether the Agent gained base skill. */
-    readonly gained: boolean;
+    /** AGENT, Turn report: the base skill the Agent gained in the step, in hundredths. */
+    readonly gainedHundredths: number;
     /** Base skill after the step, in hundredths. */
     readonly skillAfterHundredths: number;
-    readonly exhaustionAfter: number;
-  }[];
-  /** AGENT, Forced return: the Agents that work sent back to Standby in this Advance turn. */
-  readonly forcedReturns: readonly {
-    readonly agent: string;
-    readonly from: 'Contracting' | 'Training' | 'Investigation';
   }[];
   readonly investigations: readonly {
     readonly investigation: string;
@@ -417,11 +411,7 @@ export interface TurnReport {
     /** Whether it became Assessed in this step. */
     readonly becameAssessed: boolean;
     readonly completed: boolean;
-    /** The progress lost to the Forced returns of this step, under INVSTG, Progress loss. */
-    readonly progressLost: number;
     readonly progressAfter: number;
-    /** Whether the Forced returns of this step left it with an empty Current team. */
-    readonly abandoned: boolean;
     readonly createdMissionSite: string | null;
   }[];
   /**
@@ -493,11 +483,12 @@ export interface StateSummary {
   readonly deployableCombatRating: number;
   /**
    * AGENT, Turn report: the Serving Agents whose Assignment is Recovery, Recovering or In transit; those whose
-   * exhaustion is above `exhaustion_work_limit`; and those whose exhaustion is above `exhaustion_free_points`.
+   * exhaustion is above 0, i.e. still resting and not Fit to start work; and those whose exhaustion is above
+   * `exhaustion_free_points`.
    */
   readonly wornAgents: {
     readonly recovering: number;
-    readonly aboveWorkLimit: number;
+    readonly resting: number;
     readonly aboveFreePoints: number;
   };
   /** ECON, Turn report: the Agency caps. */

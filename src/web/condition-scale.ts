@@ -5,20 +5,20 @@
 import type { GameDataView } from '../engine/index.ts';
 
 export interface ExhaustionLevels {
-  /** `exhaustion_work_start_max`: Warning from here. */
+  /** 1: Warning from here, when the Agent can no longer start work until it has rested. */
   readonly warning: number;
-  /** The midpoint of the two, rounded up: Accent text from here. */
+  /** `exhaustion_free_points` + 1: Accent text from here, when exhaustion lowers effective skill. */
   readonly high: number;
-  /** `exhaustion_work_limit`: Danger, with a warning triangle, from here. */
+  /** `exhaustion_incapacitation`: Danger, with a warning triangle, from here. */
   readonly danger: number;
 }
 
 /** The exhaustion thresholds, from the Player-visible AgentParameters; the Bootstrap values when not yet loaded. */
 export function exhaustionLevels(gameData: GameDataView | null): ExhaustionLevels {
   const params = gameData?.agentParameters ?? {};
-  const warning = params['exhaustionWorkStartMax'] ?? 30;
-  const danger = params['exhaustionWorkLimit'] ?? 70;
-  return { warning, high: Math.ceil((warning + danger) / 2), danger };
+  const freePoints = params['exhaustionFreePoints'] ?? 30;
+  const danger = params['exhaustionIncapacitation'] ?? 100;
+  return { warning: 1, high: freePoints + 1, danger };
 }
 
 /** The colour class of an exhaustion value, and whether it shows the warning triangle. */

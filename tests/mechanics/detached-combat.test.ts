@@ -325,7 +325,6 @@ describe('COMBAT: Detached Combat', () => {
       { incapacitation_skill_fraction: 1 },
       { weapon_damage_range: '1.5' },
       { exhaustion_per_attack: 0, exhaustion_per_defense: 0 },
-      { exhaustion_incapacitation: 10 },
       { exhaustion_per_attack: -1 },
       { initial_roster_size: 3 },
     ]) {

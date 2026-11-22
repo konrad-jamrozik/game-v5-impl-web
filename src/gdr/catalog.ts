@@ -234,11 +234,6 @@ const schemas = {
       ...combatAgentParameterFields,
       exhaustion_per_mission: whole(0),
       exhaustion_per_pct_killed: whole(0),
-      exhaustion_per_contracting_turn: whole(0),
-      exhaustion_per_training_turn: whole(0),
-      exhaustion_per_investigation_turn: whole(0),
-      exhaustion_work_start_max: whole(0),
-      exhaustion_work_limit: whole(0),
       training_skill_gain_per_turn: hundredths(0),
       // AGENT, Agent GDR validation, rule 5: a list of one or more whole numbers of at least 0.
       experience_per_mission_survived: z.array(whole(0)).min(1),
@@ -254,11 +249,6 @@ const schemas = {
       exhaustionPerDefense: g.exhaustion_per_defense,
       exhaustionPerMission: g.exhaustion_per_mission,
       exhaustionPerPctKilled: g.exhaustion_per_pct_killed,
-      exhaustionPerContractingTurn: g.exhaustion_per_contracting_turn,
-      exhaustionPerTrainingTurn: g.exhaustion_per_training_turn,
-      exhaustionPerInvestigationTurn: g.exhaustion_per_investigation_turn,
-      exhaustionWorkStartMax: g.exhaustion_work_start_max,
-      exhaustionWorkLimit: g.exhaustion_work_limit,
       trainingSkillGainPerTurnHundredths: g.training_skill_gain_per_turn,
       experiencePerAttackHit: g.experience_per_attack_hit,
       experiencePerAttackMiss: g.experience_per_attack_miss,
@@ -709,13 +699,6 @@ function agentParametersProblems(agentParameters: AgentParametersGdr): string[] 
   const problems: string[] = [];
   if (agentParameters.exhaustionPerAttack + agentParameters.exhaustionPerDefense < 1) {
     problems.push('AgentParameters: every attack must tire someone');
-  }
-  // AGENT, Agent GDR validation, rule 6: exhaustion thresholds are ordered.
-  if (agentParameters.exhaustionWorkStartMax >= agentParameters.exhaustionWorkLimit) {
-    problems.push('AgentParameters: exhaustion_work_start_max must be less than exhaustion_work_limit');
-  }
-  if (agentParameters.exhaustionWorkLimit > agentParameters.exhaustionIncapacitation) {
-    problems.push('AgentParameters: exhaustion_work_limit must be at most exhaustion_incapacitation');
   }
   return problems;
 }

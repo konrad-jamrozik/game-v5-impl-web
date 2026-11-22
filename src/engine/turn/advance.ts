@@ -12,13 +12,11 @@ import {
   agentCombatantValues,
   agentCurrentHealthHundredths,
   applyMissionGrowth,
-  applyWorkExhaustion,
   effectiveSkill,
   exhaustionOf,
   recordParticipation,
   setAgentCurrentHealth,
   terminateAgent,
-  trainingGainProbability,
   type CombatantValues,
 } from '../mechanics/agents/agents.ts';
 import { agentCombatantState, enemyCombatantState, fightCombat } from '../mechanics/combat/combat.ts';
@@ -37,7 +35,6 @@ import {
 } from '../mechanics/factions/factions.ts';
 import {
   assessmentThreshold,
-  progressAfterLoss,
   progressGain,
   reachesActualRequiredProgress,
 } from '../mechanics/investigations/investigations.ts';
@@ -131,11 +128,8 @@ export function applyAdvanceTurn(
   const panicBefore = world.panicHundredths;
   const fundingBefore = world.agency.state.funding;
 
-  // AGENT, Forced return: the Agents a step sent back to Standby after their work, in the order of the steps.
-  const forcedReturns: { agent: string; from: 'Contracting' | 'Training' | 'Investigation' }[] = [];
-
-  // Step 1: Agency income, from the Step-start effective skills; then each counted Agent's work exhaustion and
-  // Forced return (TURN, Exceptions to Step-start values).
+  // Step 1: Agency income, from the Step-start effective skills. Contracting changes no Agent's exhaustion or current
+  // health (AGENT, Changes to attributes).
   const contracting = Object.values(world.agents).filter(
     (agent) => agent.state.assignment?.kind === 'Contracting' && worksNow(agent.id),
   );
@@ -151,14 +145,6 @@ export function applyAdvanceTurn(
     income: incomeAmount,
     moneyAfter: world.agency.state.money,
   };
-  for (const agent of order(contracting)) {
-    if (applyWorkExhaustion(agent.state, agentParameters.exhaustionPerContractingTurn, agentParameters)) {
-      agent.state.assignment = { kind: 'Standby' };
-      agent.state.status = 'InTransit';
-      forcedReturns.push({ agent: agent.id, from: 'Contracting' });
-    }
-  }
-  sortByAgent(world, forcedReturns);
 
   // Step 2: Upkeep.
   const serving = Object.values(world.agents).filter((agent) => isServing(agent.state)).length;
@@ -167,39 +153,24 @@ export function applyAdvanceTurn(
   const upkeepReport = { servingAgents: serving, upkeep: upkeepAmount, moneyAfter: world.agency.state.money };
 
   // Step 3: Training.
-  // AGENT, Training growth: the Training gain outcome and any gain, then work exhaustion and the Forced return.
+  // AGENT, Training growth: every Agent training gains the training skill gain, with no chance involved.
   const training: {
     agent: string;
-    gained: boolean;
+    gainedHundredths: number;
     skillAfterHundredths: number;
-    exhaustionAfter: number;
   }[] = [];
-  const trainingReturns: typeof forcedReturns = [];
   for (const agent of order(Object.values(world.agents))) {
     if (agent.state.assignment?.kind === 'Training' && worksNow(agent.id)) {
-      const gained = random.chance(
-        `agent.trainingGain.${agent.id}`,
-        trainingGainProbability(valuesOf(agent), agentParameters),
-      );
-      if (gained) {
-        // AGENT, Training growth: no rounding occurs, as the sum of two Decimal quantities is one.
-        agent.state.skillHundredths += rates.trainingSkillGainHundredths;
-      }
-      if (applyWorkExhaustion(agent.state, agentParameters.exhaustionPerTrainingTurn, agentParameters)) {
-        // A Forced return from Training, a Base Assignment, is At assignment at once.
-        agent.state.assignment = { kind: 'Standby' };
-        trainingReturns.push({ agent: agent.id, from: 'Training' });
-      }
+      // AGENT, Training growth: no rounding occurs, as the sum of two Decimal quantities is one.
+      agent.state.skillHundredths += rates.trainingSkillGainHundredths;
       training.push({
         agent: agent.id,
-        gained,
+        gainedHundredths: rates.trainingSkillGainHundredths,
         skillAfterHundredths: agent.state.skillHundredths,
-        exhaustionAfter: exhaustionOf(agent.state),
       });
     }
   }
   sortByAgent(world, training);
-  forcedReturns.push(...sortByAgent(world, trainingReturns));
 
   // Step 4: Investigation progress.
   const investigationResults = new Map<
@@ -208,12 +179,9 @@ export function applyAdvanceTurn(
       progressGain: number;
       becameAssessed: boolean;
       completed: boolean;
-      progressLost: number;
       progressAfter: number;
-      abandoned: boolean;
     }
   >();
-  const investigationReturns: typeof forcedReturns = [];
   for (const investigation of order(Object.values(world.investigations))) {
     if (investigation.state.lifecycle !== 'Active') {
       continue;
@@ -259,52 +227,14 @@ export function applyAdvanceTurn(
       }
       investigation.state.currentTeam = [];
     }
-    // AGENT, Work exhaustion: every working member gains exhaustion after the progress and the completion; one still
-    // on the Investigation has a Forced return at exhaustion_work_limit (INVSTG, Investigation progress).
-    let returned = false;
-    for (const member of workingMembers) {
-      const agent = must(world.agents[member], `Agent ${member}`);
-      const limitReached = applyWorkExhaustion(
-        agent.state,
-        agentParameters.exhaustionPerInvestigationTurn,
-        agentParameters,
-      );
-      if (limitReached && investigation.state.currentTeam.includes(member)) {
-        agent.state.assignment = { kind: 'Standby' };
-        agent.state.status = 'InTransit';
-        recordParticipation(agent.state, 'Investigation', investigation.id);
-        investigation.state.currentTeam = investigation.state.currentTeam.filter((id) => id !== member);
-        investigationReturns.push({ agent: member, from: 'Investigation' });
-        returned = true;
-      }
-    }
-    // INVSTG, Progress loss: once, after every Forced return of this step, in proportion to the effective skill
-    // of the working members that left.
-    let progressLost = 0;
-    if (returned) {
-      const skillAfter = workingMembers
-        .filter((member) => investigation.state.currentTeam.includes(member))
-        .reduce((sum, member) => sum + (skillOf.get(member) ?? 0), 0);
-      const before = investigation.state.progress;
-      investigation.state.progress = progressAfterLoss(before, skillSum, skillAfter);
-      progressLost = before - investigation.state.progress;
-    }
-    // INVSTG, Abandonment: the Forced returns of this step left the Investigation with an empty Current team.
-    let abandoned = false;
-    if (investigation.state.lifecycle === 'Active' && investigation.state.currentTeam.length === 0) {
-      investigation.state.lifecycle = 'Abandoned';
-      abandoned = true;
-    }
+    // INVSTG, Investigation progress: the step changes no member's exhaustion or current health.
     investigationResults.set(investigation.id, {
       progressGain: gain,
       becameAssessed,
       completed: completes,
-      progressLost,
       progressAfter: investigation.state.progress,
-      abandoned,
     });
   }
-  forcedReturns.push(...sortByAgent(world, investigationReturns));
   // INVSTG, Independence within the step: the completion effects create their Mission sites in the order of the
   // completed Investigations' Instance IDs, so that the Instance IDs they take do not depend on the processing order.
   // INVSTG, Turn report: the Turn report lists the Investigations in the same order.
@@ -775,8 +705,6 @@ export function applyAdvanceTurn(
     income: incomeReport,
     upkeep: upkeepReport,
     training,
-    // AGENT, Turn report: every Forced return of the Advance turn, whichever step made it, in Agent order.
-    forcedReturns: sortByAgent(world, forcedReturns),
     investigations: investigationReports,
     investigationsCompleted: investigationReports
       .filter((item) => item.completed)

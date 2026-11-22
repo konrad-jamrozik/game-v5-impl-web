@@ -3,7 +3,7 @@
  * exhaustion, and Agent creation. Every function
  * receives only the values it needs; see DEC-003.
  */
-import { EngineDefect, fromHundredths, roundDown, roundUp, type Rational } from '../../../kernel/index.ts';
+import { EngineDefect, fromHundredths, roundDown, roundUp } from '../../../kernel/index.ts';
 import type { AgentArchetypeGdr, AgentParametersGdr, ArmorGdr, WeaponGdr } from '../../../gdr/index.ts';
 import type { Agent, AgentState, Assignment } from '../../state/types.ts';
 
@@ -169,46 +169,17 @@ export function addExhaustion(agent: Pick<AgentState, 'exactExhaustionHundredths
 }
 
 /**
- * AGENT, Start-work gate: an Agent is Fit to start work exactly when its exhaustion is at most
- * exhaustion_work_start_max and its health lost is 0.
+ * AGENT, Start-work gate: an Agent is Fit to start work exactly when its exhaustion is 0 and its health lost is 0.
  */
 export function isFitForWork(
   agent: Pick<AgentState, 'exactExhaustionHundredths' | 'healthLostHundredths'>,
-  parameters: AgentParametersGdr,
 ): boolean {
-  return exhaustionOf(agent) <= parameters.exhaustionWorkStartMax && agent.healthLostHundredths === 0;
+  return exhaustionOf(agent) === 0 && agent.healthLostHundredths === 0;
 }
 
 /** AGENT, Assignments: a Work Assignment is Contracting, Training, or an Investigation. */
 export function isWorkAssignment(kind: Assignment['kind']): boolean {
   return kind === 'Contracting' || kind === 'Training' || kind === 'Investigation';
-}
-
-/**
- * AGENT, Training growth: the Probability of the Training gain outcome,
- * current health × penalty factor / (effective max health × 100), exact and never rounded.
- */
-export function trainingGainProbability(
-  agent: Pick<CombatantValues, 'currentHealthHundredths' | 'maxHealth' | 'exactExhaustionHundredths'>,
-  parameters: AgentParametersGdr,
-): Rational {
-  return fromHundredths(agent.currentHealthHundredths)
-    .mul(penaltyFactor(exhaustionOf(agent), parameters))
-    .div(agent.maxHealth * 100);
-}
-
-/**
- * AGENT, Work exhaustion and Forced return: adds the exhaustion of one Advance turn of work, then reports whether the
- * Agent has reached exhaustion_work_limit. The caller moves the Agent to Standby when it is still on that Work
- * Assignment.
- */
-export function applyWorkExhaustion(
-  agent: Pick<AgentState, 'exactExhaustionHundredths'>,
-  gained: number,
-  parameters: AgentParametersGdr,
-): boolean {
-  addExhaustion(agent, gained);
-  return exhaustionOf(agent) >= parameters.exhaustionWorkLimit;
 }
 
 /**

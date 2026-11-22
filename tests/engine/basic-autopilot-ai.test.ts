@@ -1,6 +1,7 @@
 /**
- * Tests of BASICAI, Deploy only to win: the Required rating share, the Combat margin plus the Loss margin step for each
- * Lost Mission at a Mission site of the same MissionSiteArchetype, which a team's Combat rating must at least reach.
+ * Tests of BASICAI: the Required rating share, the Combat margin plus the Loss margin step for each Lost Mission at a
+ * Mission site of the same MissionSiteArchetype, which a team's Combat rating must at least reach; the Muster; and the
+ * Agent groups.
  */
 import { describe, expect, it } from 'vite-plus/test';
 import {
@@ -51,18 +52,28 @@ describe('BASICAI: Required rating share', () => {
 });
 
 /**
- * A Campaign whose Agents 1 and 2 are on Standby and Agents 3 and 4 on Contracting, with a Player API that also shows
- * an Initiative Mission site that the given team just wins at the Combat margin, and records every assignment the AI
- * orders.
+ * A Campaign whose Agents 1 to 3 are the Agent reserve on Standby, at the Reserve quota of 8 Agents, and Agents 4 to
+ * 8 Contractors, with a Player API that also shows an Initiative Mission site that the given team just wins at the
+ * Combat margin, hires no Agent, and records every assignment the AI orders. `resting` shows that Agent on Recovery
+ * with health lost 1.00 and a Health recovery rate of 0.60, so that it becomes a Deployable Agent only after two
+ * Advance turns of recovery.
  */
-async function musterCampaign(rateAs: (contracting: readonly string[]) => readonly string[]) {
+async function musterCampaign(
+  rateAs: (contracting: readonly string[]) => readonly string[],
+  resting: string | null = null,
+) {
   const { engine } = await startEngine();
   ok(await engine.session.campaign.create({ seed: 'muster' }));
-  ok(await engine.player.actions.assignAgents(['agent-3', 'agent-4'], 'Contracting'));
+  ok(
+    await engine.player.actions.assignAgents(
+      ['agent-4', 'agent-5', 'agent-6', 'agent-7', 'agent-8'],
+      'Contracting',
+    ),
+  );
   ok(await engine.player.actions.advanceTurn());
   const real = engine.player;
   const rating = (ids: readonly string[]) => ok(real.queries.previewDeployment(null, ids)).teamCombatRating;
-  // The Agent on Contracting a Muster takes first: the more capable, then the earlier in the roster.
+  // The Contractor a Muster takes first: the lowest exhaustion, then the most capable, then the earlier in the roster.
   const live = ok(real.queries.getCurrentLiveWorldState());
   const contracting = live.agents
     .filter((agent) => agent.assignment?.kind === 'Contracting')
@@ -87,12 +98,29 @@ async function musterCampaign(rateAs: (contracting: readonly string[]) => readon
       ...real.queries,
       getCurrentLiveWorldState: () => {
         const result = real.queries.getCurrentLiveWorldState();
-        return result.ok ? { ...result, value: { ...result.value, missionSites: [site] } } : result;
+        if (!result.ok) {
+          return result;
+        }
+        const agents = result.value.agents.map((agent) =>
+          agent.id === resting
+            ? {
+                ...agent,
+                assignment: { kind: 'Recovery' as const },
+                agentStatus: 'Recovering' as const,
+                canBeAssigned: false,
+                deployable: false,
+                fitForWork: false,
+                healthLostHundredths: 100,
+                healthRecoveryRateHundredths: 60,
+              }
+            : agent,
+        );
+        return { ...result, value: { ...result.value, agents, missionSites: [site] } };
       },
     },
     actions: {
       ...real.actions,
-      // No Agent is hired, because a hired Agent In transit to Standby would also join the Muster.
+      // No Agent is hired, because a hired Agent In transit to Standby would also join the Agent reserve.
       hireAgent: async () => ({
         ok: false,
         error: { code: 'rejected', message: 'This test hires no Agent.', reason: 'not_enough_money' },
@@ -109,26 +137,50 @@ async function musterCampaign(rateAs: (contracting: readonly string[]) => readon
 }
 
 describe('BASICAI: Muster for Initiative Mission sites', () => {
-  it('recalls the Agent on Contracting a winning team needs, and keeps the Mustered Agents on Standby', async () => {
-    // The two Agents on Standby alone cannot win; with the more capable Agent on Contracting they can.
+  it('recalls the Contractor a Winning team needs, and keeps the Agents of the Muster where they are', async () => {
+    // The three Agents of the Agent reserve alone cannot win; with the most capable Contractor they can.
     const { player, orders, contracting, rating } = await musterCampaign((on) => [
       'agent-1',
       'agent-2',
+      'agent-3',
       on[0]!,
     ]);
-    expect(rating(['agent-1', 'agent-2'])).toBeLessThan(rating(['agent-1', 'agent-2', contracting[0]!]));
+    expect(rating(['agent-1', 'agent-2', 'agent-3'])).toBeLessThan(
+      rating(['agent-1', 'agent-2', 'agent-3', contracting[0]!]),
+    );
     await createBasicAutopilotAi().step({ player });
-    // Step 3 recalls that Agent alone; the other keeps Contracting, so Expected income stays above 60% of upkeep.
     expect(orders).toContainEqual([contracting[0]!, 'Standby']);
     expect(orders).not.toContainEqual([contracting[1]!, 'Standby']);
-    // A Mustered Agent keeps the Assignment it has: no step sends Agents 1 or 2 to other work.
-    expect(orders.filter(([id]) => id === 'agent-1' || id === 'agent-2')).toEqual([]);
+    // An Agent of the Muster keeps the Assignment it has: no step sends Agents 1 to 3 to other work.
+    expect(orders.filter(([id]) => ['agent-1', 'agent-2', 'agent-3'].includes(id))).toEqual([]);
   });
 
-  it('forms no Muster when its recalls would leave Expected income below the Muster income floor', async () => {
-    // A team that needs both Agents on Contracting: recalling both leaves only funding, 20, below 60% of upkeep 40.
-    const { player, orders } = await musterCampaign((on) => ['agent-1', 'agent-2', ...on]);
+  it('recalls no Contractor while a member of the Muster needs more than one Advance turn to rest', async () => {
+    // agent-1 becomes a Deployable Agent only after two Advance turns on Recovery, so the Contractor keeps earning.
+    const { player, orders } = await musterCampaign(
+      (on) => ['agent-1', 'agent-2', 'agent-3', on[0]!],
+      'agent-1',
+    );
     await createBasicAutopilotAi().step({ player });
     expect(orders.filter(([, assignment]) => assignment === 'Standby')).toEqual([]);
+  });
+});
+
+describe('BASICAI: Agent groups', () => {
+  it('keeps 40% of the roster in the Agent reserve, training, and sends the rest to Contracting', async () => {
+    const { engine } = await startEngine();
+    ok(await engine.session.campaign.create({ seed: 'groups' }));
+    await createBasicAutopilotAi().step({ player: engine.player });
+    const live = ok(engine.player.queries.getCurrentLiveWorldState());
+    const kinds = live.agents.map((agent) => agent.assignment?.kind);
+    const count = (kind: string) => kinds.filter((item) => item === kind).length;
+    // With 8 Agents the Reserve quota is 3 and the Investigator quota 0. The AI also hires one Agent, which keeps
+    // money at 5 Turns of upkeep, and that Agent joins the Agent reserve on its way to Standby, so one Agent of the
+    // reserve becomes a Spare Agent and goes to Contracting too.
+    expect(live.agency.servingAgents).toBe(9);
+    expect(count('Investigation')).toBe(0);
+    expect(count('Contracting')).toBe(6);
+    expect(count('Training') + count('Standby')).toBe(3);
+    expect(count('Training')).toBe(2);
   });
 });

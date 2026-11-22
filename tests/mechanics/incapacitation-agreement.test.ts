@@ -87,8 +87,8 @@ describe('REUSE: the incapacitation condition read by deployAgents', () => {
     });
     const hurt = agent(state, a1).state;
     expect(hurt.healthLostHundredths).toBeGreaterThan(0);
-    expect(isFitForWork(hurt, gdrs.agentParameters)).toBe(false);
-    expect(isFitForWork(agent(base, a1).state, gdrs.agentParameters)).toBe(true);
+    expect(isFitForWork(hurt)).toBe(false);
+    expect(isFitForWork(agent(base, a1).state)).toBe(true);
     const result = tryAct(state, 'assignAgents', { agents: [a1], assignment: 'Contracting' });
     expect(isRejection(result) ? result.reason : 'accepted').toBe('agents_not_fit_for_work');
   });

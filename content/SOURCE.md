@@ -141,6 +141,10 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `9b44e40`; the new Mechanics article `mechanics_combat_rating` takes the Combat rating row out of
   `mechanics_combat`, from commit `c8f6c75`. The copy is still identical to the specification's `content/` directory
   outside `content/cut/`.
+- `agents/agent_parameters.yaml` and `compendium/compendium_articles/mechanics_assignments.yaml`,
+  `mechanics_contracting.yaml`, `mechanics_exhaustion.yaml`, `mechanics_investigations.yaml`, and
+  `mechanics_training.yaml`: patched unchanged from specification commit `0fbe9cdd8fa04cd800e7278c0c5791872a66a3f5` on 2026-11-22, removing work
+  exhaustion and setting an initial roster of 8 Agents.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

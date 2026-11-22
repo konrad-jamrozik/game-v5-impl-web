@@ -23,11 +23,6 @@ export interface AgentParametersGdr {
   readonly exhaustionPerDefense: number;
   readonly exhaustionPerMission: number;
   readonly exhaustionPerPctKilled: number;
-  readonly exhaustionPerContractingTurn: number;
-  readonly exhaustionPerTrainingTurn: number;
-  readonly exhaustionPerInvestigationTurn: number;
-  readonly exhaustionWorkStartMax: number;
-  readonly exhaustionWorkLimit: number;
   /** A Decimal quantity, in hundredths; see NUMBERS, Decimal quantities. */
   readonly trainingSkillGainPerTurnHundredths: number;
   /** COMBAT, Combat experience: the amounts per attack, by the Agent's part in it and its hit outcome. */

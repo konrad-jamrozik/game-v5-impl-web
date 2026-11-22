@@ -73,8 +73,7 @@ export interface AgentView {
   readonly assignment: Assignment | null;
   readonly canBeAssigned: boolean;
   /**
-   * AGENT, Start-work gate: whether the Agent is Fit to start work, i.e. its exhaustion is at most
-   * exhaustion_work_start_max and its health lost is 0.
+   * AGENT, Start-work gate: whether the Agent is Fit to start work, i.e. its exhaustion is 0 and its health lost is 0.
    */
   readonly fitForWork: boolean;
   /** AGENT, Agent statuses: whether the Agent is In base; false for a Terminated Agent. A Derived value. */

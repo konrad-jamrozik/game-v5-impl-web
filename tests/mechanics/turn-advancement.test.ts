@@ -86,8 +86,7 @@ describe('TURN: examples', () => {
       transit: { arrived: [a1, a2, a4] },
       income: { income: 20, moneyAfter: 520 },
       upkeep: { upkeep: 40, moneyAfter: 480 },
-      training: [{ agent: a3, gained: true, skillAfterHundredths: 10100, exhaustionAfter: 1 }],
-      forcedReturns: [],
+      training: [{ agent: a3, gainedHundredths: 100, skillAfterHundredths: 10100 }],
       investigations: [{ investigation: i1, progressGain: 0, progressAfter: 0, completed: false }],
       missions: [],
       recovery: [],
@@ -110,13 +109,12 @@ describe('TURN: examples', () => {
       transit: { arrived: [] },
       income: { contractingAgents: 2, income: 80, moneyAfter: 560 },
       upkeep: { moneyAfter: 520 },
-      training: [{ agent: a3, gained: true, skillAfterHundredths: 10200, exhaustionAfter: 2 }],
+      training: [{ agent: a3, gainedHundredths: 100, skillAfterHundredths: 10200 }],
       investigations: [{ progressGain: 100, becameAssessed: true, progressAfter: 100, completed: false }],
     });
-    // Each Agent that worked gains 1 exhaustion after its work: a1 and a2 in Agency income, a4 in Investigation
-    // progress.
+    // Work changes no exhaustion (AGENT, Changes to attributes).
     expect([a1, a2, a3, a4].map((id) => agent(state, id).state.exactExhaustionHundredths / 100)).toEqual([
-      1, 1, 2, 1,
+      0, 0, 0, 0,
     ]);
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 58, turnsUntilNextOperation: 13 });
     expect(series(state)).toEqual({ start: [500, 480, 520], end: [500, 480] });
@@ -431,37 +429,34 @@ describe('TURN: examples', () => {
       world.agents[a2]!.state.skillHundredths = 13500;
       world.agents[a2]!.state.exactExhaustionHundredths = 6900;
     });
-    // a1's Training gain Probability is 1; a2's is 61 / 100, and the injected outcome is "gains".
-    const injected = { [`agent.trainingGain.${a2}`]: [true] };
-    const forward = advance(state, injected);
-    const reversed = advance(state, injected, gdrs, (items) => [...items].reverse());
+    // Training gains the training skill gain with no chance involved and changes no exhaustion.
+    const forward = advance(state);
+    const reversed = advance(state, {}, gdrs, (items) => [...items].reverse());
     expect(reversed).toEqual(forward);
-    expect(units(agent(forward, a1).state)).toMatchObject({ skill: 121, exhaustion: 1 });
-    // a2 reaches 70: a Forced return to Standby, At assignment, and then it recovers in step 8 to 65.
+    expect(units(agent(forward, a1).state)).toMatchObject({ skill: 121, exhaustion: 0 });
     expect(units(agent(forward, a2).state)).toMatchObject({
       skill: 136,
-      exhaustion: 65,
-      assignment: { kind: 'Standby' },
+      exhaustion: 69,
+      assignment: { kind: 'Training' },
       status: 'AtAssignment',
     });
   });
 
-  it('Work exhaustion before recovery: a Forced return from Contracting is In transit at step 8', () => {
+  it('Work wears nothing down: an Agent on Contracting keeps its exhaustion and its work', () => {
     let state = setAssignment(newCampaign(), agentIds(newCampaign()).slice(0, 1), 'Contracting');
     const [a1] = agentIds(state) as [string];
     state = tweak(state, (world) => (world.agents[a1]!.state.exactExhaustionHundredths = 6900));
     state = advance(state);
     expect(units(agent(state, a1).state)).toMatchObject({
-      exhaustion: 70,
-      assignment: { kind: 'Standby' },
-      status: 'InTransit',
+      exhaustion: 69,
+      assignment: { kind: 'Contracting' },
+      status: 'AtAssignment',
     });
     // It earned its income in the step, with effective skill 61: round down(30 × (1 − 39 / 200)) = 24.
     expect(state.world.history.turnReport!.income).toMatchObject({ contractingAgents: 1, income: 20 + 24 });
-    state = advance(state); // arrives; recovers nothing
-    expect(agent(state, a1).state.exactExhaustionHundredths / 100).toBe(70);
+    // On Contracting it does not recover either.
     state = advance(state);
-    expect(agent(state, a1).state.exactExhaustionHundredths / 100).toBe(65);
+    expect(agent(state, a1).state.exactExhaustionHundredths / 100).toBe(69);
   });
 
   it('Nothing to apply to: all twelve steps still apply', () => {

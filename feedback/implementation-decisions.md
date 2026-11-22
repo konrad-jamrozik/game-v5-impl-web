@@ -533,6 +533,22 @@
   exhaustion needs are its Exact exhaustion above `exhaustion_work_start_max` over the Agency's exhaustion recovery, rounded
   up, and the turns a health lost needs are its Recovery turns remaining. The team is judged by `previewDeployment` from
   each Agent's current values, and the Muster income floor is rounded up to a whole amount of money.
+- **Update:** Since Specification revision 0fbe9cdd8fa04cd800e7278c0c5791872a66a3f5, BASICAI is rewritten around the Agent reserve, the
+  Investigators, and the Contractors, and every value it sets is a Game designer value, overriding the thresholds and
+  procedure above. `BASIC_AI_THRESHOLDS` holds `reserveSharePct` 40, `investigatorSharePct` 10, `capSharePct` 30,
+  `savingsFloorTurns` 5, `combatMarginPct` 110, `lossMarginStepPct` 5, `enemiesPerAgent` 2.5,
+  `recoveryLookaheadTurns` 2, and `upgradeWeights`; the names follow the Spec repo's Autopilot Bench. The Basic
+  Autopilot AI still decides one Player action at a time and starts its Turn routine again after each. What remains
+  this decision's: when the Agents taken in the order of BASICAI, Choosing Agents fit no Winning team within the free
+  Transport cap, a team of Deployable Agents is tried again with the most capable first; a team is judged now by
+  `previewDeployment`; a Projected Agent recovers at the Agency's current exhaustion recovery and its own Health
+  recovery rate, and a team of Projected Agents and Contractors is rated as COMBAT, Combat rating does, in floating
+  point, from its projected effective skills at full health and the Player-visible CombatParameters, because no Player
+  API query previews projected values; `getGameData` therefore also reports `ratingBaseHealth`, `ratingBaseArmor`,
+  `ratingBaseWeaponDamage`, and `ratingTeamSizeExponent`, which COMBAT, Player-visible information makes
+  Player-visible; an Agent of the Agent reserve In transit recovers nothing in
+  the Advance turn of its arrival; ties keep the order of the roster, of the Mission sites, or of the Leads; and a
+  Player action that was rejected is not tried again in that Turn.
 - **Links:** None.
 
 ## DEC-022: Properties and name of a Campaign configuration preset
@@ -843,6 +859,11 @@
   b01cfd1215c6438a3664ea47b4ebcbd2b4e4ec1c renamed those five to `experience_per_attack_hit`,
   `experience_per_attack_miss`, `experience_per_defense_hit`, `experience_per_defense_miss`, and
   `experience_per_mission_survived`, with the same values; the Implementation's copy follows it.
+- **Update:** Since Specification revision 0fbe9cdd8fa04cd800e7278c0c5791872a66a3f5, AGENT, AgentParameters: the five work-exhaustion properties are
+  gone and `initial_roster_size` is 8; the Implementation's copy follows the specifications' file unchanged. The test
+  Game build of the former Acceptance examples, `RED_DAWN_ONLY_FILES` in `tests/helpers/game.ts`, sets
+  `initial_roster_size` to 4, because no rule those tests exercise depends on it and their worked sums, e.g. upkeep and
+  Instance IDs, stay as stated; the tests of the real Game build read 8.
 - **Options considered:** Copy the specifications' YAML file unchanged; take the values the Acceptance examples and
   BOOT state.
 - **Option chosen:** The values the Acceptance examples and BOOT state.

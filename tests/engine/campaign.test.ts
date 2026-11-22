@@ -50,14 +50,14 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
       ok(await engine.player.actions.advanceTurn());
       turns += 1;
     }
-    // 500 money, income 20, upkeep 40: money falls by 20 each Advance turn, until the Funding loss of an ignored
-    // Response Mission site makes it fall faster; with the GDR Faction activity timings it is below zero after the 26th.
-    expect(turns).toBe(26);
+    // 500 money, income 20, upkeep 80 for the 8 Agents of the initial roster: money falls by 60 each Advance turn,
+    // so it is below zero after the 9th.
+    expect(turns).toBe(9);
     const state = ok(engine.player.queries.getCurrentLiveWorldState());
     expect(state.ending).toEqual({
       ending: 'Defeat',
       reasons: ['MoneyBelowZero'],
-      turn: 26,
+      turn: 9,
     });
     expect(ok(engine.session.getStatus())).toMatchObject({ devMode: false, campaignEnded: true });
     // After a Campaign ending every Player action is rejected and every query keeps answering.
@@ -172,9 +172,10 @@ describe('Campaign runs', () => {
     expect(weapons?.acquisitions).toBe(0);
   });
 
-  it('the Basic Autopilot AI leaves Training empty with a Training share of 0', async () => {
-    const noTraining = await play({ trainingSharePct: 0 });
-    expect(noTraining.agency.trainingAgents).toBe(0);
+  it('the Basic Autopilot AI investigates no Lead with an Investigator share of 0', async () => {
+    const noInvestigators = await play({ investigatorSharePct: 0 });
+    expect(noInvestigators.agents.filter((agent) => agent.assignment?.kind === 'Investigation')).toEqual([]);
+    expect(noInvestigators.investigations).toEqual([]);
   });
 });
 
@@ -313,7 +314,7 @@ describe('DETERM and TIMELINE with the real game', () => {
     ok(await engine.player.actions.hireAgent());
     const hired = ok(engine.player.queries.getCurrentLiveWorldState()).agents.at(-1)!;
     ok(await engine.session.timeline.undoAction());
-    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents).toHaveLength(4);
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents).toHaveLength(8);
     ok(await engine.session.timeline.redoAction());
     expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents.at(-1)).toEqual(hired);
   });
@@ -389,7 +390,7 @@ describe('ENG: Information boundary with the real game', () => {
       currentWorld(inspected).liveWorldState.agency.state.money = 7;
     }).toThrow();
     expect(ok(engine.player.queries.getCurrentLiveWorldState())).toMatchObject({ agency: { money: 500 } });
-    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents).toHaveLength(4);
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents).toHaveLength(8);
     expect(() => {
       (ok(engine.player.queries.getGameData()) as any).economy.hireCost = 1;
     }).toThrow();
@@ -435,7 +436,7 @@ describe('DEV with the real game', () => {
     ok(await engine.session.timeline.undoAction());
     ok(await engine.session.timeline.undoAction());
     expect(ok(engine.player.queries.getCurrentLiveWorldState())).toMatchObject({
-      agency: { money: 500, servingAgents: 4 },
+      agency: { money: 500, servingAgents: 8 },
     });
   });
 

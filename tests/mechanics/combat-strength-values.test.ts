@@ -64,20 +64,22 @@ describe('MISSION: Deployable Agents and Combat ratings', () => {
     const start = withAgents(newCampaign(), 4);
     const [recovering, worn, tired] = agentIds(start) as [string, string, string];
     const assigned = setAssignment(start, [recovering], 'Recovery');
-    const { exhaustionFreePoints, exhaustionWorkLimit } = gdrs.agentParameters;
+    const { exhaustionFreePoints } = gdrs.agentParameters;
     const state = tweak(assigned, (world) => {
       world.agents[recovering]!.state.healthLostHundredths = 100;
       // Exactly at a threshold is not above it.
       world.agents[worn]!.state.exactExhaustionHundredths = (exhaustionFreePoints + 1) * 100;
-      world.agents[tired]!.state.exactExhaustionHundredths = (exhaustionWorkLimit + 1) * 100;
+      // Exact exhaustion 0.40 is exhaustion 1: still resting.
+      world.agents[tired]!.state.exactExhaustionHundredths = 40;
       for (const id of agentIds(start).slice(3)) {
         world.agents[id]!.state.exactExhaustionHundredths = exhaustionFreePoints * 100;
       }
     });
     expect(historyView(state, gdrs).openEntry.turnEnd.wornAgents).toEqual({
       recovering: 1,
-      aboveWorkLimit: 1,
-      aboveFreePoints: 2,
+      // worn, tired, and the Agent at exhaustion_free_points.
+      resting: 3,
+      aboveFreePoints: 1,
     });
   });
 

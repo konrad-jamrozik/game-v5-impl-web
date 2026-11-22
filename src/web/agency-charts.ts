@@ -169,17 +169,17 @@ export function skillBands(
 }
 
 /** VIS, Chart series colours: the three lines over the Agents by effective skill chart. */
-const WORN_COLORS = { recovering: '#FF4D4D', aboveWorkLimit: '#FF9A2E', aboveFreePoints: '#FFE14D' } as const;
+const WORN_COLORS = { recovering: '#FF4D4D', aboveFreePoints: '#FF9A2E', resting: '#FFE14D' } as const;
 
 /**
  * CVIEW, Agency charts, Agents by effective skill: the lines over the bars, of the Serving Agents of each Turn-end
- * state that are recovering, whose exhaustion is above `exhaustion_work_limit`, and whose exhaustion is above
- * `exhaustion_free_points`, named with those thresholds, e.g. "Exhaustion > 70" and "Exhaustion > 30".
+ * state that are recovering, whose exhaustion is above `exhaustion_free_points`, named with it, e.g.
+ * "Exhaustion > 30", and whose exhaustion is above 0, i.e. still resting.
  */
 export function wornLines(
   entries: readonly HistoryEntry[],
   open: OpenHistoryEntry | null,
-  thresholds: { readonly workLimit: number; readonly freePoints: number },
+  thresholds: { readonly freePoints: number },
 ): (Series & { readonly points: { turn: number; value: number }[] })[] {
   const ends = turnEnds(entries, open);
   const line = (key: keyof StateSummary['wornAgents'], name: string) => ({
@@ -189,8 +189,8 @@ export function wornLines(
   });
   return [
     line('recovering', 'Recovering'),
-    line('aboveWorkLimit', `Exhaustion > ${thresholds.workLimit}`),
     line('aboveFreePoints', `Exhaustion > ${thresholds.freePoints}`),
+    line('resting', 'Exhaustion > 0'),
   ];
 }
 

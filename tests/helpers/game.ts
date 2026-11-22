@@ -76,6 +76,15 @@ export const RED_DAWN_ONLY_FILES: readonly RawGdrFile[] = (() => {
       }
     }
   }
+  // The acceptance examples and the tests built on them count Instance IDs from an initial roster of 4 Agents, the
+  // value of the earlier Bootstrap GDRs; no rule they exercise depends on it.
+  for (const file of files) {
+    for (const gdr of file.gdrs) {
+      if (gdr['type'] === 'AgentParameters') {
+        gdr['initial_roster_size'] = 4;
+      }
+    }
+  }
   return files
     .map((file) => ({
       path: file.path,

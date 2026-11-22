@@ -65,9 +65,7 @@ export function summarize(world: CurrentWorldState, gdrs: GdrCatalog): StateSumm
     // AGENT, Turn report: the Agents recovering and those whose exhaustion is above each threshold.
     wornAgents: {
       recovering: serving.filter((agent) => agent.state.assignment?.kind === 'Recovery').length,
-      aboveWorkLimit: serving.filter(
-        (agent) => exhaustionOf(agent.state) > gdrs.agentParameters.exhaustionWorkLimit,
-      ).length,
+      resting: serving.filter((agent) => exhaustionOf(agent.state) > 0).length,
       aboveFreePoints: serving.filter(
         (agent) => exhaustionOf(agent.state) > gdrs.agentParameters.exhaustionFreePoints,
       ).length,
