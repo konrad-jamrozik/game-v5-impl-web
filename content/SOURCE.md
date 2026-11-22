@@ -121,6 +121,13 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `f550a03b2502bc67d1d3900a93b566bd0667eb8d`; `rating_base_armor` becomes 20 and the Combat article states the
   three-term rating factor; `agent_cap` gives +20 for 2000, `training_cap` +10 for 1000, and `base_training_cap` is 10.
   The copy is still identical to the specification's `content/` directory outside `content/cut/`.
+- `factions/`, `leads-and-progression/leads.yaml`, `missions/mission_site_archetypes.yaml`, and
+  `economy-and-upgrades/economy_parameters.yaml`: patched unchanged from specification commit
+  `251cebd32df42425aa2d3259d4ef129cb3cddc40` on 2026-11-21. Lead required progress, Initiative and Faction operation
+  rewards and penalties, and Faction activity timings are rebalanced, from commit
+  `f7e5a4238e3fa5af2badee1d6d25c339de5a7efc`; every Response MissionSiteArchetype expires in 1 Advance turn and every Initiative one in 3, from commit
+  `922882cbae6a6943e1fcaa59514daa83cf361d6a`; and the game-ts comments are gone. The copy is still identical to the
+  specification's `content/` directory outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

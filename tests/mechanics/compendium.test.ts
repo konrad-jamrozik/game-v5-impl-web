@@ -124,7 +124,7 @@ describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
     }
     const subjects = all.filter((article) => article.category === 'subject');
     expect(subjects).toHaveLength(103);
-    // BOOT, Compendium GDRs: every Armor but `no_armor` has a Subject article.
+    // GDRS, Compendium GDRs: every Armor but `no_armor` has a Subject article.
     expect(
       subjects.filter((article) => article.subjectType === 'Armor').map((article) => article.subject),
     ).toEqual([
@@ -951,7 +951,7 @@ describe('COMP: Met subjects', () => {
       world.discoveredLeads.push(lead);
     });
 
-  it('BOOT: the first World state shows, of the Subject articles, only field_agent, service_weapon, service_armor, the Upgrades, and criminal_organizations', () => {
+  it('GDRS: the first World state shows, of the Subject articles, only field_agent, service_weapon, service_armor, the Upgrades, and criminal_organizations', () => {
     const catalog = bootstrapGdrCatalog();
     const state = newCampaign({ catalog, firstLead: false });
     const subjects = visibleArticles(state.world.current, catalog)

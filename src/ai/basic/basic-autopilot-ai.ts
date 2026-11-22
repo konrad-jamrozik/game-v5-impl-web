@@ -26,8 +26,12 @@ export interface BasicAiThresholds {
   readonly reservePct: number;
   /** The Expected income to keep, as a Percent value of projected upkeep. */
   readonly incomeTargetPct: number;
-  /** The Savings floor, in turns of half the projected upkeep. */
+  /** The Savings floor, in Turns of projected upkeep. */
   readonly savingsFloorTurns: number;
+  /** The Muster horizon: the most Advance turns within which the last Agent of a Muster must become Deployable. */
+  readonly musterHorizonTurns: number;
+  /** The Muster income floor: the least Expected income a recall for a Muster may leave, as a Percent value of upkeep. */
+  readonly musterIncomeFloorPct: number;
   /**
    * The Combat margin: the Combat rating a team needs while no Mission of the same MissionSiteArchetype is Lost, as a
    * Percent value of the Enemies' Combat rating.
@@ -96,26 +100,39 @@ export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
   maxAssignmentExhaustionAllowed: 70,
   reservePct: 20,
   incomeTargetPct: 120,
-  savingsFloorTurns: 5,
+  // BASICAI, Game designer values: the Savings floor is 3 Turns of projected upkeep.
+  savingsFloorTurns: 3,
+  // BASICAI, Game designer values: Muster horizon 2 Advance turns and Muster income floor 60% of projected upkeep.
+  musterHorizonTurns: 2,
+  musterIncomeFloorPct: 60,
   // BASICAI, Game designer values: Combat margin 100% and Loss margin step 5 percentage points.
   combatMarginPct: 100,
   lossMarginStepPct: 5,
-  enemiesPerAgent: 3,
+  // BASICAI, Game designer values: Enemies per Agent 2.5, a Target roster of 20 plus 20 for each Upgrade other than
+  // a Cap Upgrade bought, and Upgrade weights of 2 for armor, training_skill_gain, exhaustion_recovery, and
+  // health_recovery.
+  enemiesPerAgent: 2.5,
   baseInvestigators: 1,
   investigatorsPerRoster: 10,
   baseRoster: 20,
-  rosterPerUpgrade: 10,
+  rosterPerUpgrade: 20,
   transportCapPct: 40,
   trainingCapPct: 30,
   trainingSharePct: 100,
   contractingSharePct: 0,
-  upgradeWeights: {},
+  upgradeWeights: { armor: 2, training_skill_gain: 2, exhaustion_recovery: 2, health_recovery: 2 },
 };
 
 /** Thrown inside a step when the Autopilot engagement has ended, so that the step makes no further call. */
 class EngagementOver extends Error {}
 
 const ceilDiv = (a: number, b: number): number => Math.floor((a + b - 1) / b);
+
+/** BASICAI, Glossary, Muster: the Mustered Agents and the Agents on Contracting among them that step 3 recalls. */
+type Muster = { readonly agents: ReadonlySet<string>; readonly recall: readonly string[] } | null;
+
+/** Whether an Agent is a Mustered Agent, which keeps the Assignment it has. */
+const mustered = (muster: Muster, agent: AgentView): boolean => muster?.agents.has(agent.id) ?? false;
 
 class Turn {
   private readonly player: PlayerApi;
@@ -259,8 +276,122 @@ class Turn {
     return fullyRested.slice(0, this.beyondReserve(state));
   }
 
+  /** BASICAI, Game designer values: the Savings floor, a number of Turns of projected upkeep. */
   private savingsFloor(state: CurrentLiveWorldStateView): number {
-    return ceilDiv(state.agency.projectedUpkeep * this.t.savingsFloorTurns, 2);
+    return state.agency.projectedUpkeep * this.t.savingsFloorTurns;
+  }
+
+  /** The Muster income floor: the least Expected income a recall for the Muster may leave. */
+  private musterIncomeFloor(state: CurrentLiveWorldStateView): number {
+    return ceilDiv(state.agency.projectedUpkeep * this.t.musterIncomeFloorPct, 100);
+  }
+
+  /**
+   * In how many Advance turns an Agent that is not a Deployable Agent becomes one, if left where it is, or null when it
+   * does not within the Muster horizon or is not a Mustered Agent. An Agent on Contracting that is Fit to start work
+   * becomes one when its recall arrives, after one Advance turn, because exhaustion does not change In transit. An
+   * Agent on Standby or Recovery becomes one once its exhaustion has recovered to exhaustion_work_start_max and its
+   * health lost to 0 at the Agency's current rates; one In transit to Standby first arrives, which costs an Advance
+   * turn without recovery.
+   */
+  private turnsUntilDeployable(state: CurrentLiveWorldStateView, agent: AgentView): number | null {
+    const kind = agent.assignment?.kind;
+    if (kind === 'Contracting') {
+      return agent.canBeAssigned && agent.fitForWork && agent.ableToFight ? 1 : null;
+    }
+    if (kind !== 'Standby' && kind !== 'Recovery') {
+      return null;
+    }
+    const startMaxHundredths = (this.data.agentParameters['exhaustionWorkStartMax'] ?? 0) * 100;
+    const rate = state.agency.exhaustionRecoveryHundredths;
+    const over = agent.exactExhaustionHundredths - startMaxHundredths;
+    const exhaustionTurns = over <= 0 ? 0 : rate > 0 ? ceilDiv(over, rate) : Infinity;
+    const healthTurns = agent.healthLostHundredths <= 0 ? 0 : (agent.recoveryTurnsRemaining ?? Infinity);
+    const turns = (agent.inBase ? 0 : 1) + Math.max(exhaustionTurns, healthTurns);
+    return turns >= 1 && turns <= this.t.musterHorizonTurns ? turns : null;
+  }
+
+  /**
+   * BASICAI, Turn routine, step 3: the Muster, for the most urgent Active Initiative Mission site that Deployable Agents
+   * alone cannot win and for which a winning team can be gathered: Deployable Agents first, then the Mustered Agents
+   * that become Deployable Agents soonest, a resting Agent before an Agent on Contracting that becomes one as soon, and
+   * the last of them within the Muster horizon and before the Mission site expires. None when the recalls it needs would
+   * leave Expected income below the Muster income floor. It is derived anew from the current state for every Player
+   * action, so the Basic Autopilot AI keeps no plan across Turns.
+   */
+  private muster(state: CurrentLiveWorldStateView): Muster {
+    const deployable = this.byPreference(state.agents.filter((agent) => this.isDeployable(agent)));
+    const pending = state.agents
+      .map((agent, index) => ({
+        agent,
+        index,
+        turns: this.isDeployable(agent) ? null : this.turnsUntilDeployable(state, agent),
+      }))
+      .filter((item): item is { agent: AgentView; index: number; turns: number } => item.turns !== null)
+      .sort(
+        (a, b) =>
+          a.turns - b.turns ||
+          Number(a.agent.assignment?.kind === 'Contracting') -
+            Number(b.agent.assignment?.kind === 'Contracting') ||
+          b.agent.effectiveSkill - a.agent.effectiveSkill ||
+          a.index - b.index,
+      );
+    if (pending.length === 0) {
+      return null;
+    }
+    const sites = state.missionSites
+      .filter((site) => site.lifecycle === 'Active' && site.kind === 'Initiative')
+      .map((site, index) => ({ site, index }))
+      .sort((a, b) => a.site.turnsUntilExpiration - b.site.turnsUntilExpiration || a.index - b.index)
+      .map((item) => item.site);
+    const places = state.agency.transportCap - state.agency.deployedAgents;
+    for (const site of sites) {
+      const requiredPct = this.requiredPct(state, site.archetype);
+      if (
+        this.winningTeam(state, site.enemiesCombatRating, site.enemies.length, deployable, requiredPct) !==
+        null
+      ) {
+        continue;
+      }
+      const needed = Math.max(1, Math.ceil(site.enemies.length / this.t.enemiesPerAgent - 1e-9));
+      const latest = Math.min(this.t.musterHorizonTurns, site.turnsUntilExpiration - 1);
+      const team: AgentView[] = [];
+      for (const candidate of [
+        ...deployable,
+        ...pending.filter((item) => item.turns <= latest).map((item) => item.agent),
+      ]) {
+        if (team.length >= places) {
+          break;
+        }
+        team.push(candidate);
+        if (team.length < needed) {
+          continue;
+        }
+        const preview = this.unwrap(
+          this.player.queries.previewDeployment(
+            null,
+            team.map((agent) => agent.id),
+          ),
+        );
+        if (!meetsRequiredShare(preview.teamCombatRating, site.enemiesCombatRating, requiredPct)) {
+          continue;
+        }
+        const recall = team
+          .filter((agent) => agent.assignment?.kind === 'Contracting')
+          .map((agent) => agent.id);
+        const left = new Set(recall);
+        const rate = this.data.economy['contractingIncomePerAgent'] ?? 0;
+        const timesFiveHundred = state.agents
+          .filter((agent) => agent.assignment?.kind === 'Contracting' && !left.has(agent.id))
+          .reduce((sum, agent) => sum + rate * (400 + agent.effectiveSkill), 0);
+        const incomeAfter = state.agency.funding + Math.floor(timesFiveHundred / 500);
+        if (incomeAfter < this.musterIncomeFloor(state)) {
+          return null;
+        }
+        return { agents: new Set(team.map((agent) => agent.id)), recall };
+      }
+    }
+    return null;
   }
 
   /** The Required rating share of a MissionSiteArchetype, from the Retired Missions, where every Lost one is. */
@@ -350,7 +481,11 @@ class Turn {
    * (step 2) every Agent on Standby or Training that is Fit to start work may go, the Agent reserve too; otherwise
    * (step 5) only Fully rested Deployable Agents beyond the Agent reserve.
    */
-  private async restoreIncome(state: CurrentLiveWorldStateView, urgent: boolean): Promise<boolean> {
+  private async restoreIncome(
+    state: CurrentLiveWorldStateView,
+    urgent: boolean,
+    muster: Muster,
+  ): Promise<boolean> {
     const target = urgent ? state.agency.projectedUpkeep : this.incomeTarget(state);
     // An Agent In transit to Contracting has the Current assignment Contracting already.
     const contracting = state.agents.filter((agent) => agent.assignment?.kind === 'Contracting').length;
@@ -358,13 +493,18 @@ class Turn {
     if (this.expectedIncome(state) >= target && !shareShort) {
       return false;
     }
-    const candidates = urgent
-      ? this.byPreference(
-          state.agents.filter(
-            (agent) => agent.canBeAssigned && agent.fitForWork && this.onStandbyOrTraining(agent),
-          ),
-        )
-      : this.fullyRestedBeyondReserve(state);
+    // A Mustered Agent goes to Contracting only for urgent income, and only below the Muster income floor.
+    const mayTake = (agent: AgentView) =>
+      !mustered(muster, agent) || (urgent && this.expectedIncome(state) < this.musterIncomeFloor(state));
+    const candidates = (
+      urgent
+        ? this.byPreference(
+            state.agents.filter(
+              (agent) => agent.canBeAssigned && agent.fitForWork && this.onStandbyOrTraining(agent),
+            ),
+          )
+        : this.fullyRestedBeyondReserve(state)
+    ).filter(mayTake);
     for (const agent of candidates) {
       if (
         await this.act(`contract ${agent.id}`, () =>
@@ -377,8 +517,11 @@ class Turn {
     return false;
   }
 
-  /** Step 3: deploy to the most urgent Mission site for which a winning team can be formed. */
-  private async deploy(state: CurrentLiveWorldStateView): Promise<boolean> {
+  /**
+   * Step 3: deploy to the most urgent Mission site for which a winning team can be formed; otherwise recall the next
+   * Agent on Contracting of the Muster to Standby.
+   */
+  private async deploy(state: CurrentLiveWorldStateView, muster: Muster): Promise<boolean> {
     const urgency = (site: MissionSiteView) => (site.kind === 'Response' ? 0 : 1);
     const sites = state.missionSites
       .filter((site) => site.lifecycle === 'Active')
@@ -405,6 +548,11 @@ class Turn {
         return true;
       }
     }
+    for (const id of muster?.recall ?? []) {
+      if (await this.act(`muster ${id}`, () => this.player.actions.assignAgents([id], 'Standby'))) {
+        return true;
+      }
+    }
     return false;
   }
 
@@ -416,7 +564,7 @@ class Turn {
    * of projected upkeep with the margin is passed over. A recalled Agent counts toward the Expected reserve at once,
    * so no more Agents are recalled than the shortfall.
    */
-  private async refillReserve(state: CurrentLiveWorldStateView): Promise<boolean> {
+  private async refillReserve(state: CurrentLiveWorldStateView, muster: Muster): Promise<boolean> {
     if (this.expectedReserve(state) >= this.reserveTarget(state)) {
       return false;
     }
@@ -426,6 +574,7 @@ class Turn {
       .filter(
         ({ agent }) =>
           agent.canBeAssigned &&
+          !mustered(muster, agent) &&
           (agent.assignment?.kind === 'Contracting' ||
             (agent.assignment?.kind === 'Training' && !this.isDeployable(agent))),
       )
@@ -449,11 +598,11 @@ class Turn {
   }
 
   /** Step 6: bring the number of Agents investigating Leads up to its target share. */
-  private async investigate(state: CurrentLiveWorldStateView): Promise<boolean> {
+  private async investigate(state: CurrentLiveWorldStateView, muster: Muster): Promise<boolean> {
     const investigating = state.agents.filter((agent) => agent.assignment?.kind === 'Investigation').length;
     const target =
       this.t.baseInvestigators + Math.floor(state.agency.servingAgents / this.t.investigatorsPerRoster);
-    const candidates = this.fullyRestedBeyondReserve(state);
+    const candidates = this.fullyRestedBeyondReserve(state).filter((agent) => !mustered(muster, agent));
     const count = Math.min(target - investigating, candidates.length);
     if (count <= 0) {
       return false;
@@ -538,11 +687,14 @@ class Turn {
    * Step 7: order the remaining Fully rested Deployable Agents on Standby to Training while the Training cap allows, the Agent reserve
    * too, then those beyond the Agent reserve to Contracting.
    */
-  private async employIdle(state: CurrentLiveWorldStateView): Promise<boolean> {
+  private async employIdle(state: CurrentLiveWorldStateView, muster: Muster): Promise<boolean> {
     const share = Math.floor((state.agency.servingAgents * this.t.trainingSharePct) / 100);
     const places = Math.max(0, Math.min(state.agency.trainingCap, share) - state.agency.trainingAgents);
     const toTraining = this.byPreference(
-      state.agents.filter((agent) => this.isFullyRested(agent) && agent.assignment?.kind === 'Standby'),
+      state.agents.filter(
+        (agent) =>
+          this.isFullyRested(agent) && agent.assignment?.kind === 'Standby' && !mustered(muster, agent),
+      ),
     )
       .slice(0, places)
       .map((agent) => agent.id);
@@ -552,7 +704,9 @@ class Turn {
     ) {
       return true;
     }
-    const toContracting = this.fullyRestedBeyondReserve(state, true).map((agent) => agent.id);
+    const toContracting = this.fullyRestedBeyondReserve(state, true)
+      .filter((agent) => !mustered(muster, agent))
+      .map((agent) => agent.id);
     return (
       toContracting.length > 0 &&
       (await this.act('contract idle', () => this.player.actions.assignAgents(toContracting, 'Contracting')))
@@ -612,14 +766,16 @@ class Turn {
   /** Makes the next Player action of the Turn routine. Returns false once it has advanced the turn. */
   private async next(): Promise<boolean> {
     const state = this.state();
+    // Every step reads the Muster as step 3 forms it from the current state.
+    const muster = this.muster(state);
     if (
       (await this.recallTired(state)) ||
-      (await this.restoreIncome(state, true)) ||
-      (await this.deploy(state)) ||
-      (await this.refillReserve(state)) ||
-      (await this.restoreIncome(state, false)) ||
-      (await this.investigate(state)) ||
-      (await this.employIdle(state)) ||
+      (await this.restoreIncome(state, true, muster)) ||
+      (await this.deploy(state, muster)) ||
+      (await this.refillReserve(state, muster)) ||
+      (await this.restoreIncome(state, false, muster)) ||
+      (await this.investigate(state, muster)) ||
+      (await this.employIdle(state, muster)) ||
       (await this.purchase(state))
     ) {
       return true;

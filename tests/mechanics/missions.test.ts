@@ -815,32 +815,37 @@ describe('MISSION: examples', () => {
 
   it('Effect lists of Consequences', () => {
     // EFFECT, Effect list format; ECON, Money and funding Effect kinds; ENDING, Panic Effect kind: a `panic` Effect of
-    // -0.1 is a Panic reduction of 0.10, held as 10 hundredths, and an Effect kind the list does not hold changes
-    // nothing. The Bootstrap values:
+    // -1 is a Panic reduction of 1.00, held as 100 hundredths, and an Effect kind the list does not hold changes
+    // nothing, e.g. `apprehend_member`'s `on_win` holds no `panic` Effect. The Bootstrap values:
     const site = (catalog: GdrCatalog, id: string) =>
       catalog.missionSiteArchetypes.find((item) => item.id === id)!;
     const level = (catalog: GdrCatalog, value: number) =>
       catalog.factionOperationLevels.find((item) => item.level === value)!;
     expect(site(bootstrap, 'raid_safehouse').onWin).toEqual({
-      money: 100,
-      funding: 5,
-      panicReductionHundredths: 10,
+      money: 200,
+      funding: 10,
+      panicReductionHundredths: 100,
       eliminateTargetFaction: false,
     });
     expect(site(bootstrap, 'raid_hq').onWin).toEqual({
       money: 10_000,
-      funding: 100,
+      funding: 200,
       panicReductionHundredths: 2000,
       eliminateTargetFaction: false,
     });
-    expect(site(bootstrap, 'apprehend_member').onWin.panicReductionHundredths).toBe(5);
+    expect(site(bootstrap, 'apprehend_member').onWin).toEqual({
+      money: 10,
+      funding: 0,
+      panicReductionHundredths: 0,
+      eliminateTargetFaction: false,
+    });
     expect(level(bootstrap, 1)).toMatchObject({
-      onWin: { money: 10, funding: 0 },
-      onIgnoredOrLost: { panicIncreaseHundredths: 2, funding: 0, defeat: false },
+      onWin: { money: 50, funding: 0 },
+      onIgnoredOrLost: { panicIncreaseHundredths: 100, funding: 0, defeat: false },
     });
     expect(level(bootstrap, 2)).toMatchObject({
-      onWin: { money: 30, funding: 5 },
-      onIgnoredOrLost: { panicIncreaseHundredths: 10, funding: -1, defeat: false },
+      onWin: { money: 200, funding: 10 },
+      onIgnoredOrLost: { panicIncreaseHundredths: 200, funding: -5, defeat: false },
     });
     expect(level(bootstrap, 5)).toMatchObject({
       onWin: { money: 1000, funding: 80 },

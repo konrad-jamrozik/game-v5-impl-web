@@ -467,7 +467,11 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
                 ]
             : [{ text: 'When an Investigation completes' }],
         ]);
-        rows.push(['Expires in', [figure(site.expiresInTurns), { text: ' turns' }]]);
+        // COMPV, Mission site data sheet: the singular for 1, e.g. "1 turn" or "3 turns".
+        rows.push([
+          'Expires in',
+          [figure(site.expiresInTurns), { text: site.expiresInTurns === 1 ? ' turn' : ' turns' }],
+        ]);
         rows.push([
           'Enemies',
           joined(

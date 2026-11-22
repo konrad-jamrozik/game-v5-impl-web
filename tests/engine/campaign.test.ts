@@ -50,13 +50,16 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
       ok(await engine.player.actions.advanceTurn());
       turns += 1;
     }
-    // 500 money, income 20, upkeep 40: money is below zero after the 26th Advance turn.
-    expect(turns).toBe(26);
+    // 500 money, income 20, upkeep 40: money falls by 20 each Advance turn, to 100 after the 20th, in which the first
+    // Faction operation, at the Emerging level, creates a `foil_financial_heist` Response Mission site of Faction
+    // operation level 3. It expires in the 21st, and its Funding -10 leaves income 10, so money falls by 30 each Advance
+    // turn and is below zero after the 24th.
+    expect(turns).toBe(24);
     const state = ok(engine.player.queries.getCurrentLiveWorldState());
     expect(state.ending).toEqual({
       ending: 'Defeat',
       reasons: ['MoneyBelowZero'],
-      turn: 26,
+      turn: 24,
     });
     expect(ok(engine.session.getStatus())).toMatchObject({ devMode: false, campaignEnded: true });
     // After a Campaign ending every Player action is rejected and every query keeps answering.
@@ -458,9 +461,9 @@ describe('DEV with the real game', () => {
     expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, 16))).toBe('rejected');
     expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, 4))).toBe('rejected');
     expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([]);
-    // The Required progress outcome of the next Investigation of the Lead is fixed to 4, of the range 3 to 4.
-    ok(await engine.developer.actions.overrideRandomOutcome(outcome, 4));
-    expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([{ outcome, value: 4 }]);
+    // The Required progress outcome of the next Investigation of the Lead is fixed to 6, of the range 5 to 7.
+    ok(await engine.developer.actions.overrideRandomOutcome(outcome, 6));
+    expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([{ outcome, value: 6 }]);
     ok(await engine.player.actions.startInvestigation('criminal_organizations', [agent!.id]));
     const actual = () =>
       (
@@ -468,7 +471,7 @@ describe('DEV with the real game', () => {
           constants: { actualRequiredProgress: number };
         }[]
       )[0]!.constants.actualRequiredProgress;
-    expect(actual()).toBe(4);
+    expect(actual()).toBe(6);
     expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([]);
     // Player API reports the Actual required progress only as unknown.
     expect(
@@ -477,6 +480,6 @@ describe('DEV with the real game', () => {
     // The override is a Timeline entry, so replay reproduces it: undo the start and redo it.
     ok(await engine.session.timeline.undoAction());
     ok(await engine.session.timeline.redoAction());
-    expect(actual()).toBe(4);
+    expect(actual()).toBe(6);
   });
 });

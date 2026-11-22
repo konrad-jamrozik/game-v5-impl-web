@@ -511,6 +511,21 @@
   Mission site of the same MissionSiteArchetype, overriding the 120% this decision chose. `combatMarginPct` and
   `lossMarginStepPct` hold them, and `requiredRatingSharePct` counts the Lost Missions from the Player-visible Retired
   Missions and Mission sites, whoever deployed their teams.
+- **Update:** Since Specification revision 251cebd32df42425aa2d3259d4ef129cb3cddc40, BASICAI, Game designer values: the
+  Savings floor is 3 Turns of full projected upkeep, Enemies per Agent is 2.5, the Target roster grows by 20 for each
+  Upgrade other than a Cap Upgrade bought, and the Upgrade weights are 2 for `armor`, `training_skill_gain`,
+  `exhaustion_recovery`, and `health_recovery`, overriding the values this decision chose; `savingsFloorTurns`,
+  `enemiesPerAgent`, `rosterPerUpgrade`, and `upgradeWeights` hold them.
+- **Update:** Since the same revision, BASICAI, Muster for Initiative Mission sites: `muster` derives the Muster from the
+  current Player-visible state before every Player action, and every step reads it. The team takes the Deployable Agents
+  in the order of preference, then the other Mustered Agents, the soonest Deployable first, on equal turns an Agent on
+  Standby or Recovery before an Agent on Contracting, then the more capable, then the order of the roster. An Agent
+  In transit to Standby, e.g. one a Muster recalled or one just hired, counts as a Mustered Agent that becomes Deployable
+  after the Advance turn of its arrival, plus the turns its exhaustion and health lost still need to recover, since
+  BASICAI counts an Agent by its Assignment Standby and Agent Recovery recovers nothing In transit. The turns an
+  exhaustion needs are its Exact exhaustion above `exhaustion_work_start_max` over the Agency's exhaustion recovery, rounded
+  up, and the turns a health lost needs are its Recovery turns remaining. The team is judged by `previewDeployment` from
+  each Agent's current values, and the Muster income floor is rounded up to a whole amount of money.
 - **Links:** None.
 
 ## DEC-022: Properties and name of a Campaign configuration preset

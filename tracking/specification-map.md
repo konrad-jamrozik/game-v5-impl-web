@@ -63,14 +63,6 @@
 - tests/engine/campaign.test.ts
 - tests/mechanics/initiative-operation-level.test.ts
 
-## BOOT: Bootstrap GDRs
-
-- content/
-- scripts/build-gdr.ts
-- src/gdr/generated/
-- tests/foundation/final-review.test.ts
-- tests/mechanics/compendium.test.ts
-
 ## CINST: Campaign Instances
 
 - src/engine/state/types.ts
@@ -352,6 +344,14 @@ No files.
 - content/
 - tests/helpers/game.ts
 - tests/mechanics/factions.test.ts
+- tests/mechanics/compendium.test.ts
+
+## GDRS: GDRs
+
+- content/
+- scripts/build-gdr.ts
+- src/gdr/generated/
+- tests/foundation/final-review.test.ts
 - tests/mechanics/compendium.test.ts
 
 ## GHPAGES: GitHub Pages Deployment

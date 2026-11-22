@@ -43,7 +43,7 @@ describe('GUI: Situation panel', () => {
   it('moves a Lead with an Active Investigation to the Active Investigations, with its Completion estimate', () => {
     let state = withAgents(newCampaign(), 4);
     const [a1] = agentIds(state) as [string];
-    state = startMember(state, a1, 4);
+    state = startMember(state, a1, 5);
     state = advance(state);
     state = advance(state);
     const groups = situationGroups(
@@ -160,9 +160,9 @@ describe('GUI: Completion estimate and Progress circle', () => {
 describe('GUI: Turn summary', () => {
   let state = withAgents(newCampaign(), 4);
   const [a1] = agentIds(state) as [string];
-  state = startMember(state, a1, 4);
+  state = startMember(state, a1, 5);
   const quiet = advance(state);
-  for (let turn = 1; turn <= 5; turn += 1) {
+  for (let turn = 1; turn <= 6; turn += 1) {
     state = advance(state);
   }
 
@@ -174,12 +174,12 @@ describe('GUI: Turn summary', () => {
 
   it('shows only for the Advance turn the Player requested through the GUI', () => {
     const report = turnReportView(state)!;
-    expect(report.turn).toBe(5);
-    expect(showsTurnSummary(5, report)).toBe(true);
+    expect(report.turn).toBe(6);
+    expect(showsTurnSummary(6, report)).toBe(true);
     // Loading, Timeline navigation, and Autopilot leave no requested Turn.
     expect(showsTurnSummary(null, report)).toBe(false);
     // A Turn report of another Advance turn, e.g. after undoing to an earlier Autosave.
-    expect(showsTurnSummary(4, report)).toBe(false);
+    expect(showsTurnSummary(5, report)).toBe(false);
   });
 
   it('lists the completed Investigation with the gain of its last Advance turn, and the Mission site it created', () => {
@@ -192,11 +192,11 @@ describe('GUI: Turn summary', () => {
     expect(model.missions).toEqual([]);
     expect(model.investigations).toHaveLength(1);
     expect(model.investigations[0]).toMatchObject({
-      finalProgress: 400,
+      finalProgress: 500,
       gain: 100,
-      requiredProgress: 3,
-      range: { min: 3, max: 4 },
-      turns: 4,
+      requiredProgress: 5,
+      range: { min: 5, max: 7 },
+      turns: 5,
       createdMissionSiteName: siteName('apprehend_member'),
     });
     expect(model.newSites).toHaveLength(1);

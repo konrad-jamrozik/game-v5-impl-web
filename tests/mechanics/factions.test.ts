@@ -53,34 +53,34 @@ describe('FACTION: examples', () => {
       gdrs.factionArchetypes[0]!,
       levels,
       injectedRandom({
-        'faction.faction-1.levelDuration': [60],
-        'faction.faction-1.operationInterval': [15],
+        'faction.faction-1.levelDuration': [20],
+        'faction.faction-1.operationInterval': [10],
       }),
     );
     expect(created.state).toEqual({
       activityLevel: 'faint',
-      turnsUntilNextLevel: 60,
-      turnsUntilNextOperation: 15,
+      turnsUntilNextLevel: 20,
+      turnsUntilNextOperation: 10,
       eliminated: false,
       eliminatedTurn: null,
     });
     expect(created.constants).toEqual({});
 
-    let state = setFaction(newCampaign({ money: 100_000 }), { untilLevel: 60, untilOperation: 15 });
+    let state = setFaction(newCampaign({ money: 100_000 }), { untilLevel: 20, untilOperation: 10 });
     const f = onlyFaction(state).id;
-    for (let turn = 1; turn <= 14; turn += 1) {
+    for (let turn = 1; turn <= 9; turn += 1) {
       state = advance(state);
     }
-    expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 46, turnsUntilNextOperation: 1 });
+    expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 11, turnsUntilNextOperation: 1 });
     expect(sites(state)).toHaveLength(0);
 
-    // First operation, Advance turn ending turn 15.
+    // First operation, Advance turn ending turn 10.
     state = advance(state, {
       [`faction.${f}.operationLevel`]: [1],
-      [`faction.${f}.operationInterval`]: [25],
+      [`faction.${f}.operationInterval`]: [10],
       [`mission.archetypeSelection.${f}`]: ['foil_recruitment_push'],
     });
-    expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 45, turnsUntilNextOperation: 25 });
+    expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 10, turnsUntilNextOperation: 10 });
     expect(sites(state)).toHaveLength(1);
     expect(sites(state)[0]).toMatchObject({
       archetype: 'foil_recruitment_push',
@@ -88,46 +88,42 @@ describe('FACTION: examples', () => {
         kind: 'Response',
         origin: { kind: 'FactionOperation', initiatingFaction: f, operationLevel: 'operation_level_1' },
         targetFaction: f,
-        turnCreated: 15,
+        turnCreated: 10,
       },
-      state: { lifecycle: 'Active', turnsUntilExpiration: 3 },
+      state: { lifecycle: 'Active', turnsUntilExpiration: 1 },
     });
 
-    // Second operation, Advance turn ending turn 40.
-    for (let turn = 16; turn <= 39; turn += 1) {
-      state = advance(state);
-    }
-    state = advance(state, {
-      [`faction.${f}.operationLevel`]: [2],
-      [`faction.${f}.operationInterval`]: [20],
-      [`mission.archetypeSelection.${f}`]: ['foil_sabotage'],
-    });
-    expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 20, turnsUntilNextOperation: 20 });
-    expect(sites(state).map((site) => site.archetype)).toEqual(['foil_recruitment_push', 'foil_sabotage']);
-
-    // First escalation and third operation, Advance turn ending turn 60.
-    for (let turn = 41; turn <= 59; turn += 1) {
+    // First escalation and second operation, Advance turn ending turn 20.
+    for (let turn = 11; turn <= 19; turn += 1) {
       state = advance(state);
     }
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 1, turnsUntilNextOperation: 1 });
-    const used = advance(state, {
-      [`faction.${f}.levelDuration`]: [90],
+    expect(sites(state)[0]!.state.lifecycle).toBe('Expired');
+    const escalation = {
+      [`faction.${f}.levelDuration`]: [20],
       [`faction.${f}.operationLevel`]: [2],
-      [`faction.${f}.operationInterval`]: [13],
       [`mission.archetypeSelection.${f}`]: ['foil_vip_assassination'],
-    });
+    };
+    // An Operation interval of 19 is inside `faint`'s 10 to 20 but outside `emerging`'s 10 to 18, so its rejection
+    // proves the new level was read.
+    expect(() => advance(state, { ...escalation, [`faction.${f}.operationInterval`]: [19] })).toThrow(
+      /outside 10 to 18/,
+    );
+    const used = advance(state, { ...escalation, [`faction.${f}.operationInterval`]: [13] });
     expect(onlyFaction(used).state).toMatchObject({
       activityLevel: 'emerging',
-      turnsUntilNextLevel: 90,
+      turnsUntilNextLevel: 20,
       turnsUntilNextOperation: 13,
     });
-    expect(sites(used)).toHaveLength(3);
-    expect(sites(used)[2]!.state.turnsUntilExpiration).toBe(4);
-    // An Operation interval of 13 is outside `faint`'s 15 to 25, so it proves the new level was read.
-    expect(used.world.current.turn).toBe(61);
+    expect(sites(used).map((site) => site.archetype)).toEqual([
+      'foil_recruitment_push',
+      'foil_vip_assassination',
+    ]);
+    expect(sites(used)[1]!.state.turnsUntilExpiration).toBe(1);
+    expect(used.world.current.turn).toBe(21);
     // FACTION, Turn report: the Turn report holds the operation, never the escalation.
     expect(turnReportView(used)?.factionActivity).toEqual([
-      { faction: f, createdMissionSite: sites(used)[2]!.id, operationLevel: 'operation_level_2' },
+      { faction: f, createdMissionSite: sites(used)[1]!.id, operationLevel: 'operation_level_2' },
     ]);
     expect(JSON.stringify(used.world.history.historyEntries.at(-1))).not.toMatch(/escalat|emerging/);
   });
@@ -160,12 +156,12 @@ describe('FACTION: examples', () => {
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 1, turnsUntilNextOperation: null });
     // Waking: the countdown is drawn over `faint` and is not counted down in the same Advance turn.
     state = advance(state, {
-      [`faction.${f}.levelDuration`]: [60],
+      [`faction.${f}.levelDuration`]: [20],
       [`faction.${f}.operationInterval`]: [15],
     });
     expect(onlyFaction(state).state).toMatchObject({
       activityLevel: 'faint',
-      turnsUntilNextLevel: 60,
+      turnsUntilNextLevel: 20,
       turnsUntilNextOperation: 15,
     });
     for (let i = 0; i < 14; i += 1) {
@@ -187,7 +183,7 @@ describe('FACTION: examples', () => {
       faction.state.turnsUntilNextLevel = 1;
       faction.state.turnsUntilNextOperation = 1;
     });
-    quiet = advance(quiet, { [`faction.${f}.levelDuration`]: [60] }, catalog);
+    quiet = advance(quiet, { [`faction.${f}.levelDuration`]: [20] }, catalog);
     expect(onlyFaction(quiet).state).toMatchObject({
       activityLevel: 'emerging',
       turnsUntilNextOperation: null,
@@ -210,10 +206,10 @@ describe('FACTION: examples', () => {
     }
     const f = onlyFaction(state).id;
     state = advance(state, {
-      [`faction.${f}.operationInterval`]: [17],
+      [`faction.${f}.operationInterval`]: [12],
       [`faction.${f}.operationLevel`]: [2],
     });
-    expect(onlyFaction(state).state.turnsUntilNextOperation).toBe(17);
+    expect(onlyFaction(state).state.turnsUntilNextOperation).toBe(12);
     expect(sites(state)).toHaveLength(1);
   });
 
@@ -277,8 +273,8 @@ describe('FACTION: examples', () => {
     const [red, test] = Object.values(state.world.current.factions);
     expect([red!.archetype, red!.state.activityLevel]).toEqual(['red_dawn', 'faint']);
     expect([test!.archetype, test!.state.activityLevel]).toEqual(['test_faction', 'active']);
-    expect(test!.state.turnsUntilNextOperation).toBeGreaterThanOrEqual(11);
-    expect(test!.state.turnsUntilNextOperation).toBeLessThanOrEqual(21);
+    expect(test!.state.turnsUntilNextOperation).toBeGreaterThanOrEqual(8);
+    expect(test!.state.turnsUntilNextOperation).toBeLessThanOrEqual(18);
     state = tweak(state, (world) => {
       for (const faction of Object.values(world.factions)) {
         faction.state.turnsUntilNextOperation = 1;

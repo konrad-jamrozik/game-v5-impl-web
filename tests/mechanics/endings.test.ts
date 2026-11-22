@@ -68,16 +68,16 @@ describe('ENDING: examples', () => {
     const report = state.world.history.turnReport!;
     expect(report.upkeep.moneyAfter).toBe(0);
     expect(report.missions[0]!.consequence).toMatchObject({
-      money: 100,
-      fundingChange: 5,
-      panicReductionHundredths: 10,
+      money: 200,
+      fundingChange: 10,
+      panicReductionHundredths: 100,
     });
     expect(report.expiredMissionSites[0]!.consequence).toMatchObject({
-      panicIncreaseHundredths: 100,
-      fundingChange: -8,
+      panicIncreaseHundredths: 1000,
+      fundingChange: -25,
       defeat: false,
     });
-    // 99.95 − 0.10 + 1.00 is clamped to 100.
+    // 99.95 − 1.00 + 10.00 is clamped to 100.
     expect(report.panicHundredths).toEqual({ before: 9995, after: 10_000 });
     expect(state.world.current).toMatchObject({
       panicHundredths: 10_000,
@@ -86,7 +86,7 @@ describe('ENDING: examples', () => {
       endingTurn: 12,
       turn: 13,
     });
-    expect([money(state), funding(state)]).toEqual([100, 0]);
+    expect([money(state), funding(state)]).toEqual([200, 0]);
 
     // Rejected actions after a Campaign ending.
     const [a1] = agentIds(state) as [string];

@@ -33,7 +33,6 @@ import {
   type DataSheet,
   type SheetPart,
 } from '../../src/web/compendium.ts';
-import { decimalText } from '../../src/web/format.ts';
 import { completeLead, gdrs, newCampaign, tweak } from '../helpers/game.ts';
 
 const article = (
@@ -392,16 +391,17 @@ describe('COMPV: Subject data sheets', () => {
     expect(sheet?.heading).toBe('Mission site');
     const rows = rowsOf(sheet);
     expect(rows['Appears']).toBe('When an Investigation completes');
-    expect(rows['Expires in']).toBe(`${site.expiresInTurns} turns`);
+    // COMPV, Mission site data sheet: `expires_in_turns` with "turns", and with "turn" for 1, as below.
+    expect(rows['Expires in']).toBe('3 turns');
     expect(rows['Enemies']).toBe(
       site.enemies
         .map(([enemy, count]) => `${count} × [${gdrs.enemyArchetypes.get(enemy)!.name}]`)
         .join(' · '),
     );
-    expect(rows['Reward for a win']).toBe(
-      `+${site.onWin.money} money · −${decimalText(site.onWin.panicReductionHundredths)}% Panic`,
-    );
-    expect(rows['Reward for a win']).toBe('+5 money · −0.05% Panic');
+    // apprehend_member rewards money alone, with no Panic reduction.
+    expect(site.onWin.panicReductionHundredths).toBe(0);
+    expect(rows['Reward for a win']).toBe(`+${site.onWin.money} money`);
+    expect(rows['Reward for a win']).toBe('+10 money');
     expect(rows['Revealed by']).toBe('[Locate Red Dawn member]');
     expect(rows['If lost or expired']).toBeUndefined();
     // No Initiative Mission site eliminates a Faction any more: a Terminate Lead does.
@@ -432,6 +432,7 @@ describe('COMPV: Subject data sheets', () => {
     expect(responseRows['Appears']).toBe(
       `When a Faction carries out an operation of level ${level.level} (${level.name})`,
     );
+    expect(responseRows['Expires in']).toBe('1 turn');
     expect(responseRows['Reward for a win']).toBe(
       effectText({ money: level.onWin.money, funding: level.onWin.funding }),
     );

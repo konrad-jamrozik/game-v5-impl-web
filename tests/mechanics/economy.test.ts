@@ -219,14 +219,14 @@ describe('ECON: examples', () => {
     expect(fundingAfter(0, [5, -1])).toBe(4);
     expect(fundingAfter(0, [-1])).toBe(0);
 
-    // Win: money +30 and funding 20 + 5, which the next Agency income step uses.
+    // Win of a Faction operation level 2 site: money +200 and funding 20 + 10, which the next Agency income step uses.
     const site = addMissionSite(newCampaign(), 'foil_sabotage');
     let state = act(site.state, 'deployAgents', { missionSite: site.site, agents: agentIds(site.state) });
     state = advance(state, winning(state, site.site));
     expect(state.world.history.turnReport!.income.funding).toBe(20);
-    expect(funding(state)).toBe(25);
-    expect(money(state)).toBe(500 + 20 - 40 + 30);
-    expect(agency(state).projectedIncome).toBe(25);
+    expect(funding(state)).toBe(30);
+    expect(money(state)).toBe(500 + 20 - 40 + 200);
+    expect(agency(state).projectedIncome).toBe(30);
 
     // Loss at the floor: an Expired Response Mission site with funding 0.
     const expiring = addMissionSite(setMoney(newCampaign(), 500, 0), 'foil_sabotage', {
@@ -411,7 +411,7 @@ describe('ECON: examples', () => {
     let state = setMoney(newCampaign(), 2500);
     const [a1, a2] = agentIds(state) as [string, string];
     const armors = (s: CampaignState) => agentIds(s).map((id) => effectiveValuesOf(s, id).armor);
-    // BOOT: every Agent wears the Service armor, whose base armor is 0.
+    // GDRS: every Agent wears the Service armor, whose base armor is 0.
     expect(armors(state)).toEqual([0, 0, 0, 0]);
     expect(agents(state).every((a) => a.state.armor === 'service_armor' && a.state.baseArmor === 0)).toBe(
       true,
@@ -457,7 +457,7 @@ describe('ECON: examples', () => {
   });
 
   it('Max health and Rate Upgrades', () => {
-    // No Bootstrap Upgrade is a Max health Upgrade, so this example adds one (BOOT, Economy and Upgrades GDRs).
+    // No Upgrade is a Max health Upgrade, so this example adds one (GDRS, Economy and Upgrades GDRs).
     const withMaxHealth = catalogWith((raw) => {
       const file = raw.files.find((item) => item.gdrs.some((gdr) => gdr['type'] === 'Upgrade'))!;
       raw.add(file.path, {

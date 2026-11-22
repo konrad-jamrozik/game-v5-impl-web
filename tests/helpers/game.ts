@@ -87,9 +87,10 @@ export const RED_DAWN_ONLY_FILES: readonly RawGdrFile[] = (() => {
 /**
  * The test Game build of the acceptance examples whose Combat traces and sums were worked out on the earlier, smaller
  * Bootstrap GDRs: the Red Dawn test Game build with the three-Lead chain `locate_red_dawn_member`,
- * `locate_red_dawn_safehouse`, and `locate_red_dawn_hq` of that build, each `until_mission_won`, the HQ raid making
- * the Faction Eliminated, the earlier Enemies and rewards of the five MissionSiteArchetypes it used and of the two
- * lowest Faction operation levels, one Response MissionSiteArchetype for each of those two levels, and `initiate`
+ * `locate_red_dawn_safehouse`, and `locate_red_dawn_hq` of that build, each `until_mission_won` and with its earlier
+ * required progress, the HQ raid making the Faction Eliminated, the earlier expiry, Enemies, and rewards of the five
+ * MissionSiteArchetypes it used and the earlier rewards of the two lowest Faction operation levels, one Response
+ * MissionSiteArchetype for each of those two levels, and `initiate`
  * with the Agents' Weapon. Every rule it exercises is the same in both builds. The Compendium articles that name a GDR
  * it leaves out are left out with it.
  */
@@ -110,6 +111,8 @@ export const LEGACY_FILES: readonly RawGdrFile[] = (() => {
   delete member['discovered_when'];
   safehouse['discovered_when'] = map([['mission_won', 'apprehend_member']]);
   hq['discovered_when'] = map([['mission_won', 'raid_safehouse']]);
+  member['required_progress'] = 3;
+  safehouse['required_progress'] = 6;
   hq['required_progress'] = 10;
   leads.gdrs = [member, safehouse, hq];
   // Mission sites.
@@ -120,11 +123,13 @@ export const LEGACY_FILES: readonly RawGdrFile[] = (() => {
     (gdr) => keep.includes(gdr['id']) || gdr['kind'] === 'initiative' || (gdr['operation_level'] ?? 0) > 2,
   );
   const site = (id: string) => byId('/mission_site_archetypes.yaml', id);
+  site('apprehend_member')['expires_in_turns'] = 5;
   site('apprehend_member')['enemies'] = map([['initiate', 3]]);
   site('apprehend_member')['on_win'] = effects([
     ['money', 5],
     ['panic', -1],
   ]);
+  site('raid_safehouse')['expires_in_turns'] = 8;
   site('raid_safehouse')['enemies'] = map([
     ['initiate', 8],
     ['soldier', 1],
@@ -141,13 +146,20 @@ export const LEGACY_FILES: readonly RawGdrFile[] = (() => {
     ['commander', 1],
   ]);
   site('raid_hq')['on_win'] = effects([['eliminate_faction', true]]);
+  site('foil_recruitment_push')['expires_in_turns'] = 3;
   site('foil_recruitment_push')['enemies'] = map([['initiate', 5]]);
+  site('foil_sabotage')['expires_in_turns'] = 4;
   site('foil_sabotage')['enemies'] = map([
     ['initiate', 4],
     ['soldier', 2],
   ]);
   // Faction operation levels 1 and 2.
+  byId('/faction_operation_levels.yaml', 'operation_level_1')['on_win'] = effects([['money', 10]]);
   byId('/faction_operation_levels.yaml', 'operation_level_1')['on_ignored_or_lost'] = effects([['panic', 3]]);
+  byId('/faction_operation_levels.yaml', 'operation_level_2')['on_win'] = effects([
+    ['money', 30],
+    ['funding', 5],
+  ]);
   byId('/faction_operation_levels.yaml', 'operation_level_2')['on_ignored_or_lost'] = effects([
     ['panic', 8],
     ['funding', -1],

@@ -68,7 +68,7 @@ describe('COMBAT: examples', () => {
         maxHealth: health,
         exactExhaustionHundredths: 0,
         weaponDamage: damage,
-        // BOOT, Combat GDRs: `initiate` and `operative` wear `no_armor`, and each EnemyArchetype from `handler` up an
+        // GDRS, Combat GDRs: `initiate` and `operative` wear `no_armor`, and each EnemyArchetype from `handler` up an
         // Armor of its own.
         armor,
       });
