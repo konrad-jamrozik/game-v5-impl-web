@@ -13,8 +13,8 @@ import type { MissionSiteView, PlayerApi } from '../../src/engine/index.ts';
 import { ok, startEngine } from '../helpers/engine.ts';
 
 describe('BASICAI: Required rating share', () => {
-  it('uses the Game designer values: a Combat margin of 100% and a Loss margin step of 5 points', () => {
-    expect(BASIC_AI_THRESHOLDS.combatMarginPct).toBe(100);
+  it('uses the Game designer values: a Combat margin of 110% and a Loss margin step of 5 points', () => {
+    expect(BASIC_AI_THRESHOLDS.combatMarginPct).toBe(110);
     expect(BASIC_AI_THRESHOLDS.lossMarginStepPct).toBe(5);
   });
 
@@ -34,10 +34,10 @@ describe('BASICAI: Required rating share', () => {
     ];
     const required = (archetype: string, list = missions) =>
       requiredRatingSharePct(BASIC_AI_THRESHOLDS, sites, list, archetype);
-    expect(required('apprehend_member')).toBe(100);
-    expect(required('raid_safehouse')).toBe(105);
-    expect(required('foil_sabotage')).toBe(110);
-    expect(required('foil_sabotage', [])).toBe(100);
+    expect(required('apprehend_member')).toBe(110);
+    expect(required('raid_safehouse')).toBe(115);
+    expect(required('foil_sabotage')).toBe(120);
+    expect(required('foil_sabotage', [])).toBe(110);
   });
 
   it('is met by a Combat rating equal to the required share, and not by one below it', () => {
@@ -52,7 +52,8 @@ describe('BASICAI: Required rating share', () => {
 
 /**
  * A Campaign whose Agents 1 and 2 are on Standby and Agents 3 and 4 on Contracting, with a Player API that also shows
- * an Initiative Mission site whose Enemies rate as the given team, and records every assignment the AI orders.
+ * an Initiative Mission site that the given team just wins at the Combat margin, and records every assignment the AI
+ * orders.
  */
 async function musterCampaign(rateAs: (contracting: readonly string[]) => readonly string[]) {
   const { engine } = await startEngine();
@@ -67,7 +68,8 @@ async function musterCampaign(rateAs: (contracting: readonly string[]) => readon
     .filter((agent) => agent.assignment?.kind === 'Contracting')
     .sort((a, b) => b.effectiveSkill - a.effectiveSkill || a.id.localeCompare(b.id))
     .map((agent) => agent.id);
-  const enemiesRating = rating(rateAs(contracting));
+  // The Enemies rate so that the given team just reaches the Combat margin, and a weaker one does not.
+  const enemiesRating = Math.floor((rating(rateAs(contracting)) * 100) / BASIC_AI_THRESHOLDS.combatMarginPct);
   const site = {
     ...({} as MissionSiteView),
     id: 'mission-site-muster',

@@ -105,8 +105,8 @@ export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
   // BASICAI, Game designer values: Muster horizon 2 Advance turns and Muster income floor 60% of projected upkeep.
   musterHorizonTurns: 2,
   musterIncomeFloorPct: 60,
-  // BASICAI, Game designer values: Combat margin 100% and Loss margin step 5 percentage points.
-  combatMarginPct: 100,
+  // BASICAI, Game designer values: Combat margin 110% and Loss margin step 5 percentage points.
+  combatMarginPct: 110,
   lossMarginStepPct: 5,
   // BASICAI, Game designer values: Enemies per Agent 2.5, a Target roster of 20 plus 20 for each Upgrade other than
   // a Cap Upgrade bought, and Upgrade weights of 2 for armor, training_skill_gain, exhaustion_recovery, and

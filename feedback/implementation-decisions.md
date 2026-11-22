@@ -516,6 +516,8 @@
   Mission site of the same MissionSiteArchetype, overriding the 120% this decision chose. `combatMarginPct` and
   `lossMarginStepPct` hold them, and `requiredRatingSharePct` counts the Lost Missions from the Player-visible Retired
   Missions and Mission sites, whoever deployed their teams.
+- **Update:** Since Specification revision ff734f06dec32481591584bb394bfaa5600d7a45, BASICAI, Game designer values: the
+  Combat margin is 110%, so `combatMarginPct` holds 110.
 - **Update:** Since Specification revision 251cebd32df42425aa2d3259d4ef129cb3cddc40, BASICAI, Game designer values: the
   Savings floor is 3 Turns of full projected upkeep, Enemies per Agent is 2.5, the Target roster grows by 20 for each
   Upgrade other than a Cap Upgrade bought, and the Upgrade weights are 2 for `armor`, `training_skill_gain`,
