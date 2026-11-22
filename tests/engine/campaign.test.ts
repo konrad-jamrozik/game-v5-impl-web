@@ -29,11 +29,13 @@ async function playTurn(engine: Engine): Promise<void> {
 describe('A Campaign is playable through Player API without Dev mode', () => {
   // CTEST, Limits: a Campaign test plays at most 200 Turns and checks only that play runs. Victory itself is checked on
   // a scripted Campaign in tests/mechanics/endings.test.ts, and the Player API after an ending below, after Defeat.
-  it('plays 200 Turns with the Basic Autopilot AI', async () => {
+  // 120 Turns, not the 200 CTEST allows: how large the Agency grows by a late Turn, and so how long each Turn takes,
+  // depends on balance, e.g. the 2510d55 retune grew it from 140 to 1,500 Agents by Turn 200.
+  it('plays 120 Turns with the Basic Autopilot AI', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'c' }));
     let turns = 0;
-    while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null && turns < 200) {
+    while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null && turns < 120) {
       await playTurn(engine);
       turns += 1;
     }
@@ -113,11 +115,12 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
 
 describe('Campaign runs', () => {
   // CTEST, Limits: at most 2 Campaigns of at most 200 Turns per test, checking only that play runs, never the ending.
+  // 120 Turns, so that a retune that grows the Agency faster does not slow the check down.
   it('the Basic Autopilot AI plays a Campaign under Autopilot with no engine defect', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.globalConfiguration.set('autosaveLimit', 0));
     ok(await engine.session.campaign.create({ seed: 'run-0' }));
-    const result = await autopilot(engine, { kind: 'turnAdvancements', count: 200 });
+    const result = await autopilot(engine, { kind: 'turnAdvancements', count: 120 });
     expect(['campaignEnded', 'limitReached'], result.detail ?? '').toContain(result.reason);
   });
 
