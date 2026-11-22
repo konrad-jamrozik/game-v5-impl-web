@@ -931,7 +931,8 @@ export class EngineCore<S extends ShellState> {
   ): Promise<{ code: 'save_size_limit_exceeded' | 'unwritable_campaign_save'; message: string } | null> {
     const body = encodeSave(header, saved);
     const limit = this.env.saveSizeLimitBytes ?? SAVE_SIZE_LIMIT_BYTES;
-    if (utf8ByteLength(body) > limit) {
+    // A UTF-16 code unit takes at most 3 bytes in UTF-8, so only a text longer than a third of the limit needs counting.
+    if (body.length * 3 > limit && utf8ByteLength(body) > limit) {
       return {
         code: 'save_size_limit_exceeded',
         message: `Could not write ${describeSave(header)}: it would exceed the Save size limit.`,

@@ -3,6 +3,7 @@
  * World state before it changes anything, so a rejected action changes nothing; each accepted action is one
  * Player action.
  */
+import { isDraft, original } from 'immer';
 import { must } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import {
@@ -296,7 +297,11 @@ function hireAgent(world: CurrentWorldState, _args: Args, gdrs: GdrCatalog): Rej
       `Hiring costs ${gdrs.economy.hireCost} and the Agency has ${world.agency.state.money}.`,
     );
   }
-  const serving = countServing(Object.values(world.agents).map((agent) => agent.state));
+  // Nothing has changed yet in this action, so the state it started from gives the same count without a draft per Agent.
+  const agents = isDraft(world.agents)
+    ? must(original(world.agents), 'Agents before the action')
+    : world.agents;
+  const serving = countServing(Object.values(agents).map((agent) => agent.state));
   const cap = agencyCaps(gdrs.economy, gdrs.upgrades, world.agency.state.acquisitions).agentCap;
   if (serving >= cap) {
     return reject('agent_cap', `The Agency employs ${serving} Agents and the Agent cap is ${cap}.`);

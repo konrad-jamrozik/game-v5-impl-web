@@ -70,17 +70,36 @@ export function isStoredWhole(value: unknown): value is number {
  * null when every number is one. Used to check NUMBERS, Whole-number quantities at each commit.
  */
 export function findNonWholeNumber(value: unknown, path = ''): string | null {
+  return wholeWalk(value, path).found;
+}
+
+/**
+ * The objects already found to hold only whole numbers that can never change: frozen, with every object under them
+ * frozen too. Successive states share every part a commit did not change, so each commit walks only the new parts.
+ */
+const WHOLE_AND_FROZEN = new WeakSet<object>();
+
+/** The walk of `findNonWholeNumber`; `sealed` tells whether the value can never change, so its result holds forever. */
+function wholeWalk(value: unknown, path: string): { found: string | null; sealed: boolean } {
   if (typeof value === 'number') {
-    return Number.isSafeInteger(value) ? null : path;
+    return { found: Number.isSafeInteger(value) ? null : path, sealed: true };
   }
   if (typeof value !== 'object' || value === null) {
-    return null;
+    return { found: null, sealed: true };
   }
+  if (WHOLE_AND_FROZEN.has(value)) {
+    return { found: null, sealed: true };
+  }
+  let sealed = Object.isFrozen(value);
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-    const found = findNonWholeNumber(item, path === '' ? key : `${path}.${key}`);
-    if (found !== null) {
-      return found;
+    const result = wholeWalk(item, path === '' ? key : `${path}.${key}`);
+    if (result.found !== null) {
+      return { found: result.found, sealed: false };
     }
+    sealed &&= result.sealed;
   }
-  return null;
+  if (sealed) {
+    WHOLE_AND_FROZEN.add(value);
+  }
+  return { found: null, sealed };
 }

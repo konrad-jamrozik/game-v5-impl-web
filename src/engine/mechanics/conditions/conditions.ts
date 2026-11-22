@@ -16,6 +16,29 @@ export interface ConditionWorld {
 /** The supplied inputs of an evaluation: the Faction, by Instance ID, that every `mission_won` Condition reads. */
 export interface ConditionInputs {
   readonly faction: string | null;
+  /**
+   * The Won Missions of the same World state from `wonMissionIndex`, when the caller evaluates many Conditions against
+   * one unchanging World state; without it each `mission_won` reads every Mission.
+   */
+  readonly won?: WonMissionIndex;
+}
+
+/** The Won Missions of a World state, as `wonKey` of each one's MissionSiteArchetype and target Faction. */
+export type WonMissionIndex = ReadonlySet<string>;
+
+const wonKey = (missionSiteArchetype: string, faction: string | null): string =>
+  `${missionSiteArchetype}|${faction ?? ''}`;
+
+/** The Won Missions of a World state, read once for evaluating many Conditions against it. */
+export function wonMissionIndex(world: ConditionWorld): WonMissionIndex {
+  const index = new Set<string>();
+  for (const mission of Object.values(world.missions)) {
+    const site = world.missionSites[mission.constants.missionSite];
+    if (mission.state.lifecycle === 'Won' && site !== undefined) {
+      index.add(wonKey(site.archetype, site.constants.targetFaction));
+    }
+  }
+  return index;
 }
 
 /**
@@ -26,7 +49,11 @@ export function missionWonHolds(
   missionSiteArchetype: string,
   faction: string | null,
   world: ConditionWorld,
+  won?: WonMissionIndex,
 ): boolean {
+  if (won !== undefined) {
+    return won.has(wonKey(missionSiteArchetype, faction));
+  }
   return Object.values(world.missions).some((mission) => {
     const site = world.missionSites[mission.constants.missionSite];
     return (
@@ -59,7 +86,7 @@ export function conditionHolds(
     case 'not':
       return !conditionHolds(condition.condition, world, inputs);
     case 'mission_won':
-      return missionWonHolds(condition.missionSiteArchetype, inputs.faction, world);
+      return missionWonHolds(condition.missionSiteArchetype, inputs.faction, world, inputs.won);
     case 'lead_completed':
       return leadCompletedHolds(condition.lead, world);
   }

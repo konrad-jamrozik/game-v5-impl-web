@@ -570,7 +570,7 @@ export function applyAdvanceTurn(
     });
   }
   world.agency.state.funding = fundingAfter(fundingAtStep6, expiryFunding);
-  expiredMissionSites.sort((a, b) => siteIndex(world, a.missionSite) - siteIndex(world, b.missionSite));
+  sortByKeyOrder(world.missionSites, expiredMissionSites, (item) => item.missionSite);
 
   // Step 7: Faction activity.
   const occurrences = new Map<string, FactionOperationOccurrence | null>();
@@ -654,7 +654,7 @@ export function applyAdvanceTurn(
       }
     }
   }
-  recovery.sort((a, b) => agentIndex(world, a.agent) - agentIndex(world, b.agent));
+  sortByAgent(world, recovery);
 
   // Step 9: Previous turn transit arrivals. TURN, Values a step uses: the only transit read of the Turn-end state. An
   // Agent arrives exactly when it is In transit with the same Assignment both in the Turn-end state and now, so every
@@ -760,17 +760,18 @@ function sameAssignment(a: Assignment | null | undefined, b: Assignment | null |
   return a.kind === b.kind;
 }
 
-function agentIndex(world: CurrentWorldState, id: string): number {
-  return Object.keys(world.agents).indexOf(id);
+/**
+ * Sorts items in the order of their keys in a record of Campaign state; an item whose key the record lacks sorts first.
+ * The order is read once, so that a sort costs no more than reading the keys.
+ */
+function sortByKeyOrder<T>(record: object, items: T[], keyOf: (item: T) => string): T[] {
+  const index = new Map(Object.keys(record).map((id, i) => [id, i]));
+  return items.sort((a, b) => (index.get(keyOf(a)) ?? -1) - (index.get(keyOf(b)) ?? -1));
 }
 
 /** Sorts report items in the order of the Agents in Campaign state, so that reports do not depend on `order`. */
 function sortByAgent<T extends { readonly agent: string }>(world: CurrentWorldState, items: T[]): T[] {
-  return items.sort((a, b) => agentIndex(world, a.agent) - agentIndex(world, b.agent));
-}
-
-function siteIndex(world: CurrentWorldState, id: string): number {
-  return Object.keys(world.missionSites).indexOf(id);
+  return sortByKeyOrder(world.agents, items, (item) => item.agent);
 }
 
 /** COMBAT, Combat report: the Combat rating of each side at the given entry, Combat start being entry 0. */

@@ -3,7 +3,7 @@
  */
 import type { Condition, LeadGdr, MissionSiteArchetypeGdr } from '../../../gdr/index.ts';
 import type { Faction, Investigation, Mission, MissionSite } from '../../state/types.ts';
-import { conditionHolds } from '../conditions/conditions.ts';
+import { conditionHolds, wonMissionIndex } from '../conditions/conditions.ts';
 import { missionSiteCanExist } from '../missions/missions.ts';
 
 /** The parts of a World state that Lead discovery and Lead availability read. */
@@ -131,12 +131,17 @@ export function discoverLeads(
   world: LeadWorld & { discoveredLeads: string[] },
   leads: readonly LeadGdr[],
 ): string[] {
+  // Nothing changes while the Leads are evaluated, so the Won Missions are read once for all of them.
+  const won = wonMissionIndex(world);
   const added = leads
     .filter(
       (lead) =>
         !world.discoveredLeads.includes(lead.id) &&
         (lead.discoveredWhen === null ||
-          conditionHolds(lead.discoveredWhen, world, { faction: factionOfLead(lead, world)?.id ?? null })),
+          conditionHolds(lead.discoveredWhen, world, {
+            faction: factionOfLead(lead, world)?.id ?? null,
+            won,
+          })),
     )
     .map((lead) => lead.id);
   world.discoveredLeads.push(...added);

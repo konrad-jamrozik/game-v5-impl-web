@@ -184,6 +184,44 @@ function agentView(
   };
 }
 
+/** A built Agent view with the inputs it was built from, so that it is reused only while all of them are the same. */
+interface CachedAgentView {
+  readonly gdrs: GdrCatalog;
+  readonly healthRecoveryPctHundredths: number;
+  readonly bonusKey: string;
+  readonly view: AgentView;
+}
+
+/**
+ * Agent views by the Agent they show. An Agent in Campaign state is immutable, and a commit that changes an Agent
+ * replaces its object, so an entry found for the same object, GDRs, rate, and Upgrade bonus is the view `agentView`
+ * would build again. The views are frozen because every caller shares them.
+ */
+const AGENT_VIEWS = new WeakMap<Agent, CachedAgentView>();
+
+/** The views of the given Agents, built with the Agency's current rates and Upgrade bonus, each reused when unchanged. */
+function agentViews(agents: readonly Agent[], world: CurrentWorldState, gdrs: GdrCatalog): AgentView[] {
+  const healthRecoveryPctHundredths = ratesOf(world, gdrs).healthRecoveryPctHundredths;
+  const bonus = bonusOf(world, gdrs);
+  const bonusKey = JSON.stringify(bonus);
+  return agents.map((agent) => {
+    const cached = AGENT_VIEWS.get(agent);
+    if (
+      cached !== undefined &&
+      cached.gdrs === gdrs &&
+      cached.healthRecoveryPctHundredths === healthRecoveryPctHundredths &&
+      cached.bonusKey === bonusKey
+    ) {
+      return cached.view;
+    }
+    const view = deepFreeze(agentView(agent, gdrs, healthRecoveryPctHundredths, bonus));
+    if (Object.isFrozen(agent)) {
+      AGENT_VIEWS.set(agent, { gdrs, healthRecoveryPctHundredths, bonusKey, view });
+    }
+    return view;
+  });
+}
+
 function enemyView(enemy: Enemy, gdrs: GdrCatalog): EnemyView {
   const s = enemy.state;
   return {
@@ -377,6 +415,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
   const agents = Object.values(world.agents).map((agent) => agent.state);
   const caps = agencyCaps(gdrs.economy, gdrs.upgrades, world.agency.state.acquisitions);
   const serving = countServing(agents);
+  const bonus = bonusOf(world, gdrs);
   return {
     id: world.agency.id,
     archetype: world.agency.archetype,
@@ -394,8 +433,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
     ...caps,
     ...ratesOf(world, gdrs),
     agentArmor:
-      must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype').armor +
-      bonusOf(world, gdrs).armor,
+      must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype').armor + bonus.armor,
     servingAgents: serving,
     deployedAgents: countDeployed(agents),
     trainingAgents: countTraining(agents),
@@ -403,7 +441,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
     projectedIncome: income(
       world.agency.state.funding,
       contractingAtAssignment(agents).map((agent) =>
-        effectiveSkill(agentCombatant(agent, bonusOf(world, gdrs)), gdrs.agentParameters),
+        effectiveSkill(agentCombatant(agent, bonus), gdrs.agentParameters),
       ),
       gdrs.economy,
     ),
@@ -432,11 +470,11 @@ export function currentLiveWorldStateView(state: CampaignState, gdrs: GdrCatalog
         ? null
         : { ending: world.ending, reasons: [...world.endingReasons], turn: world.endingTurn },
     agency: agencyView(world, gdrs),
-    agents: Object.values(world.agents)
-      .filter((agent) => isServing(agent.state))
-      .map((agent) =>
-        agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths, bonusOf(world, gdrs)),
-      ),
+    agents: agentViews(
+      Object.values(world.agents).filter((agent) => isServing(agent.state)),
+      world,
+      gdrs,
+    ),
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle === 'Active')
       .map((investigation) => investigationView(investigation, world, gdrs)),
@@ -458,11 +496,11 @@ export function currentRetiredWorldStateView(
   const world = state.world.current;
   return {
     leads: leadViews(world, gdrs),
-    agents: Object.values(world.agents)
-      .filter((agent) => !isServing(agent.state))
-      .map((agent) =>
-        agentView(agent, gdrs, ratesOf(world, gdrs).healthRecoveryPctHundredths, bonusOf(world, gdrs)),
-      ),
+    agents: agentViews(
+      Object.values(world.agents).filter((agent) => !isServing(agent.state)),
+      world,
+      gdrs,
+    ),
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle !== 'Active')
       .map((investigation) => investigationView(investigation, world, gdrs)),
