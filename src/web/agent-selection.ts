@@ -61,3 +61,25 @@ export function blockedBy(agent: AgentView, s: Selectability, fallback: () => st
   }
   return fallback();
 }
+
+/** AVIEW, Row filters: the two checkboxes below the row filters, both unchecked whenever the Agents View opens. */
+export interface HideChecks {
+  readonly hideRecovering: boolean;
+  readonly hideExhausted: boolean;
+}
+
+/**
+ * AVIEW, Row filters: whether the checkboxes hide an Agent: Hide recovering every Agent whose Assignment is Recovery,
+ * Recovering or In transit, and Hide with exhaustion > N every Agent whose exhaustion is above N, the
+ * `exhaustion_free_points` of AgentParameters.
+ */
+export function hiddenByChecks(
+  agent: { readonly assignment: { readonly kind: string } | null; readonly exhaustion: number },
+  checks: HideChecks,
+  freePoints: number,
+): boolean {
+  return (
+    (checks.hideRecovering && agent.assignment?.kind === 'Recovery') ||
+    (checks.hideExhausted && agent.exhaustion > freePoints)
+  );
+}

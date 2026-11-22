@@ -20,7 +20,14 @@ import type {
 } from '../../engine/index.ts';
 import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
 import { decimalText, wholeText } from '../format.ts';
-import { ASSIGNMENTS, blockedBy, type OrderAssignment, type Selectability } from '../agent-selection.ts';
+import {
+  ASSIGNMENTS,
+  blockedBy,
+  hiddenByChecks,
+  type HideChecks,
+  type OrderAssignment,
+  type Selectability,
+} from '../agent-selection.ts';
 import { capBar, type CapBarModel } from '../cap-bar.ts';
 import { memorialDeath, type MemorialDeath } from '../memorial.ts';
 import { fillColour } from '../progress-bar.ts';
@@ -39,6 +46,10 @@ import {
 } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
+import type { ReportTarget } from './TurnReportView.tsx';
+
+/** AVIEW, Row filters: both checkboxes are unchecked whenever the Agents View opens. */
+const NO_HIDING: HideChecks = { hideRecovering: false, hideExhausted: false };
 
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
 const NUMERIC = new Set([
@@ -186,7 +197,11 @@ export function AgentsView(props: {
   state: CurrentLiveWorldStateView;
   selected: readonly string[];
   locked: string | null;
+  /** The Agent whose details open at once, when the Player followed an Agent's Instance ID from another view. */
+  initial: string | null;
   onSelect: (ids: readonly string[]) => void;
+  /** CSCR, View trail, Follow: opens another Detail view with an item selected. */
+  onShow: (target: ReportTarget) => void;
   onClose: () => void;
 }) {
   const { player } = theEngine();
@@ -196,6 +211,9 @@ export function AgentsView(props: {
   // VIS, Tables: up to four sort tiers over the default order by Instance ID.
   const [tiers, setTiers] = usePlaceState<SortTier<string>[]>('tiers', []);
   const [rowFilter, setRowFilter] = usePlaceState<RowFilter>('rowFilter', 'all');
+  const [hideChecks, setHideChecks] = usePlaceState<HideChecks>('hideChecks', NO_HIDING);
+  // AVIEW, Row filters: Hide with exhaustion > N, where N is `exhaustion_free_points` of AgentParameters.
+  const freePoints = snapshot.gameData?.agentParameters['exhaustionFreePoints'] ?? 30;
   // AVIEW, Assignment filters: none is on whenever the Agents View opens.
   const [assignmentFilter, setAssignmentFilter] = usePlaceState<OrderAssignment | null>(
     'assignmentFilter',
@@ -215,7 +233,7 @@ export function AgentsView(props: {
   );
   // VIS, Tables: Select all, which keeps the selection equal to the shown rows that can be selected.
   const [selectAll, setSelectAll] = usePlaceState('selectAll', false);
-  const [details, setDetails] = usePlaceState<string | null>('details', null);
+  const [details, setDetails] = usePlaceState<string | null>('details', props.initial);
   const place = usePlace();
   /** AVIEW, Agent details: they open one step away, in place of the table, as a Follow. */
   const openDetails = (id: string) => {
@@ -273,8 +291,9 @@ export function AgentsView(props: {
           : rowFilter === 'away'
             ? state.agents.filter((agent) => agent.away)
             : [];
-    // AVIEW, Agent table: the default order is by Instance ID.
-    return [...shown]
+    // AVIEW, Agent table: the default order is by Instance ID, of the Agents the checkboxes do not hide.
+    return shown
+      .filter((agent) => !hiddenByChecks(agent, hideChecks, freePoints))
       .sort((x, y) => byId(x.id, y.id))
       .map((agent) => ({
         ...agent,
@@ -286,7 +305,7 @@ export function AgentsView(props: {
           return preview.ok ? (preview.value.message ?? 'Cannot be selected') : preview.error.message;
         }),
       }));
-  }, [rowFilter, state.agents, selectability, player]);
+  }, [rowFilter, hideChecks, freePoints, state.agents, selectability, player]);
 
   const selectableIds = useMemo(
     () => rows.filter((row) => row.blockedBy === '').map((row) => row.id),
@@ -421,7 +440,7 @@ export function AgentsView(props: {
   if (shownDetails !== undefined) {
     return (
       <DetailView id="agents" title={`Agent ${shownDetails.id}`} onClose={props.onClose}>
-        <AgentDetails agent={shownDetails} snapshot={snapshot} state={state} />
+        <AgentDetails agent={shownDetails} snapshot={snapshot} state={state} onShow={props.onShow} />
       </DetailView>
     );
   }
@@ -445,6 +464,26 @@ export function AgentsView(props: {
       : reasonOf(player.queries.previewAction({ name: 'dismissAgents', args: { agents: selected } }));
   const hirePreview = reasonOf(player.queries.previewAction({ name: 'hireAgent', args: {} }));
   const dismissReason = locked ?? terminatedReason ?? none ?? dismissPreview;
+  // AVIEW, Header: the Combat rating of the selected Agents taken as one side, as the engine computes it.
+  const selectionPreview = count === 0 ? null : player.queries.previewDeployment(null, selected);
+  const selectionCombatRating =
+    selectionPreview !== null && selectionPreview.ok ? selectionPreview.value.teamCombatRating : null;
+
+  const hideCheck = (key: keyof HideChecks, label: string) => (
+    <label className="inline hide-check">
+      <input
+        type="checkbox"
+        data-testid={`hide-${key === 'hideRecovering' ? 'recovering' : 'exhausted'}`}
+        checked={hideChecks[key]}
+        disabled={memorial}
+        onChange={() => {
+          playSound(SOUND.select);
+          setHideChecks({ ...hideChecks, [key]: !hideChecks[key] });
+        }}
+      />
+      {label}
+    </label>
+  );
 
   const rowFilterButton = (which: RowFilter, label: string, shown: number) => (
     <button
@@ -490,6 +529,11 @@ export function AgentsView(props: {
             {rowFilterButton('inBase', 'In base', state.agents.filter((agent) => agent.inBase).length)}
             {rowFilterButton('away', 'Away', state.agents.filter((agent) => agent.away).length)}
             {rowFilterButton('memorial', 'Memorial', terminated.length)}
+          </div>
+          {/* AVIEW, Row filters: below the four filters, two checkboxes hide more Agents; disabled for the Memorial. */}
+          <div className="hide-checks">
+            {hideCheck('hideRecovering', 'Hide recovering')}
+            {hideCheck('hideExhausted', `Hide with exhaustion > ${freePoints}`)}
           </div>
         </div>
       }
@@ -564,8 +608,16 @@ export function AgentsView(props: {
           Dismiss
         </Button>
         {memorial ? null : (
-          <span className="muted small" data-testid="agents-selected">
-            {count} selected
+          <span className="selection-figures">
+            <span className="muted small" data-testid="agents-selected">
+              {count} selected
+            </span>
+            {selectionCombatRating === null ? null : (
+              <span className="combat-rating" data-testid="selection-combat-rating">
+                <span className="label">Combat rating</span>
+                <span className="figure tone-accent">{selectionCombatRating}</span>
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -786,20 +838,41 @@ function Memorial(props: {
   );
 }
 
-function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: CurrentLiveWorldStateView }) {
-  const { agent, snapshot, state } = props;
-  const retired = snapshot.retired;
-  /** AVIEW, Agent details: a Terminated Agent shows its Final max health and no exhaustion. */
-  const terminated = agent.agentStatus === 'Killed' || agent.agentStatus === 'Dismissed';
-  const participation = agent.participationHistory.map((item) => {
+/** AVIEW, Participation history: one row per Investigation or Mission, with where pressing it leads. */
+interface ParticipationRow {
+  readonly key: string;
+  readonly what: string;
+  readonly faction: string;
+  readonly turn: number | null;
+  readonly outcome: string;
+  readonly target: ReportTarget | null;
+}
+
+/**
+ * AVIEW, Participation history: an Investigation by its Lead, the Lead's Faction, and its Turn started; a Mission by
+ * its Mission site, the target Faction, and its Turn deployed, the Turn whose Advance turn fought its Combat.
+ */
+export function participationRows(
+  agent: AgentView,
+  state: CurrentLiveWorldStateView,
+  retired: CurrentRetiredWorldStateView | null,
+): ParticipationRow[] {
+  const factionName = (id: string | null) =>
+    id === null ? '' : (state.factions.find((faction) => faction.id === id)?.name ?? id);
+  return agent.participationHistory.map((item) => {
     if (item.kind === 'Investigation') {
       const investigation =
         state.investigations.find((one) => one.id === item.id) ??
         retired?.investigations.find((one) => one.id === item.id);
+      // Every discovered Lead is in the Retired world state.
+      const lead = retired?.leads.find((one) => one.id === investigation?.lead);
       return {
         key: `i-${item.id}`,
         what: `Investigation · ${investigation?.leadName ?? item.id}`,
+        faction: factionName(lead?.faction ?? null),
+        turn: investigation?.turnStarted ?? null,
         outcome: investigation?.lifecycle ?? '-',
+        target: investigation === undefined ? null : { kind: 'lead', lead: investigation.lead },
       };
     }
     const mission =
@@ -810,9 +883,35 @@ function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: Curr
     return {
       key: `m-${item.id}`,
       what: `Mission · ${site?.name ?? item.id}`,
+      faction: factionName(site?.targetFaction ?? null),
+      turn: mission?.turnDeployed ?? null,
       outcome: mission?.lifecycle ?? '-',
+      target: mission === undefined ? null : { kind: 'missionSite', missionSite: mission.missionSite },
     };
   });
+}
+
+/** AVIEW, Participation history: Completed or Won in Positive, Lost in Danger, and Abandoned in Text muted. */
+function outcomeTone(outcome: string): string {
+  if (outcome === 'Won' || outcome === 'Completed') {
+    return 'tone-good';
+  }
+  if (outcome === 'Lost') {
+    return 'tone-bad';
+  }
+  return outcome === 'Abandoned' ? 'muted' : 'secondary';
+}
+
+function AgentDetails(props: {
+  agent: AgentView;
+  snapshot: Snapshot;
+  state: CurrentLiveWorldStateView;
+  onShow: (target: ReportTarget) => void;
+}) {
+  const { agent, snapshot, state } = props;
+  /** AVIEW, Agent details: a Terminated Agent shows its Final max health and no exhaustion. */
+  const terminated = agent.agentStatus === 'Killed' || agent.agentStatus === 'Dismissed';
+  const participation = participationRows(agent, state, snapshot.retired);
   return (
     <div className="stack" data-testid={`agent-details-view-${agent.id}`}>
       <dl className="pairs">
@@ -866,24 +965,41 @@ function AgentDetails(props: { agent: AgentView; snapshot: Snapshot; state: Curr
       {participation.length === 0 ? (
         <p className="muted">No Investigation or Mission yet.</p>
       ) : (
-        <Grid widths={['320px', '120px']} className="compact">
+        <Grid widths={['360px', '140px', '100px', '120px']} className="compact" testId="participation-grid">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Faction</th>
+              <th>Turn</th>
+              <th>Outcome</th>
+            </tr>
+          </thead>
           <tbody>
-            {participation.map((item) => (
-              <tr key={item.key}>
-                <td>{item.what}</td>
-                <td
-                  className={
-                    item.outcome === 'Won' || item.outcome === 'Completed'
-                      ? 'tone-good'
-                      : item.outcome === 'Lost' || item.outcome === 'Abandoned'
-                        ? 'tone-bad'
-                        : 'secondary'
-                  }
+            {participation.map((item) => {
+              const target = item.target;
+              // AVIEW, Participation history: each row leads to what it records, as a Follow.
+              // SOUNDS, Main click: pressing it opens a view.
+              const open =
+                target === null
+                  ? undefined
+                  : () => {
+                      playSound(SOUND.main);
+                      props.onShow(target);
+                    };
+              return (
+                <tr
+                  key={item.key}
+                  className={open === undefined ? undefined : 'link-row'}
+                  data-testid={`participation-${item.key}`}
+                  onClick={open}
                 >
-                  {item.outcome}
-                </td>
-              </tr>
-            ))}
+                  <td className="link-name">{item.what}</td>
+                  <td>{item.faction}</td>
+                  <td className="figure">{item.turn === null ? '' : `Turn ${item.turn}`}</td>
+                  <td className={outcomeTone(item.outcome)}>{item.outcome}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </Grid>
       )}

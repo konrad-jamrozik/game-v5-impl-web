@@ -259,7 +259,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         ? { id: 'leads', item: null }
         : target.kind === 'missionSite'
           ? { id: 'missions', item: target.missionSite }
-          : { id: 'agents', item: null };
+          : target.kind === 'agent'
+            ? { id: 'agents', item: target.agent }
+            : { id: 'agents', item: null };
 
   /**
    * SITP: selecting an item opens the Detail view that details it, with that item selected. CSCR, View trail, Start
@@ -776,6 +778,7 @@ function OpenDetailView(props: {
           state={state}
           locked={locked}
           initial={open.item}
+          onShow={props.onShow}
           onClose={onClose}
         />
       );
@@ -790,7 +793,9 @@ function OpenDetailView(props: {
           state={state}
           selected={props.selected}
           locked={locked}
+          initial={open.item}
           onSelect={props.onSelect}
+          onShow={props.onShow}
           onClose={onClose}
         />
       );

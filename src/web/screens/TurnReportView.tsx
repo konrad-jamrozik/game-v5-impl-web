@@ -22,10 +22,15 @@ import { backLabel, turnSummaryPlace } from '../view-trail.ts';
 import { Button, Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
-/** Where selecting an item of the Turn report leads. */
+/**
+ * Where following an item leads: from the Turn report, the History View, an Agent's Participation history, or a
+ * Concluded Mission site's Agent.
+ */
 export type ReportTarget =
   | { readonly kind: 'missionSite'; readonly missionSite: string }
-  | { readonly kind: 'lead'; readonly lead: string };
+  | { readonly kind: 'lead'; readonly lead: string }
+  /** MVIEW, Concluded Mission site: an Agent's details in the Agents View. */
+  | { readonly kind: 'agent'; readonly agent: string };
 
 function Section(props: { title: string; count: number; testId: string; children: ReactNode }) {
   return props.count === 0 ? null : (

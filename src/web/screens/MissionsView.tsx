@@ -32,6 +32,9 @@ import { pressHeader, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { assignmentText } from './AgentsView.tsx';
+import type { ReportTarget } from './TurnReportView.tsx';
+import { combatShare } from '../combat-share.ts';
+import { usePlaceState } from '../place.tsx';
 
 /**
  * MVIEW, Selected Mission site: each change written as what it does, e.g. "+60 money", "Panic −0.50", "Red Dawn
@@ -81,18 +84,21 @@ export function MissionsView(props: {
   state: CurrentLiveWorldStateView;
   locked: string | null;
   initial: string | null;
+  /** CSCR, View trail, Follow: opens another Detail view with an item selected. */
+  onShow: (target: ReportTarget) => void;
   onClose: () => void;
 }) {
   const { player } = theEngine();
   const { snapshot, state, locked } = props;
   // MVIEW, Mission site list: a Mission site selected from another view that is in a final state opens the View with
-  // the toggle on Finished, so that the selected Mission site is in the list.
-  const [showFinished, setShowFinished] = useState(
-    () =>
-      props.initial !== null &&
+  // the toggle on Finished, so that the selected Mission site is in the list. CSCR, View trail: both are part of the
+  // place, so that Go back shows the selected Mission site again after following one of its Agents.
+  const [showFinished, setShowFinished] = usePlaceState(
+    'showFinished',
+    props.initial !== null &&
       (snapshot.retired?.missionSites.some((site) => site.id === props.initial) ?? false),
   );
-  const [picked, setPicked] = useState<string | null>(props.initial);
+  const [picked, setPicked] = usePlaceState<string | null>('picked', props.initial);
   const [checked, setChecked] = useState<readonly string[]>([]);
 
   const factionName = (id: string) => state.factions.find((faction) => faction.id === id)?.name ?? id;
@@ -177,7 +183,7 @@ export function MissionsView(props: {
           data-testid="missions-finished"
           data-sound="select"
           onClick={() => {
-            setShowFinished((on) => !on);
+            setShowFinished(!showFinished);
             setPicked(null);
           }}
         >
@@ -221,6 +227,7 @@ export function MissionsView(props: {
             state={state}
             entries={entries}
             factionName={factionName}
+            onShow={props.onShow}
           />
         )}
         {selected?.lifecycle === 'Active' ? (
@@ -251,6 +258,7 @@ function SiteDetails(props: {
   state: CurrentLiveWorldStateView;
   entries: readonly HistoryEntry[];
   factionName: (id: string) => string;
+  onShow: (target: ReportTarget) => void;
 }) {
   const { player } = theEngine();
   const { site, snapshot, state, entries, factionName } = props;
@@ -275,8 +283,9 @@ function SiteDetails(props: {
         <dd>{site.kind}</dd>
         <dt>Origin</dt>
         <dd>{origin}</dd>
-        <dt>Target</dt>
-        <dd>{target}</dd>
+        {/* MVIEW, Selected Mission site: the target Faction under the Label "Faction", never "Target". */}
+        <dt>Faction</dt>
+        <dd data-testid="site-faction">{target}</dd>
         <dt>Turn created</dt>
         <dd className="figure">{site.turnCreated}</dd>
         {site.lifecycle === 'Active' ? (
@@ -292,7 +301,7 @@ function SiteDetails(props: {
         </dd>
       </dl>
       {site.lifecycle === 'Concluded' && record !== null ? (
-        <Participants site={site} record={record} />
+        <Participants site={site} record={record} onShow={props.onShow} />
       ) : (
         /* MVIEW, Combat ratings: the Enemies' Combat rating sits on the line of the Enemies heading and ends at the
            right edge of the Enemies table. */
@@ -359,7 +368,11 @@ function appliedNothing(c: HistoryMission['consequence']): boolean {
  * and current health at Combat start and at Combat end and its final condition, from the History entry; each side's
  * Combat rating at Combat start and at Combat end on the line of its heading.
  */
-function Participants(props: { site: MissionSiteView; record: HistoryMission }) {
+function Participants(props: {
+  site: MissionSiteView;
+  record: HistoryMission;
+  onShow: (target: ReportTarget) => void;
+}) {
   const { site, record } = props;
   const labels = enemyLabels(site.enemies);
   const side = (which: 'enemy' | 'agent') => {
@@ -392,7 +405,23 @@ function Participants(props: { site: MissionSiteView; record: HistoryMission }) 
                 data-testid={`concluded-row-${participant.id}`}
               >
                 <td className={which === 'agent' ? 'figure' : ''}>
-                  {which === 'enemy' ? (labels.get(participant.id) ?? participant.id) : participant.id}
+                  {which === 'enemy' ? (
+                    (labels.get(participant.id) ?? participant.id)
+                  ) : (
+                    // MVIEW, Concluded Mission site: an Agent's Instance ID opens its details as a Follow; it keeps
+                    // its row's colour, and the pointer resting on it underlines it.
+                    <button
+                      type="button"
+                      className="history-link figure"
+                      data-testid={`concluded-agent-${participant.id}`}
+                      data-sound="main"
+                      onClick={() => {
+                        props.onShow({ kind: 'agent', agent: participant.id });
+                      }}
+                    >
+                      {participant.id}
+                    </button>
+                  )}
                 </td>
                 <td className="num">
                   {participant.startEffectiveSkill} → {participant.endEffectiveSkill}
@@ -519,6 +548,10 @@ function Deployment(props: {
   const over = taken > state.agency.transportCap;
   const preview = team.length === 0 ? null : player.queries.previewDeployment(site.id, team);
   const refused = preview !== null && preview.ok && !preview.value.accepted ? preview.value.message : null;
+  const share = combatShare(
+    preview !== null && preview.ok ? preview.value.teamCombatRating : 0,
+    site.enemiesCombatRating,
+  );
   return (
     <div className="pane" data-testid="deployment">
       <div className="sit-group-head">
@@ -534,6 +567,12 @@ function Deployment(props: {
           value={preview !== null && preview.ok ? preview.value.teamCombatRating : 0}
           testId="team-combat-rating"
         />
+        {/* MVIEW, Deployment: the share it is of the Enemies' Combat rating, coloured by its band. */}
+        {share === null ? null : (
+          <span className={`figure combat-share ${share.tone}`} data-testid="team-combat-share">
+            · {share.percent}%
+          </span>
+        )}
       </div>
       {candidates.length === 0 ? (
         <p className="muted small">No Agent on Standby or in Training can be deployed now.</p>

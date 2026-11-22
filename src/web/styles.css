@@ -18,6 +18,7 @@
   --accent-text: #ff8a33;
   --on-accent: #1a0b00;
   --positive: #b7c77a;
+  --positive-bright: #5fe08a;
   --danger: #ff7f78;
   --danger-border: #5e2a26;
   /* VIS, Colours: Warning and Danger deep, for VIS, Agent condition. */
@@ -140,6 +141,11 @@ code {
 .good-text,
 .tone-good {
   color: var(--positive);
+}
+
+/* VIS, Colours: Positive bright, a figure comfortably past what the Player needs. */
+.tone-good-bright {
+  color: var(--positive-bright);
 }
 
 .warning-text,
@@ -496,6 +502,42 @@ input::placeholder {
 /* VIS, Alignment: text in a row of controls is centred on the row's centre line. */
 .toolbar.agents-toolbar > span {
   line-height: 36px;
+}
+
+/* AVIEW, Header: the number of selected Agents, then their Combat rating. */
+.selection-figures {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+/* AVIEW, Row filters: the Hide checkboxes below the row filters, each label 8 px right of its box. */
+.hide-checks {
+  display: flex;
+  gap: 20px;
+  margin-top: 2px;
+}
+
+.hide-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.hide-check:has(input:disabled) {
+  color: var(--text-muted);
+}
+
+/* AVIEW, Participation history: each row leads to what it records; the pointer resting on it underlines its name. */
+.link-row {
+  cursor: pointer;
+}
+
+.link-row:hover .link-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .button-pair {
@@ -1351,6 +1393,11 @@ summary {
   align-items: baseline;
   gap: 20px;
   margin-bottom: 8px;
+}
+
+/* MVIEW, Deployment: the share of the Enemies' Combat rating follows the Combat rating on its line. */
+.deploy-figures .combat-share {
+  margin-left: -12px;
 }
 
 .combat-rating-row {

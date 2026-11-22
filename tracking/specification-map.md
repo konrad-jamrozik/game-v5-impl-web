@@ -57,6 +57,9 @@
 - tests/web/enemy-labels.test.ts
 - src/web/memorial.ts
 - tests/web/memorial.test.ts
+- tests/web/combat-share.test.ts
+- src/web/screens/Campaign.tsx
+- src/web/screens/TurnReportView.tsx
 
 ## BASICAI: Basic Autopilot AI
 
@@ -554,6 +557,9 @@ No files.
 ## MVIEW: Missions View
 
 - src/web/screens/MissionsView.tsx
+- src/web/combat-share.ts
+- tests/web/combat-share.test.ts
+- src/web/place.tsx
 - src/web/deploy-table.ts
 - src/web/mission-outcome.ts
 - tests/web/mission-outcome.test.ts
