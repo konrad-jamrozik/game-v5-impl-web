@@ -21,6 +21,26 @@
 - src/engine/state/summary.ts
 - tests/foundation/history-chart-values.test.ts
 
+## APPERF: Autopilot Performance
+
+- src/engine/views/views.ts
+- src/kernel/values.ts
+- src/kernel/rational.ts
+- src/engine/session/core.ts
+- src/engine/actions/actions.ts
+- src/engine/mechanics/conditions/conditions.ts
+- src/engine/mechanics/leads/leads.ts
+- src/engine/mechanics/agents/agents.ts
+- src/engine/mechanics/combat/combat.ts
+- src/engine/turn/advance.ts
+- src/engine/rules.ts
+- src/engine/game-rules.ts
+- src/engine/player-api.ts
+- src/ai/world-state-changes.ts
+- src/ai/basic/basic-autopilot-ai.ts
+- tests/mechanics/whole-number-arithmetic.test.ts
+- tests/foundation/action-results.test.ts
+
 ## AUTO: Autopilot
 
 - src/engine/session/core.ts
