@@ -35,7 +35,7 @@ import {
 
 const agency = (state: CampaignState) => currentLiveWorldStateView(state, gdrs).agency;
 const series = (state: CampaignState) => {
-  const { moneyAtStartOfTurn, moneyAtEndOfTurn } = historyView(state).turnSeries;
+  const { moneyAtStartOfTurn, moneyAtEndOfTurn } = historyView(state, gdrs).turnSeries;
   return { start: moneyAtStartOfTurn.map((v) => v.value), end: moneyAtEndOfTurn.map((v) => v.value) };
 };
 const setMoney = (state: CampaignState, value: number, fund?: number) =>

@@ -481,6 +481,23 @@ export interface StateSummary {
   readonly servingAgents: number;
   readonly activeInvestigations: number;
   readonly activeMissionSites: number;
+  /** AGENT, Turn report: the Serving Agents by activity; together they are every Serving Agent. */
+  readonly agentActivity: AgentActivityCounts;
+  /** AGENT, Turn report: the effective skill of each Serving Agent, without its Instance ID. */
+  readonly effectiveSkills: readonly number[];
+  /** ECON, Turn report: the Agency caps. */
+  readonly caps: { readonly agentCap: number; readonly transportCap: number; readonly trainingCap: number };
+}
+
+/** AGENT, Turn report: the number of Serving Agents In transit, Recovering, and At assignment on each Assignment. */
+export interface AgentActivityCounts {
+  readonly standby: number;
+  readonly training: number;
+  readonly contracting: number;
+  readonly investigating: number;
+  readonly deployed: number;
+  readonly recovering: number;
+  readonly inTransit: number;
 }
 
 /**
@@ -515,6 +532,8 @@ export interface HistoryEntry {
   readonly actions: readonly ActionRecordItem[];
   /** The reduced form of the Turn report of the Advance turn that ended the Turn. */
   readonly report: {
+    /** ECON, Turn report: the funding the Agency income step used. */
+    readonly fundingUsed: number;
     readonly income: number;
     readonly upkeep: number;
     readonly missions: readonly {

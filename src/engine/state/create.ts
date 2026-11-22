@@ -93,7 +93,7 @@ export function createCampaignState(
       history: {
         turnReport: null,
         historyEntries: [],
-        currentTurnStart: summarize(world),
+        currentTurnStart: summarize(world, gdrs),
         // WHIST, Action record: empty in the Turn-start state.
         currentActions: [],
         // ECON, Turn series of money: Money at the start of turn for the first Turn.

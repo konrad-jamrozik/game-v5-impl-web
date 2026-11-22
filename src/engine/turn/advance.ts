@@ -793,9 +793,9 @@ export function applyAdvanceTurn(
   };
   history.turnReport = report;
   history.historyEntries.push(
-    reduceReport(report, history.currentTurnStart, summarize(before), history.currentActions),
+    reduceReport(report, history.currentTurnStart, summarize(before, gdrs), history.currentActions),
   );
-  history.currentTurnStart = summarize(world);
+  history.currentTurnStart = summarize(world, gdrs);
   // WHIST, Action record: the Advance turn moves the Turn's Action record into its History entry and starts an empty one.
   history.currentActions = [];
 }
@@ -860,6 +860,7 @@ function reduceReport(
     turnEnd,
     actions: [...actions],
     report: {
+      fundingUsed: report.income.funding,
       income: report.income.income,
       upkeep: report.upkeep.upkeep,
       missions: report.missions.map((mission, index) => {

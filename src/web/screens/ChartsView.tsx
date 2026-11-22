@@ -1,12 +1,76 @@
 /**
  * CVIEW: the Charts View. It leads with a full-width Panic chart, because Panic is how a Campaign is lost, above three
- * smaller trend charts of the resources the agency runs on, and one Faction chart for each Faction below them.
+ * smaller trend charts of the resources the agency runs on, four full-width Agency charts, and one Faction chart for
+ * each Faction below them.
  */
+import {
+  ACTIVITY_SERIES,
+  activityBars,
+  ASSET_SERIES,
+  assetLines,
+  EXPENDITURE_SERIES,
+  INCOME_SERIES,
+  moneyFlow,
+  NET_FLOW,
+  skillBands,
+} from '../agency-charts.ts';
 import { responseSitesSeries } from '../faction-activity.ts';
 import { decimalText } from '../format.ts';
 import type { Snapshot } from '../store.ts';
 import { DetailView } from './DetailView.tsx';
 import { LineChart } from './LineChart.tsx';
+import { SeriesChart } from './SeriesChart.tsx';
+
+/** CVIEW, Agency charts: four full-width charts below the trend charts and above the Faction charts. */
+function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
+  const history = snapshot.history;
+  const entries = history?.entries ?? [];
+  const open = history?.openEntry ?? null;
+  const moneyAtStart = history?.turnSeries.moneyAtStartOfTurn ?? [];
+  // ECON, Glossary: a Cap Upgrade raises the Agent cap, the Transport cap, or the Training cap.
+  const capUpgrades = new Set(
+    (snapshot.state?.agency.upgrades ?? [])
+      .filter((upgrade) => ['agent_cap', 'transport_cap', 'training_cap'].includes(upgrade.effect))
+      .map((upgrade) => upgrade.id),
+  );
+  const flow = moneyFlow(entries, moneyAtStart, capUpgrades);
+  const skills = skillBands(entries, open);
+  const assets = assetLines(entries, open, moneyAtStart);
+  return (
+    <>
+      <SeriesChart
+        title="Agents · end of Turn"
+        barSeries={ACTIVITY_SERIES}
+        bars={activityBars(entries, open)}
+        testId="agent-activity-chart"
+      />
+      <SeriesChart
+        title="Money flow"
+        barSeries={[...INCOME_SERIES, ...EXPENDITURE_SERIES]}
+        bars={flow.bars}
+        lines={[{ ...NET_FLOW, points: flow.net }]}
+        testId="money-flow-chart"
+      />
+      <SeriesChart
+        title="Assets · start of Turn"
+        lines={[
+          { ...ASSET_SERIES.money, points: assets.money },
+          { ...ASSET_SERIES.servingAgents, points: assets.servingAgents, axis: 'right' },
+          { ...ASSET_SERIES.agentCap, points: assets.agentCap, axis: 'right' },
+          { ...ASSET_SERIES.transportCap, points: assets.transportCap, axis: 'right' },
+          { ...ASSET_SERIES.trainingCap, points: assets.trainingCap, axis: 'right' },
+        ]}
+        testId="assets-chart"
+      />
+      <SeriesChart
+        title="Agents by effective skill · end of Turn"
+        barSeries={skills.series}
+        bars={skills.bars}
+        testId="skill-chart"
+      />
+    </>
+  );
+}
 
 export function ChartsView({ snapshot, onClose }: { snapshot: Snapshot; onClose: () => void }) {
   const history = snapshot.history;
@@ -45,6 +109,7 @@ export function ChartsView({ snapshot, onClose }: { snapshot: Snapshot; onClose:
             points={entries.map((entry) => ({ turn: entry.turn, value: entry.report.fundingAfter }))}
           />
         </div>
+        <AgencyCharts snapshot={snapshot} />
         {/* CVIEW, Faction charts: three side by side to a row, in the order of the Factions in Campaign state. */}
         <div className="charts charts-three">
           {(state?.factions ?? []).map((faction) => (

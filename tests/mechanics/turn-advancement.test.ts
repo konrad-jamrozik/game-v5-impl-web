@@ -56,7 +56,7 @@ const setFaction = (state: CampaignState, level: string, untilLevel: number | nu
     faction.state.turnsUntilNextOperation = untilOperation;
   });
 const series = (state: CampaignState) => {
-  const { moneyAtStartOfTurn, moneyAtEndOfTurn } = historyView(state).turnSeries;
+  const { moneyAtStartOfTurn, moneyAtEndOfTurn } = historyView(state, gdrs).turnSeries;
   return { start: moneyAtStartOfTurn.map((v) => v.value), end: moneyAtEndOfTurn.map((v) => v.value) };
 };
 
@@ -121,7 +121,7 @@ describe('TURN: examples', () => {
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 58, turnsUntilNextOperation: 13 });
     expect(series(state)).toEqual({ start: [500, 480, 520], end: [500, 480] });
     expect(state.world.current.turn).toBe(3);
-    expect(historyView(state).entries.map((entry) => entry.turn)).toEqual([1, 2]);
+    expect(historyView(state, gdrs).entries.map((entry) => entry.turn)).toEqual([1, 2]);
   });
 
   it('Deployment, Combat, return, and recovery', () => {

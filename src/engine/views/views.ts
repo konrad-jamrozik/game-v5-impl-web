@@ -482,7 +482,7 @@ export function turnReportView(state: CampaignState): TurnReport | null {
 }
 
 /** `player.queries.getHistory()`: only the History; see WHIST, Current world state, Turn report, and history. */
-export function historyView(state: CampaignState): HistoryView {
+export function historyView(state: CampaignState, gdrs: GdrCatalog): HistoryView {
   const world = state.world.current;
   const history = state.world.history;
   return {
@@ -490,7 +490,7 @@ export function historyView(state: CampaignState): HistoryView {
     openEntry: {
       turn: world.turn,
       turnStart: detach(history.currentTurnStart),
-      turnEnd: summarize(world),
+      turnEnd: summarize(world, gdrs),
       actions: detach(history.currentActions),
     },
     turnSeries: {

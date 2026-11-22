@@ -17,6 +17,8 @@
 - tests/mechanics/decimal-quantities.test.ts
 - tests/mechanics/incapacitation-agreement.test.ts
 - tests/helpers/game.ts
+- src/engine/state/summary.ts
+- tests/foundation/history-chart-values.test.ts
 
 ## AUTO: Autopilot
 
@@ -202,6 +204,9 @@ No files.
 - src/web/faction-activity.ts
 - tests/web/faction-activity.test.ts
 - src/web/styles.css
+- src/web/agency-charts.ts
+- src/web/screens/SeriesChart.tsx
+- tests/web/agency-charts.test.ts
 
 ## DCONV: Design Specification Conventions
 
@@ -274,6 +279,8 @@ No files.
 - src/engine/mechanics/agents/agents.ts
 - src/engine/mechanics/recovery/recovery.ts
 - tests/mechanics/decimal-quantities.test.ts
+- src/engine/state/summary.ts
+- tests/foundation/history-chart-values.test.ts
 
 ## EFFECT: Effect Lists
 
@@ -836,6 +843,8 @@ No files.
 - tests/web/compendium.test.ts
 - src/web/undo-redo.ts
 - tests/web/undo-redo.test.ts
+- src/web/agency-charts.ts
+- src/web/screens/SeriesChart.tsx
 
 ## WHIST: History and Turn Report
 
@@ -855,3 +864,4 @@ No files.
 - src/web/store.ts
 - src/cli/cli.ts
 - tests/cli/cli.test.ts
+- tests/foundation/history-chart-values.test.ts

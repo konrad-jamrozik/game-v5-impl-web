@@ -1498,6 +1498,66 @@ summary {
   stroke-width: 1;
 }
 
+/* CVIEW, Agency charts: full-width charts with several series and a legend in place of a current value. */
+.chart-wide figcaption {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+}
+
+.chart-wide figcaption h4 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 11px var(--font-figure);
+  color: var(--text-secondary);
+}
+
+.chart-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+}
+
+.chart-key-line {
+  height: 2px;
+}
+
+.chart-series-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart-hover {
+  fill: var(--raised);
+  opacity: 0.6;
+}
+
+.chart-details {
+  min-height: 1.4em;
+  margin: 4px 0 0;
+  font-family: var(--font-figure);
+}
+
 /* Autopilot bar, footer, overlays */
 .autopilot {
   display: flex;

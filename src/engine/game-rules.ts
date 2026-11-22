@@ -175,7 +175,7 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
     currentRetiredWorldStateView: (state) => currentRetiredWorldStateView(state, gdrs),
     campaignConfigurationView: (state) => campaignConfigurationView(state),
     turnReportView: (state) => turnReportView(state),
-    historyView: (state) => historyView(state),
+    historyView: (state) => historyView(state, gdrs),
     availableActionsView: (state) => availableActionsView(state, gdrs),
     inspect: (timeline) => inspectCampaignState(timeline),
     placeInPlay: (state) => placeInPlay(state),

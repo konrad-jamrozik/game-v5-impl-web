@@ -360,6 +360,11 @@
   final condition, each side's Combat rating at Combat start and at Combat end, and the Consequences that applied, and
   for each Expired Mission site the Consequences that applied; the History entry holds them as `participants`,
   `ratingsStart`, `ratingsEnd`, `consequence`, and `expiredConsequences`, and the Campaign save format moved to 12.
+  Specification commit 8ab7270d1c7bd338c63ae3e1cf7b93aaae00634c made a History entry keep, of the Turn-end state, the
+  Serving Agents by activity and the effective skill of each, of the Turn-start state, the three Agency caps, and the
+  funding the Agency income step used; both reduced states hold all of them as `agentActivity`, `effectiveSkills`, and
+  `caps`, so they keep one shape, which goes beyond what the specifications require, the report holds `fundingUsed`,
+  and the Campaign save format moved to 14.
 - **Options considered:** A History entry that repeats the whole Turn report; a reduced History entry.
 - **Option chosen:** A reduced History entry without the Combat log.
 - **Why:** The Combat log is the large part of a Turn report, and WHIST requires a History entry to bound what is
