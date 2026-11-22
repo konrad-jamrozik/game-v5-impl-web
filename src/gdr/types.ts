@@ -101,6 +101,7 @@ export interface EconomyParametersGdr {
   readonly hireCost: number;
   readonly upkeepPerAgent: number;
   readonly contractingIncomePerAgent: number;
+  readonly contractingSkillScale: number;
   readonly baseAgentCap: number;
   readonly baseTransportCap: number;
   readonly baseTrainingCap: number;

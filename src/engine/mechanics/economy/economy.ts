@@ -134,14 +134,16 @@ export function contractingAtAssignment<T extends AgentLike>(agents: readonly T[
   );
 }
 
-/** ECON, Agency income: the constants of the contribution rule, not GDR values. */
+/** ECON, Agency income: the constant of the contribution rule, not a GDR value. */
 export const CONTRACTING_REFERENCE_SKILL = 100;
-export const CONTRACTING_SKILL_DIVISOR = 500;
 
-/** ECON, Agency income: contribution of one Agent = contracting_income_per_agent × (1 + (effective skill − 100) / 500). */
+/**
+ * ECON, Agency income: contribution of one Agent =
+ * contracting_income_per_agent × (1 + (effective skill − 100) / contracting_skill_scale).
+ */
 export function contractingContribution(effectiveSkill: number, economy: EconomyParametersGdr): Rational {
   return q(economy.contractingIncomePerAgent).mul(
-    q(1).add(ratio(effectiveSkill - CONTRACTING_REFERENCE_SKILL, CONTRACTING_SKILL_DIVISOR)),
+    q(1).add(ratio(effectiveSkill - CONTRACTING_REFERENCE_SKILL, economy.contractingSkillScale)),
   );
 }
 

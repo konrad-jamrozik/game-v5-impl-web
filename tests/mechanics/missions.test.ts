@@ -402,10 +402,8 @@ describe('MISSION: examples', () => {
 
   it('A Won raid_hq Mission eliminates Red Dawn and cancels an Active Mission site', () => {
     let state = withAgents(newCampaign({ money: 100_000 }), 12);
-    // Two Transport cap Upgrades of +4 raise the Transport cap from 4 to 12.
-    for (let i = 0; i < 2; i += 1) {
-      state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
-    }
+    // One Transport cap Upgrade of +8 raises the Transport cap from 8 to 16.
+    state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
     state = set(state, { money: 1000 + 30, funding: 25, panicHundredths: 4000, turn: 150 });
     state = tweak(state, (world) => {
       // Money is 1000 when Mission resolution begins: income 25 and upkeep 120 come first.
@@ -417,7 +415,7 @@ describe('MISSION: examples', () => {
     const s5 = addMissionSite(s4.state, 'foil_recruitment_push', { turnsUntilExpiration: 2 });
     state = act(s5.state, 'deployAgents', { missionSite: s3.site, agents: ids.slice(0, 8) });
     state = act(state, 'deployAgents', { missionSite: s4.site, agents: ids.slice(8, 12) });
-    expect(currentLiveWorldStateView(state, gdrs).agency.transportCap).toBe(12);
+    expect(currentLiveWorldStateView(state, gdrs).agency.transportCap).toBe(16);
     const injected = { ...winning(state, s3.site), ...winning(state, s4.site) };
     const forward = advance(state, injected);
     const reversed = advance(state, injected, gdrs, (items) => [...items].reverse());
@@ -442,8 +440,8 @@ describe('MISSION: examples', () => {
   });
 
   it('Transport cap and other rejections of deployAgents', () => {
-    let state = withAgents(newCampaign({ money: 2000 }), 8);
-    const [a1, a2, a3, a4, a5, a6, a7, a8] = agentIds(state) as string[] as [
+    let state = withAgents(newCampaign({ money: 2000 }), 12);
+    const [a1, a2, a3, a4, a5, a6, a7, a8, ...fill] = agentIds(state) as string[] as [
       string,
       string,
       string,
@@ -452,6 +450,7 @@ describe('MISSION: examples', () => {
       string,
       string,
       string,
+      ...string[],
     ];
     const s6 = addMissionSite(state, 'foil_recruitment_push');
     const s7 = addMissionSite(s6.state, 'apprehend_member');
@@ -463,7 +462,8 @@ describe('MISSION: examples', () => {
       world.agents[a7]!.state.assignment = { kind: 'Recovery' };
       world.agents[a7]!.state.status = 'Recovering';
     });
-    state = act(state, 'deployAgents', { missionSite: s6.site, agents: [a1, a2, a3] });
+    // Seven Deployed Agents leave one place of the Transport cap of 8.
+    state = act(state, 'deployAgents', { missionSite: s6.site, agents: [a1, a2, a3, ...fill] });
     state = setAssignment(state, [a6], 'Training', 'InTransit');
     state = setAssignment(state, [a8], 'Contracting');
     const reject = (missionSite: string, list: string[], reason: string) =>
@@ -772,7 +772,7 @@ describe('MISSION: examples', () => {
       panicIncreaseHundredths: 0,
     });
     expect(consequencesOf('Expired', hqAssault, level5)).toMatchObject({ defeat: true });
-    expect(consequencesOf('Won', hqAssault, level5)).toMatchObject({ defeat: false, money: 1000 });
+    expect(consequencesOf('Won', hqAssault, level5)).toMatchObject({ defeat: false, money: 10000 });
   });
 
   it('GDR validation', () => {
@@ -848,7 +848,7 @@ describe('MISSION: examples', () => {
       onIgnoredOrLost: { panicIncreaseHundredths: 200, funding: -5, defeat: false },
     });
     expect(level(bootstrap, 5)).toMatchObject({
-      onWin: { money: 1000, funding: 80 },
+      onWin: { money: 10000, funding: 80 },
       onIgnoredOrLost: { panicIncreaseHundredths: 0, funding: 0, defeat: true },
     });
     // Order has no meaning, and an empty or omitted Effect list is valid and changes nothing.

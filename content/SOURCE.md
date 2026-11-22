@@ -128,6 +128,13 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `f7e5a4238e3fa5af2badee1d6d25c339de5a7efc`; every Response MissionSiteArchetype expires in 1 Advance turn and every Initiative one in 3, from commit
   `922882cbae6a6943e1fcaa59514daa83cf361d6a`; and the game-ts comments are gone. The copy is still identical to the
   specification's `content/` directory outside `content/cut/`.
+- `compendium/compendium_articles/mechanics_contracting.yaml`, `economy-and-upgrades/`,
+  `factions/faction_operation_levels.yaml`, and `missions/mission_site_archetypes.yaml`: patched unchanged from
+  specification commit `de4051b28a71b2fb6a7b01a958ef70b3e6516608` on 2026-11-21. `base_transport_cap` is 8 and
+  `transport_cap` gives +8 for 1500, from commit `8ca4932`; the new `contracting_skill_scale` is 200, from commits
+  `1abadda` and `de4051b`, which also make `training_skill_gain` +0.5, the money of a Won level 5 operation 10000, and
+  retune the Enemies of most Mission sites. The copy is still identical to the specification's `content/` directory
+  outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

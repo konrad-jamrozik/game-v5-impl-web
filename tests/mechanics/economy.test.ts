@@ -56,7 +56,7 @@ describe('ECON: examples', () => {
       money: 500,
       funding: 20,
       agentCap: 20,
-      transportCap: 4,
+      transportCap: 8,
       trainingCap: 10,
       projectedIncome: 20,
       projectedUpkeep: 40,
@@ -130,12 +130,13 @@ describe('ECON: examples', () => {
     });
     const view = currentLiveWorldStateView(state, gdrs);
     expect(view.agents.slice(0, 3).map((a) => a.effectiveSkill)).toEqual([100, 83, 91]);
-    expect(contractingContribution(83, gdrs.economy).toString()).toBe('1449/50');
-    expect(contractingContribution(91, gdrs.economy).toString()).toBe('1473/50');
-    // 20 + round down(30 + 28.98 + 29.46) = 108; rounding each contribution on its own would give 107.
-    expect(agency(state).projectedIncome).toBe(108);
+    // With contracting_skill_scale 200: 30 × (1 − 17 / 200) = 27.45 and 30 × (1 − 9 / 200) = 28.65.
+    expect(contractingContribution(83, gdrs.economy).toString()).toBe('549/20');
+    expect(contractingContribution(91, gdrs.economy).toString()).toBe('573/20');
+    // 20 + round down(30 + 27.45 + 28.65) = 106; rounding each contribution on its own would give 105.
+    expect(agency(state).projectedIncome).toBe(106);
     state = advance(state);
-    expect(state.world.history.turnReport!.income).toMatchObject({ contractingAgents: 3, income: 108 });
+    expect(state.world.history.turnReport!.income).toMatchObject({ contractingAgents: 3, income: 106 });
     expect([c1, c2, c3].map((id) => agent(state, id).state.exactExhaustionHundredths / 100)).toEqual([
       11, 48, 70,
     ]);
@@ -143,11 +144,12 @@ describe('ECON: examples', () => {
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
-    expect(agency(state).projectedIncome).toBe(78);
-    // e.g. effective skill 100, 83, and 150 give round down(91.98) = 91.
-    expect(income(0, [100, 83, 150], gdrs.economy)).toBe(91);
-    // An Agent with effective skill 0 still contributes four fifths.
-    expect(contractingContribution(0, gdrs.economy).toString()).toBe('24');
+    // 20 + round down(30 + 30 × (1 − 18 / 200)) = 20 + round down(57.3) = 77.
+    expect(agency(state).projectedIncome).toBe(77);
+    // e.g. effective skill 100, 83, and 150 give round down(94.95) = 94.
+    expect(income(0, [100, 83, 150], gdrs.economy)).toBe(94);
+    // An Agent with effective skill 0 still contributes 1 − 100 / 200, i.e. half.
+    expect(contractingContribution(0, gdrs.economy).toString()).toBe('15');
     void a4;
   });
 
@@ -308,16 +310,16 @@ describe('ECON: examples', () => {
   });
 
   it('Transport cap', () => {
-    let state = withAgents(setMoney(newCampaign(), 2000), 9);
+    let state = withAgents(setMoney(newCampaign(), 2000), 12);
     const ids = agentIds(state);
     const s1 = addMissionSite(state, 'foil_recruitment_push');
     const s2 = addMissionSite(s1.state, 'apprehend_member');
-    state = act(s2.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, 3) });
-    expectRejected(state, 'deployAgents', { missionSite: s2.site, agents: ids.slice(3, 5) }, 'transport_cap');
+    state = act(s2.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, 7) });
+    expectRejected(state, 'deployAgents', { missionSite: s2.site, agents: ids.slice(7, 9) }, 'transport_cap');
     state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
-    expect(agency(state)).toMatchObject({ money: 0, transportCap: 8 });
-    state = act(state, 'deployAgents', { missionSite: s2.site, agents: ids.slice(3, 6) });
-    expect(agency(state).deployedAgents).toBe(6);
+    expect(agency(state)).toMatchObject({ money: 500, transportCap: 16 });
+    state = act(state, 'deployAgents', { missionSite: s2.site, agents: ids.slice(7, 12) });
+    expect(agency(state).deployedAgents).toBe(12);
     state = advance(state);
     expect(agency(state).deployedAgents).toBe(0);
   });
@@ -517,20 +519,20 @@ describe('ECON: examples', () => {
     expect(health(state, a5)).toEqual([31, 31]);
     const before = state;
     state = act(state, 'purchaseUpgrade', { upgrade: 'exhaustion_recovery' }, 'player', withMaxHealth);
-    // ECON, Rate Upgrades: 5 + 1 × 1 = 6.00, 2 + 1 × 1 = 3.00, and 1 + 0.2 × 1 = 1.20, held in hundredths.
+    // ECON, Rate Upgrades: 5 + 1 × 1 = 6.00, 2 + 1 × 1 = 3.00, and 1 + 0.5 × 1 = 1.50, held in hundredths.
     expect(agency(state)).toMatchObject({ money: 2000, exhaustionRecoveryHundredths: 600 });
     state = act(state, 'purchaseUpgrade', { upgrade: 'health_recovery' }, 'player', withMaxHealth);
     expect(agency(state)).toMatchObject({ money: 1000, healthRecoveryPctHundredths: 300 });
     state = act(state, 'purchaseUpgrade', { upgrade: 'training_skill_gain' }, 'player', withMaxHealth);
-    expect(agency(state)).toMatchObject({ money: 0, trainingSkillGainHundredths: 120 });
+    expect(agency(state)).toMatchObject({ money: 0, trainingSkillGainHundredths: 150 });
     expect(agents(state)).toEqual(agents(before));
 
     // Money for Upkeep, so that the Campaign goes on to the next Advance turn; it changes no Agent value.
     state = act(state, 'addMoney', { amount: 1000 }, 'developer', withMaxHealth);
     state = advance(state, {}, withMaxHealth);
-    // a3 gains 1.20 to 101.20; a1 loses 6 Exact exhaustion to 6, exhaustion 6; a2 loses 6 to 2, exhaustion 2, and
+    // a3 gains 1.50 to 101.50; a1 loses 6 Exact exhaustion to 6, exhaustion 6; a2 loses 6 to 2, exhaustion 2, and
     // regains round up to hundredths(3 × 31 / 100) = 0.93, to 21.93 of 31.
-    expect(agent(state, a3).state.skillHundredths).toBe(10120);
+    expect(agent(state, a3).state.skillHundredths).toBe(10150);
     expect(agent(state, a1).state.exactExhaustionHundredths).toBe(600);
     expect(exhaustionOf(agent(state, a1).state)).toBe(6);
     expect(units(agent(state, a2).state, 1)).toMatchObject({
@@ -576,6 +578,9 @@ describe('ECON: examples', () => {
     expectDefective((raw) => (raw.get('agent_cap')['max_acquisitions'] = 3));
     expectDefective((raw) => (raw.get('training_cap')['price'] = -1));
     expectDefective((raw) => (raw.get('economy')['hire_cost'] = { $decimal: '12.5' }));
+    // ECON, Economy GDR validation: contracting_skill_scale is a whole number of at least 100.
+    expectDefective((raw) => (raw.get('economy')['contracting_skill_scale'] = 99));
+    expectDefective((raw) => delete raw.get('economy')['contracting_skill_scale']);
     expectDefective((raw) =>
       raw.add('economy-and-upgrades/economy_parameters.yaml', { ...raw.get('economy'), id: 'economy_two' }),
     );

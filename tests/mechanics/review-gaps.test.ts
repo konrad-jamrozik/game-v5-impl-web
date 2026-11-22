@@ -258,18 +258,18 @@ describe('FACTION: gaps', () => {
 
 describe('ECON and MISSION: gaps', () => {
   it('Transport cap: reaching the cap exactly is accepted, and one more is rejected for the cap', () => {
-    let state = withAgents(newCampaign(), 6);
+    let state = withAgents(newCampaign(), 10);
     const ids = agentIds(state);
     const s1 = addMissionSite(state, 'foil_recruitment_push');
     const s2 = addMissionSite(s1.state, 'apprehend_member');
     const s3 = addMissionSite(s2.state, 'apprehend_member', { lead: 'locate_red_dawn_safehouse' });
-    state = act(s3.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, 3) });
-    state = act(state, 'deployAgents', { missionSite: s2.site, agents: [ids[3]] });
+    state = act(s3.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, 7) });
+    state = act(state, 'deployAgents', { missionSite: s2.site, agents: [ids[7]] });
     expect(currentLiveWorldStateView(state, gdrs).agency).toMatchObject({
-      deployedAgents: 4,
-      transportCap: 4,
+      deployedAgents: 8,
+      transportCap: 8,
     });
-    expectRejected(state, 'deployAgents', { missionSite: s3.site, agents: [ids[4]] }, 'transport_cap');
+    expectRejected(state, 'deployAgents', { missionSite: s3.site, agents: [ids[8]] }, 'transport_cap');
   });
 
   it('Hiring at the Agent cap: Deployed Agents and Agents on Recovery count', () => {

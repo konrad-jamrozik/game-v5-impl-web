@@ -223,16 +223,32 @@ class Turn {
 
   /**
    * Expected income: funding plus the contributions of every Agent whose Current assignment is Contracting, each
-   * from its current effective skill, rounded down once in total as ECON, Agency income computes them. A
-   * contribution is rate × (1 + (effective skill − 100) / 500), so 500 times it is the whole number
-   * rate × (400 + effective skill). `without` leaves one Agent out.
+   * from its current effective skill, rounded down once in total as ECON, Agency income computes them.
+   * `without` leaves one Agent out.
    */
   private expectedIncome(state: CurrentLiveWorldStateView, without: string | null = null): number {
+    return this.incomeOf(
+      state,
+      state.agents.filter((agent) => agent.assignment?.kind === 'Contracting' && agent.id !== without),
+    );
+  }
+
+  /**
+   * Funding plus the contributions of `contractors`, rounded down once in total. A contribution is
+   * rate × (1 + (effective skill − 100) / scale), so scale times it is the whole number
+   * rate × (scale − 100 + effective skill).
+   */
+  private incomeOf(
+    state: CurrentLiveWorldStateView,
+    contractors: readonly { effectiveSkill: number }[],
+  ): number {
     const rate = this.data.economy['contractingIncomePerAgent'] ?? 0;
-    const timesFiveHundred = state.agents
-      .filter((agent) => agent.assignment?.kind === 'Contracting' && agent.id !== without)
-      .reduce((sum, agent) => sum + rate * (400 + agent.effectiveSkill), 0);
-    return state.agency.funding + Math.floor(timesFiveHundred / 500);
+    const scale = this.data.economy['contractingSkillScale'] ?? 1;
+    const timesScale = contractors.reduce(
+      (sum, agent) => sum + rate * (scale - 100 + agent.effectiveSkill),
+      0,
+    );
+    return state.agency.funding + Math.floor(timesScale / scale);
   }
 
   private incomeTarget(state: CurrentLiveWorldStateView): number {
@@ -380,11 +396,10 @@ class Turn {
           .filter((agent) => agent.assignment?.kind === 'Contracting')
           .map((agent) => agent.id);
         const left = new Set(recall);
-        const rate = this.data.economy['contractingIncomePerAgent'] ?? 0;
-        const timesFiveHundred = state.agents
-          .filter((agent) => agent.assignment?.kind === 'Contracting' && !left.has(agent.id))
-          .reduce((sum, agent) => sum + rate * (400 + agent.effectiveSkill), 0);
-        const incomeAfter = state.agency.funding + Math.floor(timesFiveHundred / 500);
+        const incomeAfter = this.incomeOf(
+          state,
+          state.agents.filter((agent) => agent.assignment?.kind === 'Contracting' && !left.has(agent.id)),
+        );
         if (incomeAfter < this.musterIncomeFloor(state)) {
           return null;
         }

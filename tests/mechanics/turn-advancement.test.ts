@@ -456,8 +456,8 @@ describe('TURN: examples', () => {
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
-    // It earned its income in the step, with effective skill 61: round down(30 × (1 − 39 / 500)) = 27.
-    expect(state.world.history.turnReport!.income).toMatchObject({ contractingAgents: 1, income: 20 + 27 });
+    // It earned its income in the step, with effective skill 61: round down(30 × (1 − 39 / 200)) = 24.
+    expect(state.world.history.turnReport!.income).toMatchObject({ contractingAgents: 1, income: 20 + 24 });
     state = advance(state); // arrives; recovers nothing
     expect(agent(state, a1).state.exactExhaustionHundredths / 100).toBe(70);
     state = advance(state);

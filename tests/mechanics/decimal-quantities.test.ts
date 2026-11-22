@@ -95,7 +95,7 @@ describe('ECON: Decimal increments', () => {
   it('GDR validation', () => {
     expectDefective((raw) => (raw.get('training_cap')['increment'] = { $decimal: '0.5' }));
     expectDefective((raw) => (raw.get('health_recovery')['increment'] = { $decimal: '0.125' }));
-    expect(gdrs.upgrades.find((u) => u.id === 'training_skill_gain')!.incrementHundredths).toBe(20);
+    expect(gdrs.upgrades.find((u) => u.id === 'training_skill_gain')!.incrementHundredths).toBe(50);
   });
 });
 
