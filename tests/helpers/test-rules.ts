@@ -166,6 +166,7 @@ export const testRules: GameRules<TestState> = {
   }),
   // The test game has no Retired Campaign instance and records no fact for the rest of the Campaign.
   currentRetiredWorldStateView: () => ({}),
+  worldStateChanges: () => ({}),
   campaignConfigurationView: (state) => ({ ...state.configuration }),
   turnReportView: (state) => {
     const report = state.world.history.reports.at(-1);

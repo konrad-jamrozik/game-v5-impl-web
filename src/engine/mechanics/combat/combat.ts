@@ -12,6 +12,7 @@
  */
 import {
   EngineDefect,
+  floorDivSafe,
   fromHundredths,
   must,
   q,
@@ -196,6 +197,10 @@ export function rateSide(members: readonly RatedCombatant[], combat: CombatParam
   if (members.length === 0) {
     return 0;
   }
+  const fast = rateSideInWholeNumbers(members, combat);
+  if (fast !== null) {
+    return fast;
+  }
   let sum = q(0);
   for (const member of members) {
     sum = sum.add(q(member.effectiveSkill).mul(ratingFactor(member.state, combat)));
@@ -221,6 +226,59 @@ export function rateSide(members: readonly RatedCombatant[], combat: CombatParam
     }
   }
   return toStored(lo);
+}
+
+const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+
+/**
+ * `rateSide` in ordinary whole numbers, exactly; null when a value leaves the safe-integer range or the parameters are
+ * not whole, so that `rateSide` decides it with Rational and BigInt instead. With L the least common multiple of the
+ * three rating bases, S = N / (2 × L), where N = Σ e × (w × L / bw + h × L / bh + a × L / ba) is a whole number. A
+ * side of one has n^p = 1, so its rating is ⌊N / 2L⌋; a larger side takes the binary estimate of n^(p/q) × S and
+ * corrects it until it is the largest R with (2L × R)^q ≤ N^q × n^p, decided in BigInt.
+ */
+function rateSideInWholeNumbers(
+  members: readonly RatedCombatant[],
+  combat: CombatParametersGdr,
+): number | null {
+  const bases = [combat.ratingBaseWeaponDamage, combat.ratingBaseHealth, combat.ratingBaseArmor];
+  if (!bases.every((base) => Number.isSafeInteger(base) && base > 0)) {
+    return null;
+  }
+  const [bw, bh, ba] = bases as [number, number, number];
+  const l = [bw, bh, ba].reduce((acc, base) => (acc / gcd(acc, base)) * base, 1);
+  let total = 0;
+  for (const { effectiveSkill: e, state } of members) {
+    const term = e * (state.weaponDamage * (l / bw) + state.maxHealth * (l / bh) + state.armor * (l / ba));
+    total += term;
+    if (!Number.isSafeInteger(term) || !Number.isSafeInteger(total)) {
+      return null;
+    }
+  }
+  const denominator = 2 * l;
+  const exponent = combat.ratingTeamSizeExponent.sub(1);
+  if (exponent.n === 0n || members.length === 1) {
+    return floorDivSafe(total, denominator);
+  }
+  if (exponent.n < 0n) {
+    return null;
+  }
+  const p = exponent.n;
+  const qq = exponent.d;
+  const n = BigInt(members.length);
+  const right = BigInt(total) ** qq * n ** p;
+  const fits = (r: number): boolean => r >= 0 && (BigInt(denominator) * BigInt(r)) ** qq <= right;
+  let rating = Math.floor((members.length ** (Number(p) / Number(qq)) * total) / denominator);
+  if (!Number.isSafeInteger(rating)) {
+    return null;
+  }
+  while (rating > 0 && !fits(rating)) {
+    rating -= 1;
+  }
+  while (fits(rating + 1)) {
+    rating += 1;
+  }
+  return rating;
 }
 
 /** COMBAT, Combat rating of a side: its Combatants able to fight, each weighed by its rating factor, and its size. */

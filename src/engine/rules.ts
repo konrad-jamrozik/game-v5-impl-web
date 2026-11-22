@@ -74,6 +74,11 @@ export interface GameRules<S extends ShellState> {
 
   currentLiveWorldStateView(state: S): unknown;
   currentRetiredWorldStateView(state: S): unknown;
+  /**
+   * PAPI, Action results: every change from `before` to `after` in what the two World state views return, for a
+   * gameplay action other than Advance turn.
+   */
+  worldStateChanges(before: S, after: S): unknown;
   campaignConfigurationView(state: S): unknown;
   turnReportView(state: S): unknown;
   historyView(state: S): unknown;

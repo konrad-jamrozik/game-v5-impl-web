@@ -168,6 +168,31 @@ export function toStored(value: bigint): number {
   return Number(value);
 }
 
+/**
+ * round down( n / d ) for whole numbers, exactly, without BigInt; null when a value it needs is outside the
+ * safe-integer range, so that the caller falls back to exact Rational arithmetic. The binary quotient is only a guess:
+ * it is corrected by whole-number products, which are exact while they stay in the safe-integer range.
+ */
+export function floorDivSafe(n: number, d: number): number | null {
+  if (!Number.isSafeInteger(n) || !Number.isSafeInteger(d) || d === 0) {
+    return null;
+  }
+  const sign = d < 0 ? -1 : 1;
+  const num = n * sign;
+  const den = d * sign;
+  let quotient = Math.floor(num / den);
+  if (!Number.isSafeInteger(quotient) || !Number.isSafeInteger(Math.abs(quotient) * den + den)) {
+    return null;
+  }
+  while (quotient * den > num) {
+    quotient -= 1;
+  }
+  while ((quotient + 1) * den <= num) {
+    quotient += 1;
+  }
+  return quotient;
+}
+
 /** round down( x ), as a stored quantity. */
 export function roundDown(value: RationalLike): number {
   return toStored(Rational.of(value).floor());

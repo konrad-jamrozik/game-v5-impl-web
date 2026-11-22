@@ -8,13 +8,16 @@
 import type {
   AgentView,
   AutopilotAi,
+  CommitOutcome,
   CurrentLiveWorldStateView,
   GameDataView,
   LeadView,
   MissionSiteView,
   PlayerApi,
   Result,
+  WorldStateChanges,
 } from '../../engine/player-api.ts';
+import { applyWorldStateChanges, type WorldStateViews } from '../world-state-changes.ts';
 
 /** BASICAI, Tuning parameters. */
 export interface BasicAiThresholds {
@@ -140,17 +143,41 @@ class Turn {
     return result.value;
   }
 
+  /**
+   * BASICAI, Information: both World state query results, read at the start of each step of the Turn routine and
+   * kept current within it from the changes each Player action returns; none until the next read.
+   */
+  private views: WorldStateViews | null = null;
+  /** The last step of the Turn routine whose start read the World state, so that each later step reads it again. */
+  private readStep = -1;
+
+  private read(): WorldStateViews {
+    this.views ??= {
+      live: this.unwrap(this.player.queries.getCurrentLiveWorldState()),
+      retired: this.unwrap(this.player.queries.getCurrentRetiredWorldState()),
+    };
+    return this.views;
+  }
+
   private state(): CurrentLiveWorldStateView {
-    return this.unwrap(this.player.queries.getCurrentLiveWorldState());
+    return this.read().live;
+  }
+
+  private retiredState(): WorldStateViews['retired'] {
+    return this.read().retired;
   }
 
   /** Commits an action unless the same action was rejected earlier this turn. Returns whether it committed. */
-  private async act(key: string, action: () => Promise<Result<{ committed: boolean }>>): Promise<boolean> {
+  private async act(key: string, action: () => Promise<Result<CommitOutcome>>): Promise<boolean> {
     if (this.rejected.has(key)) {
       return false;
     }
     const result = await action();
     if (result.ok) {
+      // PAPI, Action results: the changes keep the held views current; Advance turn returns none and needs a read.
+      const changes = result.value.changes as WorldStateChanges | undefined;
+      this.views =
+        changes === undefined || this.views === null ? null : applyWorldStateChanges(this.views, changes);
       return result.value.committed;
     }
     if (result.error.code === 'engagement_ended') {
@@ -330,7 +357,7 @@ class Turn {
 
   /** The Required rating share of a MissionSiteArchetype, from the Retired Missions, where every Lost one is. */
   private requiredPct(state: CurrentLiveWorldStateView, archetype: string): number {
-    const retired = this.unwrap(this.player.queries.getCurrentRetiredWorldState());
+    const retired = this.retiredState();
     return requiredRatingSharePct(
       this.t,
       [...retired.missionSites, ...state.missionSites],
@@ -576,7 +603,7 @@ class Turn {
         this.player.actions.assignAgentsToInvestigation(active.id, team),
       );
     }
-    const retired = this.unwrap(this.player.queries.getCurrentRetiredWorldState());
+    const retired = this.retiredState();
     // A Lead whose completion wins the Campaign comes first, then one whose completion makes a Faction Eliminated,
     // directly or through a Won Mission at the Mission site it creates, then the one furthest along its Faction's
     // chain, read as its Initiative operation level; a Lead with no level comes after every Lead with one.
@@ -691,12 +718,17 @@ class Turn {
         return upgrade !== undefined && buy(upgrade.id, upgrade.price);
       }
     }
-    // 3. Hire up to the Agent cap.
+    // 3. Hire up to the Agent cap, in one hireAgents: as many as hiring one at a time would, each one judged against
+    // the Savings floor with the upkeep of every Agent hired so far and itself.
     if (agency.servingAgents < agency.agentCap) {
-      return (
-        affordable(agency.hireCost, agency.projectedUpkeep + upkeepPerAgent) &&
-        (await this.act('hire', () => this.player.actions.hireAgent()))
-      );
+      let count = 0;
+      while (
+        agency.servingAgents + count < agency.agentCap &&
+        affordable((count + 1) * agency.hireCost, agency.projectedUpkeep + (count + 1) * upkeepPerAgent)
+      ) {
+        count += 1;
+      }
+      return count > 0 && (await this.act('hire', () => this.player.actions.hireAgents(count)));
     }
     // 4. Raise the Agent cap.
     return agentCapUpgrade !== undefined && buy(agentCapUpgrade.id, agentCapUpgrade.price);
@@ -704,17 +736,28 @@ class Turn {
 
   /** Makes the next Player action of the Turn routine. Returns false once it has advanced the turn. */
   private async next(): Promise<boolean> {
-    const state = this.state();
+    const steps: readonly ((state: CurrentLiveWorldStateView, muster: Muster) => Promise<boolean>)[] = [
+      (state, muster) => this.deployAndMuster(state, muster),
+      (state) => this.refillReserve(state),
+      (state, muster) => this.investigate(state, muster),
+      (state, muster) => this.contractAndTrain(state, muster),
+      (state) => this.purchase(state),
+    ];
+    // BASICAI, Information: the World state is read at the start of each step; within a step, and for an earlier step
+    // looked at again, the views held are current from the changes each Player action returned.
+    const enter = (step: number) => {
+      if (step > this.readStep) {
+        this.readStep = step;
+        this.views = null;
+      }
+      return this.state();
+    };
     // Every step reads the Muster as step 1 forms it from the current state.
-    const muster = this.muster(state);
-    if (
-      (await this.deployAndMuster(state, muster)) ||
-      (await this.refillReserve(state)) ||
-      (await this.investigate(state, muster)) ||
-      (await this.contractAndTrain(state, muster)) ||
-      (await this.purchase(state))
-    ) {
-      return true;
+    const muster = this.muster(enter(0));
+    for (const [index, step] of steps.entries()) {
+      if (await step(enter(index), muster)) {
+        return true;
+      }
     }
     await this.act('advance turn', () => this.player.actions.advanceTurn());
     return false;

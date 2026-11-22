@@ -401,10 +401,10 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         }
         takeStep('redo');
       } else if (key === 'h') {
-        if (actions?.hireAgent.available === true) {
+        if (actions?.hireAgents.available === true) {
           playSound(SOUND.main);
         }
-        act(() => player.actions.hireAgent());
+        act(() => player.actions.hireAgents(1));
       } else if (key === 's') {
         order('Standby');
       } else if (key === 'c') {

@@ -179,7 +179,7 @@ describe('CVIEW: Agency charts', () => {
   it('splits each ended Turn into income, expenditures, and a Net flow from the Turn series of money', () => {
     const ended = entry(1, {
       actions: [
-        { operation: 'hireAgent', args: {}, moneyChange: -100 },
+        { operation: 'hireAgents', args: { count: 1 }, moneyChange: -100 },
         { operation: 'purchaseUpgrade', args: { upgrade: 'agent_cap' }, moneyChange: -300 },
         { operation: 'purchaseUpgrade', args: { upgrade: 'armor' }, moneyChange: -200 },
         { operation: 'addMoney', args: { amount: 1000 }, moneyChange: 1000 },

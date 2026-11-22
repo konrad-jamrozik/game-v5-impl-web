@@ -135,7 +135,7 @@ describe('ENDING: examples', () => {
       catalog,
     );
     expectRejected(state, 'addMoney', { amount: 100 }, 'campaign_ended', 'developer', catalog);
-    expectRejected(state, 'hireAgent', {}, 'campaign_ended', 'player', catalog);
+    expectRejected(state, 'hireAgents', { count: 1 }, 'campaign_ended', 'player', catalog);
     const again = advanceTurnOf(state, catalog);
     expect(isRejection(again) && again.code).toBe('campaign_ended');
     const view = currentLiveWorldStateView(state, catalog);
@@ -317,7 +317,7 @@ describe('ENDING: examples', () => {
     const limit = gdrs.endingParameters.defeatAtPanicPct * 100;
     let state = set(newCampaign({ money: 1_000_000 }), { panicHundredths: limit, turn: 5 });
     state = act(state, 'assignAgents', { agents: [agentIds(state)[0]], assignment: 'Training' });
-    state = act(state, 'hireAgent');
+    state = act(state, 'hireAgents', { count: 1 });
     expectRejected(
       state,
       'assignAgents',

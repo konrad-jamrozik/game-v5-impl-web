@@ -31,7 +31,7 @@ describe('HVIEW: the current Turn row', () => {
       entry: null,
     });
 
-    ok(await engine.player.actions.hireAgent());
+    ok(await engine.player.actions.hireAgents(1));
     const hired = ok(engine.player.queries.getCurrentLiveWorldState());
     rows = rowsOf(engine);
     expect(rows[0]).toMatchObject({

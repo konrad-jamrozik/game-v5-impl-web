@@ -8,8 +8,8 @@ describe('WHIST: Action record', () => {
     const start = newCampaign({ money: 500 });
     expect(start.world.history.currentActions).toEqual([]);
     const { state: withSite, site } = addMissionSite(start, 'apprehend_member');
-    let state = act(withSite, 'hireAgent');
-    state = act(state, 'hireAgent');
+    let state = act(withSite, 'hireAgents', { count: 1 });
+    state = act(state, 'hireAgents', { count: 1 });
     const [a1, a2, a3] = agentIds(withSite) as [string, string, string];
     const deployed = act(state, 'deployAgents', { missionSite: site, agents: [a1, a2, a3] });
     expect(deployed.world.history.currentActions.at(-1)).toEqual({
@@ -21,8 +21,8 @@ describe('WHIST: Action record', () => {
     const ended = advance(state);
     const entry = ended.world.history.historyEntries.at(-1)!;
     expect(entry.actions).toEqual([
-      { operation: 'hireAgent', args: {}, moneyChange: -gdrs.economy.hireCost },
-      { operation: 'hireAgent', args: {}, moneyChange: -gdrs.economy.hireCost },
+      { operation: 'hireAgents', args: { count: 1 }, moneyChange: -gdrs.economy.hireCost },
+      { operation: 'hireAgents', args: { count: 1 }, moneyChange: -gdrs.economy.hireCost },
     ]);
     expect(ended.world.history.currentActions).toEqual([]);
     expect(historyView(ended, gdrs).entries.at(-1)!.actions).toHaveLength(2);
@@ -46,8 +46,8 @@ describe('WHIST: Open History entry', () => {
     // Before the first committed Advance turn, the Open History entry of Turn 1 is all getHistory() returns.
     expect(historyView(start, gdrs).entries).toEqual([]);
     expect(historyView(start, gdrs).openEntry).toMatchObject({ turn: 1, actions: [] });
-    const once = act(start, 'hireAgent');
-    const twice = act(once, 'hireAgent');
+    const once = act(start, 'hireAgents', { count: 1 });
+    const twice = act(once, 'hireAgents', { count: 1 });
     const open = historyView(twice, gdrs).openEntry;
     expect(open.actions).toHaveLength(2);
     expect(open.turnStart).toEqual(start.world.history.currentTurnStart);

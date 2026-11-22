@@ -51,11 +51,11 @@ async function viaApi(): Promise<unknown> {
   committed('new', await session.campaign.create({ seed: SEED }));
   committed('assign', await player.actions.assignAgents(['agent-2', 'agent-3'], 'Contracting'));
   committed('investigate', await player.actions.startInvestigation('criminal_organizations', ['agent-4']));
-  committed('hire', await player.actions.hireAgent());
+  committed('hire', await player.actions.hireAgents(1));
   committed('next', await player.actions.advanceTurn());
   committed('next', await player.actions.advanceTurn());
   committed('assign', await player.actions.assignAgents(['agent-5'], 'Training'));
-  committed('hire', await player.actions.hireAgent());
+  committed('hire', await player.actions.hireAgents(1));
   committed('undo', await session.timeline.undoAction());
   committed('next', await player.actions.advanceTurn());
   session.developer.enable();

@@ -3,7 +3,7 @@
  * exhaustion, and Agent creation. Every function
  * receives only the values it needs; see DEC-003.
  */
-import { EngineDefect, fromHundredths, roundDown, roundUp } from '../../../kernel/index.ts';
+import { EngineDefect, floorDivSafe, fromHundredths, roundDown, roundUp } from '../../../kernel/index.ts';
 import type { AgentArchetypeGdr, AgentParametersGdr, ArmorGdr, WeaponGdr } from '../../../gdr/index.ts';
 import type { Agent, AgentState, Assignment } from '../../state/types.ts';
 
@@ -132,7 +132,9 @@ export function enemyCombatantValues(enemy: {
 
 /** AGENT, Exhaustion and Exact exhaustion: exhaustion = round up( Exact exhaustion ), a whole number. */
 export function exhaustionOf(combatant: Pick<CombatantValues, 'exactExhaustionHundredths'>): number {
-  return roundUp(fromHundredths(combatant.exactExhaustionHundredths));
+  // round up( x / 100 ) = −round down( −x / 100 ), in whole numbers while they stay safe.
+  const fast = floorDivSafe(-combatant.exactExhaustionHundredths, 100);
+  return fast === null ? roundUp(fromHundredths(combatant.exactExhaustionHundredths)) : -fast;
 }
 
 /**
@@ -141,6 +143,16 @@ export function exhaustionOf(combatant: Pick<CombatantValues, 'exactExhaustionHu
  * effective skill = round down( skill × current health × penalty factor / (effective max health × 100) )
  */
 export function effectiveSkill(combatant: CombatantValues, parameters: AgentParametersGdr): number {
+  // In hundredths: skill × current health × penalty / (effective max health × 100) = s × h × penalty / (m × 10^6).
+  // The whole-number form is exact while its products stay in the safe-integer range; past it, Rational takes over.
+  const penalty = penaltyFactor(exhaustionOf(combatant), parameters);
+  const fast = floorDivSafe(
+    combatant.skillHundredths * combatant.currentHealthHundredths * penalty,
+    combatant.maxHealth * 1_000_000,
+  );
+  if (fast !== null) {
+    return fast;
+  }
   return roundDown(
     fromHundredths(combatant.skillHundredths)
       .mul(fromHundredths(combatant.currentHealthHundredths))

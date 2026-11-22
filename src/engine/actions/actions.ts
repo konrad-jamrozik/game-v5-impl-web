@@ -51,7 +51,7 @@ import {
 /** The names of the gameplay actions of `player.actions`, other than Advance turn. */
 export const PLAYER_ACTIONS = [
   'assignAgents',
-  'hireAgent',
+  'hireAgents',
   'dismissAgents',
   'purchaseUpgrade',
   'startInvestigation',
@@ -289,12 +289,17 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
   return null;
 }
 
-/** ECON, Hiring Agents. */
-function hireAgent(world: CurrentWorldState, _args: Args, gdrs: GdrCatalog): Rejection | null {
-  if (world.agency.state.money < gdrs.economy.hireCost) {
+/** ECON, Hiring Agents: `count` Agents in one Player action, rejected as a whole when they do not all fit. */
+function hireAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
+  const count = args['count'];
+  if (!isWhole(count) || count < 1) {
+    return reject('invalid_count', 'The count must be a whole number of at least 1.', 'invalid_input');
+  }
+  const cost = count * gdrs.economy.hireCost;
+  if (!Number.isSafeInteger(cost) || world.agency.state.money < cost) {
     return reject(
       'not_enough_money',
-      `Hiring costs ${gdrs.economy.hireCost} and the Agency has ${world.agency.state.money}.`,
+      `Hiring ${count} ${count === 1 ? 'Agent costs' : 'Agents costs'} ${cost} and the Agency has ${world.agency.state.money}.`,
     );
   }
   // Nothing has changed yet in this action, so the state it started from gives the same count without a draft per Agent.
@@ -303,11 +308,16 @@ function hireAgent(world: CurrentWorldState, _args: Args, gdrs: GdrCatalog): Rej
     : world.agents;
   const serving = countServing(Object.values(agents).map((agent) => agent.state));
   const cap = agencyCaps(gdrs.economy, gdrs.upgrades, world.agency.state.acquisitions).agentCap;
-  if (serving >= cap) {
-    return reject('agent_cap', `The Agency employs ${serving} Agents and the Agent cap is ${cap}.`);
+  if (serving + count > cap) {
+    return reject(
+      'agent_cap',
+      `The Agency employs ${serving} Agents, so hiring ${count} would pass the Agent cap of ${cap}.`,
+    );
   }
-  world.agency.state.money -= gdrs.economy.hireCost;
-  addAgent(world, gdrs);
+  world.agency.state.money -= cost;
+  for (let i = 0; i < count; i += 1) {
+    addAgent(world, gdrs);
+  }
   return null;
 }
 
@@ -667,11 +677,15 @@ function dispatchAction(
   const args: Args =
     typeof record.args === 'object' && record.args !== null ? (record.args as Args) : ({} satisfies Args);
   if (record.surface === 'player') {
+    // DEC-089: a Timeline entry written before hiring took a count names `hireAgent`, which hired one Agent.
+    if (record.name === 'hireAgent') {
+      return hireAgents(world, { count: 1 }, gdrs);
+    }
     switch (record.name as PlayerActionName) {
       case 'assignAgents':
         return assignAgents(world, args, gdrs);
-      case 'hireAgent':
-        return hireAgent(world, args, gdrs);
+      case 'hireAgents':
+        return hireAgents(world, args, gdrs);
       case 'dismissAgents':
         return dismissAgents(world, args, gdrs);
       case 'purchaseUpgrade':

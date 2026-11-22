@@ -263,7 +263,7 @@ export function moneyFlow(
     let other = 0;
     for (const item of entry.actions) {
       const spent = -item.moneyChange;
-      if (item.operation === 'hireAgent') {
+      if (item.operation === 'hireAgents' || item.operation === 'hireAgent') {
         hiring += spent;
       } else if (item.operation === 'purchaseUpgrade') {
         if (capUpgrades.has(upgradeOf(item.args))) {

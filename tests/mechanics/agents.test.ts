@@ -219,7 +219,7 @@ describe('AGENT: examples', () => {
 
   it('Transit: hired Agent', () => {
     let state = newCampaign();
-    state = act(state, 'hireAgent');
+    state = act(state, 'hireAgents', { count: 1 });
     const a5 = agentIds(state).at(-1)!;
     expect(agent(state, a5).constants.turnHired).toBe(1);
     expect(units(agent(state, a5).state)).toMatchObject({

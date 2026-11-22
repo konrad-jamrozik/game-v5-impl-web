@@ -16,13 +16,13 @@ describe('CINST: Instance IDs', () => {
     // A dismissed Agent keeps its number: the next hire takes the number after the last one created.
     const next = `agent-${roster + 1}`;
     ok(await engine.player.actions.dismissAgents(['agent-2']));
-    ok(await engine.player.actions.hireAgent());
+    ok(await engine.player.actions.hireAgents(1));
     expect(ids()).toContain(next);
     expect(ids()).not.toContain('agent-2');
 
     ok(await engine.session.timeline.undoAction());
     expect(ids()).not.toContain(next);
-    ok(await engine.player.actions.hireAgent());
+    ok(await engine.player.actions.hireAgents(1));
     expect(ids()).toContain(next);
   });
 

@@ -130,7 +130,7 @@ async function musterCampaign(
     actions: {
       ...real.actions,
       // No Agent is hired, because a hired Agent In transit to Standby would also join the Agent reserve.
-      hireAgent: async () => ({
+      hireAgents: async () => ({
         ok: false,
         error: { code: 'rejected', message: 'This test hires no Agent.', reason: 'not_enough_money' },
       }),

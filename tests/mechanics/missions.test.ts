@@ -128,7 +128,7 @@ describe('MISSION: examples', () => {
       state: { lifecycle: 'Deployed', currentTeam: ids },
     });
     const other = addMissionSite(state, 'foil_recruitment_push');
-    state = act(other.state, 'hireAgent');
+    state = act(other.state, 'hireAgents', { count: 1 });
     expectRejected(
       state,
       'deployAgents',

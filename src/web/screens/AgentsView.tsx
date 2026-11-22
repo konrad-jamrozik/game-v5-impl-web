@@ -462,7 +462,7 @@ export function AgentsView(props: {
     selected.length === 0
       ? null
       : reasonOf(player.queries.previewAction({ name: 'dismissAgents', args: { agents: selected } }));
-  const hirePreview = reasonOf(player.queries.previewAction({ name: 'hireAgent', args: {} }));
+  const hirePreview = reasonOf(player.queries.previewAction({ name: 'hireAgents', args: { count: 1 } }));
   const dismissReason = locked ?? terminatedReason ?? none ?? dismissPreview;
   // AVIEW, Header: the Combat rating of the selected Agents taken as one side, as the engine computes it.
   const selectionPreview = count === 0 ? null : player.queries.previewDeployment(null, selected);
@@ -547,7 +547,7 @@ export function AgentsView(props: {
           testId="hire"
           disabledReason={locked ?? hirePreview}
           onClick={() => {
-            act(() => player.actions.hireAgent());
+            act(() => player.actions.hireAgents(1));
           }}
         >
           Hire · {state.agency.hireCost}

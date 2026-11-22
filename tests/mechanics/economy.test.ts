@@ -110,7 +110,7 @@ describe('ECON: examples', () => {
     });
     expect(money(state)).toBe(turn2);
 
-    state = act(state, 'hireAgent');
+    state = act(state, 'hireAgents', { count: 1 });
     expect(money(state)).toBe(turn2 - economy.hireCost);
     const a5 = agentIds(state)[roster]!;
     expect(agency(state)).toMatchObject({
@@ -240,7 +240,7 @@ describe('ECON: examples', () => {
     expect(money(state)).toBe(15 - upkeep);
     expect(series(state).start.at(-1)).toBe(15 - upkeep);
     expect(state.world.current.ending).toBe('Defeat');
-    expectRejected(state, 'hireAgent', {}, 'campaign_ended');
+    expectRejected(state, 'hireAgents', { count: 1 }, 'campaign_ended');
     // In another Campaign, with money 15, addMoney removes money but never below 0.
     state = setMoney(newCampaign(), 15, 0);
     state = act(state, 'addMoney', { amount: -15 }, 'developer');
@@ -248,7 +248,7 @@ describe('ECON: examples', () => {
     expectRejected(state, 'addMoney', { amount: -1 }, 'negative_money', 'developer');
     expect(money(state)).toBe(0);
     state = act(state, 'addMoney', { amount: economy.hireCost + 25 }, 'developer');
-    state = act(state, 'hireAgent');
+    state = act(state, 'hireAgents', { count: 1 });
     expect(money(state)).toBe(25);
   });
 
@@ -298,7 +298,7 @@ describe('ECON: examples', () => {
       world.agents[ids[0]!]!.state.status = 'InTransit';
     });
     // The Killed Agent does not count, and the Agent In transit does: the Serving Agents are exactly at the cap.
-    expectRejected(state, 'hireAgent', {}, 'agent_cap');
+    expectRejected(state, 'hireAgents', { count: 1 }, 'agent_cap');
     state = act(state, 'purchaseUpgrade', { upgrade: 'agent_cap' });
     expect(agency(state)).toMatchObject({
       money: (added + 1) * hire,
@@ -306,19 +306,48 @@ describe('ECON: examples', () => {
       servingAgents: cap,
     });
     for (let i = 0; i < added; i += 1) {
-      state = act(state, 'hireAgent');
+      state = act(state, 'hireAgents', { count: 1 });
     }
     // At the raised cap, with money for one more Agent, hiring is rejected for the cap.
     expect(agency(state)).toMatchObject({ money: hire, servingAgents: cap + added });
-    expectRejected(state, 'hireAgent', {}, 'agent_cap');
+    expectRejected(state, 'hireAgents', { count: 1 }, 'agent_cap');
 
-    expect(money(act(setMoney(newCampaign(), hire), 'hireAgent'))).toBe(0);
-    expectRejected(setMoney(newCampaign(), hire - 1), 'hireAgent', {}, 'not_enough_money');
+    expect(money(act(setMoney(newCampaign(), hire), 'hireAgents', { count: 1 }))).toBe(0);
+    expectRejected(setMoney(newCampaign(), hire - 1), 'hireAgents', { count: 1 }, 'not_enough_money');
 
     let over = withAgents(newCampaign(), cap);
     over = act(over, 'addAgents', { count: 3 }, 'developer');
     expect(agency(over)).toMatchObject({ servingAgents: cap + 3, agentCap: cap });
-    expectRejected(over, 'hireAgent', {}, 'agent_cap');
+    expectRejected(over, 'hireAgents', { count: 1 }, 'agent_cap');
+  });
+
+  it('Hiring Agents: count Agents in one Player action, rejected as a whole when they do not all fit', () => {
+    const hire = gdrs.economy.hireCost;
+    const cap = agency(newCampaign()).agentCap;
+    const start = setMoney(newCampaign(), 5 * hire);
+    const serving = agency(start).servingAgents;
+    const three = act(start, 'hireAgents', { count: 3 });
+    // The same World state as three hires of one Agent each.
+    let one = start;
+    for (let i = 0; i < 3; i += 1) {
+      one = act(one, 'hireAgents', { count: 1 });
+    }
+    expect(three.world.current).toEqual(one.world.current);
+    expect(agency(three)).toMatchObject({ money: 2 * hire, servingAgents: serving + 3 });
+    // Money for 5 Agents does not cover 6, and the Agent cap leaves room for no more than cap - serving.
+    expectRejected(start, 'hireAgents', { count: 6 }, 'not_enough_money');
+    expectRejected(
+      setMoney(newCampaign(), cap * hire),
+      'hireAgents',
+      { count: cap - serving + 1 },
+      'agent_cap',
+    );
+    expectRejected(start, 'hireAgents', { count: 0 }, 'invalid_count');
+    expectRejected(start, 'hireAgents', { count: 1.5 }, 'invalid_count');
+    // DEC-089: a Timeline entry written before hiring took a count names hireAgent and hires one Agent.
+    expect(act(start, 'hireAgent').world.current).toEqual(
+      act(start, 'hireAgents', { count: 1 }).world.current,
+    );
   });
 
   it('Dismissing Agents', () => {
@@ -460,7 +489,7 @@ describe('ECON: examples', () => {
     expect(money(state)).toBe(500);
     expect(damages(state)).toEqual([serving(2), serving(2), serving(2), serving(2), base, base]);
     // Agents created after the purchases, by hiring or by the cheat operation, have the same effective weapon damage.
-    state = act(state, 'hireAgent');
+    state = act(state, 'hireAgents', { count: 1 });
     state = act(state, 'addAgents', { count: 1 }, 'developer');
     expect(money(state)).toBe(500 - economy.hireCost);
     expect(
@@ -523,7 +552,7 @@ describe('ECON: examples', () => {
       finalArmor: armored(1),
     });
     // A new Agent has the effective armor of every other Serving Agent.
-    state = act(state, 'hireAgent');
+    state = act(state, 'hireAgents', { count: 1 });
     expect(effectiveValuesOf(state, agentIds(state).at(-1)!).armor).toBe(armored(2));
     // The first Combat after the purchase starts every Agent with the raised current armor; no Enemy is affected: each
     // starts with the base armor of its own Armor.
@@ -599,7 +628,7 @@ describe('ECON: examples', () => {
     ]);
     // AGENT, Effective max health and current health: the purchase rewrites no Agent value.
     expect(agents(state)).toEqual(agents(beforePurchase));
-    state = act(state, 'hireAgent', {}, 'player', withMaxHealth);
+    state = act(state, 'hireAgents', { count: 1 }, 'player', withMaxHealth);
     expect(money(state)).toBe(ratePrices);
     const a5 = agentIds(state).at(-1)!;
     expect(agent(state, a5).state).toMatchObject({

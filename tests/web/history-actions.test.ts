@@ -19,7 +19,7 @@ const item = (operation: string, args: unknown, moneyChange = 0): ActionRecordIt
 describe('HVIEW: Player actions list', () => {
   it('groups consecutive equal items into one line with their totals', () => {
     const actions = [
-      ...Array.from({ length: 4 }, () => item('hireAgent', {}, -50)),
+      ...Array.from({ length: 4 }, () => item('hireAgents', { count: 1 }, -50)),
       ...Array.from({ length: 3 }, () => item('purchaseUpgrade', { upgrade: 'agent_cap' }, -200)),
     ];
     expect(actionLines(actions, names)).toEqual([
@@ -29,10 +29,25 @@ describe('HVIEW: Player actions list', () => {
     expect(expenditures(actions)).toBe(800);
   });
 
+  it('joins consecutive hireAgents items whatever their count, and counts an item written as hireAgent as one Agent', () => {
+    const actions = [
+      item('hireAgents', { count: 12 }, -600),
+      item('hireAgents', { count: 1 }, -50),
+      item('hireAgent', {}, -50),
+      item('purchaseUpgrade', { upgrade: 'agent_cap' }, -200),
+      item('hireAgents', { count: 3 }, -150),
+    ];
+    expect(actionLines(actions, names)).toEqual([
+      { numbers: '1–3', text: 'Hired 14 Agents', moneyChange: -700 },
+      { numbers: '4', text: 'Bought 1 Agent cap Upgrade', moneyChange: -200 },
+      { numbers: '5', text: 'Hired 3 Agents', moneyChange: -150 },
+    ]);
+  });
+
   it('says what each operation did, in the singular for a count of 1', () => {
     const lines = actionLines(
       [
-        item('hireAgent', {}, -50),
+        item('hireAgents', { count: 1 }, -50),
         item('assignAgents', { agents: ['a1', 'a2', 'a3', 'a4', 'a5'], assignment: 'Contracting' }),
         item('startInvestigation', { lead: 'locate_red_dawn_courier', agents: ['a6', 'a7'] }),
         item('assignAgentsToInvestigation', { investigation: 'i1', agents: ['a8'] }),

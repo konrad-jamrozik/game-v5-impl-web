@@ -54,9 +54,9 @@ describe('IndexedDB storage', () => {
     const factory = new IDBFactory();
     const first = await start(factory);
     ok(await first.session.campaign.create({ seed: 'web-seed' }));
-    ok(await first.player.actions.hireAgent());
+    ok(await first.player.actions.hireAgents(1));
     ok(await first.player.actions.advanceTurn());
-    ok(await first.player.actions.hireAgent());
+    ok(await first.player.actions.hireAgents(1));
     ok(await first.session.globalConfiguration.set('musicVolume', 30));
     const before = ok(first.player.queries.getCurrentLiveWorldState());
     const campaignId = ok(first.session.getStatus()).campaignId;

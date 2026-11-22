@@ -229,6 +229,8 @@ export interface CommitOutcome {
    * AUTO, Autopilot limits. It is neither a Player action nor a rejected action.
    */
   readonly withheld?: true;
+  /** For a Player API action other than Advance turn, what it changed; see PAPI, Action results. */
+  readonly changes?: unknown;
 }
 
 /** A Campaign state as a Campaign save stores it, so that values a JSON text cannot hold do not count. */
@@ -1597,8 +1599,11 @@ export class EngineCore<S extends ShellState> {
       if (isRejection(next)) {
         return fail(next.code, next.message, next.reason);
       }
+      // PAPI, Action results: a Player API action returns what it changed; an action with no effect changed nothing.
+      const changes = (after: S) =>
+        record.surface === 'player' ? { changes: this.rules.worldStateChanges(state, after) } : {};
       if (next === state) {
-        return ok({ committed: false });
+        return ok({ committed: false, ...changes(state) });
       }
       await this.removeAbandonedAutosaves(campaign);
       commitEntry(campaign, entry, next, this.env.newId());
@@ -1606,7 +1611,7 @@ export class EngineCore<S extends ShellState> {
       await this.writeCurrentAutosave(failures);
       await this.afterCommit(principal, false, failures);
       this.changed();
-      return ok({ committed: true }, failures);
+      return ok({ committed: true, ...changes(next) }, failures);
     });
   }
 

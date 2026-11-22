@@ -41,17 +41,42 @@ function text(item: ActionRecordItem, key: string): string {
   return typeof value === 'string' ? value : String(value);
 }
 
+/** The Agents a hiring item hired; DEC-089: an item written before hiring took a count hired one. */
+function hiredCount(item: ActionRecordItem): number {
+  const count = arg(item, 'count');
+  return item.operation === 'hireAgent' ? 1 : typeof count === 'number' ? count : 0;
+}
+
+/** HVIEW, Player actions list: whether two consecutive items are one line. */
+function sameLine(a: ActionRecordItem, b: ActionRecordItem): boolean {
+  const hires = (item: ActionRecordItem) => item.operation === 'hireAgents' || item.operation === 'hireAgent';
+  if (hires(a) || hires(b)) {
+    return hires(a) && hires(b);
+  }
+  return a.operation === b.operation && JSON.stringify(a.args) === JSON.stringify(b.args);
+}
+
 function agentCount(item: ActionRecordItem): number {
   const agents = arg(item, 'agents');
   return Array.isArray(agents) ? agents.length : 0;
 }
 
 /** HVIEW, Player actions list: what one line says, for a group of `count` equal consecutive items. */
-function lineText(item: ActionRecordItem, count: number, money: number, names: ActionNames): string {
+function lineText(
+  item: ActionRecordItem,
+  group: readonly ActionRecordItem[],
+  money: number,
+  names: ActionNames,
+): string {
+  const count = group.length;
   const agents = plural(agentCount(item), 'Agent');
   switch (item.operation) {
+    case 'hireAgents':
     case 'hireAgent':
-      return `Hired ${plural(count, 'Agent')}`;
+      return `Hired ${plural(
+        group.reduce((sum, each) => sum + hiredCount(each), 0),
+        'Agent',
+      )}`;
     case 'dismissAgents':
       return `Dismissed ${agents}`;
     case 'purchaseUpgrade':
@@ -77,27 +102,23 @@ function lineText(item: ActionRecordItem, count: number, money: number, names: A
 
 /**
  * HVIEW, Player actions list: one line per item of the Action record, in its order, with consecutive items that name
- * the same operation with the same arguments as one line, whose count and money change are their totals.
+ * the same operation with the same arguments as one line, and so consecutive `hireAgents` items whatever their
+ * `count`, whose count and money change are their totals.
  */
 export function actionLines(actions: readonly ActionRecordItem[], names: ActionNames): ActionLine[] {
   const lines: ActionLine[] = [];
   let start = 0;
   while (start < actions.length) {
     const first = actions[start] as ActionRecordItem;
-    const key = JSON.stringify(first.args);
     let end = start + 1;
-    while (
-      end < actions.length &&
-      (actions[end] as ActionRecordItem).operation === first.operation &&
-      JSON.stringify((actions[end] as ActionRecordItem).args) === key
-    ) {
+    while (end < actions.length && sameLine(first, actions[end] as ActionRecordItem)) {
       end += 1;
     }
     const group = actions.slice(start, end);
     const money = group.reduce((sum, item) => sum + item.moneyChange, 0);
     lines.push({
       numbers: end - start === 1 ? `${start + 1}` : `${start + 1}–${end}`,
-      text: lineText(first, group.length, money, names),
+      text: lineText(first, group, money, names),
       moneyChange: money,
     });
     start = end;

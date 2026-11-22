@@ -263,7 +263,7 @@ describe('ECON and MISSION: gaps', () => {
     });
     const site = addMissionSite(state, 'apprehend_member');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: ids.slice(1, 3) });
-    expectRejected(state, 'hireAgent', {}, 'agent_cap');
+    expectRejected(state, 'hireAgents', { count: 1 }, 'agent_cap');
   });
 
   it('COMBAT, Combat inputs: a Combat reads the effective weapon damage and effective max health of an Agent', () => {
@@ -302,7 +302,7 @@ describe('ECON and MISSION: gaps', () => {
   it('Weapon damage Upgrade: a later purchase also raises Agents created after an earlier one', () => {
     let state = newCampaign({ money: 5000 });
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    state = act(state, 'hireAgent');
+    state = act(state, 'hireAgents', { count: 1 });
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
     // Every Agent, the hired one too, has its base weapon damage plus two Increments.
     const base = gdrs.weapons.get(gdrs.agentArchetype.weapon)!.damage;

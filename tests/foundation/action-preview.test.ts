@@ -21,7 +21,7 @@ describe('PAPI, Action preview', () => {
       { name: 'assignAgents', args: { agents: [a1], assignment: 'Contracting' } },
       { name: 'assignAgents', args: { agents: [a2], assignment: 'Standby' } },
       { name: 'assignAgents', args: { agents: [], assignment: 'Training' } },
-      { name: 'hireAgent', args: {} },
+      { name: 'hireAgents', args: { count: 1 } },
       { name: 'dismissAgents', args: { agents: [a1] } },
     ];
     for (const request of requests) {
@@ -36,7 +36,7 @@ describe('PAPI, Action preview', () => {
           ? await actions['assignAgents']!(request.args['agents'], request.args['assignment'])
           : request.name === 'dismissAgents'
             ? await actions['dismissAgents']!(request.args['agents'])
-            : await actions['hireAgent']!();
+            : await actions['hireAgents']!(request.args['count']);
       expect(result.ok).toBe(preview.available);
       if (!result.ok) {
         expect(preview.message).toBe(result.error?.message);

@@ -149,7 +149,7 @@ describe('Terminal CLI', () => {
     ok(await viaApi.player.actions.advanceTurn());
     ok(await viaApi.player.actions.advanceTurn());
     await viaApi.session.timeline.undoAction();
-    ok(await viaApi.player.actions.hireAgent());
+    ok(await viaApi.player.actions.hireAgents(1));
     ok(await viaApi.player.actions.advanceTurn());
 
     expect(ok(viaCli.player.queries.getCurrentLiveWorldState())).toEqual(

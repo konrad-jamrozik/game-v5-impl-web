@@ -2,6 +2,7 @@
 
 ## AGENT: Agents
 
+- tests/mechanics/whole-number-arithmetic.test.ts
 - src/engine/mechanics/agents/
 - src/engine/actions/actions.ts
 - src/engine/turn/advance.ts
@@ -63,6 +64,8 @@
 
 ## BASICAI: Basic Autopilot AI
 
+- src/ai/world-state-changes.ts
+- tests/foundation/action-results.test.ts
 - src/ai/
 - tests/engine/basic-autopilot-ai.test.ts
 - tests/engine/campaign.test.ts
@@ -91,6 +94,7 @@
 
 ## COMBAT: Combat
 
+- tests/mechanics/whole-number-arithmetic.test.ts
 - src/engine/mechanics/combat/
 - src/engine/state/types.ts
 - src/engine/views/views.ts
@@ -597,6 +601,7 @@ No files.
 
 ## NUMBERS: Numbers
 
+- tests/mechanics/whole-number-arithmetic.test.ts
 - src/kernel/rational.ts
 - src/kernel/values.ts
 - src/kernel/errors.ts
@@ -617,6 +622,8 @@ No files.
 
 ## PAPI: Player API
 
+- src/ai/world-state-changes.ts
+- tests/foundation/action-results.test.ts
 - src/engine/player-api.ts
 - src/engine/index.ts
 - src/engine/session/core.ts

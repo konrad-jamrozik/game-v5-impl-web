@@ -68,6 +68,7 @@ import type {
   AgencyView,
   AgentView,
   AvailableActionsView,
+  CollectionChanges,
   ConsequenceView,
   CampaignConfigurationView,
   CurrentLiveWorldStateView,
@@ -82,6 +83,7 @@ import type {
   LeadView,
   MissionSiteView,
   MissionView,
+  WorldStateChanges,
 } from '../player-api.ts';
 import { reject, type Rejection } from '../result.ts';
 import type { ActionRecord } from '../rules.ts';
@@ -260,7 +262,13 @@ function missionOfSite(world: CurrentWorldState, siteId: string): Mission | null
   return Object.values(world.missions).find((mission) => mission.constants.missionSite === siteId) ?? null;
 }
 
-function missionSiteView(site: MissionSite, world: CurrentWorldState, gdrs: GdrCatalog): MissionSiteView {
+/** `missionBySite`, when given, is the Mission of each Mission site of `world`, so that no Mission is searched for. */
+function missionSiteView(
+  site: MissionSite,
+  world: CurrentWorldState,
+  gdrs: GdrCatalog,
+  missionBySite?: ReadonlyMap<string, Mission>,
+): MissionSiteView {
   const archetype = must(
     gdrs.missionSiteArchetypes.find((item) => item.id === site.archetype),
     `MissionSiteArchetype ${site.archetype}`,
@@ -294,7 +302,8 @@ function missionSiteView(site: MissionSite, world: CurrentWorldState, gdrs: GdrC
     ),
     rewards: consequenceView(consequencesOf('Won', archetype, level)),
     penalties: consequenceView(consequencesOf('Lost', archetype, level)),
-    mission: missionOfSite(world, site.id)?.id ?? null,
+    mission:
+      (missionBySite === undefined ? missionOfSite(world, site.id) : missionBySite.get(site.id))?.id ?? null,
   };
 }
 
@@ -462,13 +471,7 @@ function siteIsCurrent(site: MissionSite): boolean {
 export function currentLiveWorldStateView(state: CampaignState, gdrs: GdrCatalog): CurrentLiveWorldStateView {
   const world = state.world.current;
   return {
-    turn: world.turn,
-    panicHundredths: world.panicHundredths,
-    panicLimit: gdrs.endingParameters.defeatAtPanicPct,
-    ending:
-      world.ending === null || world.endingTurn === null
-        ? null
-        : { ending: world.ending, reasons: [...world.endingReasons], turn: world.endingTurn },
+    ...currentLiveScalars(world, gdrs),
     agency: agencyView(world, gdrs),
     agents: agentViews(
       Object.values(world.agents).filter((agent) => isServing(agent.state)),
@@ -504,12 +507,230 @@ export function currentRetiredWorldStateView(
     investigations: Object.values(world.investigations)
       .filter((investigation) => investigation.state.lifecycle !== 'Active')
       .map((investigation) => investigationView(investigation, world, gdrs)),
-    missionSites: Object.values(world.missionSites)
-      .filter((site) => !siteIsCurrent(site))
-      .map((site) => missionSiteView(site, world, gdrs)),
-    missions: Object.values(world.missions)
-      .filter((mission) => mission.state.lifecycle !== 'Deployed')
-      .map((mission) => missionView(mission, world)),
+    missionSites: retiredSites(world).map((site) =>
+      missionSiteView(site, world, gdrs, missionsBySite(world)),
+    ),
+    missions: retiredMissions(world).map((mission) => missionView(mission, world)),
+  };
+}
+
+const retiredSites = (world: CurrentWorldState): MissionSite[] =>
+  Object.values(world.missionSites).filter((site) => !siteIsCurrent(site));
+const retiredMissions = (world: CurrentWorldState): Mission[] =>
+  Object.values(world.missions).filter((mission) => mission.state.lifecycle !== 'Deployed');
+const retiredInvestigations = (world: CurrentWorldState): Investigation[] =>
+  Object.values(world.investigations).filter((investigation) => investigation.state.lifecycle !== 'Active');
+
+/** The Mission at each Mission site that has one, read once rather than searched for each Mission site. */
+function missionsBySite(world: CurrentWorldState): ReadonlyMap<string, Mission> {
+  return new Map(Object.values(world.missions).map((mission) => [mission.constants.missionSite, mission]));
+}
+
+/**
+ * The changes of one collection of a World state view: the elements whose view differs, compared as values, and the
+ * order of all of them when elements entered or left it. `same` tells, from the state alone, that an element's view
+ * cannot have changed, so that a long collection that an action leaves alone is not built again.
+ */
+function collectionChanges<E extends { readonly id: string }, V extends { readonly id: string }>(
+  before: readonly E[],
+  after: readonly E[],
+  viewBefore: (element: E) => V,
+  viewAfter: (element: E) => V,
+  same: (was: E, now: E) => boolean,
+): CollectionChanges<V> | undefined {
+  const was = new Map(before.map((element) => [element.id, element]));
+  const changed: V[] = [];
+  for (const element of after) {
+    const old = was.get(element.id);
+    if (old !== undefined && same(old, element)) {
+      continue;
+    }
+    const view = viewAfter(element);
+    if (old === undefined || JSON.stringify(viewBefore(old)) !== JSON.stringify(view)) {
+      changed.push(view);
+    }
+  }
+  const membership =
+    before.length !== after.length || after.some((element, index) => before[index]?.id !== element.id);
+  if (changed.length === 0 && !membership) {
+    return undefined;
+  }
+  return membership ? { changed, order: after.map((element) => element.id) } : { changed };
+}
+
+/** The changes of a collection of Agent views; cached views show by identity which Agents did not change. */
+function agentChanges(
+  before: readonly Agent[],
+  beforeWorld: CurrentWorldState,
+  after: readonly Agent[],
+  afterWorld: CurrentWorldState,
+  gdrs: GdrCatalog,
+): CollectionChanges<AgentView> | undefined {
+  const viewsBefore = new Map(agentViews(before, beforeWorld, gdrs).map((view) => [view.id, view]));
+  const viewsAfter = new Map(agentViews(after, afterWorld, gdrs).map((view) => [view.id, view]));
+  const view = (views: ReadonlyMap<string, AgentView>, agent: Agent) =>
+    must(views.get(agent.id), `Agent ${agent.id}`);
+  return collectionChanges(
+    before,
+    after,
+    (agent) => view(viewsBefore, agent),
+    (agent) => view(viewsAfter, agent),
+    (was, now) => view(viewsBefore, was) === view(viewsAfter, now),
+  );
+}
+
+/**
+ * PAPI, Action results: every change from `before` to `after` in what `currentLiveWorldStateView` and
+ * `currentRetiredWorldStateView` return. Within a Turn, a Retired Campaign instance other than an Agent changes only
+ * when its own object or a Campaign instance its view reads changes, so the long Retired collections are compared by
+ * object identity; Agent views are cached, so identity shows which changed; the short collections of the Live world
+ * state and the Leads are built again and compared.
+ */
+export function worldStateChanges(
+  before: CampaignState,
+  after: CampaignState,
+  gdrs: GdrCatalog,
+): WorldStateChanges {
+  const b = before.world.current;
+  const a = after.world.current;
+  const liveBefore = currentLiveScalars(b, gdrs);
+  const liveAfter = currentLiveScalars(a, gdrs);
+  const scalar = <K extends keyof typeof liveAfter>(key: K) =>
+    JSON.stringify(liveBefore[key]) === JSON.stringify(liveAfter[key]) ? {} : { [key]: liveAfter[key] };
+  const always = () => false;
+  const serving = (world: CurrentWorldState) =>
+    Object.values(world.agents).filter((agent) => isServing(agent.state));
+  const notServing = (world: CurrentWorldState) =>
+    Object.values(world.agents).filter((agent) => !isServing(agent.state));
+  const activeInvestigations = (world: CurrentWorldState) =>
+    Object.values(world.investigations).filter((investigation) => investigation.state.lifecycle === 'Active');
+  const currentSites = (world: CurrentWorldState) =>
+    Object.values(world.missionSites).filter((site) => siteIsCurrent(site));
+  const deployedMissions = (world: CurrentWorldState) =>
+    Object.values(world.missions).filter((mission) => mission.state.lifecycle === 'Deployed');
+  const sitesBefore = missionsBySite(b);
+  const sitesAfter = missionsBySite(a);
+  // What a Mission site's view reads besides the GDRs: itself, its Enemies, the Investigation it came from, its Mission.
+  const siteDeps = (site: MissionSite, world: CurrentWorldState, missions: ReadonlyMap<string, Mission>) => [
+    site,
+    ...site.state.enemies.map((id) => world.enemies[id]),
+    site.constants.origin.kind === 'Investigation'
+      ? world.investigations[site.constants.origin.investigation]
+      : null,
+    missions.get(site.id) ?? null,
+  ];
+  const sameDeps = (x: readonly unknown[], y: readonly unknown[]) =>
+    x.length === y.length && x.every((item, index) => item === y[index]);
+  const investigationDeps = (investigation: Investigation, world: CurrentWorldState) => [
+    investigation,
+    ...investigation.state.currentTeam.map((id) => world.agents[id]),
+  ];
+  const leadsMayChange =
+    b.investigations !== a.investigations ||
+    b.missions !== a.missions ||
+    b.missionSites !== a.missionSites ||
+    b.factions !== a.factions ||
+    b.discoveredLeads !== a.discoveredLeads;
+  // An unchanged collection is left out rather than given as undefined.
+  const entries = <T extends object>(value: T) =>
+    Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as {
+      [K in keyof T]?: Exclude<T[K], undefined>;
+    };
+  return {
+    live: {
+      ...scalar('turn'),
+      ...scalar('panicHundredths'),
+      ...scalar('panicLimit'),
+      ...scalar('ending'),
+      agency: agencyView(a, gdrs),
+      ...entries({
+        agents: agentChanges(serving(b), b, serving(a), a, gdrs),
+        investigations: collectionChanges(
+          activeInvestigations(b),
+          activeInvestigations(a),
+          (investigation) => investigationView(investigation, b, gdrs),
+          (investigation) => investigationView(investigation, a, gdrs),
+          always,
+        ),
+        missionSites: collectionChanges(
+          currentSites(b),
+          currentSites(a),
+          (site) => missionSiteView(site, b, gdrs, sitesBefore),
+          (site) => missionSiteView(site, a, gdrs, sitesAfter),
+          always,
+        ),
+        missions: collectionChanges(
+          deployedMissions(b),
+          deployedMissions(a),
+          (mission) => missionView(mission, b),
+          (mission) => missionView(mission, a),
+          always,
+        ),
+        factions: collectionChanges(
+          Object.values(b.factions),
+          Object.values(a.factions),
+          (faction) =>
+            must(
+              factionViews(b, gdrs).find((view) => view.id === faction.id),
+              'Faction',
+            ),
+          (faction) =>
+            must(
+              factionViews(a, gdrs).find((view) => view.id === faction.id),
+              'Faction',
+            ),
+          (was, now) => was === now,
+        ),
+      }),
+    },
+    retired: entries({
+      leads: leadsMayChange
+        ? collectionChanges(
+            leadViews(b, gdrs),
+            leadViews(a, gdrs),
+            (lead) => lead,
+            (lead) => lead,
+            always,
+          )
+        : undefined,
+      agents: agentChanges(notServing(b), b, notServing(a), a, gdrs),
+      investigations: collectionChanges(
+        retiredInvestigations(b),
+        retiredInvestigations(a),
+        (investigation) => investigationView(investigation, b, gdrs),
+        (investigation) => investigationView(investigation, a, gdrs),
+        (was, now) => sameDeps(investigationDeps(was, b), investigationDeps(now, a)),
+      ),
+      missionSites: collectionChanges(
+        retiredSites(b),
+        retiredSites(a),
+        (site) => missionSiteView(site, b, gdrs, sitesBefore),
+        (site) => missionSiteView(site, a, gdrs, sitesAfter),
+        (was, now) => sameDeps(siteDeps(was, b, sitesBefore), siteDeps(now, a, sitesAfter)),
+      ),
+      missions: collectionChanges(
+        retiredMissions(b),
+        retiredMissions(a),
+        (mission) => missionView(mission, b),
+        (mission) => missionView(mission, a),
+        (was, now) =>
+          was === now &&
+          b.missionSites[was.constants.missionSite] === a.missionSites[now.constants.missionSite],
+      ),
+    }),
+  };
+}
+
+/** The values of the Live world state view that are not collections. */
+function currentLiveScalars(world: CurrentWorldState, gdrs: GdrCatalog) {
+  return {
+    turn: world.turn,
+    panicHundredths: world.panicHundredths,
+    panicLimit: gdrs.endingParameters.defeatAtPanicPct,
+    ending:
+      world.ending === null || world.endingTurn === null
+        ? null
+        : { ending: world.ending, reasons: [...world.endingReasons], turn: world.endingTurn },
   };
 }
 
@@ -576,7 +797,7 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
   return {
     campaignEnded: ended,
     advanceTurn: ended ? endedReason : availability(null),
-    hireAgent: ended ? endedReason : availability(tryAction(world, gdrs, 'hireAgent', {})),
+    hireAgents: ended ? endedReason : availability(tryAction(world, gdrs, 'hireAgents', { count: 1 })),
     purchaseUpgrade: gdrs.upgrades.map((upgrade) => ({
       upgrade: upgrade.id,
       ...(ended

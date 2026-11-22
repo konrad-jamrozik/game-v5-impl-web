@@ -399,7 +399,8 @@ export interface ActionAvailability {
 export interface AvailableActionsView {
   readonly campaignEnded: boolean;
   readonly advanceTurn: ActionAvailability;
-  readonly hireAgent: ActionAvailability;
+  /** Whether `hireAgents` of one Agent would succeed. */
+  readonly hireAgents: ActionAvailability;
   readonly purchaseUpgrade: readonly ({ readonly upgrade: string } & ActionAvailability)[];
   /** The Agents that can be ordered. */
   readonly assignableAgents: readonly string[];
@@ -559,6 +560,48 @@ export interface PlayerActionRequest {
   readonly args: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * The changes one collection of a World state query result went through: every element that entered it or whose
+ * Player-visible information changed, as the query now returns it, and, only when elements entered or left it, the
+ * Instance IDs of all its elements in the order the query now returns them.
+ */
+export interface CollectionChanges<T extends { readonly id: string }> {
+  readonly changed: readonly T[];
+  readonly order?: readonly string[];
+}
+
+/**
+ * PAPI, Action results: every change a successful gameplay action made to what `getCurrentLiveWorldState()` and
+ * `getCurrentRetiredWorldState()` return. A property that is absent is unchanged; the Agency is always present.
+ * Applying the changes to both results from before the action gives exactly both results after it.
+ */
+export interface WorldStateChanges {
+  readonly live: {
+    readonly turn?: number;
+    readonly panicHundredths?: number;
+    readonly panicLimit?: number;
+    readonly ending?: CurrentLiveWorldStateView['ending'];
+    readonly agency: AgencyView;
+    readonly agents?: CollectionChanges<AgentView>;
+    readonly investigations?: CollectionChanges<InvestigationView>;
+    readonly missionSites?: CollectionChanges<MissionSiteView>;
+    readonly missions?: CollectionChanges<MissionView>;
+    readonly factions?: CollectionChanges<FactionView>;
+  };
+  readonly retired: {
+    readonly leads?: CollectionChanges<LeadView>;
+    readonly agents?: CollectionChanges<AgentView>;
+    readonly investigations?: CollectionChanges<InvestigationView>;
+    readonly missionSites?: CollectionChanges<MissionSiteView>;
+    readonly missions?: CollectionChanges<MissionView>;
+  };
+}
+
+/** What a gameplay action other than Advance turn returns: whether it committed, and what it changed. */
+export interface ActionOutcome extends CommitOutcome {
+  readonly changes: WorldStateChanges;
+}
+
 /** Player API: ordinary gameplay queries and actions. */
 export interface PlayerApi {
   readonly queries: {
@@ -590,16 +633,18 @@ export interface PlayerApi {
     previewAction(action: PlayerActionRequest): Result<ActionAvailability>;
   };
   readonly actions: {
-    assignAgents(agents: readonly string[], assignment: SimpleAssignment): Promise<Result<CommitOutcome>>;
-    hireAgent(): Promise<Result<CommitOutcome>>;
-    dismissAgents(agents: readonly string[]): Promise<Result<CommitOutcome>>;
-    purchaseUpgrade(upgrade: string): Promise<Result<CommitOutcome>>;
-    startInvestigation(lead: string, agents: readonly string[]): Promise<Result<CommitOutcome>>;
+    assignAgents(agents: readonly string[], assignment: SimpleAssignment): Promise<Result<ActionOutcome>>;
+    /** ECON, Hiring Agents: hires `count` Agents in one Player action, or none when they do not all fit. */
+    hireAgents(count: number): Promise<Result<ActionOutcome>>;
+    dismissAgents(agents: readonly string[]): Promise<Result<ActionOutcome>>;
+    purchaseUpgrade(upgrade: string): Promise<Result<ActionOutcome>>;
+    startInvestigation(lead: string, agents: readonly string[]): Promise<Result<ActionOutcome>>;
     assignAgentsToInvestigation(
       investigation: string,
       agents: readonly string[],
-    ): Promise<Result<CommitOutcome>>;
-    deployAgents(missionSite: string, agents: readonly string[]): Promise<Result<CommitOutcome>>;
+    ): Promise<Result<ActionOutcome>>;
+    deployAgents(missionSite: string, agents: readonly string[]): Promise<Result<ActionOutcome>>;
+    /** Returns no changes; see PAPI, Action results. */
     advanceTurn(): Promise<Result<CommitOutcome>>;
   };
 }

@@ -95,7 +95,7 @@ const HELP = `Commands
   Look       live | retired | campaignconfig | agents | leads | investigations | sites | missions | factions
              upgrades | report | history | actions | gamedata | articles | term <text...>
              preview <site> <agent...>
-  Act        assign <Standby|Contracting|Training> <agent...> | hire | dismiss <agent...> | buy <upgrade>
+  Act        assign <Standby|Contracting|Training> <agent...> | hire [count] | dismiss <agent...> | buy <upgrade>
              investigate <lead> <agent...> | join <investigation> <agent...> | deploy <site> <agent...> | next
   Timeline   timeline | undo | redo | undoall | redoall | autosaves | back | forward
   Autopilot  ais | auto <ai> <limit> | engage <ai> <limit> | autostatus <engagement> | disengage <engagement>
@@ -294,7 +294,7 @@ export function createCli(engine: Engine, out: CliOutput) {
       case 'assign':
         return print(command, await player.actions.assignAgents(rest, first as 'Standby'));
       case 'hire':
-        return print(command, await player.actions.hireAgent());
+        return print(command, await player.actions.hireAgents(first === '' ? 1 : Number(first)));
       case 'dismiss':
         return print(command, await player.actions.dismissAgents(args));
       case 'buy':

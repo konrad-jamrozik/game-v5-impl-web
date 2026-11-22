@@ -67,7 +67,7 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
     expect(ok(engine.session.getStatus())).toMatchObject({ devMode: false, campaignEnded: true });
     // After a Campaign ending every Player action is rejected and every query keeps answering.
     expect(errorCode(await engine.player.actions.advanceTurn())).toBe('campaign_ended');
-    expect(errorCode(await engine.player.actions.hireAgent())).toBe('campaign_ended');
+    expect(errorCode(await engine.player.actions.hireAgents(1))).toBe('campaign_ended');
     expect(ok(engine.player.queries.getHistory()).entries).toHaveLength(state.turn - 1);
     expect(ok(engine.player.queries.getTurnReport())?.ending?.ending).toBe('Defeat');
     expect((await engine.session.saves.save()).ok).toBe(true);
@@ -251,7 +251,7 @@ describe('DETERM and TIMELINE with the real game', () => {
               expect((await engine.player.actions.purchaseUpgrade('no_such_upgrade')).ok).toBe(false);
               expect((await engine.player.actions.deployAgents('nowhere', ['nobody'])).ok).toBe(false);
             } else if (step === 'hire') {
-              committed = (await engine.player.actions.hireAgent()).ok;
+              committed = (await engine.player.actions.hireAgents(1)).ok;
             } else if (step === 'upgrade') {
               committed = (await engine.player.actions.purchaseUpgrade('training_cap')).ok;
             } else if (agent !== undefined && step === 'contract') {

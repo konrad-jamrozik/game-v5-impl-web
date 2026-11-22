@@ -30,6 +30,7 @@ import {
   revealedCompendiumView,
   revealedLeadsView,
   turnReportView,
+  worldStateChanges,
 } from './views/views.ts';
 
 function isWholeAtLeastZero(value: unknown): value is number {
@@ -173,6 +174,7 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
 
     currentLiveWorldStateView: (state) => currentLiveWorldStateView(state, gdrs),
     currentRetiredWorldStateView: (state) => currentRetiredWorldStateView(state, gdrs),
+    worldStateChanges: (before, after) => worldStateChanges(before, after, gdrs),
     campaignConfigurationView: (state) => campaignConfigurationView(state),
     turnReportView: (state) => turnReportView(state),
     historyView: (state) => historyView(state, gdrs),

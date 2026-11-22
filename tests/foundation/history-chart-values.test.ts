@@ -8,7 +8,7 @@ describe('WHIST: History entry values for the Agency charts', () => {
     const start = newCampaign({ money: 500 });
     const { state: withSite, site } = addMissionSite(start, 'apprehend_member');
     const [a1, a2, a3] = agentIds(withSite) as [string, string, string];
-    let state = act(withSite, 'hireAgent');
+    let state = act(withSite, 'hireAgents', { count: 1 });
     state = act(state, 'deployAgents', { missionSite: site, agents: [a1, a2, a3] });
 
     // The Open History entry's Turn-end part follows the Current world state.

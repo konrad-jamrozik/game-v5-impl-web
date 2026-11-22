@@ -1836,3 +1836,41 @@
   specification or GDR change and one was a defect caught, while a mutation test showed the suite catches most planted
   defects that play would not show. Tests aimed at Hidden properties keep that protection at less upkeep.
 - **Links:** None.
+
+## DEC-089: A Timeline entry or Action record item named `hireAgent` hires one Agent
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** SAVES, Game build compatibility: "Backward compatibility and migration of Campaign
+  saves across Game builds are not required. A Game build may reject a Campaign save written by a different Game
+  build."; ECON, Hiring Agents: "The Player action `player.actions.hireAgents(count)` hires `count` Agents at once".
+- **Description:** Before Specification revision 851e963 the action was `hireAgent()`, and the Game build did not
+  change its version when it was renamed, so a Campaign save written before it still names `hireAgent` in its Timeline
+  entries and History. Replay commits such an entry as `hireAgents` of 1 Agent, and the History View and the Money
+  flow chart read such an item as hiring one Agent, joined with neighbouring `hireAgents` items into one line.
+- **Options considered:** Read the old name as `hireAgents` of 1; reject such a Campaign save as written by another
+  Game build.
+- **Option chosen:** Read the old name as `hireAgents` of 1.
+- **Why:** It keeps every earlier Campaign save loadable at the cost of one alias, and `hireAgents` of 1 leaves the
+  same World state that `hireAgent()` did.
+- **Links:** None.
+
+## DEC-090: The form of Action results
+
+- **Category:** Asked by the specifications
+- **Affected specifications:** PAPI, Action results: "A successful action returns every change it made to what
+  `getCurrentLiveWorldState()` and `getCurrentRetiredWorldState()` return"; ENG, API hierarchy.
+- **Description:** Each `player.actions` operation other than `advanceTurn()` returns `changes`, a
+  `WorldStateChanges` with a `live` and a `retired` part. Each part gives the values that are not collections only
+  when they changed, the Agency always, and for each collection a `CollectionChanges`: the views of the elements that
+  entered it or changed, and, only when elements entered or left it, the Instance IDs of all its elements in query
+  order. A collection that did not change is left out. `src/ai/world-state-changes.ts` applies the changes to both
+  query results. The engine finds the changes without building every view twice: Agent views are cached by the Agent
+  they show, so identity shows which changed; within a Turn a Retired Campaign instance other than an Agent changes
+  only with its own object or one its view reads, so the Retired collections are compared by those objects; the short
+  Live collections and the Leads are built again and compared as values.
+- **Options considered:** Changed elements with the new order only when membership changed; the full new order of
+  every collection on every action; the full results of both queries.
+- **Option chosen:** Changed elements with the new order only when membership changed.
+- **Why:** An action changes few elements of a Campaign of thousands, and the order is needed only when an element
+  entered or left a collection, e.g. a hire or a dismissal, so most actions return a few views and no order.
+- **Links:** None.

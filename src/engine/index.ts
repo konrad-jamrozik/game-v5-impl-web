@@ -5,6 +5,7 @@
 import { bootstrapGdrCatalog, buildGdrCatalog, GAME_BUILD, type RawGdrFile } from '../gdr/index.ts';
 import { createGameRules } from './game-rules.ts';
 import type {
+  ActionOutcome,
   AutopilotAi,
   AvailableActionsView,
   CompendiumArticleView,
@@ -216,8 +217,9 @@ export interface Engine {
 }
 
 function playerApi(core: EngineCore<CampaignState>, principal: Principal): PlayerApi {
+  // PAPI, Action results: the core returns the changes of every Player API action, so the outcome is an ActionOutcome.
   const act = (name: string, args: Record<string, unknown>) =>
-    core.commitAction(principal, { surface: 'player', name, args });
+    core.commitAction(principal, { surface: 'player', name, args }) as Promise<Result<ActionOutcome>>;
   return {
     queries: {
       getCurrentLiveWorldState: () =>
@@ -246,7 +248,7 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
     },
     actions: {
       assignAgents: (agents, assignment) => act('assignAgents', { agents: [...agents], assignment }),
-      hireAgent: () => act('hireAgent', {}),
+      hireAgents: (count) => act('hireAgents', { count }),
       dismissAgents: (agents) => act('dismissAgents', { agents: [...agents] }),
       purchaseUpgrade: (upgrade) => act('purchaseUpgrade', { upgrade }),
       startInvestigation: (lead, agents) => act('startInvestigation', { lead, agents: [...agents] }),
