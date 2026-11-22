@@ -76,11 +76,11 @@ export interface CombatParametersGdr {
   /** COMBAT, Target selection: the Selection weight at exactly the preferred hit Probability; a whole number. */
   readonly targetBaseWeight: number;
   readonly targetPreferredHitChance: Rational;
-  /** COMBAT, Combat rating: with ratingBaseArmor, the max health plus armor at which the toughness half is 1. */
+  /** COMBAT, Combat rating: the effective max health at which the health term of the rating factor is 1. */
   readonly ratingBaseHealth: number;
-  /** COMBAT, Combat rating: with ratingBaseHealth, the max health plus armor at which the toughness half is 1. */
+  /** COMBAT, Combat rating: the effective armor at which the armor term of the rating factor is 1. */
   readonly ratingBaseArmor: number;
-  /** COMBAT, Combat rating: the effective weapon damage at which the attack half of the rating factor is 1. */
+  /** COMBAT, Combat rating: the effective weapon damage at which the attack term of the rating factor is 1. */
   readonly ratingBaseWeaponDamage: number;
   /** COMBAT, Combat rating: the exponent of the number of a side's Combatants able to fight; from 1 to 2. */
   readonly ratingTeamSizeExponent: Rational;

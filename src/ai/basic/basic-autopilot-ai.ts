@@ -28,8 +28,16 @@ export interface BasicAiThresholds {
   readonly incomeTargetPct: number;
   /** The Savings floor, in turns of half the projected upkeep. */
   readonly savingsFloorTurns: number;
-  /** The Combat rating a team needs, as a Percent value of the Enemies' Combat rating. */
+  /**
+   * The Combat margin: the Combat rating a team needs while no Mission of the same MissionSiteArchetype is Lost, as a
+   * Percent value of the Enemies' Combat rating.
+   */
   readonly combatMarginPct: number;
+  /**
+   * The Loss margin step: how many percentage points each Lost Mission at a Mission site of one MissionSiteArchetype
+   * adds to the Combat rating a team needs for later Mission sites of that MissionSiteArchetype.
+   */
+  readonly lossMarginStepPct: number;
   /** How many Enemies one Agent of a team answers for. */
   readonly enemiesPerAgent: number;
   /** Agents investigating Leads: this many, plus one for each `investigatorsPerRoster` Agents. */
@@ -59,6 +67,29 @@ export interface BasicAiThresholds {
   readonly upgradeWeights: Readonly<Record<string, number>>;
 }
 
+/**
+ * BASICAI, Glossary, Required rating share: the Combat margin plus the Loss margin step for each Lost Mission at a
+ * Mission site of the MissionSiteArchetype, as a Percent value. Every Lost Mission counts, whoever deployed its team,
+ * because the Player-visible Missions do not say who did.
+ */
+export function requiredRatingSharePct(
+  thresholds: Pick<BasicAiThresholds, 'combatMarginPct' | 'lossMarginStepPct'>,
+  missionSites: readonly { readonly id: string; readonly archetype: string }[],
+  missions: readonly { readonly missionSite: string; readonly lifecycle: string }[],
+  archetype: string,
+): number {
+  const archetypeOf = new Map(missionSites.map((site) => [site.id, site.archetype] as const));
+  const lost = missions.filter(
+    (mission) => mission.lifecycle === 'Lost' && archetypeOf.get(mission.missionSite) === archetype,
+  ).length;
+  return thresholds.combatMarginPct + thresholds.lossMarginStepPct * lost;
+}
+
+/** BASICAI, Deploy only to win: a team qualifies when its Combat rating is at least the share of the Enemies'. */
+export function meetsRequiredShare(teamRating: number, enemiesRating: number, requiredPct: number): boolean {
+  return teamRating * 100 >= enemiesRating * requiredPct;
+}
+
 /** The thresholds of this Game build, tuned against Campaigns of many Campaign seeds; see DEC-021. */
 export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
   // The neutral value: exhaustion_work_limit of the Bootstrap GDRs.
@@ -66,7 +97,9 @@ export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
   reservePct: 20,
   incomeTargetPct: 120,
   savingsFloorTurns: 5,
-  combatMarginPct: 120,
+  // BASICAI, Game designer values: Combat margin 100% and Loss margin step 5 percentage points.
+  combatMarginPct: 100,
+  lossMarginStepPct: 5,
   enemiesPerAgent: 3,
   baseInvestigators: 1,
   investigatorsPerRoster: 10,
@@ -230,9 +263,20 @@ class Turn {
     return ceilDiv(state.agency.projectedUpkeep * this.t.savingsFloorTurns, 2);
   }
 
+  /** The Required rating share of a MissionSiteArchetype, from the Retired Missions, where every Lost one is. */
+  private requiredPct(state: CurrentLiveWorldStateView, archetype: string): number {
+    const retired = this.unwrap(this.player.queries.getCurrentRetiredWorldState());
+    return requiredRatingSharePct(
+      this.t,
+      [...retired.missionSites, ...state.missionSites],
+      retired.missions,
+      archetype,
+    );
+  }
+
   /**
-   * A team of Deployable Agents whose Combat rating exceeds the Enemies' Combat rating by the safety margin and that
-   * has enough Agents for the number of Enemies; none when no such team fits within the Transport cap. Agents are
+   * A team of Deployable Agents whose Combat rating is at least the Required rating share of the Enemies' Combat rating
+   * and that has enough Agents for the number of Enemies; none when no such team fits within the Transport cap. Agents are
    * taken in the order of preference; when that order gives no winning team, the most capable are taken first,
    * because a winning team can then still be formed.
    */
@@ -241,6 +285,7 @@ class Turn {
     enemiesRating: number,
     enemyCount: number,
     deployable: readonly AgentView[],
+    requiredPct: number,
   ): string[] | null {
     const places = state.agency.transportCap - state.agency.deployedAgents;
     // One Agent may answer for a fractional number of Enemies, e.g. 1.5.
@@ -263,7 +308,7 @@ class Turn {
           continue;
         }
         const preview = this.unwrap(this.player.queries.previewDeployment(null, team));
-        if (preview.teamCombatRating * 100 > enemiesRating * this.t.combatMarginPct) {
+        if (meetsRequiredShare(preview.teamCombatRating, enemiesRating, requiredPct)) {
           return team;
         }
       }
@@ -346,7 +391,13 @@ class Turn {
       );
     const deployable = this.byPreference(state.agents.filter((agent) => this.isDeployable(agent)));
     for (const { site } of sites) {
-      const team = this.winningTeam(state, site.enemiesCombatRating, site.enemies.length, deployable);
+      const team = this.winningTeam(
+        state,
+        site.enemiesCombatRating,
+        site.enemies.length,
+        deployable,
+        this.requiredPct(state, site.archetype),
+      );
       if (
         team !== null &&
         (await this.act(`deploy ${site.id}`, () => this.player.actions.deployAgents(site.id, team)))
@@ -426,7 +477,15 @@ class Turn {
         return false;
       }
       const enemyCount = archetype.enemies.reduce((sum, entry) => sum + entry.count, 0);
-      return this.winningTeam(state, archetype.enemiesCombatRating, enemyCount, deployable) !== null;
+      return (
+        this.winningTeam(
+          state,
+          archetype.enemiesCombatRating,
+          enemyCount,
+          deployable,
+          this.requiredPct(state, archetype.id),
+        ) !== null
+      );
     };
     // Effort is concentrated: an Active Investigation receives Agents before another Lead is started.
     const [active] = state.investigations;

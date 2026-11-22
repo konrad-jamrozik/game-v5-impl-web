@@ -168,17 +168,16 @@ export function baseCombatRating(
 }
 
 /**
- * COMBAT, Combat rating: the rating factor of a Combatant, the mean of its attack half, effective weapon damage /
- * rating_base_weapon_damage, and its toughness half, (effective max health + effective armor) / (rating_base_health +
- * rating_base_armor), exact and never rounded. It reads the effective armor, never the current armor. Combat GDR
- * validation, rule 5, keeps both divisors at least 1.
+ * COMBAT, Combat rating: the rating factor of a Combatant, half the sum of its attack term, effective weapon damage /
+ * rating_base_weapon_damage, its health term, effective max health / rating_base_health, and its armor term, effective
+ * armor / rating_base_armor, exact and never rounded. It reads the effective armor, never the current armor. Combat GDR
+ * validation, rule 5, keeps every divisor at least 1.
  */
 export function ratingFactor(combatant: CombatantState, combat: CombatParametersGdr): Rational {
   const attack = q(combatant.weaponDamage).div(combat.ratingBaseWeaponDamage);
-  const toughness = q(combatant.maxHealth + combatant.armor).div(
-    combat.ratingBaseHealth + combat.ratingBaseArmor,
-  );
-  return attack.add(toughness).div(2);
+  const health = q(combatant.maxHealth).div(combat.ratingBaseHealth);
+  const armor = q(combatant.armor).div(combat.ratingBaseArmor);
+  return attack.add(health).add(armor).div(2);
 }
 
 /** One Combatant able to fight, as the Combat rating of its side reads it. */

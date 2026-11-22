@@ -137,19 +137,19 @@ describe('Terminal CLI', () => {
       'next',
       'next',
       'undo',
-      'buy training_cap',
+      'hire',
       'next',
     ]);
 
     const viaApi = await start(new MemoryStorage());
     ok(await viaApi.session.campaign.create({ seed: 'same-seed' }));
-    // No Agent is hired, so that the money left after the undone turn, 500, buys the Training cap Upgrade exactly.
+    // An Agent is hired after the undone turn, because no Upgrade costs as little as the money left.
     ok(await viaApi.player.actions.assignAgents(['agent-2', 'agent-3'], 'Contracting'));
     ok(await viaApi.player.actions.startInvestigation('criminal_organizations', ['agent-4']));
     ok(await viaApi.player.actions.advanceTurn());
     ok(await viaApi.player.actions.advanceTurn());
     await viaApi.session.timeline.undoAction();
-    ok(await viaApi.player.actions.purchaseUpgrade('training_cap'));
+    ok(await viaApi.player.actions.hireAgent());
     ok(await viaApi.player.actions.advanceTurn());
 
     expect(ok(viaCli.player.queries.getCurrentLiveWorldState())).toEqual(

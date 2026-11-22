@@ -186,9 +186,9 @@ const combatParameterFields = {
   incapacitation_skill_fraction: decimal,
   target_base_weight: whole(1),
   target_preferred_hit_chance: decimal,
-  rating_base_health: whole(0),
-  rating_base_armor: whole(0),
-  // COMBAT, Combat GDR validation, rule 5: the divisor of the attack half is at least 1.
+  // COMBAT, Combat GDR validation, rule 5: each rating base, a divisor of the rating factor, is at least 1.
+  rating_base_health: whole(1),
+  rating_base_armor: whole(1),
   rating_base_weapon_damage: whole(1),
   rating_team_size_exponent: decimal,
 };
@@ -663,17 +663,17 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
   ) {
     problems.push('CombatParameters: the retreat thresholds must be at least 0');
   }
-  // COMBAT, Combat GDR validation, rule 5: the rating bases whole numbers, rating_base_weapon_damage at least 1, the
-  // health and armor bases summing to at least 1, and the team size exponent from 1 to 2 with at most two digits after
-  // the decimal point. The schema checks the whole numbers; these checks also cover values a Detached Combat overrides.
-  if (combatParameters.ratingBaseHealth + combatParameters.ratingBaseArmor < 1) {
-    problems.push('CombatParameters: rating_base_health + rating_base_armor must be at least 1');
-  }
-  if (
-    !Number.isInteger(combatParameters.ratingBaseWeaponDamage) ||
-    combatParameters.ratingBaseWeaponDamage < 1
-  ) {
-    problems.push('CombatParameters: rating_base_weapon_damage must be a whole number of at least 1');
+  // COMBAT, Combat GDR validation, rule 5: each rating base a whole number of at least 1, and the team size exponent
+  // from 1 to 2 with at most two digits after the decimal point. The schema checks the whole numbers; these checks also
+  // cover values a Detached Combat overrides.
+  for (const [name, value] of [
+    ['rating_base_health', combatParameters.ratingBaseHealth],
+    ['rating_base_armor', combatParameters.ratingBaseArmor],
+    ['rating_base_weapon_damage', combatParameters.ratingBaseWeaponDamage],
+  ] as const) {
+    if (!Number.isInteger(value) || value < 1) {
+      problems.push(`CombatParameters: ${name} must be a whole number of at least 1`);
+    }
   }
   const exponent = combatParameters.ratingTeamSizeExponent;
   if (exponent.lt(1) || exponent.gt(2) || !exponent.mul(100).isWhole()) {

@@ -5,6 +5,8 @@ import { createBasicAutopilotAi } from './basic/basic-autopilot-ai.ts';
 export {
   BASIC_AI_THRESHOLDS,
   createBasicAutopilotAi,
+  meetsRequiredShare,
+  requiredRatingSharePct,
   type BasicAiThresholds,
 } from './basic/basic-autopilot-ai.ts';
 

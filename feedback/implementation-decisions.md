@@ -505,6 +505,12 @@
   the target roster of 20 plus 10 for each such Upgrade and the Transport cap of 40% of the roster are the Game
   designer's, overriding the game-ts starting values this decision chose; `baseRoster`, `rosterPerUpgrade`, and
   `transportCapPct` hold them. The Training cap of 30% stays this decision's choice.
+- **Update:** Since Specification revision 98566f6241b8296fdefa50917f488108804c9c8f, BASICAI, Deploy only to win and
+  Game designer values: a team qualifies when its Combat rating is at least the Required rating share of the Enemies'
+  Combat rating, the Combat margin of 100% plus the Loss margin step of 5 percentage points for each Lost Mission at a
+  Mission site of the same MissionSiteArchetype, overriding the 120% this decision chose. `combatMarginPct` and
+  `lossMarginStepPct` hold them, and `requiredRatingSharePct` counts the Lost Missions from the Player-visible Retired
+  Missions and Mission sites, whoever deployed their teams.
 - **Links:** None.
 
 ## DEC-022: Properties and name of a Campaign configuration preset
@@ -1498,6 +1504,9 @@
   Upgrades, so the setup has no `ratingUpgrades`, which is ignored when given, as every other part the setup does not
   name, and the AgencyView no longer reports it. CombatParameters has seven rating values in place of the two rating
   bonuses, so the setup may name 22 GDR values.
+- **Update:** Since Specification revision 98566f6241b8296fdefa50917f488108804c9c8f, COMBAT, Combat rating: the rating
+  factor is half the sum of an attack, a health, and an armor term, each against its own rating base, and every rating
+  base, `rating_base_armor` too, must be at least 1, so a setup naming 0 for any of them is rejected.
 - **Update:** Since Specification revision d846af54dbc650426c46a02509eca86208e65f03, COMBAT, Combat rating: the rating
   factor is the mean of an attack half and a toughness half, and CombatParameters has four rating values, without
   `rating_bonus_per_health`, `rating_bonus_per_armor`, and `rating_bonus_per_weapon_damage`, so the setup may name 19

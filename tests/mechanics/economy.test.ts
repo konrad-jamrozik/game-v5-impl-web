@@ -57,7 +57,7 @@ describe('ECON: examples', () => {
       funding: 20,
       agentCap: 20,
       transportCap: 4,
-      trainingCap: 4,
+      trainingCap: 10,
       projectedIncome: 20,
       projectedUpkeep: 40,
     });
@@ -236,7 +236,7 @@ describe('ECON: examples', () => {
   });
 
   it('Hiring at the Agent cap', () => {
-    let state = withAgents(setMoney(newCampaign(), 750), 21);
+    let state = withAgents(setMoney(newCampaign(), 3050), 21);
     const ids = agentIds(state);
     state = tweak(state, (world) => {
       const dead = world.agents[ids[20]!]!.state;
@@ -252,11 +252,11 @@ describe('ECON: examples', () => {
     });
     expectRejected(state, 'hireAgent', {}, 'agent_cap');
     state = act(state, 'purchaseUpgrade', { upgrade: 'agent_cap' });
-    expect(agency(state)).toMatchObject({ money: 250, agentCap: 24, servingAgents: 20 });
-    for (let i = 0; i < 4; i += 1) {
+    expect(agency(state)).toMatchObject({ money: 1050, agentCap: 40, servingAgents: 20 });
+    for (let i = 0; i < 20; i += 1) {
       state = act(state, 'hireAgent');
     }
-    expect(agency(state)).toMatchObject({ money: 50, servingAgents: 24 });
+    expect(agency(state)).toMatchObject({ money: 50, servingAgents: 40 });
     expectRejected(state, 'hireAgent', {}, 'agent_cap');
 
     expect(money(act(setMoney(newCampaign(), 50), 'hireAgent'))).toBe(0);
@@ -323,34 +323,26 @@ describe('ECON: examples', () => {
   });
 
   it('Training cap', () => {
-    let state = withAgents(setMoney(newCampaign(), 550), 9);
-    const [t1, t2, t3, a1, a2, a3, a4, a5, a6] = agentIds(state) as string[] as [
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-      string,
-    ];
-    state = setAssignment(state, [t1, t2, t3], 'Training');
+    let state = withAgents(setMoney(newCampaign(), 1050), 15);
+    const ids = agentIds(state);
+    const trainees = ids.slice(0, 9);
+    const [a1, a2, a3, a4, a5, a6] = ids.slice(9) as [string, string, string, string, string, string];
+    state = setAssignment(state, trainees, 'Training');
     expectRejected(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' }, 'training_cap');
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Training' });
     expect(units(agent(state, a1).state)).toMatchObject({
       assignment: { kind: 'Training' },
       status: 'AtAssignment',
     });
-    expect(agency(state).trainingAgents).toBe(4);
+    expect(agency(state).trainingAgents).toBe(10);
     expectRejected(state, 'assignAgents', { agents: [a2], assignment: 'Training' }, 'training_cap');
     state = act(state, 'assignAgents', { agents: [a2], assignment: 'Contracting' });
     state = act(state, 'purchaseUpgrade', { upgrade: 'training_cap' });
-    expect(agency(state)).toMatchObject({ money: 50, trainingCap: 8 });
+    expect(agency(state)).toMatchObject({ money: 50, trainingCap: 20 });
     state = act(state, 'assignAgents', { agents: [a3, a4, a5, a6], assignment: 'Training' });
-    expect(agency(state).trainingAgents).toBe(8);
-    state = act(state, 'assignAgents', { agents: [t1], assignment: 'Standby' });
-    expect(agency(state).trainingAgents).toBe(7);
+    expect(agency(state).trainingAgents).toBe(14);
+    state = act(state, 'assignAgents', { agents: [trainees[0]!], assignment: 'Standby' });
+    expect(agency(state).trainingAgents).toBe(13);
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'training_cap' }, 'not_enough_money');
   });
 
@@ -412,7 +404,7 @@ describe('ECON: examples', () => {
     state = act(state, 'addMoney', { amount: 1550 }, 'developer');
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
     expect(damages(state)).toEqual([16, 16, 16, 14, 10, 10]);
-    expect(gdrs.weapons.get('sidearm')!.damage).toBe(10);
+    expect(gdrs.weapons.get('combat_pistol')!.damage).toBe(10);
   });
 
   it('Armor Upgrade', () => {
@@ -564,10 +556,10 @@ describe('ECON: examples', () => {
   });
 
   it('Purchase rejections and exact affordability', () => {
-    let state = setMoney(newCampaign(), 499);
+    let state = setMoney(newCampaign(), 999);
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'training_cap' }, 'not_enough_money');
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'agent_morale' }, 'unknown_upgrade');
-    expectRejected(state, 'purchaseUpgrade', { upgrade: 'sidearm' }, 'unknown_upgrade');
+    expectRejected(state, 'purchaseUpgrade', { upgrade: 'combat_pistol' }, 'unknown_upgrade');
     for (const amount of [0, 2.5]) {
       expectRejected(state, 'addMoney', { amount }, 'invalid_amount', 'developer');
     }
@@ -575,7 +567,7 @@ describe('ECON: examples', () => {
     expectRejected(setMoney(newCampaign(), 0), 'addMoney', { amount: -5 }, 'negative_money', 'developer');
     state = act(state, 'addMoney', { amount: 1 }, 'developer');
     state = act(state, 'purchaseUpgrade', { upgrade: 'training_cap' });
-    expect(agency(state)).toMatchObject({ money: 0, trainingCap: 8 });
+    expect(agency(state)).toMatchObject({ money: 0, trainingCap: 20 });
   });
 
   it('GDR validation', () => {

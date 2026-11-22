@@ -158,8 +158,8 @@ export const LEGACY_FILES: readonly RawGdrFile[] = (() => {
       delete gdr['visible_when'];
     }
   }
-  // `initiate` carries `sidearm`, whose base weapon damage equals that of the Agents' Service weapon.
-  byId('/enemy_archetypes.yaml', 'initiate')['weapon'] = 'sidearm';
+  // `initiate` carries `combat_pistol`, whose base weapon damage equals that of the Agents' Service weapon.
+  byId('/enemy_archetypes.yaml', 'initiate')['weapon'] = 'combat_pistol';
   // Compendium articles about, or naming, a GDR left out are left out.
   const kept = new Set(files.flatMap((file) => file.gdrs.map((gdr) => gdr['id'])));
   return files.filter(

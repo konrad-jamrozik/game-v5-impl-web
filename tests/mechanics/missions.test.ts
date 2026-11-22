@@ -273,8 +273,8 @@ describe('MISSION: examples', () => {
     const view = currentLiveWorldStateView(created.state, gdrs).missionSites[0]!;
     expect(view).toMatchObject({
       kind: 'Response',
-      // COMBAT, Combat rating: four initiates rate 40 × 5/6 each and two soldiers 120 × 23/15 each, ⌊6 ^ 0.2 × 501⌋.
-      enemiesCombatRating: 717,
+      // COMBAT, Combat rating: four initiates rate 40 × 5/6 each and two soldiers 120 × 17/10 each, ⌊6 ^ 0.2 × 1624/3⌋.
+      enemiesCombatRating: 774,
       rewards: { money: 30, fundingChange: 5 },
       penalties: { panicIncreaseHundredths: 800, fundingChange: -1, defeat: false },
       operationLevel: { id: 'operation_level_2', level: 2 },

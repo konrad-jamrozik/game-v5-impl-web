@@ -115,6 +115,12 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   +4 for 500, `transport_cap` +4 for 2000, `training_skill_gain` +0.2 for 1000, `exhaustion_recovery` +1 for 1000, and
   `health_recovery` +1 for 1000. The copy is still identical to the specification's `content/` directory outside
   `content/cut/`.
+- `combat/`, `compendium/compendium_articles/`, and `economy-and-upgrades/`: patched unchanged from specification
+  commit `98566f6241b8296fdefa50917f488108804c9c8f` on 2026-11-21. The Weapons `pistol` and `sidearm` become
+  `basic_pistol` and `combat_pistol`, with their Compendium articles, from commit
+  `f550a03b2502bc67d1d3900a93b566bd0667eb8d`; `rating_base_armor` becomes 20 and the Combat article states the
+  three-term rating factor; `agent_cap` gives +20 for 2000, `training_cap` +10 for 1000, and `base_training_cap` is 10.
+  The copy is still identical to the specification's `content/` directory outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

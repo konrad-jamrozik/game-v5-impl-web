@@ -603,9 +603,9 @@ describe('COMBAT: examples', () => {
     expect(soldier.outcome).toBe('Retreated');
     expect(soldier.rounds).toBe(41);
     expect(soldier.ratings[40]).toMatchObject({ agents: 50 });
-    // COMBAT, Combat rating: the soldier's effective skill 57 rates ⌊57 × 23/15⌋, its rating factor being
-    // (14 / 10 + (30 + 20) / 30) / 2 for its weapon damage 14 and armor 20.
-    expect(soldier.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 87 });
+    // COMBAT, Combat rating: the soldier's effective skill 57 rates ⌊57 × 17/10⌋, its rating factor being
+    // (14 / 10 + 30 / 30 + 20 / 20) / 2 for its weapon damage 14 and armor 20.
+    expect(soldier.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 96 });
   });
 
   it('Effects of an attack: current armor absorbs hits before current health, and only within its Combat', () => {
@@ -676,9 +676,9 @@ describe('COMBAT: examples', () => {
   });
 
   it('Combat ratings of Mission sites', () => {
-    // COMBAT, Combat rating, with the Bootstrap values: an initiate rates 40 × (8 / 10 + 20 / 30) / 2 = 40 × 11/15, a
-    // soldier 120 × (14 / 10 + (30 + 20) / 30) / 2 = 120 × 23/15 = 184, and a commander 300 × (22 / 10 + (40 + 50) /
-    // 30) / 2 = 300 × 13/5 = 780; a side of n is rated ⌊n ^ 0.2 × their sum⌋.
+    // COMBAT, Combat rating, with the Bootstrap values: an initiate rates 40 × (8 / 10 + 20 / 30 + 0 / 20) / 2 = 40 ×
+    // 11/15, a soldier 120 × (14 / 10 + 30 / 30 + 20 / 20) / 2 = 120 × 17/10 = 204, and a commander 300 × (22 / 10 + 40 /
+    // 30 + 50 / 20) / 2 = 300 × 181/60 = 905; a side of n is rated ⌊n ^ 0.2 × their sum⌋.
     const rating = (enemies: [string, number][]) =>
       combatRating(
         enemies.flatMap(([archetype, count]) =>
@@ -695,20 +695,20 @@ describe('COMBAT: examples', () => {
         ['initiate', 4],
         ['soldier', 2],
       ]),
-    ).toBe(694);
+    ).toBe(751);
     expect(
       rating([
         ['initiate', 8],
         ['soldier', 1],
       ]),
-    ).toBe(649);
+    ).toBe(680);
     expect(
       rating([
         ['initiate', 6],
         ['soldier', 3],
         ['commander', 1],
       ]),
-    ).toBe(2390);
+    ).toBe(2683);
     const four = [combatAgent('a1'), combatAgent('a2'), combatAgent('a3'), combatAgent('a4')];
     expect(
       combatRating(
@@ -732,11 +732,11 @@ describe('COMBAT: examples', () => {
   it('Combat rating: rating factor and team size factor', () => {
     const combat = gdrs.combatParameters;
     // COMBAT, Combat rating, the examples: an Agent of effective skill 101 with effective armor 10 and effective weapon
-    // damage 16 has a rating factor of (16 / 10 + 40 / 30) / 2 = 22/15 and a Combat rating of ⌊148.13…⌋; four such
-    // Agents of effective skill 100 rate ⌊1760/3 × 4 ^ 0.2⌋ = 774.
+    // damage 16 has a rating factor of (16 / 10 + 30 / 30 + 10 / 20) / 2 = 31/20 and a Combat rating of ⌊156.55⌋; four
+    // such Agents of effective skill 100 rate ⌊620 × 4 ^ 0.2⌋ = 818.
     const upgraded = (id: string, skill: number) => combatAgent(id, { skill, armor: 10, weaponDamage: 16 });
-    expect(ratingFactor(upgraded('a1', 101).state, combat).toString()).toBe('22/15');
-    expect(combatRating([upgraded('a1', 101).state], combat, gdrs.agentParameters)).toBe(148);
+    expect(ratingFactor(upgraded('a1', 101).state, combat).toString()).toBe('31/20');
+    expect(combatRating([upgraded('a1', 101).state], combat, gdrs.agentParameters)).toBe(156);
     const team = ['a1', 'a2', 'a3', 'a4'].map((id) => upgraded(id, 100));
     expect(
       combatRating(
@@ -744,7 +744,7 @@ describe('COMBAT: examples', () => {
         combat,
         gdrs.agentParameters,
       ),
-    ).toBe(774);
+    ).toBe(818);
     expect(
       baseCombatRating(
         team.map((a) => a.state),
@@ -752,16 +752,18 @@ describe('COMBAT: examples', () => {
         gdrs.agentParameters,
       ),
     ).toBe(400);
-    // The two halves add: an Agent at the rating bases has a rating factor of 1, an initiate (8 / 10 + 20 / 30) / 2,
+    // The three terms add: an Agent at the rating bases has a rating factor of 1, an initiate (8 / 10 + 20 / 30 + 0) / 2,
     // and weapon damage and max health below their bases lower the factor, which stays above 0.
     expect(ratingFactor(combatAgent('a1').state, combat).toString()).toBe('1');
     expect(ratingFactor(combatEnemy('e1', 'initiate').state, combat).toString()).toBe('11/15');
     expect(
       ratingFactor({ ...combatAgent('a1').state, maxHealth: 1, weaponDamage: 1 }, combat).toString(),
     ).toBe('1/15');
-    // Armor counts point for point like max health: 20 health and 10 armor rate as 30 health.
+    // Armor is weighed against a base of its own: 20 armor, rating_base_armor, adds 1/2, and 10 armor with 20 health
+    // rates (1 + 20 / 30 + 10 / 20) / 2 = 13/12, not the 1 of 30 health.
+    expect(ratingFactor({ ...combatAgent('a1').state, armor: 20 }, combat).toString()).toBe('3/2');
     expect(ratingFactor({ ...combatAgent('a1').state, maxHealth: 20, armor: 10 }, combat).toString()).toBe(
-      '1',
+      '13/12',
     );
     // With rating_team_size_exponent 1 a side rates as the sum of its Combatants, rounded down once.
     const linear = catalogWith((raw) => (raw.get('combat_parameters')['rating_team_size_exponent'] = 1));
@@ -771,8 +773,8 @@ describe('COMBAT: examples', () => {
         linear.combatParameters,
         gdrs.agentParameters,
       ),
-    ).toBe(586);
-    // Exponent 2, the square law: ⌊1760/3 × 4⌋.
+    ).toBe(620);
+    // Exponent 2, the square law: ⌊620 × 4⌋.
     const square = catalogWith((raw) => (raw.get('combat_parameters')['rating_team_size_exponent'] = 2));
     expect(
       combatRating(
@@ -780,7 +782,7 @@ describe('COMBAT: examples', () => {
         square.combatParameters,
         gdrs.agentParameters,
       ),
-    ).toBe(2346);
+    ).toBe(2480);
     // In a Combat, Agents and Enemies are rated alike, by their effective values; the Upgrades count only through them.
     const { report } = fightCombat(
       {
@@ -799,16 +801,15 @@ describe('COMBAT: examples', () => {
         'combat.hit.e1': [false],
       }),
     );
-    expect(report.ratings[0]).toMatchObject({ agents: 774, enemies: 29 });
+    expect(report.ratings[0]).toMatchObject({ agents: 818, enemies: 29 });
     // COMBAT, Combat GDR validation, rule 5, and rule 8, under which the removed rating bonuses are no longer allowed.
     expectDefective(
       (raw) => (raw.get('combat_parameters')['rating_bonus_per_armor'] = { $decimal: '0.004' }),
     );
     expectDefective((raw) => (raw.get('combat_parameters')['rating_base_weapon_damage'] = 0));
-    expectDefective((raw) => {
-      raw.get('combat_parameters')['rating_base_health'] = 0;
-      raw.get('combat_parameters')['rating_base_armor'] = 0;
-    });
+    // Each rating base is a divisor, so each is at least 1 on its own.
+    expectDefective((raw) => (raw.get('combat_parameters')['rating_base_health'] = 0));
+    expectDefective((raw) => (raw.get('combat_parameters')['rating_base_armor'] = 0));
     expectDefective((raw) => (raw.get('combat_parameters')['rating_base_health'] = -1));
     expectDefective((raw) => (raw.get('combat_parameters')['rating_base_armor'] = { $decimal: '0.5' }));
     expectDefective(
@@ -827,7 +828,7 @@ describe('COMBAT: examples', () => {
       raw.get('agent_parameters')['exhaustion_per_attack'] = 0;
       raw.get('agent_parameters')['exhaustion_per_defense'] = 0;
     });
-    expectDefective((raw) => (raw.get('sidearm')['base_weapon_damage'] = 0));
+    expectDefective((raw) => (raw.get('combat_pistol')['base_weapon_damage'] = 0));
     // COMBAT, Combat GDR validation, rules 2, 3, and 8, for Armor.
     expectDefective((raw) => (raw.get('no_armor')['base_armor'] = -1));
     expectDefective((raw) => (raw.get('no_armor')['base_armor'] = 0.5));
@@ -836,7 +837,7 @@ describe('COMBAT: examples', () => {
     expectDefective((raw) => (raw.get('field_agent')['armor'] = 'plate'));
     expectDefective((raw) => (raw.get('service_armor')['weight'] = 1));
     expectDefective((raw) => (raw.get('combat_parameters')['weapon_damage_range'] = { $decimal: '1.5' }));
-    expectDefective((raw) => (raw.get('sidearm')['range'] = 3));
+    expectDefective((raw) => (raw.get('combat_pistol')['range'] = 3));
     expectDefective((raw) => (raw.get('cult_leader')['weapon'] = 'laser'));
     expectDefective((raw) =>
       raw.add('combat/combat_parameters.yaml', { ...raw.get('combat_parameters'), id: 'second' }),

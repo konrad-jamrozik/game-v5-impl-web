@@ -59,6 +59,7 @@
 ## BASICAI: Basic Autopilot AI
 
 - src/ai/
+- tests/engine/basic-autopilot-ai.test.ts
 - tests/engine/campaign.test.ts
 - tests/mechanics/initiative-operation-level.test.ts
 

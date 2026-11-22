@@ -731,7 +731,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
     const met = new Set([
       'initiate',
       'operative',
-      'pistol',
+      'basic_pistol',
       operative.weapon,
       gdrs.agentArchetype.weapon,
       gdrs.enemyArchetypes.get('initiate')!.armor,
@@ -968,8 +968,8 @@ describe('COMP: Met subjects', () => {
   it('an Enemy is met once a Player-visible MissionSiteArchetype lists it, and its Weapon with it', () => {
     let state = newCampaign({ firstLead: false });
     expect(visible(state)).not.toContain('initiate_article');
-    expect(visible(state)).not.toContain('pistol_article');
-    expect(visible(state)).not.toContain('sidearm_article');
+    expect(visible(state)).not.toContain('basic_pistol_article');
+    expect(visible(state)).not.toContain('combat_pistol_article');
     expect(visible(state)).toContain('service_weapon_article');
     // COMP, Article visibility: an Armor's article needs no Met subject.
     expect(visible(state)).toContain('service_armor_article');
@@ -979,10 +979,11 @@ describe('COMP: Met subjects', () => {
     const met = metSubjects(state.world.current, gdrs);
     expect(met.has('initiate')).toBe(true);
     expect(met.has('operative')).toBe(true);
-    expect(met.has('pistol')).toBe(true);
+    expect(met.has('basic_pistol')).toBe(true);
+    expect(met.has('combat_pistol')).toBe(true);
     expect(met.has('soldier')).toBe(false);
     expect(visible(state)).toContain('initiate_article');
-    expect(visible(state)).toContain('pistol_article');
+    expect(visible(state)).toContain('basic_pistol_article');
 
     // Every Weapon a met Enemy carries is met, and no other.
     const raid = gdrs.missionSiteArchetypes.find((item) => item.id === 'raid_safehouse')!;
