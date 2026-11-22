@@ -1,5 +1,6 @@
 /** CINST, Campaign instance identity, and DOMAIN, Campaign instance identity scope: Instance IDs counted per Type. */
 import { describe, expect, it } from 'vite-plus/test';
+import { bootstrapGdrCatalog } from '../../src/gdr/index.ts';
 import { liveWorld, ok, startEngine } from '../helpers/engine.ts';
 
 describe('CINST: Instance IDs', () => {
@@ -7,26 +8,22 @@ describe('CINST: Instance IDs', () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'instance-ids' }));
     const ids = () => ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
-    expect(ids()).toEqual([
-      'agent-1',
-      'agent-2',
-      'agent-3',
-      'agent-4',
-      'agent-5',
-      'agent-6',
-      'agent-7',
-      'agent-8',
-    ]);
+    // The initial roster numbers its Agents from 1, in the order they are created.
+    const roster = bootstrapGdrCatalog().agentParameters.initialRosterSize;
+    expect(roster).toBeGreaterThanOrEqual(2);
+    expect(ids()).toEqual(Array.from({ length: roster }, (_, index) => `agent-${index + 1}`));
 
+    // A dismissed Agent keeps its number: the next hire takes the number after the last one created.
+    const next = `agent-${roster + 1}`;
     ok(await engine.player.actions.dismissAgents(['agent-2']));
     ok(await engine.player.actions.hireAgent());
-    expect(ids()).toContain('agent-9');
+    expect(ids()).toContain(next);
     expect(ids()).not.toContain('agent-2');
 
     ok(await engine.session.timeline.undoAction());
-    expect(ids()).not.toContain('agent-9');
+    expect(ids()).not.toContain(next);
     ok(await engine.player.actions.hireAgent());
-    expect(ids()).toContain('agent-9');
+    expect(ids()).toContain(next);
   });
 
   it('the first Mission site of a Campaign is mission-site-1', async () => {

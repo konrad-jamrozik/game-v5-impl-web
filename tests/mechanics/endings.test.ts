@@ -56,15 +56,51 @@ const check = (values: {
   });
 
 /** The state after `terminate_red_dawn` is completed, in which `peace_on_earth` is discovered and Available. */
-const peaceDiscovered = (state: CampaignState) => completeLead(state, 'terminate_red_dawn');
+const peaceDiscovered = (state: CampaignState, catalog = gdrs) =>
+  completeLead(state, 'terminate_red_dawn', catalog);
+
+/**
+ * The test Game build with the Fixture values the examples state: an upkeep of 10 per Agent, a Won `raid_safehouse`
+ * giving money 200, funding 10, and a Panic reduction of 1, and an ignored or Lost operation of level 4, e.g. an
+ * Expired `counter_civilian_terror`, raising Panic by 10 and lowering funding by 25.
+ */
+const example = catalogWith((raw) => {
+  raw.get('economy')['upkeep_per_agent'] = 10;
+  raw.get('raid_safehouse')['on_win'] = [effect('money', 200), effect('funding', 10), effect('panic', -1)];
+  raw.get('operation_level_4')['on_ignored_or_lost'] = [effect('panic', 10), effect('funding', -25)];
+});
+
+/** The upkeep of an Advance turn of a new Campaign of the example Game build: 10 for each Agent of its roster. */
+const exampleUpkeep = 10 * agentIds(newCampaign({ catalog: example })).length;
+
+const levelOf = (level: number | null) => gdrs.factionOperationLevels.find((item) => item.level === level)!;
+/** A Response MissionSiteArchetype of a Faction operation level whose on_ignored_or_lost holds a `defeat` Effect. */
+const existential = gdrs.missionSiteArchetypes.find(
+  (item) => item.kind === 'response' && levelOf(item.operationLevel).onIgnoredOrLost.defeat,
+)!;
 
 describe('ENDING: examples', () => {
   it('Panic is summed, clamped, and reaches Defeat', () => {
-    let state = set(newCampaign(), { panicHundredths: 9995, money: 40, funding: 0, turn: 12 });
-    const raid = addMissionSite(state, 'raid_safehouse');
-    const response = addMissionSite(raid.state, 'counter_civilian_terror', { turnsUntilExpiration: 1 });
-    state = act(response.state, 'deployAgents', { missionSite: raid.site, agents: agentIds(response.state) });
-    state = advance(state, winning(state, raid.site));
+    const catalog = example;
+    let state = set(newCampaign({ catalog }), {
+      panicHundredths: 9995,
+      money: exampleUpkeep,
+      funding: 0,
+      turn: 12,
+    });
+    const raid = addMissionSite(state, 'raid_safehouse', { catalog });
+    const response = addMissionSite(raid.state, 'counter_civilian_terror', {
+      turnsUntilExpiration: 1,
+      catalog,
+    });
+    state = act(
+      response.state,
+      'deployAgents',
+      { missionSite: raid.site, agents: agentIds(response.state) },
+      'player',
+      catalog,
+    );
+    state = advance(state, winning(state, raid.site), catalog);
     const report = state.world.history.turnReport!;
     expect(report.upkeep.moneyAfter).toBe(0);
     expect(report.missions[0]!.consequence).toMatchObject({
@@ -90,15 +126,23 @@ describe('ENDING: examples', () => {
 
     // Rejected actions after a Campaign ending.
     const [a1] = agentIds(state) as [string];
-    expectRejected(state, 'assignAgents', { agents: [a1], assignment: 'Standby' }, 'campaign_ended');
-    expectRejected(state, 'addMoney', { amount: 100 }, 'campaign_ended', 'developer');
-    expectRejected(state, 'hireAgent', {}, 'campaign_ended');
-    const again = advanceTurnOf(state, gdrs);
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a1], assignment: 'Standby' },
+      'campaign_ended',
+      'player',
+      catalog,
+    );
+    expectRejected(state, 'addMoney', { amount: 100 }, 'campaign_ended', 'developer', catalog);
+    expectRejected(state, 'hireAgent', {}, 'campaign_ended', 'player', catalog);
+    const again = advanceTurnOf(state, catalog);
     expect(isRejection(again) && again.code).toBe('campaign_ended');
-    expect(ending(state)).toEqual({ ending: 'Defeat', reasons: ['PanicAtTheLimit'], turn: 12 });
-    expect(currentLiveWorldStateView(state, gdrs)).toMatchObject({
+    const view = currentLiveWorldStateView(state, catalog);
+    expect(view.ending).toEqual({ ending: 'Defeat', reasons: ['PanicAtTheLimit'], turn: 12 });
+    expect(view).toMatchObject({
       panicHundredths: 10_000,
-      panicLimit: 100,
+      panicLimit: catalog.endingParameters.defeatAtPanicPct,
       turn: 13,
     });
   });
@@ -140,8 +184,10 @@ describe('ENDING: examples', () => {
       reasons: ['MoneyBelowZero'],
     });
     expect(check({ money: -10 })).toEqual({ ending: 'Defeat', reasons: ['MoneyBelowZero'] });
-    // Exactly zero after Upkeep: 40 + 0 − 40.
-    const zero = advance(set(newCampaign(), { money: 40, funding: 0 }));
+    // Exactly zero after Upkeep: money equal to the upkeep, with funding 0.
+    const fresh = newCampaign();
+    const upkeep = gdrs.economy.upkeepPerAgent * agentIds(fresh).length;
+    const zero = advance(set(fresh, { money: upkeep, funding: 0 }));
     expect([money(zero), zero.world.current.ending]).toEqual([0, null]);
   });
 
@@ -150,8 +196,17 @@ describe('ENDING: examples', () => {
       ending: 'Defeat',
       reasons: ['PanicAtTheLimit', 'MoneyBelowZero', 'ExistentialOperationNotStopped'],
     });
-    let state = set(newCampaign(), { panicHundredths: 9900, money: 35, funding: 0 });
-    state = advance(addMissionSite(state, 'counter_civilian_terror', { turnsUntilExpiration: 1 }).state);
+    const catalog = example;
+    let state = set(newCampaign({ catalog }), {
+      panicHundredths: 9900,
+      money: exampleUpkeep - 5,
+      funding: 0,
+    });
+    state = advance(
+      addMissionSite(state, 'counter_civilian_terror', { turnsUntilExpiration: 1, catalog }).state,
+      {},
+      catalog,
+    );
     expect(state.world.current).toMatchObject({
       panicHundredths: 10_000,
       ending: 'Defeat',
@@ -161,22 +216,28 @@ describe('ENDING: examples', () => {
   });
 
   it('An existential operation not stopped loses the Campaign outright, with Panic unchanged', () => {
-    // Expired: a Response Mission site of Faction operation level 5.
+    // The Pending defeat adds nothing to Panic; only a `panic` Effect of the same list would.
+    const raised = (panicHundredths: number) =>
+      Math.min(
+        10_000,
+        panicHundredths + levelOf(existential.operationLevel).onIgnoredOrLost.panicIncreaseHundredths,
+      );
+    // Expired.
     let state = set(newCampaign(), { panicHundredths: 3500, turn: 40 });
-    state = advance(addMissionSite(state, 'defend_against_hq_assault', { turnsUntilExpiration: 1 }).state);
+    state = advance(addMissionSite(state, existential.id, { turnsUntilExpiration: 1 }).state);
     expect(state.world.history.turnReport!.expiredMissionSites[0]!.consequence).toMatchObject({
       defeat: true,
-      panicIncreaseHundredths: 0,
+      panicIncreaseHundredths: raised(3500) - 3500,
     });
     expect(state.world.current).toMatchObject({
-      panicHundredths: 3500,
+      panicHundredths: raised(3500),
       ending: 'Defeat',
       endingReasons: ['ExistentialOperationNotStopped'],
       endingTurn: 40,
     });
     // Lost: its Mission Lost has the same Consequence.
     let lost = set(newCampaign(), { panicHundredths: 1234 });
-    const site = addMissionSite(lost, 'defend_against_hq_assault');
+    const site = addMissionSite(lost, existential.id);
     lost = act(site.state, 'deployAgents', { missionSite: site.site, agents: agentIds(site.state) });
     lost = advance(lost, losing(lost, site.site));
     expect(lost.world.history.turnReport!.missions[0]).toMatchObject({
@@ -184,7 +245,7 @@ describe('ENDING: examples', () => {
       consequence: { defeat: true },
     });
     expect(lost.world.current).toMatchObject({
-      panicHundredths: 1234,
+      panicHundredths: raised(1234),
       ending: 'Defeat',
       endingReasons: ['ExistentialOperationNotStopped'],
     });
@@ -195,19 +256,26 @@ describe('ENDING: examples', () => {
   });
 
   it('Completing the Lead that wins the Campaign is Victory, and Victory prevails over Defeat', () => {
-    let state = set(peaceDiscovered(newCampaign()), {
+    const catalog = example;
+    let state = set(peaceDiscovered(newCampaign({ catalog }), catalog), {
       panicHundredths: 9995,
-      money: 30,
+      money: exampleUpkeep - 10,
       funding: 0,
       turn: 150,
     });
     expect(state.world.current.discoveredLeads).toContain('peace_on_earth');
     const [a1] = agentIds(state) as [string];
-    const peace = finishingInvestigation(state, 'peace_on_earth', a1);
+    const peace = finishingInvestigation(state, 'peace_on_earth', a1, catalog);
     // An existential operation not stopped and Panic at the limit in the same Advance turn.
-    const response = addMissionSite(peace.state, 'defend_against_hq_assault', { turnsUntilExpiration: 1 });
-    const foil = addMissionSite(response.state, 'counter_civilian_terror', { turnsUntilExpiration: 1 });
-    state = advance(foil.state);
+    const response = addMissionSite(peace.state, existential.id, {
+      turnsUntilExpiration: 1,
+      catalog,
+    });
+    const foil = addMissionSite(response.state, 'counter_civilian_terror', {
+      turnsUntilExpiration: 1,
+      catalog,
+    });
+    state = advance(foil.state, {}, catalog);
     expect(state.world.current.investigations[peace.investigation]!.state.lifecycle).toBe('Completed');
     expect(state.world.current).toMatchObject({
       ending: 'Victory',
@@ -244,15 +312,33 @@ describe('ENDING: examples', () => {
   });
 
   it('Player actions never end a Campaign', () => {
-    let state = set(newCampaign(), { panicHundredths: 2000, turn: 5 });
+    // Panic at the Panic limit, so that the next Ending check records Defeat; money is a Fixture value that pays for
+    // a hire whatever its cost.
+    const limit = gdrs.endingParameters.defeatAtPanicPct * 100;
+    let state = set(newCampaign({ money: 1_000_000 }), { panicHundredths: limit, turn: 5 });
     state = act(state, 'assignAgents', { agents: [agentIds(state)[0]], assignment: 'Training' });
-    expectRejected(state, 'purchaseUpgrade', { upgrade: 'transport_cap' }, 'not_enough_money');
-    expect([money(state), state.world.current.panicHundredths, ending(state)]).toEqual([500, 2000, null]);
+    state = act(state, 'hireAgent');
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: ['agent-999'], assignment: 'Training' },
+      'agents_unknown',
+    );
+    expect([state.world.current.panicHundredths, ending(state)]).toEqual([limit, null]);
+    // The Ending check of the next Advance turn ends it.
+    expect(advance(state).world.current).toMatchObject({
+      ending: 'Defeat',
+      endingReasons: ['PanicAtTheLimit'],
+    });
   });
 
   it('Player-visible information', () => {
     const view = currentLiveWorldStateView(newCampaign(), gdrs);
-    expect(view).toMatchObject({ panicHundredths: 0, panicLimit: 100, ending: null });
+    expect(view).toMatchObject({
+      panicHundredths: 0,
+      panicLimit: gdrs.endingParameters.defeatAtPanicPct,
+      ending: null,
+    });
     expect(JSON.stringify(view)).not.toMatch(/pending/i);
   });
 
@@ -321,10 +407,7 @@ describe('ENDING: examples', () => {
           (raw.get('operation_level_1')['on_ignored_or_lost'] = [effect('panic', { $decimal: '0.25' })]),
       ).factionOperationLevels[0]!.onIgnoredOrLost.panicIncreaseHundredths,
     ).toBe(25);
-    expect(gdrs.factionOperationLevels.find((level) => level.level === 5)!.onIgnoredOrLost).toEqual({
-      panicIncreaseHundredths: 0,
-      funding: 0,
-      defeat: true,
-    });
+    // The Game build holds an existential Faction operation level, served by a Response MissionSiteArchetype.
+    expect(existential).toBeDefined();
   });
 });

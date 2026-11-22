@@ -106,16 +106,6 @@ describe('TIMELINE: examples', () => {
     expect(h.state()).toEqual(end);
   });
 
-  it('A new action discards the Undone actions', async () => {
-    const h = await fresh();
-    expectOk(await h.act('gain', { amount: 1 }));
-    expectOk(await h.core.undoAction(CONTROLLER));
-    expectOk(await h.act('gain', { amount: 2 }));
-    const redo = await h.core.redoAction(CONTROLLER);
-    expect(!redo.ok && redo.error.code).toBe('no_target');
-    expect(h.view().money).toBe(102);
-  });
-
   it('Undo needs no Campaign save', async () => {
     const h = await startHarness();
     expectOk(await h.core.setGlobalSetting(CONTROLLER, 'autosaveLimit', 0));

@@ -17,6 +17,9 @@ import {
 import { leadFactionName, onCompletionLines, onCompletionText } from '../../src/web/lead-completion.ts';
 import { gdrs, newCampaign, tweak } from '../helpers/game.ts';
 
+/** The name of the FactionArchetype `red_dawn`, which its Faction takes. */
+const RED_DAWN = gdrs.factionArchetypes.find((faction) => faction.id === 'red_dawn')!.name;
+
 /** The Player API view of every Lead of the test Game build, all discovered. */
 function leadViews() {
   const state = tweak(newCampaign(), (world) => {
@@ -41,7 +44,7 @@ function leadViews() {
 describe('LVIEW: Selected Lead', () => {
   it('shows the Faction only of a Lead that has one', () => {
     const { view, lead } = leadViews();
-    expect(leadFactionName(lead('locate_red_dawn_member'), view)).toBe('Red Dawn');
+    expect(leadFactionName(lead('locate_red_dawn_member'), view)).toBe(RED_DAWN);
     expect(leadFactionName(lead('criminal_organizations'), view)).toBeNull();
   });
 
@@ -55,7 +58,7 @@ describe('LVIEW: Selected Lead', () => {
     ]);
     expect(lines('locate_red_dawn_member')[0]).toMatchObject({ strong: site.name, good: false });
     expect(lines('terminate_red_dawn')).toEqual([
-      { key: 'eliminate', before: 'Eliminates ', strong: 'Red Dawn', after: '', good: true },
+      { key: 'eliminate', before: 'Eliminates ', strong: RED_DAWN, after: '', good: true },
     ]);
     expect(lines('peace_on_earth').map(onCompletionText)).toEqual(['Wins the Campaign']);
     expect(lines('peace_on_earth')[0]?.good).toBe(true);

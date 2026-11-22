@@ -4,24 +4,40 @@ import { effectiveSkill } from '../../src/engine/mechanics/agents/agents.ts';
 import {
   baseCombatRating,
   combatRating,
+  enemyCombatantState,
   ratingFactor,
   damageBounds,
   fightCombat,
   hitChance,
   type Combatant,
 } from '../../src/engine/mechanics/combat/combat.ts';
+import { createEnemy } from '../../src/engine/mechanics/missions/missions.ts';
 import { injectedRandom, type Random } from '../../src/engine/random.ts';
 import { ratio } from '../../src/kernel/index.ts';
 import type { CombatReport } from '../../src/engine/state/types.ts';
 import {
+  BOOTSTRAP_GDRS,
   catalogWith,
   combatAgent,
-  combatEnemy,
+  combatEnemyWith,
   expectDefective,
   gdrs,
   type Injected,
   units,
+  useExampleCatalog,
 } from '../helpers/game.ts';
+
+// The CombatParameters and AgentParameters of the examples of COMBAT, e.g. `weapon_damage_range` 0.5 and
+// `rating_base_health` 30, are Fixture values; see EXAMPLE_VALUES.
+useExampleCatalog();
+
+/** The Enemies of the examples, as Fixture values: an Initiate, a soldier, and a commander. */
+const INITIATE = { skill: 40, health: 20, weaponDamage: 8, armor: 0 };
+const SOLDIER = { skill: 120, health: 30, weaponDamage: 14, armor: 20 };
+const COMMANDER = { skill: 300, health: 40, weaponDamage: 22, armor: 50 };
+const initiate = (id: string) => combatEnemyWith(id, INITIATE);
+const soldier = (id: string) => combatEnemyWith(id, SOLDIER);
+const commander = (id: string) => combatEnemyWith(id, COMMANDER);
 
 /**
  * Fights a Combat and, as the Mission resolution step does, applies its final values to the Combatants it was given,
@@ -47,32 +63,38 @@ const participant = (report: CombatReport, id: string) => report.participants.fi
 const misses = (count: number) => new Array<boolean>(count).fill(false);
 
 describe('COMBAT: examples', () => {
-  it('Enemy creation', () => {
-    const rows: [string, number, number, number, number][] = [
-      ['initiate', 40, 20, 8, 0],
-      ['soldier', 120, 30, 14, 20],
-      ['operative', 60, 25, 10, 0],
-      ['handler', 80, 25, 10, 5],
-      ['lieutenant', 140, 30, 16, 25],
-      ['elite', 250, 40, 20, 40],
-      ['commander', 300, 40, 22, 50],
-      ['high_commander', 500, 50, 28, 60],
-      ['cult_leader', 800, 80, 32, 80],
-    ];
-    for (const [archetype, skill, health, damage, armor] of rows) {
-      const enemy = combatEnemy('e', archetype).state;
-      // A Combat holds an Enemy's whole values in hundredths, as an Agent holds its own; see DEC-056.
+  it('Enemy creation: each Enemy takes its values from its EnemyArchetype, its Weapon, and its Armor', () => {
+    // Every EnemyArchetype of the Game build, whatever its values.
+    for (const archetype of BOOTSTRAP_GDRS.enemyArchetypes.values()) {
+      const weapon = BOOTSTRAP_GDRS.weapons.get(archetype.weapon)!;
+      const armor = BOOTSTRAP_GDRS.armors.get(archetype.armor)!;
+      const enemy = createEnemy('e', 'site', archetype, weapon, armor);
       expect(enemy).toEqual({
-        skillHundredths: skill * 100,
-        currentHealthHundredths: health * 100,
-        maxHealth: health,
-        exactExhaustionHundredths: 0,
-        weaponDamage: damage,
-        // GDRS, Combat GDRs: `initiate` and `operative` wear `no_armor`, and each EnemyArchetype from `handler` up an
-        // Armor of its own.
-        armor,
+        id: 'e',
+        archetype: archetype.id,
+        constants: { missionSite: 'site' },
+        state: {
+          skill: archetype.skill,
+          healthLost: 0,
+          baseHealth: archetype.baseHealth,
+          exhaustion: 0,
+          weapon: weapon.id,
+          baseWeaponDamage: weapon.damage,
+          armor: armor.id,
+          baseArmor: armor.armor,
+        },
       });
-      expect(effectiveSkill(enemy, gdrs.agentParameters)).toBe(skill);
+      // A Combat holds an Enemy's whole values in hundredths, as an Agent holds its own; see DEC-056.
+      const state = enemyCombatantState(enemy.state);
+      expect(state).toEqual({
+        skillHundredths: archetype.skill * 100,
+        currentHealthHundredths: archetype.baseHealth * 100,
+        maxHealth: archetype.baseHealth,
+        exactExhaustionHundredths: 0,
+        weaponDamage: weapon.damage,
+        armor: armor.armor,
+      });
+      expect(effectiveSkill(state, BOOTSTRAP_GDRS.agentParameters)).toBe(archetype.skill);
     }
   });
 
@@ -83,7 +105,7 @@ describe('COMBAT: examples', () => {
     expect(damageBounds(11, gdrs.combatParameters)).toEqual({ lo: 6, hi: 16 });
     // An injected damage outcome outside the range is invalid.
     expect(() =>
-      fight([combatAgent('a1')], [combatEnemy('e1', 'initiate')], {
+      fight([combatAgent('a1')], [initiate('e1')], {
         'combat.hit.a1': [true],
         'combat.damage.a1': [16],
       }),
@@ -190,7 +212,7 @@ describe('COMBAT: examples', () => {
       fightCombat(
         {
           agents: [combatAgent('a1'), combatAgent('a2'), a4],
-          enemies: [combatEnemy('e1', 'initiate'), combatAgent('e2', { skill: 50 }), combatAgent('e3')],
+          enemies: [initiate('e1'), combatAgent('e2', { skill: 50 }), combatAgent('e3')],
           combat: gdrs.combatParameters,
           agentParameters: gdrs.agentParameters,
         },
@@ -301,7 +323,7 @@ describe('COMBAT: examples', () => {
       fightCombat(
         {
           agents: [combatAgent('a1'), combatAgent('a2')],
-          enemies: [combatAgent('e1'), combatEnemy('e2', 'initiate')],
+          enemies: [combatAgent('e1'), initiate('e2')],
           combat: gdrs.combatParameters,
           agentParameters: gdrs.agentParameters,
         },
@@ -339,7 +361,7 @@ describe('COMBAT: examples', () => {
         combatAgent('a2', { skill: 120 }),
         combatAgent('a3', { skill: 90, weaponDamage: 50 }),
       ],
-      [combatEnemy('e1', 'soldier')],
+      [soldier('e1')],
       {
         'combat.hit.a1': [false],
         'combat.hit.a2': [false],
@@ -356,7 +378,7 @@ describe('COMBAT: examples', () => {
     // a1 kills the only Enemy: the Combat is Prevailed after one attack, a2 takes no Combat turn and no Enemies'
     // phase follows.
     const a2 = combatAgent('a2');
-    const report = fight([combatAgent('a1', { weaponDamage: 20 }), a2], [combatEnemy('e1', 'initiate')], {
+    const report = fight([combatAgent('a1', { weaponDamage: 20 }), a2], [initiate('e1')], {
       'combat.hit.a1': [true],
       'combat.damage.a1': [20],
     });
@@ -371,23 +393,19 @@ describe('COMBAT: examples', () => {
   });
 
   it('Complete Combat: two Agents against two initiates', () => {
-    const report = fight(
-      [combatAgent('a1'), combatAgent('a2')],
-      [combatEnemy('e1', 'initiate'), combatEnemy('e2', 'initiate')],
-      {
-        'combat.target.a1': ['e1', 'e1'],
-        'combat.hit.a1': [true, true],
-        'combat.damage.a1': [12, 9],
-        'combat.target.a2': ['e2', 'e2'],
-        'combat.hit.a2': [true, false, true],
-        'combat.damage.a2': [15, 5],
-        'combat.target.e1': ['a1'],
-        'combat.hit.e1': [false],
-        'combat.target.e2': ['a1', 'a2'],
-        'combat.hit.e2': [true, false],
-        'combat.damage.e2': [7],
-      },
-    );
+    const report = fight([combatAgent('a1'), combatAgent('a2')], [initiate('e1'), initiate('e2')], {
+      'combat.target.a1': ['e1', 'e1'],
+      'combat.hit.a1': [true, true],
+      'combat.damage.a1': [12, 9],
+      'combat.target.a2': ['e2', 'e2'],
+      'combat.hit.a2': [true, false, true],
+      'combat.damage.a2': [15, 5],
+      'combat.target.e1': ['a1'],
+      'combat.hit.e1': [false],
+      'combat.target.e2': ['a1', 'a2'],
+      'combat.hit.e2': [true, false],
+      'combat.damage.e2': [7],
+    });
     expect(report.outcome).toBe('Prevailed');
     expect(report.rounds).toBe(3);
     expect(report.agents).toEqual(['a1', 'a2']);
@@ -452,7 +470,7 @@ describe('COMBAT: examples', () => {
   it('Combat skill gain counts every attack, and a Killed Agent keeps its own in the report', () => {
     // a1 misses twice and is missed once, then is hit and made dead: 2 + 2 + 2 + 1 = 7.
     const a1 = combatAgent('a1', { currentHealth: 5 });
-    const report = fight([a1], [combatEnemy('e1', 'soldier')], {
+    const report = fight([a1], [soldier('e1')], {
       'combat.hit.a1': [false, false],
       'combat.hit.e1': [false, true],
       'combat.damage.e1': [14],
@@ -465,7 +483,7 @@ describe('COMBAT: examples', () => {
 
   it('Retreated', () => {
     const a1 = combatAgent('a1');
-    const report = fight([a1], [combatEnemy('e1', 'soldier')], {
+    const report = fight([a1], [soldier('e1')], {
       'combat.hit.a1': [false],
       'combat.hit.e1': [true],
       'combat.damage.e1': [21],
@@ -478,7 +496,7 @@ describe('COMBAT: examples', () => {
   });
 
   it('Wiped, with the Retreated check also holding', () => {
-    const report = fight([combatAgent('a1', { currentHealth: 6 })], [combatEnemy('e1', 'commander')], {
+    const report = fight([combatAgent('a1', { currentHealth: 6 })], [commander('e1')], {
       'combat.hit.a1': [false],
       'combat.hit.e1': [true],
       'combat.damage.e1': [11],
@@ -491,7 +509,7 @@ describe('COMBAT: examples', () => {
 
   it('Incapacitated during a Combat', () => {
     const a1 = combatAgent('a1', { exhaustion: 99 });
-    const report = fight([a1, combatAgent('a2')], [combatEnemy('e1', 'initiate')], {
+    const report = fight([a1, combatAgent('a2')], [initiate('e1')], {
       'combat.hit.a1': [false],
       'combat.hit.a2': [true, true],
       'combat.damage.a2': [10, 13],
@@ -523,7 +541,7 @@ describe('COMBAT: examples', () => {
   });
 
   it('Prevailed when neither side can fight on', () => {
-    const report = fight([combatAgent('a1', { exhaustion: 97 })], [combatEnemy('e1', 'initiate')], {
+    const report = fight([combatAgent('a1', { exhaustion: 97 })], [initiate('e1')], {
       'combat.hit.a1': [true, true],
       'combat.damage.a1': [15, 5],
       'combat.hit.e1': [false],
@@ -555,57 +573,57 @@ describe('COMBAT: examples', () => {
     const incapacitatedEnemy = fight([combatAgent('a1')], [zeroSkill], {});
     expect([incapacitatedEnemy.outcome, incapacitatedEnemy.rounds]).toEqual(['Prevailed', 0]);
     const tired = combatAgent('a1', { exhaustion: 100 });
-    const wiped = fight([tired], [combatEnemy('e1', 'initiate')], {});
+    const wiped = fight([tired], [initiate('e1')], {});
     expect([wiped.outcome, wiped.rounds]).toEqual(['Wiped', 0]);
     expect(tired.state).toMatchObject({ currentHealthHundredths: 3000, exactExhaustionHundredths: 10000 });
     // Effective skill 30 is above the skill clause's 10: the exhaustion clause alone incapacitates it.
     expect(effectiveSkill(tired.state, gdrs.agentParameters)).toBe(30);
     const veryTired = combatAgent('a1', { exhaustion: 130 });
-    const wipedAgain = fight([veryTired], [combatEnemy('e1', 'initiate')], {});
+    const wipedAgain = fight([veryTired], [initiate('e1')], {});
     expect([wipedAgain.outcome, wipedAgain.rounds]).toEqual(['Wiped', 0]);
     expect(units(veryTired.state)).toMatchObject({ currentHealth: 30, exhaustion: 130 });
-    const continues = fight(
-      [combatAgent('a1', { exhaustion: 105 }), combatAgent('a2')],
-      [combatEnemy('e1', 'initiate')],
-      { 'combat.hit.a2': [true, true], 'combat.damage.a2': [15, 15], 'combat.hit.e1': [false, false] },
-    );
+    const continues = fight([combatAgent('a1', { exhaustion: 105 }), combatAgent('a2')], [initiate('e1')], {
+      'combat.hit.a2': [true, true],
+      'combat.damage.a2': [15, 15],
+      'combat.hit.e1': [false, false],
+    });
     expect(continues.ratings[0]!.agents).toBe(100);
     expect(continues.rounds).toBeGreaterThan(0);
-    expect(() => fight([], [combatEnemy('e1', 'initiate')], {})).toThrow();
+    expect(() => fight([], [initiate('e1')], {})).toThrow();
     expect(() => fight([combatAgent('a1'), combatAgent('a1')], [], {})).toThrow();
   });
 
   it('Every attack misses', () => {
-    const initiate = fight([combatAgent('a1')], [combatEnemy('e1', 'initiate')], {
+    const againstInitiate = fight([combatAgent('a1')], [initiate('e1')], {
       'combat.hit.a1': misses(200),
       'combat.hit.e1': misses(200),
     });
-    expect(initiate.outcome).toBe('Prevailed');
-    expect(initiate.rounds).toBe(50);
-    expect(initiate.log).toHaveLength(100);
-    expect(participant(initiate, 'e1').final).toMatchObject({
+    expect(againstInitiate.outcome).toBe('Prevailed');
+    expect(againstInitiate.rounds).toBe(50);
+    expect(againstInitiate.log).toHaveLength(100);
+    expect(participant(againstInitiate, 'e1').final).toMatchObject({
       exhaustion: 100,
       effectiveSkill: 12,
       condition: 'incapacitated',
     });
-    expect(participant(initiate, 'a1').final).toMatchObject({
+    expect(participant(againstInitiate, 'a1').final).toMatchObject({
       exhaustion: 100,
       effectiveSkill: 30,
       condition: 'incapacitated',
     });
     // COMBAT, Combat rating: the initiate's effective skill 19 rates ⌊19 × 11/15⌋.
-    expect(initiate.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 13 });
+    expect(againstInitiate.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 13 });
 
-    const soldier = fight([combatAgent('a1')], [combatEnemy('e1', 'soldier')], {
+    const againstSoldier = fight([combatAgent('a1')], [soldier('e1')], {
       'combat.hit.a1': misses(200),
       'combat.hit.e1': misses(200),
     });
-    expect(soldier.outcome).toBe('Retreated');
-    expect(soldier.rounds).toBe(41);
-    expect(soldier.ratings[40]).toMatchObject({ agents: 50 });
+    expect(againstSoldier.outcome).toBe('Retreated');
+    expect(againstSoldier.rounds).toBe(41);
+    expect(againstSoldier.ratings[40]).toMatchObject({ agents: 50 });
     // COMBAT, Combat rating: the soldier's effective skill 57 rates ⌊57 × 17/10⌋, its rating factor being
     // (14 / 10 + 30 / 30 + 20 / 20) / 2 for its weapon damage 14 and armor 20.
-    expect(soldier.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 96 });
+    expect(againstSoldier.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 96 });
   });
 
   it('Effects of an attack: current armor absorbs hits before current health, and only within its Combat', () => {
@@ -662,27 +680,15 @@ describe('COMBAT: examples', () => {
     expect(inputs.agents[0]!.state.armor).toBe(25);
   });
 
-  it('No armor: every hit removes current health as if armor did not exist', () => {
-    const report = fight([combatAgent('a1')], [combatEnemy('e1', 'initiate')], {
-      'combat.hit.a1': misses(200),
-      'combat.hit.e1': [true, ...misses(200)],
-      'combat.damage.e1': [8],
-    });
-    const hit = report.log.find((item) => item.attacker === 'e1')!;
-    expect([hit.armorRemoved, hit.healthRemovedHundredths, hit.defenderAfter.currentArmor]).toEqual([
-      0, 800, 0,
-    ]);
-    expect(participant(report, 'e1').start.armor).toBe(0);
-  });
-
   it('Combat ratings of Mission sites', () => {
-    // COMBAT, Combat rating, with the Bootstrap values: an initiate rates 40 × (8 / 10 + 20 / 30 + 0 / 20) / 2 = 40 ×
-    // 11/15, a soldier 120 × (14 / 10 + 30 / 30 + 20 / 20) / 2 = 120 × 17/10 = 204, and a commander 300 × (22 / 10 + 40 /
-    // 30 + 50 / 20) / 2 = 300 × 181/60 = 905; a side of n is rated ⌊n ^ 0.2 × their sum⌋.
-    const rating = (enemies: [string, number][]) =>
+    // COMBAT, Combat rating, with the values of the example: an initiate rates 40 × (8 / 10 + 20 / 30 + 0 / 20) / 2 =
+    // 40 × 11/15, a soldier 120 × (14 / 10 + 30 / 30 + 20 / 20) / 2 = 120 × 17/10 = 204, and a commander 300 × (22 / 10 +
+    // 40 / 30 + 50 / 20) / 2 = 300 × 181/60 = 905; a side of n is rated ⌊n ^ 0.2 × their sum⌋.
+    const values = { initiate: INITIATE, soldier: SOLDIER, commander: COMMANDER };
+    const rating = (enemies: [keyof typeof values, number][]) =>
       combatRating(
         enemies.flatMap(([archetype, count]) =>
-          Array.from({ length: count }, (_, i) => combatEnemy(`e${i}`, archetype).state),
+          Array.from({ length: count }, (_, i) => combatEnemyWith(`e${i}`, values[archetype]).state),
         ),
         gdrs.combatParameters,
         gdrs.agentParameters,
@@ -755,7 +761,7 @@ describe('COMBAT: examples', () => {
     // The three terms add: an Agent at the rating bases has a rating factor of 1, an initiate (8 / 10 + 20 / 30 + 0) / 2,
     // and weapon damage and max health below their bases lower the factor, which stays above 0.
     expect(ratingFactor(combatAgent('a1').state, combat).toString()).toBe('1');
-    expect(ratingFactor(combatEnemy('e1', 'initiate').state, combat).toString()).toBe('11/15');
+    expect(ratingFactor(initiate('e1').state, combat).toString()).toBe('11/15');
     expect(
       ratingFactor({ ...combatAgent('a1').state, maxHealth: 1, weaponDamage: 1 }, combat).toString(),
     ).toBe('1/15');
@@ -787,7 +793,7 @@ describe('COMBAT: examples', () => {
     const { report } = fightCombat(
       {
         agents: team,
-        enemies: [combatEnemy('e1', 'initiate')],
+        enemies: [initiate('e1')],
         combat,
         agentParameters: gdrs.agentParameters,
       },
@@ -855,7 +861,7 @@ describe('COMBAT: examples', () => {
     const { report } = fightCombat(
       {
         agents: [tired],
-        enemies: [combatEnemy('e1', 'initiate')],
+        enemies: [initiate('e1')],
         combat: noPenalty.combatParameters,
         agentParameters: noPenalty.agentParameters,
       },

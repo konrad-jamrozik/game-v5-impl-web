@@ -54,7 +54,6 @@ describe('NUMBERS: Decimal quantities', () => {
     }
     expect(fromHundredths(total).lt(30)).toBe(true);
     expect(fromHundredths(total + 60).eq(30)).toBe(true);
-    expect(10 + 20).toBe(30);
     // A rate of round up to hundredths(2 / 3) = 0.67, added in three Turns, adds 2.01.
     expect(roundUpToHundredths(ratio(2, 3)) * 3).toBe(201);
     // A Decimal quantity of 3.40 read through round up( … ) is 4, and one of 3.00 is 3.
@@ -64,11 +63,13 @@ describe('NUMBERS: Decimal quantities', () => {
 
 describe('AGENT: Decimal quantities', () => {
   it('Effective skill with decimal places', () => {
-    expect(effectiveSkill(values(102.75, 28.67, 0), p)).toBe(98);
+    // Fixture values of the example: 30 free points of exhaustion and a skill penalty of 1% per point above them.
+    const example = { ...p, exhaustionFreePoints: 30, skillPenaltyPctPerExhaustion: 1 };
+    expect(effectiveSkill(values(102.75, 28.67, 0), example)).toBe(98);
     // Exact exhaustion 30.40 is exhaustion 31: penalty factor 99.
-    expect(effectiveSkill(values(102.75, 30, 30.4), p)).toBe(101);
-    expect(effectiveSkill(values(102.75, 30, 0), p)).toBe(102);
-    expect(effectiveSkill(values(100, 29.99, 0), p)).toBe(99);
+    expect(effectiveSkill(values(102.75, 30, 30.4), example)).toBe(101);
+    expect(effectiveSkill(values(102.75, 30, 0), example)).toBe(102);
+    expect(effectiveSkill(values(100, 29.99, 0), example)).toBe(99);
   });
 
   it('Exact exhaustion just above zero', () => {
@@ -84,11 +85,12 @@ describe('AGENT: Decimal quantities', () => {
     );
     let state = newCampaign({ money: 5000, catalog });
     const [a1] = agentIds(state) as [string];
+    const start = agent(state, a1).state.skillHundredths;
     state = setAssignment(state, [a1], 'Training');
     state = advance(state, {}, catalog);
-    expect(agent(state, a1).state.skillHundredths).toBe(10110);
+    expect(agent(state, a1).state.skillHundredths).toBe(start + 110);
     state = advance(state, {}, catalog);
-    expect(agent(state, a1).state.skillHundredths).toBe(10220);
+    expect(agent(state, a1).state.skillHundredths).toBe(start + 220);
   });
 });
 
@@ -96,7 +98,11 @@ describe('ECON: Decimal increments', () => {
   it('GDR validation', () => {
     expectDefective((raw) => (raw.get('training_cap')['increment'] = { $decimal: '0.5' }));
     expectDefective((raw) => (raw.get('health_recovery')['increment'] = { $decimal: '0.125' }));
-    expect(gdrs.upgrades.find((u) => u.id === 'training_skill_gain')!.incrementHundredths).toBe(50);
+    // A decimal increment is accepted where the effect allows it, and held in hundredths.
+    const catalog = catalogWith(
+      (raw) => (raw.get('training_skill_gain')['increment'] = { $decimal: '0.25' }),
+    );
+    expect(catalog.upgrades.find((u) => u.id === 'training_skill_gain')!.incrementHundredths).toBe(25);
   });
 });
 

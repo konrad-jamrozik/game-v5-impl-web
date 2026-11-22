@@ -213,6 +213,145 @@ export function useLegacyCatalog(): void {
   baseFiles = LEGACY_FILES;
 }
 
+/**
+ * The Retunable values that the Mechanics tests built on the former Acceptance examples, and the worked examples of
+ * the Mechanics specifications, were worked out on, set as Fixture values by GDR identifier (TESTVAL, Expected
+ * values): every value of the AgentParameters, CombatParameters, RecoveryParameters, EconomyParameters,
+ * EndingParameters, and InvestigationParameters, the AgentArchetype, every Upgrade, the Weapons and Armors of the
+ * Agents and of the Enemies the tests fight, those EnemyArchetypes, and the operation countdowns and weights of the
+ * two FactionActivityLevels the tests drive. A test whose file uses `useExampleCatalog` expects what follows from
+ * these values, so that a retune of the Game build changes none of it. Each value is in raw GDR form, as
+ * `scripts/build-gdr.ts` writes it.
+ */
+export const EXAMPLE_VALUES: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
+  agent_parameters: {
+    initial_roster_size: 4,
+    exhaustion_incapacitation: 100,
+    exhaustion_free_points: 30,
+    skill_penalty_pct_per_exhaustion: 1,
+    exhaustion_per_attack: 1,
+    exhaustion_per_defense: 1,
+    exhaustion_per_mission: 5,
+    exhaustion_per_pct_killed: 1,
+    training_skill_gain_per_turn: 1,
+    experience_per_attack_hit: 4,
+    experience_per_attack_miss: 2,
+    experience_per_defense_hit: 1,
+    experience_per_defense_miss: 2,
+    experience_per_mission_survived: [30, 25, 20, 15],
+  },
+  combat_parameters: {
+    weapon_damage_range: { $decimal: '0.5' },
+    retreat_below_agent_rating_fraction: { $decimal: '0.5' },
+    retreat_at_enemy_to_agent_rating: { $decimal: '0.8' },
+    incapacitation_skill_fraction: { $decimal: '0.1' },
+    target_base_weight: 100,
+    target_preferred_hit_chance: { $decimal: '0.8' },
+    rating_base_health: 30,
+    rating_base_armor: 20,
+    rating_base_weapon_damage: 10,
+    rating_team_size_exponent: { $decimal: '1.2' },
+  },
+  recovery: { health_recovery_pct_per_turn: 2, exhaustion_recovery_per_turn: 5 },
+  economy: {
+    hire_cost: 50,
+    upkeep_per_agent: 10,
+    contracting_income_per_agent: 30,
+    contracting_skill_scale: 200,
+    base_agent_cap: 20,
+    base_transport_cap: 8,
+    base_training_cap: 10,
+  },
+  endings: { defeat_at_panic_pct: 100 },
+  investigation_parameters: {
+    team_efficiency_exponent: { $decimal: '0.8' },
+    required_progress_max_pct: 150,
+    assessment_threshold_pct: 25,
+  },
+  field_agent: { base_skill: 100, base_health: 30, weapon: 'service_weapon', armor: 'service_armor' },
+  agent_cap: { price: 2000, effect: 'agent_cap', increment: 20 },
+  transport_cap: { price: 1500, effect: 'transport_cap', increment: 8 },
+  training_cap: { price: 1000, effect: 'training_cap', increment: 10 },
+  weapon_damage: { price: 2000, effect: 'agent_weapon_damage', increment: 2 },
+  armor: { price: 1000, effect: 'agent_armor', increment: 5 },
+  training_skill_gain: { price: 1000, effect: 'training_skill_gain', increment: { $decimal: '0.5' } },
+  exhaustion_recovery: { price: 1000, effect: 'exhaustion_recovery', increment: 1 },
+  health_recovery: { price: 1000, effect: 'health_recovery', increment: 1 },
+  service_weapon: { base_weapon_damage: 10 },
+  basic_pistol: { base_weapon_damage: 8 },
+  combat_pistol: { base_weapon_damage: 10 },
+  rifle: { base_weapon_damage: 14 },
+  heavy_rifle: { base_weapon_damage: 22 },
+  service_armor: { base_armor: 0 },
+  no_armor: { base_armor: 0 },
+  ballistic_vest: { base_armor: 20 },
+  heavy_armor: { base_armor: 50 },
+  initiate: { base_skill: 40, base_health: 20, weapon: 'basic_pistol', armor: 'no_armor' },
+  soldier: { base_skill: 120, base_health: 30, weapon: 'rifle', armor: 'ballistic_vest' },
+  commander: { base_skill: 300, base_health: 40, weapon: 'heavy_rifle', armor: 'heavy_armor' },
+  faint: {
+    operation_every_turns: [10, 20],
+    operation_level_weights: {
+      $entries: [
+        ['1', 80],
+        ['2', 20],
+      ],
+    },
+  },
+  total_war: {
+    operation_every_turns: [6, 14],
+    operation_level_weights: {
+      $entries: [
+        ['1', 10],
+        ['2', 20],
+        ['3', 35],
+        ['4', 30],
+        ['5', 5],
+      ],
+    },
+  },
+};
+
+/**
+ * The legacy test Game build's own changes that `EXAMPLE_VALUES` would otherwise undo or leave to the Game build: its
+ * `initiate` carries `combat_pistol`, and its two Response MissionSiteArchetypes keep the Faction operation levels its
+ * rewards were set for.
+ */
+const LEGACY_EXAMPLE_VALUES: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
+  initiate: { weapon: 'combat_pistol' },
+  foil_recruitment_push: { operation_level: 1 },
+  foil_sabotage: { operation_level: 2 },
+};
+
+/** A copy of GDR files with `EXAMPLE_VALUES`, and then the given values, set on the GDRs they name. */
+export function withExampleValues(
+  files: readonly RawGdrFile[],
+  extra: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {},
+): RawGdrFile[] {
+  const copy = structuredClone(files) as { path: string; gdrs: Record<string, unknown>[] }[];
+  for (const values of [EXAMPLE_VALUES, extra]) {
+    for (const [id, fields] of Object.entries(values)) {
+      const gdr = copy.flatMap((file) => file.gdrs).find((item) => item['id'] === id);
+      if (gdr === undefined) {
+        throw new Error(`The test Game build has no GDR ${id} to set Fixture values on`);
+      }
+      Object.assign(gdr, structuredClone(fields));
+    }
+  }
+  return copy;
+}
+
+/**
+ * Makes the Red Dawn test Game build, or with `legacy` the legacy one, with `EXAMPLE_VALUES` the default of every
+ * helper, and of `gdrs`, for the rest of the test file that calls it, at its top level, as `useLegacyCatalog` does.
+ */
+export function useExampleCatalog(options: { legacy?: boolean } = {}): void {
+  baseFiles = options.legacy
+    ? withExampleValues(LEGACY_FILES, LEGACY_EXAMPLE_VALUES)
+    : withExampleValues(RED_DAWN_ONLY_FILES);
+  gdrs = buildGdrCatalog(baseFiles);
+}
+
 export type Injected = Record<string, (number | boolean | string)[]>;
 
 /**
@@ -691,6 +830,27 @@ export function combatAgent(
       exactExhaustionHundredths: Math.round(v.exhaustion * 100),
       weaponDamage: v.weaponDamage,
       armor: v.armor,
+    },
+  };
+}
+
+/**
+ * A newly created Enemy with the given Fixture values, for testing a Combat on its own: its base health is both its
+ * current health and its max health, and its base weapon damage and base armor are its weapon damage and armor.
+ */
+export function combatEnemyWith(
+  id: string,
+  values: { skill: number; health: number; weaponDamage: number; armor: number },
+): Combatant {
+  return {
+    id,
+    state: {
+      skillHundredths: values.skill * 100,
+      currentHealthHundredths: values.health * 100,
+      maxHealth: values.health,
+      exactExhaustionHundredths: 0,
+      weaponDamage: values.weaponDamage,
+      armor: values.armor,
     },
   };
 }

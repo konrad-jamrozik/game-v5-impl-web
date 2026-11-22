@@ -34,10 +34,11 @@ import {
 
 /**
  * A Campaign with four Agents deployed to a new `raid_outpost`, before the Advance turn that fights its Combat, and
- * three Armor Upgrades bought, so that their current armor absorbs hits.
+ * three Armor Upgrades bought, so that their current armor absorbs hits. The starting money is a Fixture value large
+ * enough for any Upgrade price.
  */
 function deployedCampaign(): { state: CampaignState; team: string[]; site: string } {
-  let state = withAgents(newCampaign({ money: 3000 }), 4);
+  let state = withAgents(newCampaign({ money: 1_000_000 }), 4);
   for (let i = 0; i < 3; i += 1) {
     state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
   }
@@ -234,26 +235,51 @@ describe('COMBAT: Detached Combat', () => {
 
   it('applies GDR values the setup supplies and keeps the Game build values otherwise', () => {
     const state = newCampaign();
-    const tired = { ...explicitAgent, exhaustion: 80 };
     const enemies = [{ kind: 'enemyArchetype', id: 'initiate' }];
-    const usual = fought(state, { agents: [tired], enemies, seed: 'g' });
-    expect(usual.combatReport.participants[0]!.start.incapacitated).toBe(false);
-    // An exhaustion_incapacitation of 80 makes the Agent Incapacitated from Combat start.
+    const incapacitatedAtStart = (result: DetachedCombatResult): boolean =>
+      result.combatReport.participants[0]!.start.incapacitated;
+    // Fixture values: no skill penalty from exhaustion, so that only the exhaustion clause can hold.
+    const noPenalty = { skill_penalty_pct_per_exhaustion: 0 };
+    const limit = gdrs.agentParameters.exhaustionIncapacitation;
+    const tired = { ...explicitAgent, exhaustion: limit - 1 };
+    // The Game build's exhaustion_incapacitation is kept: one point below it is not Incapacitated, at it is.
+    expect(
+      incapacitatedAtStart(fought(state, { agents: [tired], enemies, gdrValues: noPenalty, seed: 'g' })),
+    ).toBe(false);
+    expect(
+      incapacitatedAtStart(
+        fought(state, {
+          agents: [{ ...explicitAgent, exhaustion: limit }],
+          enemies,
+          gdrValues: noPenalty,
+          seed: 'g',
+        }),
+      ),
+    ).toBe(true);
+    // A supplied exhaustion_incapacitation at the Agent's exhaustion makes it Incapacitated from Combat start.
     const lowered = fought(state, {
       agents: [tired],
       enemies,
-      gdrValues: { exhaustion_incapacitation: 80 },
+      gdrValues: { ...noPenalty, exhaustion_incapacitation: limit - 1 },
       seed: 'g',
     });
     expect(lowered.combatReport).toMatchObject({ outcome: 'Wiped', rounds: 0 });
-    // A decimal value may be given as its text: with a fraction of 0.9 a tired Agent meets the skill clause.
-    const fraction = fought(state, {
-      agents: [{ ...explicitAgent, exhaustion: 50 }],
-      enemies,
-      gdrValues: { incapacitation_skill_fraction: '0.9' },
-      seed: 'g',
-    });
-    expect(fraction.combatReport).toMatchObject({ outcome: 'Wiped', rounds: 0 });
+    // A decimal value may be given as its text. Fixture values: with no free points and 1% per point, exhaustion 20
+    // gives effective skill 80 of skill 100, which meets the skill clause under a fraction of 0.9 and not under 0.7.
+    const skillClause = (fraction: string) =>
+      fought(state, {
+        agents: [{ ...explicitAgent, exhaustion: 20 }],
+        enemies,
+        gdrValues: {
+          exhaustion_free_points: 0,
+          skill_penalty_pct_per_exhaustion: 1,
+          exhaustion_incapacitation: 100,
+          incapacitation_skill_fraction: fraction,
+        },
+        seed: 'g',
+      });
+    expect(skillClause('0.9').combatReport).toMatchObject({ outcome: 'Wiped', rounds: 0 });
+    expect(incapacitatedAtStart(skillClause('0.7'))).toBe(false);
     expect(
       fought(state, { agents: [tired], enemies, gdrValues: { weapon_damage_range: 0.25 }, seed: 'g' }),
     ).toBeDefined();

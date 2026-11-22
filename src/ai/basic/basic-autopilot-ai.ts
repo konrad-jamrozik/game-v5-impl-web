@@ -69,9 +69,9 @@ export function meetsRequiredShare(teamRating: number, enemiesRating: number, re
 
 /** BASICAI, Game designer values. */
 export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
-  reserveSharePct: 40,
-  investigatorSharePct: 10,
-  capSharePct: 30,
+  reserveSharePct: 35,
+  investigatorSharePct: 5,
+  capSharePct: 25,
   savingsFloorTurns: 5,
   combatMarginPct: 110,
   lossMarginStepPct: 5,

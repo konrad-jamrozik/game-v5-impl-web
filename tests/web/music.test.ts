@@ -2,6 +2,7 @@
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vite-plus/test';
 import { excludedTracks } from '../../src/engine/index.ts';
+import { RAW_GDR_FILES } from '../../src/gdr/index.ts';
 import { drawRound, gain, isTrack, stepToggleFade, trackFade, trackTitle } from '../../src/web/music.ts';
 
 /** A random source that returns the given numbers in turn. */
@@ -31,15 +32,12 @@ describe('MUSIC: Soundtrack', () => {
     expect(new Set(files.map(trackTitle)).size).toBe(files.length);
   });
 
-  it('takes the excluded files from the GDR `music`, e.g. EL-M2.5 XCOM+Var X1.opus', () => {
-    expect(excludedTracks()).toEqual([
-      'EL-M2.5 XCOM+Var X1.opus',
-      'EL-M2 XCOM+TFTD X1.opus',
-      'EL-M2.5 XCOM X1.opus',
-      'EL-M2.5 XCOM X2.opus',
-      'V3A-S5 XCOM+Var X1.mp3',
-      'V3A-S5 XCOM+Sections+Loop X1.mp3',
-    ]);
+  it('takes the excluded files from the GDR `music`, in its order', () => {
+    const music = RAW_GDR_FILES.flatMap((file) => file.gdrs as readonly Record<string, unknown>[]).find(
+      (gdr) => gdr['type'] === 'MusicParameters' && gdr['id'] === 'music',
+    );
+    expect(music).toBeDefined();
+    expect(excludedTracks()).toEqual(music!['excluded_tracks']);
   });
 
   it('plays no file that the GDR `music` excludes, nor any file that is not Ogg Opus or MP3', () => {

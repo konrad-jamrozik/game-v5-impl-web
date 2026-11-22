@@ -174,31 +174,26 @@ describe('Terminal CLI', () => {
     expect(ok(engine.session.timeline.getStatus()).timelineEntries).toBe(0);
   });
 
-  // PROB-050: the Basic Autopilot AI no longer reliably reaches an ending within 400 Turns.
-  it('plays 400 Turns with the Basic Autopilot AI, readable for a person', async () => {
+  // CTEST, Limits: one Campaign of 20 Turns, checking only that play runs through the `auto` command.
+  it('plays Turns with the Basic Autopilot AI under the auto command, readable for a person', async () => {
     const engine = await start(new FileStorage(dir));
     const lines = await run(
       engine,
-      ['new full-campaign', 'auto basic turns 400', 'live', 'agents', 'factions'],
+      ['new auto-campaign', 'auto basic turns 20', 'live', 'agents', 'factions'],
       false,
     );
-    const ended = ok(engine.session.getStatus()).campaignEnded;
-    expect(lines[1]).toMatch(ended ? /^reason: campaignEnded$/m : /^reason: limitReached$/m);
-    // The live state names its ending only when it has one.
-    if (ended) {
-      expect(lines[2]).toMatch(/^ending:\n {2}ending: (Victory|Defeat)$/m);
-    } else {
-      expect(lines[2]).toMatch(/^turn: 401$/m);
-    }
+    expect(lines[1]).toMatch(/^reason: (campaignEnded|limitReached)$/m);
+    expect(lines[2]).toMatch(/^turn: \d+$/m);
     expect(lines[3]).toMatch(/^-\n {2}id: agent-/);
-    const after = await run(engine, ['next'], false);
-    expect(after[0]).toMatch(ended ? /^error \(/ : /^(?!error)/);
+    expect(lines.every((line) => !line.startsWith('error ('))).toBe(true);
   });
 
   it('gives Developer access only in Dev mode and reaches every cheat operation', async () => {
     const engine = await start(new MemoryStorage());
+    await run(engine, ['new s']);
+    const startingMoney = ok(engine.player.queries.getCurrentLiveWorldState()).agency.money;
     const lines = await run(engine, [
-      'new s',
+      'live',
       'addmoney 5',
       'dev on',
       'addmoney 5',
@@ -212,11 +207,13 @@ describe('Terminal CLI', () => {
     expect(parse(lines[3]).ok).toBe(true);
     expect(parse(lines[4]).ok).toBe(true);
     expect(parse(lines[5]).value.timeline).toBeDefined();
-    expect(parse(lines[6]).value.leads).toContainEqual(
-      expect.objectContaining({ id: 'locate_red_dawn_outpost', level: 3 }),
-    );
     expect(parse(lines[8]).error.code).toBe('dev_mode_disabled');
-    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agency.money).toBe(505);
+    ok(engine.session.developer.enable());
+    expect(parse(lines[6]).value).toEqual(
+      JSON.parse(JSON.stringify(ok(engine.developer.queries.getInitiativeOperationLevels()))),
+    );
+    // Only the `addmoney 5` made in Dev mode added money.
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agency.money).toBe(startingMoney + 5);
   });
 
   it('fights a Detached Combat from a setup given as JSON, only in Dev mode', async () => {

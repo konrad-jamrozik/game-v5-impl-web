@@ -16,19 +16,28 @@ import {
 describe('VIS: Agent condition', () => {
   const levels = { warning: 30, high: 50, danger: 70 };
 
-  it('colours exhaustion from the AgentParameters thresholds, with a triangle from exhaustion_work_limit', () => {
+  it('colours exhaustion from its thresholds, with a triangle from the Danger threshold', () => {
     expect(exhaustionTone(29, levels)).toEqual({ tone: '', triangle: false });
     expect(exhaustionTone(30, levels)).toEqual({ tone: 'tone-warning', triangle: false });
     expect(exhaustionTone(50, levels)).toEqual({ tone: 'tone-accent', triangle: false });
     expect(exhaustionTone(70, levels)).toEqual({ tone: 'tone-bad', triangle: true });
   });
 
+  // The colours themselves are checked by looking (TFOCUS, Presentation by looking); the rule is that the colour
+  // follows the share of effective max health alone, and changes smoothly along it.
   it('colours current health on a smooth scale over its share of effective max health', () => {
-    expect(healthColor(30, 30)).toBe('currentColor');
-    expect(healthColor(15, 30)).toBe('var(--accent-text)');
-    expect(healthColor(0, 30)).toBe('var(--danger-deep)');
-    expect(healthColor(27, 30)).toBe('color-mix(in srgb, currentColor 60%, var(--warning))');
-    expect(healthColor(1, 30)).toMatch(/var\(--danger\) 13\.3%, var\(--danger-deep\)/);
+    for (const [health, max] of [
+      [30, 30],
+      [27, 30],
+      [15, 30],
+      [1, 30],
+      [0, 30],
+    ] as const) {
+      expect(healthColor(health * 2, max * 2), `${health} of ${max}`).toBe(healthColor(health, max));
+    }
+    const shades = Array.from({ length: 31 }, (_, health) => healthColor(health, 30));
+    // Every point of health lost changes the colour.
+    expect(new Set(shades).size).toBe(shades.length);
   });
 });
 

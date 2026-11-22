@@ -1,6 +1,6 @@
 /** CSCR, Undo and redo. */
 import { describe, expect, it } from 'vite-plus/test';
-import { STEP_LABELS, stepButtonKind, undoRedoStep } from '../../src/web/undo-redo.ts';
+import { undoRedoStep } from '../../src/web/undo-redo.ts';
 
 const target = { saveId: 's', autosaveKind: 'turnEnd', turn: 12, crossesAutopilotEngagement: false } as const;
 
@@ -51,29 +51,5 @@ describe('CSCR: Undo and redo', () => {
         crossesAutopilotEngagement: true,
       }),
     ).toEqual({ form: 'autopilot', tooltip: 'Forward to where Autopilot disengaged, in Turn 35' });
-  });
-
-  it('has no step when neither form is available', () => {
-    expect(undoRedoStep('redo', false, null)).toBeNull();
-  });
-
-  it('names each step, and draws each as its own kind of button', () => {
-    expect(STEP_LABELS.undo).toEqual({
-      action: 'Undo Action',
-      turn: 'Undo Turn',
-      autopilot: 'Undo Autopilot',
-    });
-    expect(STEP_LABELS.redo).toEqual({
-      action: 'Redo Action',
-      turn: 'Redo Turn',
-      autopilot: 'Redo Autopilot',
-    });
-    expect(stepButtonKind(undoRedoStep('undo', true, target))).toBe('plain');
-    expect(stepButtonKind(undoRedoStep('undo', false, target))).toBe('weighty');
-    expect(stepButtonKind(undoRedoStep('undo', false, { ...target, crossesAutopilotEngagement: true }))).toBe(
-      'autopilot',
-    );
-    // A button with no available operation keeps its Action label and stays neutral.
-    expect(stepButtonKind(null)).toBe('plain');
   });
 });

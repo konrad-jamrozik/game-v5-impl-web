@@ -43,11 +43,6 @@ describe('VIS: Consequences', () => {
     );
   });
 
-  it('keeps the plain text of the Consequences', () => {
-    expect(consequenceText({ ...none, money: 30, fundingChange: 5 })).toBe('money +30, funding +5');
-    expect(consequenceText(none)).toBe('no consequence');
-  });
-
   it('writes Panic with two decimals', () => {
     expect([panicText(0), panicText(2435), panicText(10_000)]).toEqual(['0.00%', '24.35%', '100.00%']);
   });

@@ -12,6 +12,15 @@ import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/
 import { act, advance, agentIds, gdrs, newCampaign, tweak, withAgents } from '../helpers/game.ts';
 
 const MEMBER = 'locate_red_dawn_member';
+/** The Lead's Required progress R, the least value of its Required progress range, which the tests fix it to. */
+const REQUIRED = gdrs.leads.find((lead) => lead.id === MEMBER)!.requiredProgress;
+/**
+ * INVSTG, Progress gain, for one working member: its effective skill, which for a new Agent at full health and with
+ * no exhaustion is the skill of the AgentArchetype; progress is in hundredths of a point.
+ */
+const ONE_AGENT_GAIN = gdrs.agentArchetype.skill;
+/** The Advance turns of work in which one new Agent reaches the Required progress. */
+const WORK_TURNS = Math.ceil((REQUIRED * 100) / ONE_AGENT_GAIN);
 
 function startMember(state: CampaignState, agent: string, required: number): CampaignState {
   const fixed = tweak(state, (world) => {
@@ -42,9 +51,10 @@ describe('GUI: Situation panel', () => {
   it('moves a Lead with an Active Investigation to the Active Investigations, with its Completion estimate', () => {
     let state = withAgents(newCampaign(), 4);
     const [a1] = agentIds(state) as [string];
-    state = startMember(state, a1, 5);
+    state = startMember(state, a1, REQUIRED);
     state = advance(state);
     state = advance(state);
+    expect(WORK_TURNS).toBeGreaterThan(1);
     const groups = situationGroups(
       currentLiveWorldStateView(state, gdrs),
       currentRetiredWorldStateView(state, gdrs).leads,
@@ -56,7 +66,7 @@ describe('GUI: Situation panel', () => {
       return;
     }
     expect(active.count).toBe(1);
-    expect(active.rows[0]!.investigation.projectedProgressGain).toBe(100);
+    expect(active.rows[0]!.investigation.projectedProgressGain).toBe(ONE_AGENT_GAIN);
     expect(active.rows[0]!.estimate.text).toMatch(/^ETA /);
   });
 
@@ -130,9 +140,12 @@ describe('GUI: Completion estimate and Progress circle', () => {
 describe('GUI: Turn summary', () => {
   let state = withAgents(newCampaign(), 4);
   const [a1] = agentIds(state) as [string];
-  state = startMember(state, a1, 5);
+  state = startMember(state, a1, REQUIRED);
   const quiet = advance(state);
-  for (let turn = 1; turn <= 6; turn += 1) {
+  // The Agent is In transit in the first Advance turn, and works in each one after it until the Investigation
+  // completes, in the Advance turn of Turn 1 + WORK_TURNS.
+  const completionTurn = 1 + WORK_TURNS;
+  for (let turn = 1; turn <= completionTurn; turn += 1) {
     state = advance(state);
   }
 
@@ -144,12 +157,12 @@ describe('GUI: Turn summary', () => {
 
   it('shows only for the Advance turn the Player requested through the GUI', () => {
     const report = turnReportView(state)!;
-    expect(report.turn).toBe(6);
-    expect(showsTurnSummary(6, report)).toBe(true);
+    expect(report.turn).toBe(completionTurn);
+    expect(showsTurnSummary(completionTurn, report)).toBe(true);
     // Loading, Timeline navigation, and Autopilot leave no requested Turn.
     expect(showsTurnSummary(null, report)).toBe(false);
     // A Turn report of another Advance turn, e.g. after undoing to an earlier Autosave.
-    expect(showsTurnSummary(5, report)).toBe(false);
+    expect(showsTurnSummary(completionTurn - 1, report)).toBe(false);
   });
 
   it('lists the completed Investigation with the gain of its last Advance turn, and the Mission site it created', () => {
@@ -161,12 +174,14 @@ describe('GUI: Turn summary', () => {
     );
     expect(model.missions).toEqual([]);
     expect(model.investigations).toHaveLength(1);
+    // INVSTG, Required progress range: from R to round down(R × required_progress_max_pct / 100).
+    const max = Math.floor((REQUIRED * gdrs.investigationParameters.requiredProgressMaxPct) / 100);
     expect(model.investigations[0]).toMatchObject({
-      finalProgress: 500,
-      gain: 100,
-      requiredProgress: 5,
-      range: { min: 5, max: 7 },
-      turns: 5,
+      finalProgress: WORK_TURNS * ONE_AGENT_GAIN,
+      gain: ONE_AGENT_GAIN,
+      requiredProgress: REQUIRED,
+      range: { min: REQUIRED, max },
+      turns: completionTurn - 1,
       createdMissionSiteName: siteName('apprehend_member'),
     });
     expect(model.newSites).toHaveLength(1);

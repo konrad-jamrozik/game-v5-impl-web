@@ -31,7 +31,20 @@ import {
   units,
   setCurrentHealth,
   effectiveValuesOf,
+  useExampleCatalog,
 } from '../helpers/game.ts';
+
+// The EconomyParameters, Upgrades, and the other values of the examples, e.g. `contracting_skill_scale` 200, are
+// Fixture values; see EXAMPLE_VALUES. What a test expects is derived from them by the rule it checks.
+useExampleCatalog({ legacy: true });
+const { economy } = gdrs;
+const upgrade = (id: string) => gdrs.upgrades.find((item) => item.id === id)!;
+/** The whole Increment of a Cap Upgrade or of the Weapon damage or Armor Upgrade. */
+const increment = (id: string) => upgrade(id).incrementHundredths / 100;
+/** An Agent's base weapon damage: that of the Weapon of the AgentArchetype. */
+const agentWeaponDamage = () => gdrs.weapons.get(gdrs.agentArchetype.weapon)!.damage;
+/** The contribution of an Agent of effective skill 100 on Contracting: exactly `contracting_income_per_agent`. */
+const contracting = economy.contractingIncomePerAgent;
 
 const agency = (state: CampaignState) => currentLiveWorldStateView(state, gdrs).agency;
 const series = (state: CampaignState) => {
@@ -48,32 +61,26 @@ const setMoney = (state: CampaignState, value: number, fund?: number) =>
 
 describe('ECON: examples', () => {
   it('Campaign creation', () => {
+    // newCampaign sets starting money 500 and starting funding 20 as Fixture values.
     const state = newCampaign();
     const view = agency(state);
     expect(view).toMatchObject({
-      archetype: 'agency',
-      name: 'The Agency',
+      archetype: gdrs.agencyArchetype.id,
+      name: gdrs.agencyArchetype.name,
       money: 500,
       funding: 20,
-      agentCap: 20,
-      transportCap: 8,
-      trainingCap: 10,
+      agentCap: economy.baseAgentCap,
+      transportCap: economy.baseTransportCap,
+      trainingCap: economy.baseTrainingCap,
+      // No Agent is on Contracting, so income is the funding; every Serving Agent costs upkeep.
       projectedIncome: 20,
-      projectedUpkeep: 40,
+      projectedUpkeep: agents(state).length * economy.upkeepPerAgent,
     });
-    expect(view.upgrades.map((u) => [u.id, u.acquisitions])).toEqual([
-      ['agent_cap', 0],
-      ['transport_cap', 0],
-      ['training_cap', 0],
-      ['weapon_damage', 0],
-      ['armor', 0],
-      ['training_skill_gain', 0],
-      ['exhaustion_recovery', 0],
-      ['health_recovery', 0],
-    ]);
+    // Every Upgrade of the Game build, in its order, with no acquisition.
+    expect(view.upgrades.map((u) => [u.id, u.acquisitions])).toEqual(gdrs.upgrades.map((u) => [u.id, 0]));
     expect(series(state)).toEqual({ start: [500], end: [] });
     expect(state.configuration).toEqual({ startingMoney: 500, startingFunding: 20 });
-    expect(agents(state).every((a) => a.state.baseWeaponDamage === 10)).toBe(true);
+    expect(agents(state).every((a) => a.state.baseWeaponDamage === agentWeaponDamage())).toBe(true);
     const rules = createGameRules(gdrs);
     const starting = rules.configurationValues.find((value) => value.key === 'startingMoney')!;
     expect(starting.adjustable).toBe(false);
@@ -82,40 +89,65 @@ describe('ECON: examples', () => {
   });
 
   it('The first three Advance turns', () => {
+    // Funding 20 and money 500 are newCampaign's Fixture values; every Agent has effective skill 100, so each on
+    // Contracting earns exactly `contracting_income_per_agent`.
+    const upkeep = economy.upkeepPerAgent;
     let state = newCampaign();
     const [a1, a2, a3] = agentIds(state) as [string, string, string];
+    const roster = agentIds(state).length;
+    const skill = agent(state, a3).state.skillHundredths;
     state = act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Contracting' });
     state = act(state, 'assignAgents', { agents: [a3], assignment: 'Training' });
     // Under AGENT, Transit rule, a3 moves within base and is At assignment at once.
     expect(agent(state, a3).state.status).toBe('AtAssignment');
-    expect(agency(state)).toMatchObject({ projectedIncome: 20, projectedUpkeep: 40 });
+    // a1 and a2 are In transit to Contracting, so they earn nothing yet.
+    expect(agency(state)).toMatchObject({ projectedIncome: 20, projectedUpkeep: roster * upkeep });
     state = advance(state);
+    const turn2 = 500 + 20 - roster * upkeep;
     expect(state.world.history.turnReport).toMatchObject({
       income: { contractingAgents: 0, income: 20, moneyAfter: 520 },
-      upkeep: { servingAgents: 4, upkeep: 40, moneyAfter: 480 },
+      upkeep: { servingAgents: roster, upkeep: roster * upkeep, moneyAfter: turn2 },
     });
-    expect(money(state)).toBe(480);
+    expect(money(state)).toBe(turn2);
 
     state = act(state, 'hireAgent');
-    expect(money(state)).toBe(430);
-    const a5 = agentIds(state)[4]!;
-    expect(agency(state)).toMatchObject({ projectedIncome: 80, projectedUpkeep: 50 });
-    state = advance(state);
-    expect(state.world.history.turnReport).toMatchObject({
-      income: { contractingAgents: 2, income: 80, moneyAfter: 510 },
-      upkeep: { servingAgents: 5, upkeep: 50, moneyAfter: 460 },
+    expect(money(state)).toBe(turn2 - economy.hireCost);
+    const a5 = agentIds(state)[roster]!;
+    expect(agency(state)).toMatchObject({
+      projectedIncome: 20 + 2 * contracting,
+      projectedUpkeep: (roster + 1) * upkeep,
     });
-    expect(agent(state, a3).state.skillHundredths / 100).toBe(102);
+    state = advance(state);
+    const turn3 = turn2 - economy.hireCost + 20 + 2 * contracting - (roster + 1) * upkeep;
+    expect(state.world.history.turnReport).toMatchObject({
+      income: {
+        contractingAgents: 2,
+        income: 20 + 2 * contracting,
+        moneyAfter: turn2 - economy.hireCost + 20 + 2 * contracting,
+      },
+      upkeep: { servingAgents: roster + 1, upkeep: (roster + 1) * upkeep, moneyAfter: turn3 },
+    });
+    expect(agent(state, a3).state.skillHundredths).toBe(
+      skill + 2 * gdrs.agentParameters.trainingSkillGainPerTurnHundredths,
+    );
 
+    // a5 is In transit to Contracting and a1 to Standby, so only a2 earns in the next Advance turn.
     state = act(state, 'assignAgents', { agents: [a5], assignment: 'Contracting' });
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
-    expect(agency(state)).toMatchObject({ projectedIncome: 50, projectedUpkeep: 50 });
+    expect(agency(state)).toMatchObject({
+      projectedIncome: 20 + contracting,
+      projectedUpkeep: (roster + 1) * upkeep,
+    });
     state = advance(state);
-    expect(money(state)).toBe(460);
+    const turn4 = turn3 + 20 + contracting - (roster + 1) * upkeep;
+    expect(money(state)).toBe(turn4);
     // WHIST, Turn series, The current Turn from the Timeline: during Turn 4 the end-of-Turn Turn series has no value
     // for the current Turn, so it holds 3 values.
-    expect(series(state)).toEqual({ start: [500, 480, 460, 460], end: [500, 430, 460] });
-    expect(agency(state).projectedIncome).toBe(80);
+    expect(series(state)).toEqual({
+      start: [500, turn2, turn3, turn4],
+      end: [500, turn2 - economy.hireCost, turn3],
+    });
+    expect(agency(state).projectedIncome).toBe(20 + 2 * contracting);
   });
 
   it('Contracting income and effective skill', () => {
@@ -185,22 +217,28 @@ describe('ECON: examples', () => {
     state = act(state, 'dismissAgents', { agents: [a8] });
     const site = addMissionSite(state, 'raid_hq');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a3] });
-    expect(agency(state)).toMatchObject({ projectedIncome: 50, projectedUpkeep: 60 });
+    // Six Serving Agents: a1, a2, a3, a4, a5, and a6; a7 is Killed and a8 Dismissed. Only a5 is on Contracting and
+    // arrived.
+    const upkeep = economy.upkeepPerAgent;
+    expect(agency(state)).toMatchObject({ projectedIncome: 20 + contracting, projectedUpkeep: 6 * upkeep });
     state = advance(state, losing(state, site.site));
     expect(state.world.history.turnReport).toMatchObject({
-      income: { contractingAgents: 1, moneyAfter: 350 },
-      upkeep: { servingAgents: 6, moneyAfter: 290 },
+      income: { contractingAgents: 1, moneyAfter: 300 + 20 + contracting },
+      upkeep: { servingAgents: 6, moneyAfter: 300 + 20 + contracting - 6 * upkeep },
     });
     expect(agent(state, a3).state.status).toBe('Killed');
-    expect(agency(state).projectedUpkeep).toBe(50);
+    expect(agency(state).projectedUpkeep).toBe(5 * upkeep);
     void a1;
   });
 
   it('Negative money', () => {
+    // Money 15 and no funding: the upkeep of the Serving Agents takes money below 0.
+    const upkeep = agentIds(newCampaign()).length * economy.upkeepPerAgent;
+    expect(upkeep).toBeGreaterThan(15);
     let state = advance(setMoney(newCampaign(), 15, 0));
     // No later step raises money to at least 0, so the Ending check step records a Campaign ending.
-    expect(money(state)).toBe(-25);
-    expect(series(state).start.at(-1)).toBe(-25);
+    expect(money(state)).toBe(15 - upkeep);
+    expect(series(state).start.at(-1)).toBe(15 - upkeep);
     expect(state.world.current.ending).toBe('Defeat');
     expectRejected(state, 'hireAgent', {}, 'campaign_ended');
     // In another Campaign, with money 15, addMoney removes money but never below 0.
@@ -209,7 +247,7 @@ describe('ECON: examples', () => {
     expect(money(state)).toBe(0);
     expectRejected(state, 'addMoney', { amount: -1 }, 'negative_money', 'developer');
     expect(money(state)).toBe(0);
-    state = act(state, 'addMoney', { amount: 75 }, 'developer');
+    state = act(state, 'addMoney', { amount: economy.hireCost + 25 }, 'developer');
     state = act(state, 'hireAgent');
     expect(money(state)).toBe(25);
   });
@@ -221,14 +259,17 @@ describe('ECON: examples', () => {
     expect(fundingAfter(0, [5, -1])).toBe(4);
     expect(fundingAfter(0, [-1])).toBe(0);
 
-    // Win of a Faction operation level 2 site: money +200 and funding 20 + 10, which the next Agency income step uses.
+    // Win of a Faction operation level 2 site: its money and funding rewards, the funding after this Advance turn's
+    // income, which the next Agency income step uses.
+    const reward = gdrs.factionOperationLevels.find((level) => level.level === 2)!.onWin;
     const site = addMissionSite(newCampaign(), 'foil_sabotage');
-    let state = act(site.state, 'deployAgents', { missionSite: site.site, agents: agentIds(site.state) });
+    const team = agentIds(site.state);
+    let state = act(site.state, 'deployAgents', { missionSite: site.site, agents: team });
     state = advance(state, winning(state, site.site));
     expect(state.world.history.turnReport!.income.funding).toBe(20);
-    expect(funding(state)).toBe(30);
-    expect(money(state)).toBe(500 + 20 - 40 + 200);
-    expect(agency(state).projectedIncome).toBe(30);
+    expect(funding(state)).toBe(20 + reward.funding);
+    expect(money(state)).toBe(500 + 20 - team.length * economy.upkeepPerAgent + reward.money);
+    expect(agency(state).projectedIncome).toBe(20 + reward.funding);
 
     // Loss at the floor: an Expired Response Mission site with funding 0.
     const expiring = addMissionSite(setMoney(newCampaign(), 500, 0), 'foil_sabotage', {
@@ -238,10 +279,14 @@ describe('ECON: examples', () => {
   });
 
   it('Hiring at the Agent cap', () => {
-    let state = withAgents(setMoney(newCampaign(), 3050), 21);
+    const cap = economy.baseAgentCap;
+    const added = increment('agent_cap');
+    const hire = economy.hireCost;
+    // Money for the Upgrade and for one more Agent than it makes room for.
+    let state = withAgents(setMoney(newCampaign(), upgrade('agent_cap').price + (added + 1) * hire), cap + 1);
     const ids = agentIds(state);
     state = tweak(state, (world) => {
-      const dead = world.agents[ids[20]!]!.state;
+      const dead = world.agents[ids[cap]!]!.state;
       dead.status = 'Killed';
       dead.turnTerminated = 1;
       dead.finalMaxHealth = dead.baseHealth;
@@ -252,21 +297,27 @@ describe('ECON: examples', () => {
       dead.assignment = null;
       world.agents[ids[0]!]!.state.status = 'InTransit';
     });
+    // The Killed Agent does not count, and the Agent In transit does: the Serving Agents are exactly at the cap.
     expectRejected(state, 'hireAgent', {}, 'agent_cap');
     state = act(state, 'purchaseUpgrade', { upgrade: 'agent_cap' });
-    expect(agency(state)).toMatchObject({ money: 1050, agentCap: 40, servingAgents: 20 });
-    for (let i = 0; i < 20; i += 1) {
+    expect(agency(state)).toMatchObject({
+      money: (added + 1) * hire,
+      agentCap: cap + added,
+      servingAgents: cap,
+    });
+    for (let i = 0; i < added; i += 1) {
       state = act(state, 'hireAgent');
     }
-    expect(agency(state)).toMatchObject({ money: 50, servingAgents: 40 });
+    // At the raised cap, with money for one more Agent, hiring is rejected for the cap.
+    expect(agency(state)).toMatchObject({ money: hire, servingAgents: cap + added });
     expectRejected(state, 'hireAgent', {}, 'agent_cap');
 
-    expect(money(act(setMoney(newCampaign(), 50), 'hireAgent'))).toBe(0);
-    expectRejected(setMoney(newCampaign(), 49), 'hireAgent', {}, 'not_enough_money');
+    expect(money(act(setMoney(newCampaign(), hire), 'hireAgent'))).toBe(0);
+    expectRejected(setMoney(newCampaign(), hire - 1), 'hireAgent', {}, 'not_enough_money');
 
-    let over = withAgents(newCampaign(), 20);
+    let over = withAgents(newCampaign(), cap);
     over = act(over, 'addAgents', { count: 3 }, 'developer');
-    expect(agency(over)).toMatchObject({ servingAgents: 23, agentCap: 20 });
+    expect(agency(over)).toMatchObject({ servingAgents: cap + 3, agentCap: cap });
     expectRejected(over, 'hireAgent', {}, 'agent_cap');
   });
 
@@ -288,7 +339,8 @@ describe('ECON: examples', () => {
     });
     const site = addMissionSite(state, 'apprehend_member');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a5] });
-    expect(agency(state).projectedUpkeep).toBe(50);
+    // Five Serving Agents: every Agent but the Killed a6.
+    expect(agency(state).projectedUpkeep).toBe(5 * economy.upkeepPerAgent);
     const reject = (list: string[], reason: string) =>
       expectRejected(state, 'dismissAgents', { agents: list }, reason);
     reject([], 'agents_empty');
@@ -305,30 +357,44 @@ describe('ECON: examples', () => {
       turnTerminated: next.world.current.turn,
       killedBy: null,
     });
-    expect(agency(next)).toMatchObject({ money: 120, projectedUpkeep: 30 });
+    // Dismissing costs and refunds nothing.
+    expect(agency(next)).toMatchObject({ money: 120, projectedUpkeep: 3 * economy.upkeepPerAgent });
     expect(currentRetiredWorldStateView(next, gdrs).agents.map((a) => a.id)).toEqual([a1, a2, a6]);
   });
 
   it('Transport cap', () => {
-    let state = withAgents(setMoney(newCampaign(), 2000), 12);
+    const cap = economy.baseTransportCap;
+    const added = increment('transport_cap');
+    let state = withAgents(setMoney(newCampaign(), upgrade('transport_cap').price + 500), cap + added);
     const ids = agentIds(state);
     const s1 = addMissionSite(state, 'foil_recruitment_push');
     const s2 = addMissionSite(s1.state, 'apprehend_member');
-    state = act(s2.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, 7) });
-    expectRejected(state, 'deployAgents', { missionSite: s2.site, agents: ids.slice(7, 9) }, 'transport_cap');
+    // One place left under the cap, and two Agents to deploy.
+    state = act(s2.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, cap - 1) });
+    expectRejected(
+      state,
+      'deployAgents',
+      { missionSite: s2.site, agents: ids.slice(cap - 1, cap + 1) },
+      'transport_cap',
+    );
     state = act(state, 'purchaseUpgrade', { upgrade: 'transport_cap' });
-    expect(agency(state)).toMatchObject({ money: 500, transportCap: 16 });
-    state = act(state, 'deployAgents', { missionSite: s2.site, agents: ids.slice(7, 12) });
-    expect(agency(state).deployedAgents).toBe(12);
+    expect(agency(state)).toMatchObject({ money: 500, transportCap: cap + added });
+    // The raised cap takes the rest, exactly to the cap.
+    state = act(state, 'deployAgents', { missionSite: s2.site, agents: ids.slice(cap - 1) });
+    expect(agency(state).deployedAgents).toBe(cap + added);
     state = advance(state);
     expect(agency(state).deployedAgents).toBe(0);
   });
 
   it('Training cap', () => {
-    let state = withAgents(setMoney(newCampaign(), 1050), 15);
+    const cap = economy.baseTrainingCap;
+    const added = increment('training_cap');
+    const price = upgrade('training_cap').price;
+    expect(added).toBeGreaterThanOrEqual(4);
+    let state = withAgents(setMoney(newCampaign(), price + 50), cap + 5);
     const ids = agentIds(state);
-    const trainees = ids.slice(0, 9);
-    const [a1, a2, a3, a4, a5, a6] = ids.slice(9) as [string, string, string, string, string, string];
+    const trainees = ids.slice(0, cap - 1);
+    const [a1, a2, a3, a4, a5, a6] = ids.slice(cap - 1) as [string, string, string, string, string, string];
     state = setAssignment(state, trainees, 'Training');
     expectRejected(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' }, 'training_cap');
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Training' });
@@ -336,20 +402,21 @@ describe('ECON: examples', () => {
       assignment: { kind: 'Training' },
       status: 'AtAssignment',
     });
-    expect(agency(state).trainingAgents).toBe(10);
+    expect(agency(state).trainingAgents).toBe(cap);
     expectRejected(state, 'assignAgents', { agents: [a2], assignment: 'Training' }, 'training_cap');
     state = act(state, 'assignAgents', { agents: [a2], assignment: 'Contracting' });
     state = act(state, 'purchaseUpgrade', { upgrade: 'training_cap' });
-    expect(agency(state)).toMatchObject({ money: 50, trainingCap: 20 });
+    expect(agency(state)).toMatchObject({ money: 50, trainingCap: cap + added });
     state = act(state, 'assignAgents', { agents: [a3, a4, a5, a6], assignment: 'Training' });
-    expect(agency(state).trainingAgents).toBe(14);
+    expect(agency(state).trainingAgents).toBe(cap + 4);
+    // An Agent that leaves Training no longer counts.
     state = act(state, 'assignAgents', { agents: [trainees[0]!], assignment: 'Standby' });
-    expect(agency(state).trainingAgents).toBe(13);
+    expect(agency(state).trainingAgents).toBe(cap + 3);
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'training_cap' }, 'not_enough_money');
   });
 
   it('Weapon damage Upgrade', () => {
-    let state = withAgents(setMoney(newCampaign(), 2100), 6);
+    let state = withAgents(setMoney(newCampaign(), upgrade('weapon_damage').price + 100), 6);
     const [a1, a2, a3, a4, a5, a6] = agentIds(state) as [string, string, string, string, string, string];
     state = setAssignment(state, [a1], 'Contracting');
     state = setAssignment(state, [a4], 'Standby', 'InTransit');
@@ -373,28 +440,34 @@ describe('ECON: examples', () => {
     const damages = (s: CampaignState) =>
       [a1, a2, a3, a4, a5, a6].map((id) => effectiveValuesOf(s, id).weaponDamage);
     const before = state;
+    const base = agentWeaponDamage();
+    const step = increment('weapon_damage');
+    const price = upgrade('weapon_damage').price;
+    // a1 to a4 are Serving; a5 is Killed and a6 Dismissed, each with its Final weapon damage.
+    const serving = (bought: number) => base + bought * step;
 
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
     expect(money(state)).toBe(100);
-    expect(damages(state)).toEqual([12, 12, 12, 12, 10, 10]);
+    expect(damages(state)).toEqual([serving(1), serving(1), serving(1), serving(1), base, base]);
     // AGENT, Modifiable values: buying the Upgrade rewrites no Agent value, and a Terminated Agent keeps its Final
     // weapon damage.
     expect(agents(state)).toEqual(agents(before));
-    expect(agents(state).every((a) => a.state.baseWeaponDamage === 10)).toBe(true);
-    expect(agent(state, a5).state.finalWeaponDamage).toBe(10);
+    expect(agents(state).every((a) => a.state.baseWeaponDamage === base)).toBe(true);
+    expect(agent(state, a5).state.finalWeaponDamage).toBe(base);
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' }, 'not_enough_money');
-    state = act(state, 'addMoney', { amount: 2400 }, 'developer');
+    state = act(state, 'addMoney', { amount: price + 400 }, 'developer');
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
     expect(money(state)).toBe(500);
-    expect(damages(state)).toEqual([14, 14, 14, 14, 10, 10]);
+    expect(damages(state)).toEqual([serving(2), serving(2), serving(2), serving(2), base, base]);
+    // Agents created after the purchases, by hiring or by the cheat operation, have the same effective weapon damage.
     state = act(state, 'hireAgent');
     state = act(state, 'addAgents', { count: 1 }, 'developer');
-    expect(money(state)).toBe(450);
+    expect(money(state)).toBe(500 - economy.hireCost);
     expect(
       agentIds(state)
         .slice(6)
         .map((id) => effectiveValuesOf(state, id).weaponDamage),
-    ).toEqual([14, 14]);
+    ).toEqual([serving(2), serving(2)]);
     expect(
       Object.values(state.world.current.enemies).every(
         (e) => e.state.baseWeaponDamage === gdrs.weapons.get(e.state.weapon)!.damage,
@@ -402,59 +475,68 @@ describe('ECON: examples', () => {
     ).toBe(true);
     // An Agent dismissed after the purchases records the effective weapon damage it had as its Final weapon damage.
     state = act(setAssignment(state, [a4], 'Standby'), 'dismissAgents', { agents: [a4] });
-    expect(agent(state, a4).state.finalWeaponDamage).toBe(14);
-    state = act(state, 'addMoney', { amount: 1550 }, 'developer');
+    expect(agent(state, a4).state.finalWeaponDamage).toBe(serving(2));
+    state = act(state, 'addMoney', { amount: price }, 'developer');
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    expect(damages(state)).toEqual([16, 16, 16, 14, 10, 10]);
-    expect(gdrs.weapons.get('combat_pistol')!.damage).toBe(10);
+    expect(damages(state)).toEqual([serving(3), serving(3), serving(3), serving(2), base, base]);
+    // The purchases change no Weapon.
+    expect(agentWeaponDamage()).toBe(base);
   });
 
   it('Armor Upgrade', () => {
-    let state = setMoney(newCampaign(), 2500);
+    const price = upgrade('armor').price;
+    const step = increment('armor');
+    // GDRS: every Agent wears the Armor of the AgentArchetype, whose base armor no Upgrade changes.
+    const worn = gdrs.armors.get(gdrs.agentArchetype.armor)!;
+    const armored = (bought: number) => worn.armor + bought * step;
+    let state = setMoney(newCampaign(), 2 * price + 500);
     const [a1, a2] = agentIds(state) as [string, string];
     const armors = (s: CampaignState) => agentIds(s).map((id) => effectiveValuesOf(s, id).armor);
-    // GDRS: every Agent wears the Service armor, whose base armor is 0.
-    expect(armors(state)).toEqual([0, 0, 0, 0]);
-    expect(agents(state).every((a) => a.state.armor === 'service_armor' && a.state.baseArmor === 0)).toBe(
+    expect(armors(state)).toEqual(agentIds(state).map(() => armored(0)));
+    expect(agents(state).every((a) => a.state.armor === worn.id && a.state.baseArmor === worn.armor)).toBe(
       true,
     );
     const beforePurchase = state;
     state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
-    expect(money(state)).toBe(1500);
+    expect(money(state)).toBe(price + 500);
     // ECON, Armor Upgrade: effective armor = base armor + Upgrade bonus of agent_armor, at once, rewriting no value.
-    expect(armors(state)).toEqual([5, 5, 5, 5]);
+    expect(armors(state)).toEqual(agentIds(state).map(() => armored(1)));
     expect(agents(state)).toEqual(agents(beforePurchase));
     // AGENT, Service record: a dismissed Agent keeps its effective armor as its Final armor.
     state = act(state, 'dismissAgents', { agents: [a1] });
-    expect(agent(state, a1).state.finalArmor).toBe(5);
+    expect(agent(state, a1).state.finalArmor).toBe(armored(1));
     state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
-    expect([a1, a2].map((id) => effectiveValuesOf(state, id).armor)).toEqual([5, 10]);
+    expect([a1, a2].map((id) => effectiveValuesOf(state, id).armor)).toEqual([armored(1), armored(2)]);
     // Player API: each Agent's Armor and effective armor, a Terminated Agent's Final armor, and the effective armor
     // that the Armor Upgrade card of the Upgrades View shows.
     const live = currentLiveWorldStateView(state, gdrs);
-    expect(live.agency.agentArmor).toBe(10);
+    expect(live.agency.agentArmor).toBe(armored(2));
     expect(live.agents.find((item) => item.id === a2)).toMatchObject({
-      armor: 'service_armor',
-      armorName: 'Service armor',
-      baseArmor: 0,
-      effectiveArmor: 10,
+      armor: worn.id,
+      armorName: worn.name,
+      baseArmor: worn.armor,
+      effectiveArmor: armored(2),
       finalArmor: null,
     });
     expect(currentRetiredWorldStateView(state, gdrs).agents.find((item) => item.id === a1)).toMatchObject({
-      effectiveArmor: 5,
-      finalArmor: 5,
+      effectiveArmor: armored(1),
+      finalArmor: armored(1),
     });
     // A new Agent has the effective armor of every other Serving Agent.
     state = act(state, 'hireAgent');
-    expect(effectiveValuesOf(state, agentIds(state).at(-1)!).armor).toBe(10);
-    // The first Combat after the purchase starts every Agent with the raised current armor; no Enemy is affected.
+    expect(effectiveValuesOf(state, agentIds(state).at(-1)!).armor).toBe(armored(2));
+    // The first Combat after the purchase starts every Agent with the raised current armor; no Enemy is affected: each
+    // starts with the base armor of its own Armor.
     const site = addMissionSite(state, 'apprehend_member');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a2] });
     state = advance(state, winning(state, site.site));
     const report = state.world.history.turnReport!.combatReports[0]!;
-    expect(report.participants.find((item) => item.id === a2)!.start.armor).toBe(10);
+    expect(report.participants.find((item) => item.id === a2)!.start.armor).toBe(armored(2));
+    const enemyArmor = (id: string) => gdrs.armors.get(state.world.current.enemies[id]!.state.armor)!.armor;
     expect(
-      report.participants.filter((item) => item.side === 'enemy').every((item) => item.start.armor === 0),
+      report.participants
+        .filter((item) => item.side === 'enemy')
+        .every((item) => item.start.armor === enemyArmor(item.id)),
     ).toBe(true);
   });
 
@@ -471,7 +553,16 @@ describe('ECON: examples', () => {
         increment: 1,
       });
     });
-    let state = withAgents(setMoney(newCampaign({ catalog: withMaxHealth }), 3550), 4, withMaxHealth);
+    // Money for the Max health Upgrade, one hire, and one of each Rate Upgrade.
+    const rates = ['exhaustion_recovery', 'health_recovery', 'training_skill_gain'] as const;
+    const [exhaustionPrice, healthPrice, trainingPrice] = rates.map((id) => upgrade(id).price) as [
+      number,
+      number,
+      number,
+    ];
+    const ratePrices = exhaustionPrice + healthPrice + trainingPrice;
+    const start = 500 + economy.hireCost + ratePrices;
+    let state = withAgents(setMoney(newCampaign({ catalog: withMaxHealth }), start), 4, withMaxHealth);
     const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
     state = setAssignment(state, [a3], 'Training');
     state = tweak(state, (world) => {
@@ -499,7 +590,7 @@ describe('ECON: examples', () => {
     const beforePurchase = state;
 
     state = act(state, 'purchaseUpgrade', { upgrade: 'max_health' }, 'player', withMaxHealth);
-    expect(money(state)).toBe(3050);
+    expect(money(state)).toBe(start - 500);
     expect([a1, a2, a3, a4].map((id) => health(state, id))).toEqual([
       [31, 31],
       [21, 31],
@@ -509,22 +600,36 @@ describe('ECON: examples', () => {
     // AGENT, Effective max health and current health: the purchase rewrites no Agent value.
     expect(agents(state)).toEqual(agents(beforePurchase));
     state = act(state, 'hireAgent', {}, 'player', withMaxHealth);
-    expect(money(state)).toBe(3000);
+    expect(money(state)).toBe(ratePrices);
     const a5 = agentIds(state).at(-1)!;
     expect(agent(state, a5).state).toMatchObject({
       status: 'InTransit',
       healthLostHundredths: 0,
-      baseHealth: 30,
+      baseHealth: gdrs.agentArchetype.baseHealth,
     });
     expect(health(state, a5)).toEqual([31, 31]);
     const before = state;
     state = act(state, 'purchaseUpgrade', { upgrade: 'exhaustion_recovery' }, 'player', withMaxHealth);
-    // ECON, Rate Upgrades: 5 + 1 × 1 = 6.00, 2 + 1 × 1 = 3.00, and 1 + 0.5 × 1 = 1.50, held in hundredths.
-    expect(agency(state)).toMatchObject({ money: 2000, exhaustionRecoveryHundredths: 600 });
+    // ECON, Rate Upgrades: each rate is its parameter plus the Increment of each acquisition, held in hundredths,
+    // e.g. 5 + 1 × 1 = 6.00, 2 + 1 × 1 = 3.00, and 1 + 0.5 × 1 = 1.50 with the values of the example.
+    const rateOf = (id: (typeof rates)[number]) => upgrade(id).incrementHundredths;
+    const recovery = gdrs.recoveryParameters;
+    expect(agency(state)).toMatchObject({
+      money: healthPrice + trainingPrice,
+      exhaustionRecoveryHundredths:
+        recovery.exhaustionRecoveryPerTurnHundredths + rateOf('exhaustion_recovery'),
+    });
     state = act(state, 'purchaseUpgrade', { upgrade: 'health_recovery' }, 'player', withMaxHealth);
-    expect(agency(state)).toMatchObject({ money: 1000, healthRecoveryPctHundredths: 300 });
+    expect(agency(state)).toMatchObject({
+      money: trainingPrice,
+      healthRecoveryPctHundredths: recovery.healthRecoveryPctPerTurnHundredths + rateOf('health_recovery'),
+    });
     state = act(state, 'purchaseUpgrade', { upgrade: 'training_skill_gain' }, 'player', withMaxHealth);
-    expect(agency(state)).toMatchObject({ money: 0, trainingSkillGainHundredths: 150 });
+    expect(agency(state)).toMatchObject({
+      money: 0,
+      trainingSkillGainHundredths:
+        gdrs.agentParameters.trainingSkillGainPerTurnHundredths + rateOf('training_skill_gain'),
+    });
     expect(agents(state)).toEqual(agents(before));
 
     // Money for Upkeep, so that the Campaign goes on to the next Advance turn; it changes no Agent value.
@@ -538,7 +643,7 @@ describe('ECON: examples', () => {
     expect(units(agent(state, a2).state, 1)).toMatchObject({
       exactExhaustionHundredths: 200,
       currentHealthHundredths: 2193,
-      baseHealth: 30,
+      baseHealth: gdrs.agentArchetype.baseHealth,
     });
     expect(health(state, a2)).toEqual([21.93, 31]);
     expect(exhaustionOf(agent(state, a2).state)).toBe(2);
@@ -558,7 +663,8 @@ describe('ECON: examples', () => {
   });
 
   it('Purchase rejections and exact affordability', () => {
-    let state = setMoney(newCampaign(), 999);
+    // One less than the price, then exactly the price.
+    let state = setMoney(newCampaign(), upgrade('training_cap').price - 1);
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'training_cap' }, 'not_enough_money');
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'agent_morale' }, 'unknown_upgrade');
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'combat_pistol' }, 'unknown_upgrade');
@@ -569,7 +675,10 @@ describe('ECON: examples', () => {
     expectRejected(setMoney(newCampaign(), 0), 'addMoney', { amount: -5 }, 'negative_money', 'developer');
     state = act(state, 'addMoney', { amount: 1 }, 'developer');
     state = act(state, 'purchaseUpgrade', { upgrade: 'training_cap' });
-    expect(agency(state)).toMatchObject({ money: 0, trainingCap: 20 });
+    expect(agency(state)).toMatchObject({
+      money: 0,
+      trainingCap: economy.baseTrainingCap + increment('training_cap'),
+    });
   });
 
   it('GDR validation', () => {

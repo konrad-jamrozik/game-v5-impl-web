@@ -38,7 +38,12 @@ import {
   setCurrentHealth,
   valuesOf,
   currentHealthOf,
+  useExampleCatalog,
 } from '../helpers/game.ts';
+
+// The AgentParameters and the other values of the examples, e.g. `exhaustion_free_points` 30, are Fixture values; see
+// EXAMPLE_VALUES. What a test expects is derived from them by the rule it checks.
+useExampleCatalog({ legacy: true });
 
 /** A Combatant's values in units, e.g. current health 28.67, held in hundredths as an Agent holds them. */
 function values(skill: number, currentHealth: number, baseHealth: number, exhaustion: number) {
@@ -51,6 +56,18 @@ function values(skill: number, currentHealth: number, baseHealth: number, exhaus
 }
 
 const p = gdrs.agentParameters;
+const archetype = gdrs.agentArchetype;
+const { economy } = gdrs;
+/** The values of a newly created Agent, from its AgentArchetype and the Weapon and Armor it names. */
+const newAgent = {
+  skill: archetype.skill,
+  currentHealth: archetype.baseHealth,
+  weapon: archetype.weapon,
+  baseWeaponDamage: gdrs.weapons.get(archetype.weapon)!.damage,
+  armor: archetype.armor,
+  baseArmor: gdrs.armors.get(archetype.armor)!.armor,
+};
+const trainingGain = p.trainingSkillGainPerTurnHundredths;
 
 describe('AGENT: Agent status', () => {
   it('is Recovering exactly when the Assignment is Recovery and the Agent is not In transit', () => {
@@ -91,6 +108,9 @@ describe('AGENT: Agent status', () => {
 
 describe('AGENT: examples', () => {
   it('Effective skill computations', () => {
+    // With the Fixture values `exhaustion_free_points` 30 and `skill_penalty_pct_per_exhaustion` 1, and 2 in the last
+    // row.
+    expect([p.exhaustionFreePoints, p.skillPenaltyPctPerExhaustion]).toEqual([30, 1]);
     const rows: [number, number, number, number, number?][] = [
       [100, 30, 0, 100],
       [100, 15, 50, 40],
@@ -129,21 +149,21 @@ describe('AGENT: examples', () => {
   it('Initial roster', () => {
     const state = newCampaign();
     const roster = agents(state);
-    expect(roster).toHaveLength(4);
-    expect(new Set(roster.map((a) => a.id)).size).toBe(4);
+    expect(roster).toHaveLength(p.initialRosterSize);
+    expect(new Set(roster.map((a) => a.id)).size).toBe(p.initialRosterSize);
     for (const a of roster) {
-      expect(a.archetype).toBe('field_agent');
+      expect(a.archetype).toBe(archetype.id);
       expect(a.constants).toEqual({ agency: state.world.current.agency.id, turnHired: 1 });
       expect(a.state).toEqual({
-        skillHundredths: 10000,
+        skillHundredths: newAgent.skill * 100,
         experience: 0,
         healthLostHundredths: 0,
-        baseHealth: 30,
+        baseHealth: archetype.baseHealth,
         exactExhaustionHundredths: 0,
-        weapon: 'service_weapon',
-        baseWeaponDamage: 10,
-        armor: 'service_armor',
-        baseArmor: 0,
+        weapon: newAgent.weapon,
+        baseWeaponDamage: newAgent.baseWeaponDamage,
+        armor: newAgent.armor,
+        baseArmor: newAgent.baseArmor,
         assignment: { kind: 'Standby' },
         status: 'AtAssignment',
         participationHistory: [],
@@ -154,12 +174,12 @@ describe('AGENT: examples', () => {
         finalWeaponDamage: null,
         finalArmor: null,
       });
-      expect(currentHealthOf(a.state)).toBe(3000);
-      expect(effectiveSkill(valuesOf(a.state), p)).toBe(100);
+      expect(currentHealthOf(a.state)).toBe(archetype.baseHealth * 100);
+      expect(effectiveSkill(valuesOf(a.state), p)).toBe(newAgent.skill);
       expect(canBeAssigned(a.state)).toBe(true);
     }
     const view = currentLiveWorldStateView(state, gdrs);
-    expect(view.agents.every((a) => a.canBeAssigned && a.effectiveSkill === 100)).toBe(true);
+    expect(view.agents.every((a) => a.canBeAssigned && a.effectiveSkill === newAgent.skill)).toBe(true);
   });
 
   it('Transit: ordered to Contracting', () => {
@@ -185,29 +205,26 @@ describe('AGENT: examples', () => {
       'agents_cannot_be_ordered',
     );
     const before = money(state);
+    const upkeep = agentIds(state).length * economy.upkeepPerAgent;
     state = advance(state);
     expect(agent(state, a1).state.status).toBe('AtAssignment');
-    // Income from funding only; upkeep for all 4 Serving Agents.
-    expect(money(state)).toBe(before + 20 - 40);
+    // Income from funding 20 only; upkeep for every Serving Agent.
+    expect(money(state)).toBe(before + 20 - upkeep);
     expect(canBeAssigned(agent(state, a1).state)).toBe(true);
     const second = money(state);
     state = advance(state);
-    expect(money(state)).toBe(second + 20 + 30 - 40);
+    // Arrived, a1 earns: with effective skill 100 exactly `contracting_income_per_agent`.
+    expect(money(state)).toBe(second + 20 + economy.contractingIncomePerAgent - upkeep);
   });
 
   it('Transit: hired Agent', () => {
     let state = newCampaign();
     state = act(state, 'hireAgent');
-    const a5 = agentIds(state)[4]!;
+    const a5 = agentIds(state).at(-1)!;
     expect(agent(state, a5).constants.turnHired).toBe(1);
     expect(units(agent(state, a5).state)).toMatchObject({
-      skill: 100,
-      currentHealth: 30,
+      ...newAgent,
       exhaustion: 0,
-      weapon: 'service_weapon',
-      baseWeaponDamage: 10,
-      armor: 'service_armor',
-      baseArmor: 0,
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
@@ -221,7 +238,8 @@ describe('AGENT: examples', () => {
     expect(canBeAssigned(agent(state, a5).state)).toBe(false);
     const before = money(state);
     state = advance(state);
-    expect(money(state)).toBe(before + 20 - 50);
+    // The hired Agent In transit costs upkeep with the others.
+    expect(money(state)).toBe(before + 20 - agentIds(state).length * economy.upkeepPerAgent);
     expect(units(agent(state, a5).state)).toMatchObject({
       assignment: { kind: 'Standby' },
       status: 'AtAssignment',
@@ -247,14 +265,8 @@ describe('AGENT: examples', () => {
       { agents: [a1], assignment: 'Standby' },
       'agents_cannot_be_ordered',
     );
-    // a1 ends unharmed; a2 takes one hit of 12.
-    const enemies = state.world.current.missionSites[created.site]!.state.enemies;
-    state = advance(state, {
-      ...winning(state, created.site),
-      [`combat.hit.${enemies[0]}`]: [false],
-      [`combat.hit.${enemies[1]}`]: [false],
-      [`combat.hit.${enemies[2]}`]: [false],
-    });
+    // Every Enemy attack misses, so both end unharmed.
+    state = advance(state, winning(state, created.site));
     expect(state.world.current.missions[mission]!.state.lifecycle).toBe('Won');
     expect(units(agent(state, a1).state)).toMatchObject({
       assignment: { kind: 'Standby' },
@@ -280,24 +292,30 @@ describe('AGENT: examples', () => {
     // Moving from Standby to Training takes no transit.
     state = act(state, 'assignAgents', { agents: [a1, a2], assignment: 'Training' });
     expect(units(agent(state, a1).state)).toMatchObject({
-      skill: 100,
+      skill: newAgent.skill,
       exhaustion: 0,
       status: 'AtAssignment',
     });
+    // Base skill, in hundredths, after n Training steps.
+    const trained = (n: number) => newAgent.skill * 100 + n * trainingGain;
     state = advance(state);
-    expect([
-      agent(state, a1).state.skillHundredths / 100,
-      agent(state, a2).state.skillHundredths / 100,
-    ]).toEqual([101, 101]);
+    expect([agent(state, a1).state.skillHundredths, agent(state, a2).state.skillHundredths]).toEqual([
+      trained(1),
+      trained(1),
+    ]);
     // Training changes no exhaustion (AGENT, Changes to attributes).
     expect(agent(state, a1).state.exactExhaustionHundredths).toBe(0);
     expect(state.world.history.turnReport?.training).toEqual([
-      { agent: a1, gainedHundredths: 100, skillAfterHundredths: 10100 },
-      { agent: a2, gainedHundredths: 100, skillAfterHundredths: 10100 },
+      { agent: a1, gainedHundredths: trainingGain, skillAfterHundredths: trained(1) },
+      { agent: a2, gainedHundredths: trainingGain, skillAfterHundredths: trained(1) },
     ]);
     state = advance(state);
-    expect(units(agent(state, a1).state)).toMatchObject({ skill: 102, exhaustion: 0 });
-    expect(effectiveSkill(valuesOf(agent(state, a1).state), p)).toBe(102);
+    expect(agent(state, a1).state).toMatchObject({
+      skillHundredths: trained(2),
+      exactExhaustionHundredths: 0,
+    });
+    // Effective skill is base skill rounded down, at exhaustion 0 and full health.
+    expect(effectiveSkill(valuesOf(agent(state, a1).state), p)).toBe(Math.floor(trained(2) / 100));
     // Recalled to Standby at once, without transit.
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
     expect(units(agent(state, a1).state)).toMatchObject({
@@ -305,26 +323,33 @@ describe('AGENT: examples', () => {
       status: 'AtAssignment',
     });
     state = advance(state);
-    expect(units(agent(state, a1).state)).toMatchObject({ skill: 102, exhaustion: 0 });
-    expect(agent(state, a2).state.skillHundredths / 100).toBe(103);
+    expect(agent(state, a1).state).toMatchObject({
+      skillHundredths: trained(2),
+      exactExhaustionHundredths: 0,
+    });
+    expect(agent(state, a2).state.skillHundredths).toBe(trained(3));
   });
 
   it('Training growth: a fractional training skill gain, with no chance involved', () => {
     let state = newCampaign();
     const [a1] = agentIds(state) as [string];
     state = setAssignment(state, [a1], 'Training');
-    // One training_skill_gain Upgrade adds 0.5, so a base skill of 101.65 gains 1.50 every Advance turn.
+    // One training_skill_gain Upgrade adds its Increment, e.g. 0.5, so that a base skill of 101.65 gains 1.50 every
+    // Advance turn with the values of the example.
+    const gain =
+      trainingGain + gdrs.upgrades.find((u) => u.id === 'training_skill_gain')!.incrementHundredths;
+    expect(gain % 100).not.toBe(0);
     state = tweak(state, (world) => {
       world.agents[a1]!.state.skillHundredths = 10165;
       world.agency.state.acquisitions['training_skill_gain'] = 1;
     });
     state = advance(state);
-    expect(agent(state, a1).state.skillHundredths).toBe(10315);
+    expect(agent(state, a1).state.skillHundredths).toBe(10165 + gain);
     expect(state.world.history.turnReport?.training).toEqual([
-      { agent: a1, gainedHundredths: 150, skillAfterHundredths: 10315 },
+      { agent: a1, gainedHundredths: gain, skillAfterHundredths: 10165 + gain },
     ]);
     state = advance(state);
-    expect(agent(state, a1).state.skillHundredths).toBe(10465);
+    expect(agent(state, a1).state.skillHundredths).toBe(10165 + 2 * gain);
   });
 
   it('Start-work gate: Fit to start work only at exhaustion 0 and no health lost', () => {
@@ -351,12 +376,19 @@ describe('AGENT: examples', () => {
     expect(
       agent(act(state, 'assignAgents', { agents: [a3], assignment: 'Contracting' }), a3).state.assignment,
     ).toEqual({ kind: 'Contracting' });
-    // With the GDR values, a1 rests from 12 to 0 in three Agent recovery steps and is then Fit to start work.
-    for (const expected of [7, 2, 0]) {
+    // a1 rests from 12 by `exhaustion_recovery_per_turn` in each Agent recovery step, e.g. to 0 in three steps with the
+    // values of the example, and is Fit to start work only once it is at 0.
+    const fit = (s: typeof state) =>
+      currentLiveWorldStateView(s, gdrs).agents.find((a) => a.id === a1)?.fitForWork;
+    const recovery = gdrs.recoveryParameters.exhaustionRecoveryPerTurnHundredths;
+    let exhaustion = 1200;
+    while (exhaustion > 0) {
+      expect(fit(state)).toBe(false);
+      exhaustion = Math.max(0, exhaustion - recovery);
       state = advance(state);
-      expect(agent(state, a1).state.exactExhaustionHundredths / 100).toBe(expected);
+      expect(agent(state, a1).state.exactExhaustionHundredths).toBe(exhaustion);
     }
-    expect(currentLiveWorldStateView(state, gdrs).agents.find((a) => a.id === a1)?.fitForWork).toBe(true);
+    expect(fit(state)).toBe(true);
   });
 
   it('Work wears nothing down: Contracting, Training, and an Investigation keep exhaustion at 0', () => {
@@ -470,23 +502,23 @@ describe('AGENT: examples', () => {
     expectRejected(state, 'addAgents', { count: 0 }, 'invalid_count', 'developer');
     expectRejected(state, 'addAgents', { count: -1 }, 'invalid_count', 'developer');
     expectRejected(state, 'addAgents', { count: 1.5 }, 'invalid_count', 'developer');
+    const roster = agents(state).length;
     const next = act(state, 'addAgents', { count: 2 }, 'developer');
-    const added = agents(next).slice(4);
+    const added = agents(next).slice(roster);
     expect(added).toHaveLength(2);
     for (const a of added) {
       expect(a.constants.turnHired).toBe(3);
       expect(units(a.state)).toMatchObject({
-        skill: 100,
-        currentHealth: 30,
-        baseWeaponDamage: 10,
+        ...newAgent,
         assignment: { kind: 'Standby' },
         status: 'InTransit',
       });
     }
     expect(money(next)).toBe(0);
     // It ignores the Agent cap.
-    const many = act(next, 'addAgents', { count: 30 }, 'developer');
-    expect(agents(many)).toHaveLength(36);
+    const count = economy.baseAgentCap + 10;
+    const many = act(next, 'addAgents', { count }, 'developer');
+    expect(agents(many)).toHaveLength(roster + 2 + count);
   });
 
   it('Agent status and Assignment structure: invalid variants', () => {
@@ -564,14 +596,20 @@ describe('AGENT: examples', () => {
     const gainOf = (id: string) => combat.participants.find((p) => p.id === id)!.combatExperience;
     expect(combat.outcome).toBe('Prevailed');
     expect(agent(state, a2).state.status).toBe('Killed');
-    // a1: 4 + 2 + 4 + 4 for its attacks, 2 + 1 for the miss and the hit it took; a2: 4 for its hit, 1 for the hit
-    // that made it dead.
-    expect(gainOf(a1)).toBe(17);
-    expect(gainOf(a2)).toBe(5);
+    // a1: three hits and a miss for its attacks, a miss and a hit for those it took, e.g. 4 + 2 + 4 + 4 + 2 + 1 = 17
+    // with the values of the example; a2: its hit, and the hit that made it dead, e.g. 4 + 1 = 5.
+    const a1Combat =
+      3 * p.experiencePerAttackHit +
+      p.experiencePerAttackMiss +
+      p.experiencePerDefenseMiss +
+      p.experiencePerDefenseHit;
+    expect(gainOf(a1)).toBe(a1Combat);
+    expect(gainOf(a2)).toBe(p.experiencePerAttackHit + p.experiencePerDefenseHit);
     expect(gainOf(soldier)).toBeNull();
-    // a1, a survivor, gains its combat skill gain and the survival skill gain 30 of its first Mission; its base skill
+    // a1, a survivor, gains its combat skill gain and the survival skill gain of its first Mission; its base skill
     // gained in Training stays out of its Experience. a2, Killed, gains nothing.
-    const a1Gain = 17 + 30;
+    const survival = p.experiencePerMissionSurvived[0]!;
+    const a1Gain = a1Combat + survival;
     expect(agent(state, a1).state).toMatchObject({
       skillHundredths: 10110 + a1Gain * 100,
       experience: a1Gain,
@@ -580,7 +618,7 @@ describe('AGENT: examples', () => {
     expect(report.missions[0]!.growth).toEqual([
       {
         agent: a1,
-        survivalExperience: 30,
+        survivalExperience: survival,
         missionExperience: a1Gain,
         skillAfterHundredths: 10110 + a1Gain * 100,
         experienceAfter: a1Gain,
@@ -596,16 +634,17 @@ describe('AGENT: examples', () => {
   });
 
   it('Mission growth: the survival skill gain by Missions survived', () => {
-    // The fourth Mission survived gives 15, and so does the seventh, because the list has four entries.
-    const p = gdrs.agentParameters;
-    expect([1, 2, 3, 4, 5, 7].map((n) => survivalExperience(n, p))).toEqual([30, 25, 20, 15, 15, 15]);
+    // The example of AGENT, Mission growth, with its list `experience_per_mission_survived` [30, 25, 20, 15] as a
+    // Fixture value: the fourth Mission survived gives 15, and so does the seventh, because the list has four entries.
+    const q = { ...gdrs.agentParameters, experiencePerMissionSurvived: [30, 25, 20, 15] };
+    expect([1, 2, 3, 4, 5, 7].map((n) => survivalExperience(n, q))).toEqual([30, 25, 20, 15, 15, 15]);
     const agentState = { skillHundredths: 10110, experience: 0 };
-    expect(applyMissionGrowth(agentState, 13, 1, p)).toEqual({
+    expect(applyMissionGrowth(agentState, 13, 1, q)).toEqual({
       survivalExperience: 30,
       missionExperience: 43,
     });
     expect(agentState).toEqual({ skillHundredths: 14410, experience: 43 });
-    expect(applyMissionGrowth(agentState, 0, 7, p)).toEqual({
+    expect(applyMissionGrowth(agentState, 0, 7, q)).toEqual({
       survivalExperience: 15,
       missionExperience: 15,
     });

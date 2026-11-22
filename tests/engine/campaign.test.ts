@@ -4,8 +4,10 @@
  */
 import fc from 'fast-check';
 import { describe, expect, it } from 'vite-plus/test';
-import { BASIC_AI_THRESHOLDS, createBasicAutopilotAi, type BasicAiThresholds } from '../../src/ai/index.ts';
+import { createBasicAutopilotAi } from '../../src/ai/index.ts';
 import type { Engine } from '../../src/engine/index.ts';
+import { bootstrapGdrCatalog } from '../../src/gdr/index.ts';
+import { q, roundDown, roundUp } from '../../src/kernel/index.ts';
 import {
   autopilot,
   currentWorld,
@@ -15,6 +17,9 @@ import {
   ok,
   startEngine,
 } from '../helpers/engine.ts';
+
+/** The GDRs of the Game build under test, which every Campaign of the file is played with. */
+const GDRS = bootstrapGdrCatalog();
 
 /** Plays one Turn with the policy of the Basic Autopilot AI, as the Session controller, through Player API alone. */
 async function playTurn(engine: Engine): Promise<void> {
@@ -50,15 +55,15 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
       ok(await engine.player.actions.advanceTurn());
       turns += 1;
     }
-    // 500 money, income 20, upkeep 80 for the 8 Agents of the initial roster: money falls by 60 each Advance turn,
-    // so it is below zero after the 9th.
-    expect(turns).toBe(9);
+    // Upkeep exceeds income with no Agent earning, so money falls below zero; the Turn that happens in follows from the
+    // GDR values of the day, and is not checked.
     const state = ok(engine.player.queries.getCurrentLiveWorldState());
     expect(state.ending).toEqual({
       ending: 'Defeat',
       reasons: ['MoneyBelowZero'],
-      turn: 9,
+      turn: turns,
     });
+    expect(state.agency.money).toBeLessThan(0);
     expect(ok(engine.session.getStatus())).toMatchObject({ devMode: false, campaignEnded: true });
     // After a Campaign ending every Player action is rejected and every query keeps answering.
     expect(errorCode(await engine.player.actions.advanceTurn())).toBe('campaign_ended');
@@ -145,37 +150,6 @@ describe('Campaign runs', () => {
     expect(ok(whole.engine.session.autopilot.listAutopilotAis())).toEqual([
       { autopilotAiId: 'basic', name: 'Basic Autopilot AI' },
     ]);
-  });
-
-  // CTEST, Limits: each test below plays at most 2 Campaigns.
-  const play = async (thresholds: Partial<BasicAiThresholds>) => {
-    const ai = createBasicAutopilotAi({ ...BASIC_AI_THRESHOLDS, ...thresholds });
-    const { engine } = await startEngine({ autopilotAis: [ai] });
-    ok(await engine.session.globalConfiguration.set('autosaveLimit', 0));
-    ok(await engine.session.campaign.create({ seed: 'tuning' }));
-    await autopilot(engine, { kind: 'turnAdvancements', count: 60 });
-    return ok(engine.player.queries.getCurrentLiveWorldState());
-  };
-
-  it('the Basic Autopilot AI built with BASIC_AI_THRESHOLDS plays as with no parameters given', async () => {
-    const defaults = await play({});
-    const plain = await startEngine();
-    ok(await plain.engine.session.globalConfiguration.set('autosaveLimit', 0));
-    ok(await plain.engine.session.campaign.create({ seed: 'tuning' }));
-    await autopilot(plain.engine, { kind: 'turnAdvancements', count: 60 });
-    expect(ok(plain.engine.player.queries.getCurrentLiveWorldState())).toEqual(defaults);
-  });
-
-  it('the Basic Autopilot AI never buys an Upgrade of weight 0', async () => {
-    const noWeapons = await play({ upgradeWeights: { weapon_damage: 0 } });
-    const weapons = noWeapons.agency.upgrades.find((upgrade) => upgrade.id === 'weapon_damage');
-    expect(weapons?.acquisitions).toBe(0);
-  });
-
-  it('the Basic Autopilot AI investigates no Lead with an Investigator share of 0', async () => {
-    const noInvestigators = await play({ investigatorSharePct: 0 });
-    expect(noInvestigators.agents.filter((agent) => agent.assignment?.kind === 'Investigation')).toEqual([]);
-    expect(noInvestigators.investigations).toEqual([]);
   });
 });
 
@@ -307,17 +281,6 @@ describe('DETERM and TIMELINE with the real game', () => {
       { numRuns: 25 },
     );
   });
-
-  it('Identifiers under replay: a hired Agent keeps its Instance ID through undo and redo', async () => {
-    const { engine } = await startEngine();
-    ok(await engine.session.campaign.create({ seed: 'ids' }));
-    ok(await engine.player.actions.hireAgent());
-    const hired = ok(engine.player.queries.getCurrentLiveWorldState()).agents.at(-1)!;
-    ok(await engine.session.timeline.undoAction());
-    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents).toHaveLength(8);
-    ok(await engine.session.timeline.redoAction());
-    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents.at(-1)).toEqual(hired);
-  });
 });
 
 describe('ENG: Information boundary with the real game', () => {
@@ -382,15 +345,16 @@ describe('ENG: Information boundary with the real game', () => {
   it('a returned view cannot change Campaign state', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'detached' }));
+    const before = ok(engine.player.queries.getCurrentLiveWorldState());
     const view = ok(engine.player.queries.getCurrentLiveWorldState()) as any;
-    view.agency.money = 1_000_000;
+    view.agency.money = before.agency.money + 1_000_000;
     view.agents.length = 0;
     const inspected = inspect(engine);
     expect(() => {
-      currentWorld(inspected).liveWorldState.agency.state.money = 7;
+      currentWorld(inspected).liveWorldState.agency.state.money = before.agency.money + 7;
     }).toThrow();
-    expect(ok(engine.player.queries.getCurrentLiveWorldState())).toMatchObject({ agency: { money: 500 } });
-    expect(ok(engine.player.queries.getCurrentLiveWorldState()).agents).toHaveLength(8);
+    expect(ok(engine.player.queries.getCurrentLiveWorldState())).toEqual(before);
+    expect(before.agents.length).toBeGreaterThan(0);
     expect(() => {
       (ok(engine.player.queries.getGameData()) as any).economy.hireCost = 1;
     }).toThrow();
@@ -401,6 +365,7 @@ describe('DEV with the real game', () => {
   it('cheat operations need Dev mode, are Timeline entries, and inspection shows four properties', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'dev' }));
+    const start = ok(engine.player.queries.getCurrentLiveWorldState()).agency;
     expect(errorCode(await engine.developer.actions.addMoney(100))).toBe('dev_mode_disabled');
     expect(errorCode(engine.developer.queries.getCampaignState())).toBe('dev_mode_disabled');
     ok(engine.session.developer.enable());
@@ -436,7 +401,7 @@ describe('DEV with the real game', () => {
     ok(await engine.session.timeline.undoAction());
     ok(await engine.session.timeline.undoAction());
     expect(ok(engine.player.queries.getCurrentLiveWorldState())).toMatchObject({
-      agency: { money: 500, servingAgents: 8 },
+      agency: { money: start.money, servingAgents: start.servingAgents },
     });
   });
 
@@ -457,14 +422,22 @@ describe('DEV with the real game', () => {
         await engine.developer.actions.overrideRandomOutcome('investigation.requiredProgress.nothing', 3),
       ),
     ).toBe('rejected');
-    // COMBAT, Damage outcome: a supplied damage outcome outside lo to hi, 5 to 15 here, is rejected.
+    // COMBAT, Damage outcome: a supplied damage outcome outside lo to hi is rejected, where lo is the weapon damage
+    // × (1 − weapon_damage_range), rounded up, and hi the weapon damage × (1 + weapon_damage_range), rounded down.
+    const range = GDRS.combatParameters.weaponDamageRange;
+    const weaponDamage = q(agent!.effectiveWeaponDamage);
+    const lo = roundUp(weaponDamage.mul(q(1).sub(range)));
+    const hi = roundDown(weaponDamage.mul(q(1).add(range)));
     const damage = `combat.damage.${agent!.id}`;
-    expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, 16))).toBe('rejected');
-    expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, 4))).toBe('rejected');
+    expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, hi + 1))).toBe('rejected');
+    expect(errorCode(await engine.developer.actions.overrideRandomOutcome(damage, lo - 1))).toBe('rejected');
     expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([]);
-    // The Required progress outcome of the next Investigation of the Lead is fixed to 6, of the range 5 to 7.
-    ok(await engine.developer.actions.overrideRandomOutcome(outcome, 6));
-    expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([{ outcome, value: 6 }]);
+    // INVSTG, Required progress range: from the Lead's required progress R to round down(R × max_pct / 100). The
+    // Required progress outcome of the next Investigation of the Lead is fixed to the top of that range.
+    const required = GDRS.leads.find((lead) => lead.id === 'criminal_organizations')!.requiredProgress;
+    const fixed = Math.floor((required * GDRS.investigationParameters.requiredProgressMaxPct) / 100);
+    ok(await engine.developer.actions.overrideRandomOutcome(outcome, fixed));
+    expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([{ outcome, value: fixed }]);
     ok(await engine.player.actions.startInvestigation('criminal_organizations', [agent!.id]));
     const actual = () =>
       (
@@ -472,7 +445,7 @@ describe('DEV with the real game', () => {
           constants: { actualRequiredProgress: number };
         }[]
       )[0]!.constants.actualRequiredProgress;
-    expect(actual()).toBe(6);
+    expect(actual()).toBe(fixed);
     expect(liveWorld(engine).pendingRandomOutcomeOverrides).toEqual([]);
     // Player API reports the Actual required progress only as unknown.
     expect(
@@ -481,6 +454,6 @@ describe('DEV with the real game', () => {
     // The override is a Timeline entry, so replay reproduces it: undo the start and redo it.
     ok(await engine.session.timeline.undoAction());
     ok(await engine.session.timeline.redoAction());
-    expect(actual()).toBe(6);
+    expect(actual()).toBe(fixed);
   });
 });

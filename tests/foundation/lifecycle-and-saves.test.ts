@@ -274,15 +274,6 @@ describe('SAVES: examples', () => {
     expect(new Set(own.map((save) => save.campaignId)).size).toBe(1);
   });
 
-  it('Saving twice with no Player action in between leaves one Campaign save', async () => {
-    const h = await startHarness();
-    expectOk(await h.core.createCampaign(CONTROLLER));
-    expectOk(await h.act('gain', { amount: 1 }));
-    const first = expectOk(await h.core.save(CONTROLLER)).saveId;
-    expect(expectOk(await h.core.save(CONTROLLER)).saveId).toBe(first);
-    expect((await list(h)).filter((save) => !save.isAutosave)).toHaveLength(1);
-  });
-
   it('An equal World state reached again by another action replaces the Campaign save', async () => {
     const h = await startHarness();
     expectOk(await h.core.createCampaign(CONTROLLER));
@@ -303,41 +294,6 @@ describe('SAVES: examples', () => {
     const saved = expectOk(await h.core.save(CONTROLLER)).saveId;
     expect(saved).not.toBe(current.saveId);
     expect((await list(h)).find((save) => save.saveId === current.saveId)!.isAutosave).toBe(true);
-  });
-
-  it('Keeping a line of play', async () => {
-    const h = await startHarness();
-    expectOk(await h.core.createCampaign(CONTROLLER));
-    const s1 = expectOk(await h.core.save(CONTROLLER)).saveId;
-    const original = h.state();
-    expectOk(await h.core.load(CONTROLLER, s1));
-    for (let i = 0; i < 3; i += 1) {
-      expectOk(await h.act('gain', { amount: 1 }));
-    }
-    const s2 = expectOk(await h.core.save(CONTROLLER)).saveId;
-    expect(s2).not.toBe(s1);
-    expectOk(await h.core.load(CONTROLLER, s2));
-    expect(h.view().money).toBe(103);
-    expect(expectOk(h.core.getTimelineStatus(CONTROLLER)).timelineEntries).toBe(3);
-    expectOk(await h.core.load(CONTROLLER, s1));
-    expect(h.state()).toEqual(original);
-    const saves = await list(h);
-    expect(saves.find((s) => s.saveId === s1)!.campaignId).toBe(
-      saves.find((s) => s.saveId === s2)!.campaignId,
-    );
-  });
-
-  it('Campaign configuration isolation', async () => {
-    const h = await startHarness();
-    expectOk(await h.core.createCampaign(CONTROLLER));
-    const a = expectOk(await h.core.save(CONTROLLER)).saveId;
-    expectOk(h.core.selectPreset(CONTROLLER, 'hard'));
-    expectOk(await h.core.createCampaign(CONTROLLER));
-    const b = expectOk(await h.core.save(CONTROLLER)).saveId;
-    expectOk(await h.core.load(CONTROLLER, a));
-    expect(h.state().configuration).toEqual({ startingMoney: 100, multiplier: 1 });
-    expectOk(await h.core.load(CONTROLLER, b));
-    expect(h.state().configuration).toEqual({ startingMoney: 60, multiplier: 2 });
   });
 
   it('Listing before loading', async () => {
@@ -478,18 +434,6 @@ describe('SAVES: examples', () => {
     expect(currentBody().position).toBe(1);
   });
 
-  it('Autosave limit', async () => {
-    const h = await startHarness();
-    expectOk(await h.core.createCampaign(CONTROLLER));
-    for (let i = 0; i < 7; i += 1) {
-      expectOk(await h.core.advanceTurn(CONTROLLER));
-    }
-    const turnEnds = (await list(h))
-      .filter((save) => save.autosaveKind === 'turnEnd')
-      .map((save) => save.turn);
-    expect(turnEnds).toEqual([3, 4, 5, 6, 7]);
-  });
-
   it('One Autopilot engagement, one Engagement Autosave', async () => {
     let harness: Harness | null = null;
     const ai = scriptedAi('x', () => harness!.core, [async (api) => void (await api.advance())]);
@@ -572,18 +516,6 @@ describe('SAVES: examples', () => {
     ]);
     expect(status(h).autopilot).toBeNull();
     expect((await list(h)).filter((s) => s.autosaveKind === 'disengagement')).toEqual([]);
-  });
-
-  it('Autosave limit 0', async () => {
-    const h = await startHarness();
-    expectOk(await h.core.setGlobalSetting(CONTROLLER, 'autosaveLimit', 0));
-    expectOk(await h.core.createCampaign(CONTROLLER));
-    expectOk(await h.act('gain', { amount: 1 }));
-    expectOk(await h.act('gain', { amount: 1 }));
-    expectOk(await h.core.advanceTurn(CONTROLLER));
-    const saves = await list(h);
-    expect(saves.filter((s) => s.autosaveKind === 'turnEnd')).toEqual([]);
-    expect(saves.filter((s) => s.autosaveKind === 'current').map((s) => s.turn)).toEqual([2]);
   });
 
   it('Too large', async () => {

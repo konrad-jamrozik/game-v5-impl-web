@@ -102,53 +102,65 @@ const entry = (
 });
 const bodyOf = (list: readonly CatalogCompendiumArticle[], id: string) =>
   shown(resolveArticles(list).find((item) => item.article.id === id)!.body);
+/**
+ * The injected random outcomes of a Faction operation of the only Faction in its next Advance turn, read from the Game
+ * build: the first Response MissionSiteArchetype whose Faction operation level the Faction's activity level weighs,
+ * and the shortest Operation interval of that activity level.
+ */
+const responseOperation = (state: CampaignState) => {
+  const faction = onlyFaction(state);
+  const level = gdrs.factionActivityLevels.get(faction.state.activityLevel)!;
+  const weighed = level.operationLevelWeights.filter(([, weight]) => weight > 0).map(([value]) => value);
+  const archetype = gdrs.missionSiteArchetypes.find(
+    (item) => item.kind === 'response' && weighed.includes(item.operationLevel!),
+  )!;
+  return {
+    archetype: archetype.id,
+    injected: {
+      [`faction.${faction.id}.operationLevel`]: [archetype.operationLevel!],
+      [`faction.${faction.id}.operationInterval`]: [level.operationEveryTurns![0]],
+      [`mission.archetypeSelection.${faction.id}`]: [archetype.id],
+    },
+  };
+};
 
 describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
-  it('supplies 6 Guide articles, 27 Mechanics articles, and 103 Subject articles, in the order of their identifiers', () => {
-    const all = bootstrapGdrCatalog().compendiumArticles;
-    expect(all).toHaveLength(136);
-    expect(all.filter((article) => article.category === 'guide').map((article) => article.id)).toEqual([
-      'guide_agency',
-      'guide_agents',
-      'guide_investigations',
-      'guide_missions',
-      'guide_panic',
-      'guide_upgrades',
-    ]);
+  it('supplies Guide, Mechanics, and Subject articles, in the order of their identifiers', () => {
+    const bootstrap = bootstrapGdrCatalog();
+    const all = bootstrap.compendiumArticles;
+    const guides = all.filter((article) => article.category === 'guide');
+    expect(guides.length).toBeGreaterThan(0);
+    for (const article of guides) {
+      expect(article.subject).toBeNull();
+    }
     const mechanics = all.filter((article) => article.category === 'mechanics');
-    expect(mechanics).toHaveLength(27);
+    expect(mechanics.length).toBeGreaterThan(0);
     for (const article of mechanics) {
       expect(article.id).toMatch(/^mechanics_/);
       expect(article.formulas.length).toBeGreaterThan(0);
       expect(article.subject).toBeNull();
     }
     const subjects = all.filter((article) => article.category === 'subject');
-    expect(subjects).toHaveLength(103);
+    expect(subjects.length).toBeGreaterThan(0);
     // GDRS, Compendium GDRs: every Armor but `no_armor` has a Subject article.
     expect(
-      subjects.filter((article) => article.subjectType === 'Armor').map((article) => article.subject),
-    ).toEqual([
-      'assault_armor',
-      'ballistic_vest',
-      'heavy_armor',
-      'juggernaut_suit',
-      'padded_jacket',
-      'plate_carrier',
-      'service_armor',
-      'tactical_armor',
-    ]);
+      subjects
+        .filter((article) => article.subjectType === 'Armor')
+        .map((article) => article.subject)
+        .sort(),
+    ).toEqual([...bootstrap.armors.keys()].filter((id) => id !== 'no_armor').sort());
     for (const article of subjects) {
       expect(article.id).toBe(`${article.subject}_article`);
     }
     // GDR, GDR file layout, Directory of one file per GDR: the ascending order of the identifiers.
     const ids = all.map((article) => article.id);
     expect(ids).toEqual([...ids].sort());
-    // COMP, Displayed title: a Subject article is shown under the `name` of its subject.
-    expect(all.find((article) => article.id === 'soldier_article')).toMatchObject({
-      title: 'Soldier',
-      subject: 'soldier',
-      subjectType: 'EnemyArchetype',
-    });
+    // COMP, Displayed title: a Subject article is shown under the `name` of its subject, e.g. an EnemyArchetype's.
+    const enemies = subjects.filter((article) => article.subjectType === 'EnemyArchetype');
+    expect(enemies.length).toBeGreaterThan(0);
+    for (const article of enemies) {
+      expect(article.title).toBe(bootstrap.enemyArchetypes.get(article.subject!)!.name);
+    }
     // No article is ever shown with an unreplaced Placeholder.
     for (const article of all) {
       const texts = [article.body, ...article.formulas.flatMap((item) => [item.label, item.text])];
@@ -726,16 +738,13 @@ describe('COMP: Article visibility and Player-visible information', () => {
       (article) =>
         article.category !== 'subject' || ['AgentArchetype', 'Upgrade'].includes(article.subjectType ?? ''),
     );
-    expect(always).toHaveLength(6 + 27 + 1 + 8);
-    const operative = gdrs.enemyArchetypes.get('operative')!;
+    const apprehend = gdrs.missionSiteArchetypes.find((item) => item.id === 'apprehend_member')!;
     const met = new Set([
-      'initiate',
-      'operative',
-      'basic_pistol',
-      operative.weapon,
+      ...apprehend.enemies.flatMap(([id]) => {
+        const enemy = gdrs.enemyArchetypes.get(id)!;
+        return [enemy.id, enemy.weapon, enemy.armor];
+      }),
       gdrs.agentArchetype.weapon,
-      gdrs.enemyArchetypes.get('initiate')!.armor,
-      operative.armor,
       gdrs.agentArchetype.armor,
     ]);
     expect(ids).toEqual(
@@ -774,7 +783,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
     );
     expect(initiate).toMatchObject({
       category: 'subject',
-      title: 'Initiate',
+      title: gdrs.enemyArchetypes.get('initiate')!.name,
       subject: 'initiate',
       subjectType: 'EnemyArchetype',
       formulas: [],
@@ -786,22 +795,15 @@ describe('COMP: Article visibility and Player-visible information', () => {
       subjectType: null,
     });
     const combat = articles(state).find((article) => article.id === 'mechanics_combat')!;
-    expect(combat).toMatchObject({ category: 'mechanics', title: 'Combat', subject: null });
+    const authored = all.find((article) => article.id === 'mechanics_combat')!;
+    expect(combat).toMatchObject({ category: 'mechanics', title: authored.title, subject: null });
     expect(combat.formulas.length).toBeGreaterThan(0);
-    expect(combat.seeAlso.map((link) => link.article)).toEqual([
-      'mechanics_combat_rating',
-      'mechanics_damage',
-      'mechanics_retreat',
-      'mechanics_skill',
-      'mechanics_missions',
-    ]);
-    expect(combat.seeAlso.map((link) => link.text)).toEqual([
-      'Combat rating',
-      'Damage',
-      'Retreat',
-      'Skill',
-      'Missions',
-    ]);
+    // Its See also entries, in the authored order, each shown under the displayed title of the article it names.
+    expect(authored.seeAlso.length).toBeGreaterThan(0);
+    expect(combat.seeAlso.map((link) => link.article)).toEqual(authored.seeAlso);
+    expect(combat.seeAlso.map((link) => link.text)).toEqual(
+      authored.seeAlso.map((id) => all.find((article) => article.id === id)!.title),
+    );
   });
 
   it('The first Mission Won', () => {
@@ -866,16 +868,16 @@ describe('COMP: Article visibility and Player-visible information', () => {
     let state = tweak(newCampaign(), (world) => {
       Object.values(world.factions)[0]!.state.turnsUntilNextOperation = 1;
     });
-    const f = onlyFaction(state).id;
-    expect(visible(state)).not.toContain('foil_sabotage_article');
-    state = advance(state, {
-      [`faction.${f}.operationLevel`]: [2],
-      [`faction.${f}.operationInterval`]: [20],
-      [`mission.archetypeSelection.${f}`]: ['foil_sabotage'],
-    });
-    expect(sites(state).map((site) => site.archetype)).toEqual(['foil_sabotage']);
-    expect(visible(state)).toContain('foil_sabotage_article');
-    expect(visible(state)).not.toContain('foil_recruitment_push_article');
+    const operation = responseOperation(state);
+    const article = `${operation.archetype}_article`;
+    const other = gdrs.missionSiteArchetypes.find(
+      (item) => item.kind === 'response' && item.id !== operation.archetype,
+    )!;
+    expect(visible(state)).not.toContain(article);
+    state = advance(state, operation.injected);
+    expect(sites(state).map((site) => site.archetype)).toEqual([operation.archetype]);
+    expect(visible(state)).toContain(article);
+    expect(visible(state)).not.toContain(`${other.id}_article`);
 
     // The Mission site stays in Campaign state when it is no longer Active, so the article stays Player-visible.
     const expired = tweak(state, (world) => {
@@ -883,7 +885,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
         site.state.lifecycle = 'Expired';
       }
     });
-    expect(visible(expired)).toContain('foil_sabotage_article');
+    expect(visible(expired)).toContain(article);
   });
 
   it('No gameplay effect: equal Campaign state with any set of articles, or none', () => {
@@ -896,8 +898,10 @@ describe('COMP: Article visibility and Player-visible information', () => {
       withoutArticles = advance(withoutArticles, {}, none);
     }
     expect(withoutArticles).toEqual(withArticles);
-    // COMP, Met subjects: 13 of the 18 Enemy and Weapon articles still wait for their subjects to be met.
-    expect(visibleArticles(withArticles.world.current, gdrs)).toHaveLength(51);
+    // COMP, Met subjects: some articles still wait for their subjects to be met.
+    expect(visibleArticles(withArticles.world.current, gdrs).length).toBeLessThan(
+      gdrs.compendiumArticles.length,
+    );
   });
 
   it('every Bootstrap article lies in the directory of one file per GDR', () => {
@@ -917,38 +921,31 @@ describe('COMP: Player API', () => {
     expect(initial.map((article) => article.id)).toEqual(visible(newCampaign({ firstLead: false })));
     expect(initial.find((article) => article.id === 'red_dawn_article')).toBeUndefined();
     expect(ok(engine.player.queries.getArticleForTerm('Combat rating'))).toBe('mechanics_combat_rating');
-    expect(ok(engine.player.queries.getArticleForTerm('Raid safehouse'))).toBeNull();
+    // The Article term of the article about the MissionSiteArchetype that the second Lead creates.
+    const term = gdrs.compendiumArticles.find((item) => item.id === 'apprehend_member_article')!.terms[0]!;
+    expect(ok(engine.player.queries.getArticleForTerm(term))).toBeNull();
 
-    // Play with the Basic Autopilot AI, one Advance turn at a time, until an Advance turn discovers a Lead.
+    // Scripted play: every Agent investigates the first Lead, one Advance turn at a time, until an Advance turn
+    // completes it and so discovers the next Lead (CTEST, Scripted play).
     const has = (id: string) =>
       ok(engine.player.queries.getCompendiumArticles()).some((article) => article.id === id);
+    const team = ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
+    ok(await engine.player.actions.startInvestigation('criminal_organizations', team));
     let turns = 0;
-    while (!has('locate_red_dawn_safehouse_article') && turns < 300) {
-      const { engagementId } = ok(
-        await engine.session.autopilot.engage('basic', { kind: 'turnAdvancements', count: 1 }),
-      );
-      ok(await engine.session.autopilot.whenDisengaged(engagementId));
-      expect(ok(engine.player.queries.getCurrentLiveWorldState()).ending).toBeNull();
+    while (!has('locate_red_dawn_member_article') && turns < 100) {
+      ok(await engine.player.actions.advanceTurn());
       turns += 1;
     }
-    expect(has('locate_red_dawn_safehouse_article')).toBe(true);
-    expect(has('raid_safehouse_article')).toBe(true);
-    expect(has('locate_red_dawn_hq_article')).toBe(false);
-    // red_dawn_profile, whose completion discovered the safehouse Lead, makes the article about Red Dawn visible.
-    expect(
-      ok(engine.player.queries.getCompendiumArticles()).find((item) => item.id === 'red_dawn_article'),
-    ).toMatchObject({
-      title: 'Red Dawn',
-      subject: 'red_dawn',
-      subjectType: 'FactionArchetype',
-    });
-    expect(ok(engine.player.queries.getArticleForTerm('Raid safehouse'))).toBe('raid_safehouse_article');
+    expect(has('locate_red_dawn_member_article')).toBe(true);
+    expect(has('apprehend_member_article')).toBe(true);
+    expect(has('locate_red_dawn_safehouse_article')).toBe(false);
+    expect(ok(engine.player.queries.getArticleForTerm(term))).toBe('apprehend_member_article');
 
     // Undo to the Autosave before that Advance turn: the two articles are absent again.
     ok(await engine.session.timeline.undoToAutosave());
-    expect(has('locate_red_dawn_safehouse_article')).toBe(false);
-    expect(has('raid_safehouse_article')).toBe(false);
-    expect(ok(engine.player.queries.getArticleForTerm('Raid safehouse'))).toBeNull();
+    expect(has('locate_red_dawn_member_article')).toBe(false);
+    expect(has('apprehend_member_article')).toBe(false);
+    expect(ok(engine.player.queries.getArticleForTerm(term))).toBeNull();
   });
 });
 
@@ -965,11 +962,12 @@ describe('COMP: Met subjects', () => {
       .filter((article) => article.category === 'subject')
       .map((article) => article.subject);
     const upgrades = catalog.upgrades.map((upgrade) => upgrade.id);
-    expect(upgrades).toHaveLength(8);
+    expect(upgrades.length).toBeGreaterThan(0);
+    const fieldAgent = catalog.agentArchetype;
     expect([...subjects].sort()).toEqual(
-      ['field_agent', 'service_weapon', 'service_armor', ...upgrades, 'criminal_organizations'].sort(),
+      [fieldAgent.id, fieldAgent.weapon, fieldAgent.armor, ...upgrades, 'criminal_organizations'].sort(),
     );
-    expect([...metSubjects(state.world.current, catalog)]).toEqual(['service_weapon', 'service_armor']);
+    expect([...metSubjects(state.world.current, catalog)]).toEqual([fieldAgent.weapon, fieldAgent.armor]);
   });
 
   it('an Enemy is met once a Player-visible MissionSiteArchetype lists it, and its Weapon with it', () => {
@@ -1015,13 +1013,9 @@ describe('COMP: Met subjects', () => {
     let state = tweak(newCampaign({ firstLead: false }), (world) => {
       Object.values(world.factions)[0]!.state.turnsUntilNextOperation = 1;
     });
-    const f = onlyFaction(state).id;
-    state = advance(state, {
-      [`faction.${f}.operationLevel`]: [2],
-      [`faction.${f}.operationInterval`]: [20],
-      [`mission.archetypeSelection.${f}`]: ['foil_sabotage'],
-    });
-    const foil = gdrs.missionSiteArchetypes.find((item) => item.id === 'foil_sabotage')!;
+    const operation = responseOperation(state);
+    state = advance(state, operation.injected);
+    const foil = gdrs.missionSiteArchetypes.find((item) => item.id === operation.archetype)!;
     const enemy = foil.enemies[0]![0];
     expect(visible(state)).toContain(`${enemy}_article`);
     const expired = tweak(state, (world) => {

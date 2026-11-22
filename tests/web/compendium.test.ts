@@ -1,5 +1,4 @@
-/** COMPV: the Compendium View's categories, search, Article history, and Data sheets; VIS and TRVIEW colour rules. */
-import { readFileSync } from 'node:fs';
+/** COMPV: the Compendium View's categories, search, Article history, and Data sheets; TRVIEW, final condition. */
 import { describe, expect, it } from 'vite-plus/test';
 import type { CompendiumArticleView } from '../../src/engine/index.ts';
 import type { CampaignState } from '../../src/engine/state/types.ts';
@@ -33,7 +32,18 @@ import {
   type DataSheet,
   type SheetPart,
 } from '../../src/web/compendium.ts';
-import { completeLead, gdrs, newCampaign, tweak } from '../helpers/game.ts';
+import { q, roundDown, roundUp } from '../../src/kernel/index.ts';
+import { catalogWith, completeLead, gdrs, newCampaign, tweak } from '../helpers/game.ts';
+
+/** COMPV, Lead data sheet: the wording of each `investigate_again` value. */
+const INVESTIGATE_AGAIN: Readonly<Record<string, string>> = {
+  never: 'Never',
+  until_mission_won: 'Until its Mission is won',
+  always: 'Always',
+};
+
+/** COMPV, Mission site data sheet: `expires_in_turns` with "turns", and with "turn" for 1. */
+const expiresText = (turns: number) => `${turns} ${turns === 1 ? 'turn' : 'turns'}`;
 
 const article = (
   id: string,
@@ -295,11 +305,15 @@ describe('COMPV: Subject data sheets', () => {
     expect(sheet?.heading).toBe('Weapon');
     const rows = rowsOf(sheet);
     expect(rows['Damage']).toBe(String(sidearm.damage));
-    // COMBAT, Damage outcome: the two bounds joined by an en dash, e.g. "5–15" for 10 and a range of 0.5.
-    expect(rows['Damage of a hit']).toMatch(/^\d+–\d+$/);
+    // COMBAT, Damage outcome: from weapon damage × (1 − weapon_damage_range), rounded up, to weapon damage ×
+    // (1 + weapon_damage_range), rounded down, joined by an en dash, e.g. "5–15" for 10 and a range of 0.5.
+    const range = gdrs.combatParameters.weaponDamageRange;
+    const min = roundUp(q(sidearm.damage).mul(q(1).sub(range)));
+    const max = roundDown(q(sidearm.damage).mul(q(1).add(range)));
+    expect(rows['Damage of a hit']).toBe(`${min}–${max}`);
     expect(gameDataView(gdrs).weapons.find((item) => item.id === sidearm.id)?.damageOfAHit).toEqual({
-      min: Math.ceil(sidearm.damage * 0.5),
-      max: Math.floor(sidearm.damage * 1.5),
+      min,
+      max,
     });
     expect(rows['Carried by']).toContain(`[${gdrs.agentArchetype.name}]`);
   });
@@ -337,11 +351,21 @@ describe('COMPV: Subject data sheets', () => {
       false,
     );
     const profiled = completeLead(newCampaign(), 'red_dawn_profile');
+    // The Leads of Red Dawn discovered so far, by the titles of their articles in alphabetical order.
+    const ofRedDawn = gdrs.leads.filter((lead) => lead.faction === 'red_dawn').map((lead) => lead.id);
+    const learned = profiled.world.current.discoveredLeads.filter((id) => ofRedDawn.includes(id));
+    expect(learned.length).toBeGreaterThan(0);
+    expect(learned.length).toBeLessThan(ofRedDawn.length);
+    const titles = compendiumArticlesView(profiled, gdrs)
+      .filter((item) => item.subject !== null && learned.includes(item.subject))
+      .map((item) => item.title)
+      .sort((a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : 1));
+    expect(titles).toHaveLength(learned.length);
     expect(rowsOf(sheetOf(profiled, 'red_dawn'))).toEqual({
-      Leads: '[Locate Red Dawn member] · [Locate Red Dawn safehouse]',
+      Leads: titles.map((title) => `[${title}]`).join(' · '),
     });
     const all = rowsOf(sheetOf(everythingVisible(), 'red_dawn'))['Leads'] ?? '';
-    expect(all.split(' · ')).toHaveLength(gdrs.leads.filter((lead) => lead.faction === 'red_dawn').length);
+    expect(all.split(' · ')).toHaveLength(ofRedDawn.length);
   });
 
   it('Lead data sheet: its Faction, its Required progress once Assessed, and what it reveals', () => {
@@ -350,14 +374,17 @@ describe('COMPV: Subject data sheets', () => {
     const site = gdrs.missionSiteArchetypes.find((item) => item.id === lead.onCompletion.createMissionSite)!;
     const sheet = sheetOf(state, lead.id);
     expect(sheet?.heading).toBe('Lead');
+    const faction = gdrs.factionArchetypes.find((item) => item.id === lead.faction)!;
     // The Faction is no Article link while the article about it is not Player-visible.
     expect(rowsOf(sheet)).toEqual({
-      Faction: 'Red Dawn',
+      Faction: faction.name,
       'Required progress': 'Unknown',
       Reveals: `[${site.name}]`,
-      'Can be investigated again': 'Always',
+      'Can be investigated again': INVESTIGATE_AGAIN[lead.investigateAgain],
     });
-    expect(rowsOf(sheetOf(completeLead(state, 'red_dawn_profile'), lead.id))['Faction']).toBe('[Red Dawn]');
+    expect(rowsOf(sheetOf(completeLead(state, 'red_dawn_profile'), lead.id))['Faction']).toBe(
+      `[${faction.name}]`,
+    );
     // "Unknown" is in Text muted until the Lead is an Assessed Lead.
     expect(sheet?.rows[1]?.value).toEqual([{ text: 'Unknown', style: 'muted' }]);
   });
@@ -392,17 +419,25 @@ describe('COMPV: Subject data sheets', () => {
     const rows = rowsOf(sheet);
     expect(rows['Appears']).toBe('When an Investigation completes');
     // COMPV, Mission site data sheet: `expires_in_turns` with "turns", and with "turn" for 1, as below.
-    expect(rows['Expires in']).toBe('3 turns');
+    expect(rows['Expires in']).toBe(expiresText(site.expiresInTurns));
     expect(rows['Enemies']).toBe(
       site.enemies
         .map(([enemy, count]) => `${count} × [${gdrs.enemyArchetypes.get(enemy)!.name}]`)
         .join(' · '),
     );
-    // apprehend_member rewards money alone, with no Panic reduction.
-    expect(site.onWin.panicReductionHundredths).toBe(0);
-    expect(rows['Reward for a win']).toBe(`+${site.onWin.money} money`);
-    expect(rows['Reward for a win']).toBe('+10 money');
-    expect(rows['Revealed by']).toBe('[Locate Red Dawn member]');
+    expect(rows['Reward for a win']).toBe(
+      effectText({
+        money: site.onWin.money,
+        funding: site.onWin.funding,
+        panicHundredths: -site.onWin.panicReductionHundredths,
+        eliminateFaction: site.onWin.eliminateTargetFaction,
+      }),
+    );
+    const revealers = gdrs.leads
+      .filter((lead) => lead.onCompletion.createMissionSite === site.id)
+      .map((lead) => `[${lead.name}]`);
+    expect(revealers.length).toBeGreaterThan(0);
+    expect(rows['Revealed by']).toBe(revealers.join(' · '));
     expect(rows['If lost or expired']).toBeUndefined();
     // No Initiative Mission site eliminates a Faction any more: a Terminate Lead does.
     expect(rowsOf(sheetOf(state, 'raid_hq'))['Reward for a win']).not.toMatch(/Eliminates/);
@@ -420,9 +455,13 @@ describe('COMPV: Subject data sheets', () => {
     });
     const articles = compendiumArticlesView(withSite, gdrs);
     const shown = articles.find((item) => item.subject === response.id)!;
+    // A Fixture value of 1 for `expires_in_turns` shows the singular.
+    const expiringAtOnce = catalogWith((raw) => {
+      raw.get(response.id)['expires_in_turns'] = 1;
+    });
     const responseRows = rowsOf(
       dataSheet(shown, {
-        gameData: gameDataView(gdrs),
+        gameData: gameDataView(expiringAtOnce),
         state: currentLiveWorldStateView(newCampaign(), gdrs),
         retired: currentRetiredWorldStateView(newCampaign(), gdrs),
         articles,
@@ -432,7 +471,8 @@ describe('COMPV: Subject data sheets', () => {
     expect(responseRows['Appears']).toBe(
       `When a Faction carries out an operation of level ${level.level} (${level.name})`,
     );
-    expect(responseRows['Expires in']).toBe('1 turn');
+    expect(responseRows['Expires in']).toBe(expiresText(1));
+    expect(expiresText(1)).toBe('1 turn');
     expect(responseRows['Reward for a win']).toBe(
       effectText({ money: level.onWin.money, funding: level.onWin.funding }),
     );
@@ -496,20 +536,5 @@ describe('TRVIEW: the final condition of a participant of a Combat report', () =
     expect(finalCondition('enemy', 'incapacitated')).toEqual({ text: 'Incapacitated', tone: 'tone-warning' });
     expect(finalCondition('agent', 'ableToFight')).toEqual({ text: '', tone: null });
     expect(finalCondition('enemy', 'ableToFight')).toEqual({ text: '', tone: null });
-  });
-});
-
-describe('VIS: the Notice and Autopilot colours', () => {
-  it('are Design tokens, and the Autopilot button has no fill, an Autopilot outline, and Autopilot text', () => {
-    const css = readFileSync(new URL('../../src/web/styles.css', import.meta.url), 'utf8').replaceAll(
-      '\r\n',
-      '\n',
-    );
-    expect(css).toContain('--notice: #8fb8d6;');
-    expect(css).toContain('--autopilot: #b4a0e5;');
-    expect(css).toContain(
-      '.btn-autopilot {\n  background: none;\n  border-color: var(--autopilot);\n  color: var(--autopilot);\n}',
-    );
-    expect(css).toContain('.tone-notice {\n  color: var(--notice);\n}');
   });
 });

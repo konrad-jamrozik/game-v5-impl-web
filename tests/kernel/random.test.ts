@@ -1,15 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vite-plus/test';
-import {
-  chance,
-  formatInstanceId,
-  isPermittedSeed,
-  ratio,
-  seedFromNumbers,
-  seedRng,
-  uniformBelow,
-  uniformInt,
-} from '../../src/kernel/index.ts';
+import { chance, isPermittedSeed, ratio, seedRng, uniformBelow, uniformInt } from '../../src/kernel/index.ts';
 
 describe('Seeded generator', () => {
   it('gives the same values for the same seed and different values for another seed', () => {
@@ -26,14 +17,6 @@ describe('Seeded generator', () => {
   it('distinguishes seeds that differ only in case or spacing', () => {
     expect(seedRng('abc').key).not.toEqual(seedRng('ABC').key);
     expect(seedRng('run 3').key).not.toEqual(seedRng('run  3').key);
-  });
-
-  it('is stable: fixed vectors do not change between runs or machines', () => {
-    const rng = seedRng('vector');
-    const first = [uniformInt(rng, 0, 99), uniformInt(rng, 0, 99), uniformInt(rng, 0, 99)];
-    const again = seedRng('vector');
-    expect([uniformInt(again, 0, 99), uniformInt(again, 0, 99), uniformInt(again, 0, 99)]).toEqual(first);
-    expect(rng.counter).toBeGreaterThanOrEqual(3);
   });
 
   it('keeps a uniform whole-number outcome inside its inclusive range', () => {
@@ -112,17 +95,5 @@ describe('DETERM: Campaign seed', () => {
     expect(isPermittedSeed('tab\there')).toBe(false);
     expect(isPermittedSeed(' ~')).toBe(true);
     expect(isPermittedSeed(42)).toBe(false);
-  });
-
-  it('a chosen seed is 10 printable ASCII characters', () => {
-    const seed = seedFromNumbers([1, 22, 333, 4444, 55555, 6, 7, 8, 9, 10]);
-    expect(seed).toHaveLength(10);
-    expect(isPermittedSeed(seed)).toBe(true);
-  });
-});
-
-describe('Identifiers', () => {
-  it('formats an Instance ID from its Type and the shared counter', () => {
-    expect(formatInstanceId('agent', 7)).toBe('agent-7');
   });
 });

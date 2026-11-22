@@ -21,7 +21,12 @@ import {
   tweak,
   winning,
   withAgents,
+  useExampleCatalog,
 } from '../helpers/game.ts';
+
+// The AgentParameters, e.g. `exhaustion_free_points` above 0, which the counts of worn Agents rely on, are Fixture
+// values; see EXAMPLE_VALUES.
+useExampleCatalog();
 
 describe('MISSION: Deployable Agents and Combat ratings', () => {
   it('a Deployable Agent is Serving, At assignment on Standby or Training, and Capable for deployment', () => {

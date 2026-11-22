@@ -37,7 +37,7 @@ describe('SOUNDS: Sound settings', () => {
     expect(soundGain(33)).toBeCloseTo(0.1089, 10);
   });
 
-  it('defaults to Sounds on and a Sounds volume of 50, and permits only their values', () => {
+  it('defaults to Sounds on and a Sounds volume of 100, and permits only their values', () => {
     const on = SETTINGS.find((item) => item.setting === 'soundsOn');
     const volume = SETTINGS.find((item) => item.setting === 'soundsVolume');
     expect(on?.gameBuildDefault).toBe(true);

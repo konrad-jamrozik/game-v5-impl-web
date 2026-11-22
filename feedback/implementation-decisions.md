@@ -736,7 +736,10 @@
   or normative, reaches the affected files through the Specification map, and moves the Specification baseline in the
   same commit that brings the Implementation into conformance. `npm run check:records` checks the two tracking
   records: the form of the Specification baseline, the order of the Specification map sections, and that every listed
-  path exists.
+  path exists. Since Specification revision 47691a7e71147dd48f44771adeb22533bc1ffe65, UPDATES, Tests that fail after
+  a change, is followed too: an existing test that fails during an update is changed only as a changed passage of
+  the difference requires, a failure that no changed passage explains is fixed in the code, and no subagent is told
+  that the code is correct and the tests are to follow it.
 - **Options considered:** Following the guidance; reviewing the whole Implementation against the specifications at
   every update.
 - **Option chosen:** Following the guidance.
@@ -1810,3 +1813,26 @@
 - **Why:** A box centred on the 36 px line reads above the title's capitals, and a shared baseline reads below their
   middle; the Game designer saw both as misaligned.
 - **Links:** PROB-054
+
+## DEC-088: Test Focus followed
+
+- **Category:** Treatment of guidance
+- **Affected specifications:** TFOCUS, Where tests pay: "Tests should cover every Hidden property"; "Each rule should
+  be checked at one level"; "An Interface test should check only what no lower-level test can"; "What an Artboard
+  shows, e.g. sizes, colours, and wording, should be checked by comparing the screen with the Artboard".
+- **Description:** Used as is. Tests that duplicated another test, could never fail, or read sizes and colours from
+  `src/web/styles.css` were deleted, among them `tests/web/chart-strokes.test.ts` and `tests/web/checkbox.test.ts`.
+  The Playwright suite in `e2e/web.spec.ts` keeps four Interface tests, one subject each: the web interface, the
+  terminal CLI, and the engine API play the same Campaign; the Campaign state survives a reload; settings survive a
+  reload; and Undo and Redo name an Autopilot step. Chromium runs them with `--disable-3d-apis`, so the globe shows
+  its fallback instead of drawing WebGL in software, which made every click take seconds. New tests cover Hidden
+  properties that no worked example showed: the fixed order of the Agents' side of a Combat
+  (`tests/mechanics/combat-side-order.test.ts`), which World states count as ancestors after an Undone action
+  (`tests/foundation/timeline-lineage.test.ts`), and a load that replays each entry under the Campaign configuration
+  it was recorded under (`tests/foundation/configuration-replay.test.ts`).
+- **Options considered:** Follow the guidance; keep the earlier suite.
+- **Option chosen:** Follow the guidance.
+- **Why:** Over the Implementation's first week, tests failed in 82 episodes; 51 were tests made outdated by a
+  specification or GDR change and one was a defect caught, while a mutation test showed the suite catches most planted
+  defects that play would not show. Tests aimed at Hidden properties keep that protection at less upkeep.
+- **Links:** None.

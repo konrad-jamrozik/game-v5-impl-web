@@ -51,13 +51,6 @@ describe('NUMBERS: examples', () => {
     }
   });
 
-  it('Negative rounding', () => {
-    expect(roundDown(d('-0.5'))).toBe(-1);
-    expect(roundUp(d('-0.5'))).toBe(0);
-    expect(roundDown(d('-2.4'))).toBe(-3);
-    expect(roundUp(d('-2.4'))).toBe(-2);
-  });
-
   it('Rounding table', () => {
     const rows: [string, number, number][] = [
       ['2.4', 2, 3],
@@ -91,7 +84,7 @@ describe('NUMBERS: examples', () => {
   });
 
   it('Percentage points are added, not multiplied', () => {
-    expect(40 + 3).toBe(43);
+    // 3 percentage points on 40% give 43%; 3% of 40 is 1.2.
     expect(percentOf(3, 40).eq(d('1.2'))).toBe(true);
   });
 

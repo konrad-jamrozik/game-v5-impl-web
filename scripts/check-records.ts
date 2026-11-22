@@ -27,6 +27,7 @@ const GUIDANCE_SPECIFICATIONS = [
   'GHPAGES',
   'GLOBE',
   'UPDATES',
+  'TFOCUS',
 ];
 /** A Resolved or Declined Specification problem names a commit of the specifications by its full hash. */
 const FULL_HASH = /\b[0-9a-f]{40}\b/;

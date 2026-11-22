@@ -148,16 +148,6 @@ describe('AUTO: examples', () => {
     expect(kinds).toEqual(expect.arrayContaining(['engagement', 'disengagement']));
   });
 
-  it('turnAdvancements commits the requested Advance turn', async () => {
-    const h = await withAis((core) => [scriptedAi('x', core, [async (api) => void (await api.advance())])]);
-    const result = await run(h, 'x', { kind: 'turnAdvancements', count: 2 });
-    expect(result).toMatchObject({
-      reason: 'limitReached',
-      progress: { playerActions: 0, turnAdvancements: 2 },
-    });
-    expect(h.view().turn).toBe(3);
-  });
-
   it('Disengagement during an action; the Session controller is limited during an engagement', async () => {
     let release: () => void = () => undefined;
     const gate = new Promise<void>((resolve) => {

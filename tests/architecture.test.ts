@@ -47,11 +47,9 @@ const LAYERS: Record<string, readonly string[]> = {
 };
 
 describe('PLACE: Repository root of an Implementation', () => {
-  it('has source files to check', () => {
-    expect(files.length).toBeGreaterThan(5);
-  });
-
   it('imports no path outside the Implementation directory', () => {
+    // The scan finds the source files, so that an empty scan cannot pass.
+    expect(files.some((file) => file.startsWith(join(root, 'src') + sep))).toBe(true);
     const offenders: string[] = [];
     for (const file of files) {
       for (const specifier of importsOf(file)) {

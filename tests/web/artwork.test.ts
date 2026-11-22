@@ -20,26 +20,29 @@ const artwork = (detailView: string, opacity = 12) => ({
 
 describe('VIS: Background artwork', () => {
   it('comes from the BackgroundArtwork GDRs, with the image path and opacity of each', () => {
-    expect(gameDataView(gdrs).backgroundArtworks).toEqual([
+    // Fixture values: one BackgroundArtwork GDR for each of two Detail views, in their authored order.
+    const fixture = [artwork('leads', 25), { ...artwork('missions', 40), image: 'assets/images/x.jpg' }];
+    expect(gameDataView(buildGdrCatalog(artworkFile(fixture))).backgroundArtworks).toEqual([
       {
-        id: 'missions_view_artwork',
-        detailView: 'missions',
-        image: 'assets/images/v03ai-nano21-command-center.jpg',
-        opacityPct: 30,
-      },
-      {
-        id: 'agents_view_artwork',
-        detailView: 'agents',
-        image: 'assets/images/chatgpt-agents-i2.png',
-        opacityPct: 30,
-      },
-      {
-        id: 'leads_view_artwork',
+        id: 'leads_artwork',
         detailView: 'leads',
-        image: 'assets/images/chatgpt-investigation-i2.png',
-        opacityPct: 30,
+        image: 'assets/images/chatgpt-agents-i2.png',
+        opacityPct: 25,
       },
+      { id: 'missions_artwork', detailView: 'missions', image: 'assets/images/x.jpg', opacityPct: 40 },
     ]);
+    // The Game build shows each BackgroundArtwork GDR it holds.
+    const authored = RAW_GDR_FILES.flatMap((file) => file.gdrs as readonly Record<string, unknown>[]).filter(
+      (gdr) => gdr['type'] === 'BackgroundArtwork',
+    );
+    expect(gameDataView(gdrs).backgroundArtworks).toEqual(
+      authored.map((gdr) => ({
+        id: gdr['id'],
+        detailView: gdr['detail_view'],
+        image: gdr['image'],
+        opacityPct: gdr['opacity_pct'],
+      })),
+    );
   });
 
   it('rejects a GDR that names no Detail view, a second GDR for one Detail view, or an opacity beyond 100', () => {

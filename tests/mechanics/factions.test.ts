@@ -45,12 +45,93 @@ function setFaction(
 
 const sites = (state: CampaignState) => Object.values(state.world.current.missionSites);
 
+type RawGdrs = Parameters<Parameters<typeof catalogWith>[0]>[0];
+
+/**
+ * Sets the Fixture values the examples state: the Faction activity levels they pass through, with how long each
+ * lasts, how often it operates, and the weights of its Faction operation levels; Red Dawn starting at `faint`; and
+ * the Response MissionSiteArchetypes they create, of operation level 1 or 2, each expiring in 1 Turn.
+ */
+function setExampleValues(raw: RawGdrs): void {
+  const level = (
+    id: string,
+    lasts: [number, number] | null,
+    every: [number, number] | null,
+    weights: [string, number][],
+  ) => {
+    const gdr = raw.get(id);
+    gdr['lasts_turns'] = lasts;
+    gdr['operation_every_turns'] = every;
+    gdr['operation_level_weights'] = { $entries: weights };
+  };
+  level('dormant', [10, 20], null, []);
+  level(
+    'faint',
+    [15, 25],
+    [10, 20],
+    [
+      ['1', 80],
+      ['2', 20],
+    ],
+  );
+  level(
+    'emerging',
+    [15, 25],
+    [10, 18],
+    [
+      ['1', 60],
+      ['2', 30],
+      ['3', 10],
+    ],
+  );
+  level(
+    'active',
+    [15, 25],
+    [8, 18],
+    [
+      ['1', 40],
+      ['2', 40],
+    ],
+  );
+  level(
+    'war',
+    [15, 25],
+    [6, 14],
+    [
+      ['1', 50],
+      ['2', 50],
+    ],
+  );
+  level(
+    'total_war',
+    null,
+    [6, 14],
+    [
+      ['1', 50],
+      ['2', 50],
+    ],
+  );
+  raw.get('red_dawn')['initial_activity_level'] = 'faint';
+  for (const [id, operationLevel] of [
+    ['foil_recruitment_push', 1],
+    ['foil_sabotage', 2],
+    ['foil_vip_assassination', 2],
+  ] as const) {
+    raw.get(id)['operation_level'] = operationLevel;
+    raw.get(id)['expires_in_turns'] = 1;
+  }
+}
+
+/** The test Game build with the Fixture values of the examples. */
+const example = catalogWith(setExampleValues);
+
 describe('FACTION: examples', () => {
   it('Campaign creation through the first escalation', () => {
-    const levels = (id: string) => gdrs.factionActivityLevels.get(id)!;
+    const catalog = example;
+    const levels = (id: string) => catalog.factionActivityLevels.get(id)!;
     const created = createFaction(
       'faction-1',
-      gdrs.factionArchetypes[0]!,
+      catalog.factionArchetypes.find((item) => item.id === 'red_dawn')!,
       levels,
       injectedRandom({
         'faction.faction-1.levelDuration': [20],
@@ -66,20 +147,24 @@ describe('FACTION: examples', () => {
     });
     expect(created.constants).toEqual({});
 
-    let state = setFaction(newCampaign({ money: 100_000 }), { untilLevel: 20, untilOperation: 10 });
+    let state = setFaction(newCampaign({ money: 100_000, catalog }), { untilLevel: 20, untilOperation: 10 });
     const f = onlyFaction(state).id;
     for (let turn = 1; turn <= 9; turn += 1) {
-      state = advance(state);
+      state = advance(state, {}, catalog);
     }
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 11, turnsUntilNextOperation: 1 });
     expect(sites(state)).toHaveLength(0);
 
     // First operation, Advance turn ending turn 10.
-    state = advance(state, {
-      [`faction.${f}.operationLevel`]: [1],
-      [`faction.${f}.operationInterval`]: [10],
-      [`mission.archetypeSelection.${f}`]: ['foil_recruitment_push'],
-    });
+    state = advance(
+      state,
+      {
+        [`faction.${f}.operationLevel`]: [1],
+        [`faction.${f}.operationInterval`]: [10],
+        [`mission.archetypeSelection.${f}`]: ['foil_recruitment_push'],
+      },
+      catalog,
+    );
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 10, turnsUntilNextOperation: 10 });
     expect(sites(state)).toHaveLength(1);
     expect(sites(state)[0]).toMatchObject({
@@ -95,7 +180,7 @@ describe('FACTION: examples', () => {
 
     // First escalation and second operation, Advance turn ending turn 20.
     for (let turn = 11; turn <= 19; turn += 1) {
-      state = advance(state);
+      state = advance(state, {}, catalog);
     }
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 1, turnsUntilNextOperation: 1 });
     expect(sites(state)[0]!.state.lifecycle).toBe('Expired');
@@ -106,10 +191,10 @@ describe('FACTION: examples', () => {
     };
     // An Operation interval of 19 is inside `faint`'s 10 to 20 but outside `emerging`'s 10 to 18, so its rejection
     // proves the new level was read.
-    expect(() => advance(state, { ...escalation, [`faction.${f}.operationInterval`]: [19] })).toThrow(
-      /outside 10 to 18/,
-    );
-    const used = advance(state, { ...escalation, [`faction.${f}.operationInterval`]: [13] });
+    expect(() =>
+      advance(state, { ...escalation, [`faction.${f}.operationInterval`]: [19] }, catalog),
+    ).toThrow(/outside 10 to 18/);
+    const used = advance(state, { ...escalation, [`faction.${f}.operationInterval`]: [13] }, catalog);
     expect(onlyFaction(used).state).toMatchObject({
       activityLevel: 'emerging',
       turnsUntilNextLevel: 20,
@@ -129,12 +214,13 @@ describe('FACTION: examples', () => {
   });
 
   it('A level without operations: no countdown and no operation; waking draws one and does not count it down', () => {
-    // Campaign creation at `dormant`, the initial level of Exalt and Black Lotus.
-    const levels = (id: string) => gdrs.factionActivityLevels.get(id)!;
-    const exalt = buildGdrCatalog(RAW_GDR_FILES).factionArchetypes.find((item) => item.id === 'exalt')!;
+    // Campaign creation at `dormant`, a level without operations, e.g. the initial level of Exalt and Black Lotus.
+    const catalog = example;
+    const levels = (id: string) => catalog.factionActivityLevels.get(id)!;
+    const sleeper = { ...catalog.factionArchetypes[0]!, initialActivityLevel: 'dormant' };
     const created = createFaction(
       'faction-2',
-      exalt,
+      sleeper,
       levels,
       injectedRandom({ 'faction.faction-2.levelDuration': [20] }),
     );
@@ -145,56 +231,66 @@ describe('FACTION: examples', () => {
       eliminated: false,
       eliminatedTurn: null,
     });
-    let state = tweak(newCampaign(), (world) => {
+    let state = tweak(newCampaign({ catalog }), (world) => {
       const faction = Object.values(world.factions)[0]!;
       faction.state.activityLevel = 'dormant';
       faction.state.turnsUntilNextLevel = 2;
       faction.state.turnsUntilNextOperation = null;
     });
     const f = onlyFaction(state).id;
-    state = advance(state);
+    state = advance(state, {}, catalog);
     expect(onlyFaction(state).state).toMatchObject({ turnsUntilNextLevel: 1, turnsUntilNextOperation: null });
     // Waking: the countdown is drawn over `faint` and is not counted down in the same Advance turn.
-    state = advance(state, {
-      [`faction.${f}.levelDuration`]: [20],
-      [`faction.${f}.operationInterval`]: [15],
-    });
+    state = advance(
+      state,
+      {
+        [`faction.${f}.levelDuration`]: [20],
+        [`faction.${f}.operationInterval`]: [15],
+      },
+      catalog,
+    );
     expect(onlyFaction(state).state).toMatchObject({
       activityLevel: 'faint',
       turnsUntilNextLevel: 20,
       turnsUntilNextOperation: 15,
     });
     for (let i = 0; i < 14; i += 1) {
-      state = advance(state);
+      state = advance(state, {}, catalog);
     }
     expect(sites(state)).toHaveLength(0);
-    state = advance(state, {
-      [`faction.${f}.operationLevel`]: [1],
-      [`faction.${f}.operationInterval`]: [20],
-    });
+    state = advance(
+      state,
+      {
+        [`faction.${f}.operationLevel`]: [1],
+        [`faction.${f}.operationInterval`]: [20],
+      },
+      catalog,
+    );
     expect(sites(state)).toHaveLength(1);
     // A move to a level without operations makes the countdown absent.
-    const catalog = catalogWith((raw) => {
+    const quietCatalog = catalogWith((raw) => {
+      setExampleValues(raw);
       raw.get('emerging')['operation_every_turns'] = null;
       raw.get('emerging')['operation_level_weights'] = { $entries: [] };
     });
-    let quiet = tweak(newCampaign({ catalog }), (world) => {
+    let quiet = tweak(newCampaign({ catalog: quietCatalog }), (world) => {
       const faction = Object.values(world.factions)[0]!;
       faction.state.turnsUntilNextLevel = 1;
       faction.state.turnsUntilNextOperation = 1;
     });
-    quiet = advance(quiet, { [`faction.${f}.levelDuration`]: [20] }, catalog);
+    quiet = advance(quiet, { [`faction.${f}.levelDuration`]: [20] }, quietCatalog);
     expect(onlyFaction(quiet).state).toMatchObject({
       activityLevel: 'emerging',
       turnsUntilNextOperation: null,
     });
     expect(sites(quiet)).toHaveLength(0);
-    expect(checkInvariants(quiet, catalog)).toEqual([]);
+    expect(checkInvariants(quiet, quietCatalog)).toEqual([]);
   });
 
   it('A level change does not reset the operation countdown', () => {
-    let state = setFaction(newCampaign(), { level: 'war', untilLevel: 1, untilOperation: 5 });
-    state = advance(state);
+    const catalog = example;
+    let state = setFaction(newCampaign({ catalog }), { level: 'war', untilLevel: 1, untilOperation: 5 });
+    state = advance(state, {}, catalog);
     expect(onlyFaction(state).state).toMatchObject({
       activityLevel: 'total_war',
       turnsUntilNextLevel: null,
@@ -202,25 +298,38 @@ describe('FACTION: examples', () => {
     });
     expect(sites(state)).toHaveLength(0);
     for (let i = 0; i < 3; i += 1) {
-      state = advance(state);
+      state = advance(state, {}, catalog);
     }
     const f = onlyFaction(state).id;
-    state = advance(state, {
-      [`faction.${f}.operationInterval`]: [12],
-      [`faction.${f}.operationLevel`]: [2],
-    });
+    state = advance(
+      state,
+      {
+        [`faction.${f}.operationInterval`]: [12],
+        [`faction.${f}.operationLevel`]: [2],
+      },
+      catalog,
+    );
     expect(onlyFaction(state).state.turnsUntilNextOperation).toBe(12);
     expect(sites(state)).toHaveLength(1);
   });
 
   it('Operations at the final level', () => {
-    let state = setFaction(newCampaign(), { level: 'total_war', untilLevel: null, untilOperation: 1 });
-    const f = onlyFaction(state).id;
-    state = advance(state, {
-      [`faction.${f}.operationLevel`]: [1],
-      [`faction.${f}.operationInterval`]: [8],
-      [`mission.archetypeSelection.${f}`]: ['foil_recruitment_push'],
+    const catalog = example;
+    let state = setFaction(newCampaign({ catalog }), {
+      level: 'total_war',
+      untilLevel: null,
+      untilOperation: 1,
     });
+    const f = onlyFaction(state).id;
+    state = advance(
+      state,
+      {
+        [`faction.${f}.operationLevel`]: [1],
+        [`faction.${f}.operationInterval`]: [8],
+        [`mission.archetypeSelection.${f}`]: ['foil_recruitment_push'],
+      },
+      catalog,
+    );
     expect(onlyFaction(state).state).toMatchObject({
       activityLevel: 'total_war',
       turnsUntilNextLevel: null,
@@ -228,10 +337,10 @@ describe('FACTION: examples', () => {
     });
     expect(sites(state)[0]!.archetype).toBe('foil_recruitment_push');
     for (let i = 0; i < 7; i += 1) {
-      state = advance(state);
+      state = advance(state, {}, catalog);
       expect(sites(state)).toHaveLength(1);
     }
-    state = advance(state);
+    state = advance(state, {}, catalog);
     expect(sites(state)).toHaveLength(2);
   });
 
@@ -261,14 +370,15 @@ describe('FACTION: examples', () => {
   });
 
   it('Several Factions', () => {
-    const catalog = catalogWith((raw) =>
+    const catalog = catalogWith((raw) => {
+      setExampleValues(raw);
       raw.add('factions/faction_archetypes.yaml', {
         id: 'test_faction',
         type: 'FactionArchetype',
         name: 'Test Faction',
         initial_activity_level: 'active',
-      }),
-    );
+      });
+    });
     let state = createCampaignState({ startingMoney: 500, startingFunding: 20 }, 'two', catalog);
     const [red, test] = Object.values(state.world.current.factions);
     expect([red!.archetype, red!.state.activityLevel]).toEqual(['red_dawn', 'faint']);
@@ -317,19 +427,15 @@ describe('FACTION: examples', () => {
   it('Initial Factions are created in the authored order of their FactionArchetypes', () => {
     // FACTION, Initial Factions; GDR, GDR authoring format: the first FactionArchetype's Faction is faction-1.
     const bootstrap = buildGdrCatalog(RAW_GDR_FILES);
-    expect(bootstrap.factionArchetypes.map((archetype) => archetype.id)).toEqual([
-      'red_dawn',
-      'exalt',
-      'black_lotus',
-    ]);
+    const authored = RAW_GDR_FILES.flatMap((file) => file.gdrs as readonly Record<string, unknown>[])
+      .filter((gdr) => gdr['type'] === 'FactionArchetype')
+      .map((gdr) => gdr['id'] as string);
+    expect(authored.length).toBeGreaterThan(1);
+    expect(bootstrap.factionArchetypes.map((archetype) => archetype.id)).toEqual(authored);
     const state = createCampaignState({ startingMoney: 500, startingFunding: 20 }, 'order', bootstrap);
     expect(
       Object.values(state.world.current.factions).map((faction) => [faction.id, faction.archetype]),
-    ).toEqual([
-      ['faction-1', 'red_dawn'],
-      ['faction-2', 'exalt'],
-      ['faction-3', 'black_lotus'],
-    ]);
+    ).toEqual(authored.map((id, index) => [`faction-${index + 1}`, id]));
     const reordered = catalogWith((raw) => {
       raw.add('factions/faction_archetypes.yaml', {
         id: 'test_faction',
@@ -345,22 +451,30 @@ describe('FACTION: examples', () => {
 
   it('Player-visible information', () => {
     let state = setFaction(newCampaign(), { untilLevel: 45, untilOperation: 25 });
+    const faction = onlyFaction(state);
     const [view] = currentLiveWorldStateView(state, gdrs).factions;
     // FACTION, Player-visible information: neither the Faction activity level nor either countdown.
     expect(view).toEqual({
-      id: onlyFaction(state).id,
-      archetype: 'red_dawn',
-      name: 'Red Dawn',
+      id: faction.id,
+      archetype: faction.archetype,
+      name: gdrs.factionArchetypes.find((item) => item.id === faction.archetype)!.name,
       eliminated: false,
       eliminatedTurn: null,
     });
+    const level = faction.state.activityLevel;
     const text = JSON.stringify(currentLiveWorldStateView(state, gdrs));
-    expect(text).not.toMatch(/turnsUntilNext|"45"|:45[,}]|activityLevel|faint/i);
+    expect(text).not.toMatch(/turnsUntilNext|"45"|:45[,}]|activityLevel/i);
+    expect(text.toLowerCase()).not.toContain(level.toLowerCase());
+    expect(text.toLowerCase()).not.toContain(gdrs.factionActivityLevels.get(level)!.name.toLowerCase());
     state = setFaction(state, { level: 'total_war', untilLevel: null });
     const final = currentLiveWorldStateView(state, gdrs).factions[0]!;
     expect(Object.keys(final)).toEqual(['id', 'archetype', 'name', 'eliminated', 'eliminatedTurn']);
     // No FactionActivityLevel GDR is Player-visible.
-    expect(JSON.stringify(gameDataView(gdrs))).not.toMatch(/activityLevel|operationEveryTurns|Total war/i);
+    const gameData = JSON.stringify(gameDataView(gdrs));
+    expect(gameData).not.toMatch(/activityLevel|operationEveryTurns/i);
+    expect(gameData.toLowerCase()).not.toContain(
+      gdrs.factionActivityLevels.get('total_war')!.name.toLowerCase(),
+    );
   });
 
   it('GDR validation', () => {
@@ -377,7 +491,7 @@ describe('FACTION: examples', () => {
     expectDefective((raw) => (raw.get('faint')['operation_every_turns'] = null));
     expectDefective((raw) => raw.get('dormant')['operation_level_weights'].$entries.push(['1', 5]));
     expect(catalogWith((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'dormant'))).toBeDefined();
-    expectDefective((raw) => (raw.get('faint')['operation_level_weights'].$entries[1][1] = 0));
+    expectDefective((raw) => (raw.get('faint')['operation_level_weights'].$entries[0][1] = 0));
     expectDefective((raw) => (raw.get('red_dawn')['description'] = 'x'));
     expectDefective((raw) => delete raw.get('war')['next']);
     expectDefective((raw) => (raw.get('operation_level_2')['level'] = 1));

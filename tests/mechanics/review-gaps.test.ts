@@ -20,7 +20,7 @@ import {
   allMiss,
   catalogWith,
   combatAgent,
-  combatEnemy,
+  combatEnemyWith,
   expectDefective,
   expectRejected,
   funding,
@@ -35,19 +35,21 @@ import {
   units,
   setCurrentHealth,
   effectiveValuesOf,
-  useLegacyCatalog,
+  useExampleCatalog,
 } from '../helpers/game.ts';
 
-useLegacyCatalog();
+// The values of the examples, e.g. `upkeep_per_agent` 10, are Fixture values; see EXAMPLE_VALUES.
+useExampleCatalog({ legacy: true });
 
 const invalid = (state: CampaignState, change: Parameters<typeof tweak>[1]) =>
   expect(checkInvariants(tweak(state, change), gdrs).length).toBeGreaterThan(0);
 
 describe('AGENT: gaps', () => {
   it('Adding Agents: no upper limit applies, and it succeeds above the Agent cap', () => {
+    const roster = agents(newCampaign()).length;
     const state = act(newCampaign(), 'addAgents', { count: 10_001 }, 'developer');
-    expect(agents(state)).toHaveLength(10_005);
-    expect(currentLiveWorldStateView(state, gdrs).agency.agentCap).toBe(20);
+    expect(agents(state)).toHaveLength(roster + 10_001);
+    expect(currentLiveWorldStateView(state, gdrs).agency.agentCap).toBe(gdrs.economy.baseAgentCap);
   });
 
   it('Transit: Investigation started and completed (destination ends)', () => {
@@ -114,10 +116,6 @@ describe('DOM: former Acceptance examples B and D', () => {
     return { state, a1, a2, i1, s1: site.site, m1: missionAt(state, site.site), e1 };
   }
 
-  it('A. Valid relationships satisfy every invariant', () => {
-    expect(checkInvariants(fixture().state, gdrs)).toEqual([]);
-  });
-
   it('B. Each invalid variant is rejected', () => {
     const { state, a1, s1, m1, e1 } = fixture();
     invalid(state, (world) => {
@@ -166,6 +164,8 @@ describe('DOM: former Acceptance examples B and D', () => {
 });
 
 describe('COMBAT: gaps', () => {
+  /** An Initiate of the examples of COMBAT, as Fixture values. */
+  const initiate = (id: string) => combatEnemyWith(id, { skill: 40, health: 20, weaponDamage: 8, armor: 0 });
   const fight = (
     agentsSide: ReturnType<typeof combatAgent>[],
     enemies: ReturnType<typeof combatAgent>[],
@@ -185,7 +185,7 @@ describe('COMBAT: gaps', () => {
   it('Edge cases: Damage of 0 removes no current health but still raises exhaustion', () => {
     const catalog = catalogWith((raw) => (raw.get('combat_parameters')['weapon_damage_range'] = 1));
     expect(damageBounds(10, catalog.combatParameters)).toEqual({ lo: 0, hi: 20 });
-    const enemy = combatEnemy('e1', 'initiate');
+    const enemy = initiate('e1');
     const report = fight(
       [combatAgent('a1')],
       [enemy],
@@ -205,7 +205,7 @@ describe('COMBAT: gaps', () => {
   });
 
   it('Edge cases: Enemy already dead at Combat start is not able to fight and not Incapacitated', () => {
-    const dead = combatEnemy('e1', 'initiate');
+    const dead = initiate('e1');
     dead.state.currentHealthHundredths = 0;
     const report = fight([combatAgent('a1')], [dead], {});
     expect(report).toMatchObject({ outcome: 'Prevailed', rounds: 0 });
@@ -215,11 +215,13 @@ describe('COMBAT: gaps', () => {
     });
   });
 
-  it('Damage bounds: an injected damage outcome of 4 is outside the range', () => {
+  it('Damage bounds: an injected damage outcome below the range is outside the range', () => {
+    // a1's weapon damage is 10; one less than the lowest damage it allows.
+    const { lo } = damageBounds(10, gdrs.combatParameters);
     expect(() =>
-      fight([combatAgent('a1')], [combatEnemy('e1', 'initiate')], {
+      fight([combatAgent('a1', { weaponDamage: 10 })], [initiate('e1')], {
         'combat.hit.a1': [true],
-        'combat.damage.a1': [4],
+        'combat.damage.a1': [lo - 1],
       }),
     ).toThrow();
   });
@@ -232,48 +234,27 @@ describe('FACTION: gaps', () => {
     eliminateFaction(faction, 130);
     expect(faction).toMatchObject({ eliminated: true, eliminatedTurn: 120 });
   });
-
-  it('A level change does not reset the operation countdown: the occurrence reads the new level', () => {
-    let state = tweak(newCampaign({ money: 5000 }), (world) => {
-      const faction = Object.values(world.factions)[0]!;
-      faction.state.activityLevel = 'active';
-      faction.state.turnsUntilNextLevel = 1;
-      faction.state.turnsUntilNextOperation = 1;
-    });
-    const f = onlyFaction(state).id;
-    // An Operation interval of 10 is possible only over `expanding`'s 10 to 20, not over `active`'s 11 to 21.
-    state = advance(state, {
-      [`faction.${f}.operationInterval`]: [10],
-      [`faction.${f}.operationLevel`]: [2],
-    });
-    expect(onlyFaction(state).state).toMatchObject({
-      activityLevel: 'expanding',
-      turnsUntilNextOperation: 10,
-    });
-    expect(Object.values(state.world.current.missionSites)[0]!.constants.origin).toMatchObject({
-      operationLevel: 'operation_level_2',
-    });
-  });
 });
 
 describe('ECON and MISSION: gaps', () => {
   it('Transport cap: reaching the cap exactly is accepted, and one more is rejected for the cap', () => {
-    let state = withAgents(newCampaign(), 10);
+    const cap = gdrs.economy.baseTransportCap;
+    let state = withAgents(newCampaign(), cap + 2);
     const ids = agentIds(state);
     const s1 = addMissionSite(state, 'foil_recruitment_push');
     const s2 = addMissionSite(s1.state, 'apprehend_member');
     const s3 = addMissionSite(s2.state, 'apprehend_member', { lead: 'locate_red_dawn_safehouse' });
-    state = act(s3.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, 7) });
-    state = act(state, 'deployAgents', { missionSite: s2.site, agents: [ids[7]] });
+    state = act(s3.state, 'deployAgents', { missionSite: s1.site, agents: ids.slice(0, cap - 1) });
+    state = act(state, 'deployAgents', { missionSite: s2.site, agents: [ids[cap - 1]] });
     expect(currentLiveWorldStateView(state, gdrs).agency).toMatchObject({
-      deployedAgents: 8,
-      transportCap: 8,
+      deployedAgents: cap,
+      transportCap: cap,
     });
-    expectRejected(state, 'deployAgents', { missionSite: s3.site, agents: [ids[8]] }, 'transport_cap');
+    expectRejected(state, 'deployAgents', { missionSite: s3.site, agents: [ids[cap]] }, 'transport_cap');
   });
 
   it('Hiring at the Agent cap: Deployed Agents and Agents on Recovery count', () => {
-    let state = withAgents(newCampaign({ money: 5000 }), 20);
+    let state = withAgents(newCampaign({ money: 5000 }), gdrs.economy.baseAgentCap);
     const ids = agentIds(state);
     state = tweak(state, (world) => {
       setCurrentHealth(world.agents[ids[0]!]!.state, 1000);
@@ -299,15 +280,23 @@ describe('ECON and MISSION: gaps', () => {
     const participant = state.world.history.turnReport!.combatReports[0]!.participants.find(
       (item) => item.id === a1,
     )!;
-    // BOOT: the `weapon_damage` Upgrade adds 2, and the `armor` Upgrade, made a Max health Upgrade here, 5.
+    // The `weapon_damage` Upgrade adds its Increment to the base weapon damage, and the `armor` Upgrade, made a Max
+    // health Upgrade here, its Increment to the base health.
+    const incrementOf = (id: string) =>
+      catalog.upgrades.find((item) => item.id === id)!.incrementHundredths / 100;
+    const weaponDamage = agent(state, a1).state.baseWeaponDamage + incrementOf('weapon_damage');
+    const maxHealth = agent(state, a1).state.baseHealth + incrementOf('armor');
     expect(participant.start).toMatchObject({
-      weaponDamage: 12,
-      maxHealth: 35,
-      currentHealthHundredths: 3500,
+      weaponDamage,
+      maxHealth,
+      currentHealthHundredths: maxHealth * 100,
     });
-    // The hardest hit of an effective weapon damage of 12 is above the highest that 10 allows.
+    // The hardest hit of the effective weapon damage, above the highest that the base weapon damage allows.
     const hits = state.world.history.turnReport!.combatReports[0]!.log.filter((item) => item.attacker === a1);
-    expect(hits[0]!.damage).toBe(damageBounds(12, gdrs.combatParameters).hi);
+    expect(hits[0]!.damage).toBe(damageBounds(weaponDamage, gdrs.combatParameters).hi);
+    expect(hits[0]!.damage).toBeGreaterThan(
+      damageBounds(agent(state, a1).state.baseWeaponDamage, gdrs.combatParameters).hi,
+    );
   });
 
   it('Weapon damage Upgrade: a later purchase also raises Agents created after an earlier one', () => {
@@ -315,10 +304,13 @@ describe('ECON and MISSION: gaps', () => {
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
     state = act(state, 'hireAgent');
     state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    expect(agentIds(state).map((id) => effectiveValuesOf(state, id).weaponDamage)).toEqual([
-      14, 14, 14, 14, 14,
-    ]);
-    expect(agents(state).map((a) => a.state.baseWeaponDamage)).toEqual([10, 10, 10, 10, 10]);
+    // Every Agent, the hired one too, has its base weapon damage plus two Increments.
+    const base = gdrs.weapons.get(gdrs.agentArchetype.weapon)!.damage;
+    const step = gdrs.upgrades.find((item) => item.id === 'weapon_damage')!.incrementHundredths / 100;
+    expect(agentIds(state).map((id) => effectiveValuesOf(state, id).weaponDamage)).toEqual(
+      agentIds(state).map(() => base + 2 * step),
+    );
+    expect(agents(state).map((a) => a.state.baseWeaponDamage)).toEqual(agentIds(state).map(() => base));
   });
 
   it('Structure of a Deployed Mission site: an Expired Mission site with Turns until expiration 1 is invalid', () => {
@@ -379,9 +371,11 @@ describe('RECOVER: gaps', () => {
     state = tweak(state, (world) => (world.agents[f1]!.state.exactExhaustionHundredths = 1200));
     expect(currentLiveWorldStateView(state, gdrs).agents[0]!.recoveryTurnsRemaining).toBe(0);
     state = advance(state);
+    // It returns to Standby at once, still recovering its exhaustion in the same Agent recovery step.
+    const recovery = gdrs.recoveryParameters.exhaustionRecoveryPerTurnHundredths;
     expect(units(agent(state, f1).state)).toMatchObject({
-      currentHealth: 30,
-      exhaustion: 7,
+      currentHealth: agent(state, f1).state.baseHealth,
+      exactExhaustionHundredths: Math.max(0, 1200 - recovery),
       assignment: { kind: 'Standby' },
       status: 'AtAssignment',
     });

@@ -10,7 +10,7 @@ import {
   shownAutopilotAi,
   useAutopilotControls,
 } from '../autopilot-controls.ts';
-import { act, run, theEngine, type Snapshot } from '../store.ts';
+import { run, theEngine, type Snapshot } from '../store.ts';
 import { Button } from '../ui.tsx';
 
 const REASONS: Record<string, string> = {
@@ -59,11 +59,21 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
   const turnsText = draft !== null && draft.from === storedTurns ? draft.text : String(storedTurns);
   const turns = permittedAutopilotTurns(turnsText) ?? storedTurns;
   const leaveTurns = () => {
-    setDraft(null);
     const typed = permittedAutopilotTurns(turnsText);
-    if (typed !== null && typed !== storedTurns) {
-      act(() => session.globalConfiguration.set('autopilotTurns', typed));
+    if (typed === null || typed === storedTurns) {
+      setDraft(null);
+      return;
     }
+    // The draft stays until Global configuration holds the typed number, which ends it, so that the Turns button,
+    // pressed at once as the field loses the focus, engages with the number the field shows rather than the one
+    // stored before; see CSCR, Autopilot controls, Turns.
+    void run(async () => {
+      const result = await session.globalConfiguration.set('autopilotTurns', typed);
+      if (!result.ok) {
+        setDraft(null);
+      }
+      return result;
+    });
   };
   const aiId = shownAutopilotAi(
     controls.aiId,

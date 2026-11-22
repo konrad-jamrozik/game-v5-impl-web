@@ -61,9 +61,14 @@ describe('HVIEW: the current Turn row', () => {
   it('is left out once the Campaign has a Campaign ending', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'idle' }));
-    while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null) {
+    // With no Agent earning, upkeep exceeds income, so money falls below zero well within the Turn cap.
+    for (let turn = 0; turn < 200; turn += 1) {
+      if (ok(engine.player.queries.getCurrentLiveWorldState()).ending !== null) {
+        break;
+      }
       ok(await engine.player.actions.advanceTurn());
     }
+    expect(ok(engine.player.queries.getCurrentLiveWorldState()).ending).not.toBeNull();
     const rows = rowsOf(engine);
     expect(rows.some((row) => row.now)).toBe(false);
     expect(rows).toHaveLength(ok(engine.player.queries.getHistory()).entries.length);

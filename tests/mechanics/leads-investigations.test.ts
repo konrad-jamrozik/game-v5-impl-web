@@ -45,10 +45,12 @@ import {
   units,
   setCurrentHealth,
   valuesOf,
-  useLegacyCatalog,
+  useExampleCatalog,
 } from '../helpers/game.ts';
 
-useLegacyCatalog();
+// The examples' Retunable values, e.g. the team efficiency exponent, the assessment threshold, and the exhaustion
+// penalty to effective skill, are Fixture values of the legacy test Game build (TESTVAL, Expected values).
+useExampleCatalog({ legacy: true });
 
 const leads = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
   Object.fromEntries(currentRetiredWorldStateView(state, catalog).leads.map((lead) => [lead.id, lead]));
@@ -753,7 +755,7 @@ describe('INVSTG: examples', () => {
     state.world.current.investigations[id]!.state.progress;
   const parameters = gdrs.investigationParameters;
 
-  it('Bootstrap values: Required progress ranges, assessment thresholds, and team efficiency', () => {
+  it('Example values: Required progress ranges, assessment thresholds, and team efficiency', () => {
     expect([3, 6, 10, 30].map((r) => requiredProgressRange(r, parameters))).toEqual([
       { min: 3, max: 4 },
       { min: 6, max: 9 },

@@ -1,6 +1,6 @@
 /** Tests of LEAD, Initiative operation level, and of how Player API, Developer API, and the Basic Autopilot AI read it. */
 import { describe, expect, it } from 'vite-plus/test';
-import { createBasicAutopilotAi } from '../../src/ai/index.ts';
+import { BASIC_AI_THRESHOLDS, createBasicAutopilotAi } from '../../src/ai/index.ts';
 import type { LeadView, PlayerApi } from '../../src/engine/index.ts';
 import { initiativeOperationLevels } from '../../src/engine/mechanics/leads/leads.ts';
 import { currentLiveWorldStateView, currentRetiredWorldStateView } from '../../src/engine/views/views.ts';
@@ -59,53 +59,46 @@ function levelsOf(leads: LeadGdr[]) {
 }
 
 describe('LEAD, Initiative operation level with the Bootstrap GDRs', () => {
-  const RED_DAWN: readonly (readonly [string, number])[] = [
-    ['criminal_organizations', 0],
-    ['locate_red_dawn_member', 1],
-    ['interrogate_red_dawn_member', 1],
-    ['red_dawn_profile', 1],
-    ['locate_red_dawn_safehouse', 2],
-    ['interrogate_red_dawn_handler', 2],
-    ['locate_red_dawn_outpost', 3],
-    ['interrogate_red_dawn_soldier', 3],
-    ['locate_red_dawn_logistics_hub', 4],
-    ['interrogate_red_dawn_commander', 4],
-    ['locate_red_dawn_regional_stronghold', 5],
-    ['interrogate_red_dawn_high_commander', 5],
-    ['locate_red_dawn_hq', 6],
-    ['interrogate_red_dawn_cult_leader', 6],
-    ['terminate_red_dawn', 6],
-    ['peace_on_earth', 6],
-  ];
-  const ARCHETYPE_LEVELS: readonly (readonly [string, number])[] = [
-    ['apprehend_member', 1],
-    ['raid_safehouse', 2],
-    ['raid_outpost', 3],
-    ['raid_logistics_hub', 4],
-    ['raid_regional_stronghold', 5],
-    ['raid_hq', 6],
-  ];
-  const levels = initiativeOperationLevels(bootstrapGdrCatalog());
+  const catalog = bootstrapGdrCatalog();
+  const levels = initiativeOperationLevels(catalog);
+  const initiative = new Set(
+    catalog.missionSiteArchetypes.filter((item) => item.kind === 'initiative').map((item) => item.id),
+  );
 
-  it('gives every Red Dawn Lead the level of its tier', () => {
-    for (const [id, level] of RED_DAWN) {
-      expect([id, levels.leads.get(id)]).toEqual([id, level]);
+  it('gives every Lead a level that never falls along its chain', () => {
+    // A Lead discovered by winning a Mission at an Initiative Mission site lies at least at that site's level.
+    const chained = catalog.leads.filter(
+      (item) =>
+        item.discoveredWhen?.kind === 'mission_won' &&
+        initiative.has(item.discoveredWhen.missionSiteArchetype),
+    );
+    expect(chained.length).toBeGreaterThan(0);
+    for (const item of chained) {
+      const site = (item.discoveredWhen as { missionSiteArchetype: string }).missionSiteArchetype;
+      expect([item.id, levels.leads.get(item.id)! >= levels.missionSiteArchetypes.get(site)!]).toEqual([
+        item.id,
+        true,
+      ]);
     }
   });
 
-  it('gives every MissionSiteArchetype of kind initiative the level of its tier', () => {
-    for (const [id, level] of ARCHETYPE_LEVELS) {
-      expect([id, levels.missionSiteArchetypes.get(id)]).toEqual([id, level]);
+  it('gives every MissionSiteArchetype of kind initiative a Lead creates a level, at most that of the Lead', () => {
+    const creators = catalog.leads.filter(
+      (item) =>
+        item.onCompletion.createMissionSite !== null && initiative.has(item.onCompletion.createMissionSite),
+    );
+    expect(creators.length).toBeGreaterThan(0);
+    for (const item of creators) {
+      const site = levels.missionSiteArchetypes.get(item.onCompletion.createMissionSite!);
+      expect([item.id, site! >= 1 && site! <= levels.leads.get(item.id)!]).toEqual([item.id, true]);
     }
     expect([...levels.missionSiteArchetypes.keys()].sort()).toEqual(
-      ARCHETYPE_LEVELS.map(([id]) => id).sort(),
+      [...new Set(creators.map((item) => item.onCompletion.createMissionSite!))].sort(),
     );
   });
 
-  it('gives every Lead of the Game build a level, the same along each Faction chain', () => {
-    expect([...levels.leads.values()].every((level) => level !== null)).toBe(true);
-    expect(levels.leads.get('locate_exalt_outpost')).toBe(3);
-    expect(levels.leads.get('interrogate_black_lotus_handler')).toBe(2);
+  it('gives every Lead of the Game build a level', () => {
+    expect(catalog.leads.every((item) => levels.leads.get(item.id) !== null)).toBe(true);
   });
 
   it('is calculated once per Game build', () => {
@@ -214,11 +207,21 @@ describe('LEAD, Reading Initiative operation levels', () => {
     const response = gdrs.missionSiteArchetypes.find((item) => item.kind === 'response');
     const responseSite = addMissionSite(state, response!.id);
     state = responseSite.state;
+    const levels = initiativeOperationLevels(gdrs);
     const leads = currentRetiredWorldStateView(state, gdrs).leads;
-    expect(leads.find((item) => item.id === 'criminal_organizations')?.initiativeOperationLevel).toBe(0);
-    expect(leads.find((item) => item.id === 'locate_red_dawn_member')?.initiativeOperationLevel).toBe(1);
+    expect(leads.length).toBeGreaterThan(0);
+    for (const item of leads) {
+      expect([item.id, item.initiativeOperationLevel]).toEqual([item.id, levels.leads.get(item.id) ?? null]);
+    }
+    // A Lead with no `discovered_when` that creates no Mission site, e.g. the first Lead, has level 0.
+    const head = gdrs.leads.find(
+      (item) => item.discoveredWhen === null && item.onCompletion.createMissionSite === null,
+    )!;
+    expect(leads.find((item) => item.id === head.id)?.initiativeOperationLevel).toBe(0);
     const sites = currentLiveWorldStateView(state, gdrs).missionSites;
-    expect(sites.find((site) => site.id === initiative.site)?.initiativeOperationLevel).toBe(3);
+    expect(sites.find((site) => site.id === initiative.site)?.initiativeOperationLevel).toBe(
+      levels.missionSiteArchetypes.get('raid_outpost'),
+    );
     expect(sites.find((site) => site.id === responseSite.site)?.initiativeOperationLevel).toBeNull();
   });
 
@@ -231,14 +234,23 @@ describe('LEAD, Reading Initiative operation levels', () => {
     const before = ok(engine.session.timeline.getStatus());
     const report = ok(engine.developer.queries.getInitiativeOperationLevels());
     const catalog = bootstrapGdrCatalog();
-    expect(report.leads.map((item) => item.id)).toEqual(catalog.leads.map((item) => item.id));
-    expect(report.leads).toContainEqual({ id: 'locate_red_dawn_hq', name: expect.any(String), level: 6 });
-    expect(report.missionSiteArchetypes).toContainEqual({
-      id: 'raid_hq',
-      name: expect.any(String),
-      level: 6,
-    });
-    expect(report.missionSiteArchetypes).toHaveLength(6);
+    const levels = initiativeOperationLevels(catalog);
+    expect(report.leads).toEqual(
+      catalog.leads.map((item) => ({
+        id: item.id,
+        name: item.name,
+        level: levels.leads.get(item.id) ?? null,
+      })),
+    );
+    expect(report.missionSiteArchetypes).toEqual(
+      catalog.missionSiteArchetypes
+        .filter((item) => item.kind === 'initiative')
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          level: levels.missionSiteArchetypes.get(item.id) ?? null,
+        })),
+    );
     expect(report.leadsWithoutLevel).toEqual([]);
     expect(report.missionSiteArchetypesWithoutLevel).toEqual([]);
     // A query: it changes no Campaign state.
@@ -289,8 +301,14 @@ describe('Basic Autopilot AI, Keep Mission sites coming', () => {
         },
       },
     };
+    // Fixture values: no Agent reserve and every Agent an investigator, so that the AI starts an Investigation at once.
+    const ai = createBasicAutopilotAi({
+      ...BASIC_AI_THRESHOLDS,
+      reserveSharePct: 0,
+      investigatorSharePct: 100,
+    });
     for (let turn = 0; turn < 5 && attempts.length === 0; turn += 1) {
-      await createBasicAutopilotAi().step({ player });
+      await ai.step({ player });
     }
     expect(attempts.slice(0, 3)).toEqual(['high', 'low', 'no_level']);
   });

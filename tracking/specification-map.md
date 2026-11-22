@@ -146,6 +146,7 @@
 - src/engine/game-rules.ts
 - src/engine/state/create.ts
 - tests/foundation/configuration.test.ts
+- tests/foundation/configuration-replay.test.ts
 - src/web/screens/MainMenu.tsx
 - src/engine/index.ts
 - src/engine/timeline/campaign-runtime.ts
@@ -203,6 +204,7 @@ No files.
 ## CTEST: Campaign Tests
 
 - tests/engine/campaign.test.ts
+- tests/cli/cli.test.ts
 - scripts/measure.ts
 - vite.config.ts
 
@@ -536,6 +538,7 @@ No files.
 - src/engine/mechanics/missions/
 - src/engine/mechanics/conditions/
 - tests/mechanics/leads-investigations.test.ts
+- tests/mechanics/combat-side-order.test.ts
 - src/engine/actions/actions.ts
 - src/engine/turn/advance.ts
 - src/engine/views/views.ts
@@ -743,8 +746,20 @@ No files.
 
 No files.
 
+## TESTVAL: Test Values
+
+- tests/
+- e2e/
+
+## TFOCUS: Test Focus
+
+- tests/
+- e2e/
+- playwright.config.ts
+
 ## TIMELINE: Timeline
 
+- tests/foundation/timeline-lineage.test.ts
 - src/engine/session/core.ts
 - src/engine/timeline/
 - tests/foundation/timeline.test.ts
@@ -813,7 +828,6 @@ No files.
 ## VIS: Visual Design
 
 - index.html
-- tests/web/chart-strokes.test.ts
 - src/web/tally.ts
 - tests/web/tally.test.ts
 - src/web/styles.css
@@ -843,7 +857,6 @@ No files.
 - tests/web/agent-condition-and-selection.test.ts
 - src/web/slider.ts
 - tests/web/slider.test.ts
-- tests/web/checkbox.test.ts
 - src/web/screens/MusicControl.tsx
 - src/web/table-sort.ts
 - tests/web/table-sort.test.ts

@@ -1,7 +1,6 @@
 /** Tests for the behaviors the final conformance reviews found untested or wrong. */
 import { describe, expect, it } from 'vite-plus/test';
 import { createCli } from '../../src/cli/cli.ts';
-import { RAW_GDR_FILES } from '../../src/gdr/generated/raw-gdrs.ts';
 import { bootstrapGdrCatalog } from '../../src/gdr/index.ts';
 import { ok, startEngine } from '../helpers/engine.ts';
 import { CONTROLLER, expectOk, scriptedAi, startHarness, type Harness } from '../helpers/test-rules.ts';
@@ -134,46 +133,15 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('GDRS: the GDRs', () => {
-  it('supplies 268 GDRs, and a Victory path through the Leads of every Faction to Peace on Earth', () => {
-    // GDRS, GDR files: 23 files that each hold every GDR of one Type, and one file for each of the 136 Compendium
-    // articles in the one directory that holds one file per GDR.
-    const articleFiles = RAW_GDR_FILES.filter((file) =>
-      file.path.startsWith('compendium/compendium_articles/'),
-    );
-    expect(articleFiles).toHaveLength(136);
-    expect(RAW_GDR_FILES).toHaveLength(23 + 136);
-    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(268);
+  // TESTVAL, Content checked by structure: the walk checks where each chain leads, never how many GDRs it passes.
+  it('supply a Victory path through the Leads of every Faction to Peace on Earth', () => {
     const catalog = bootstrapGdrCatalog();
-    // GDRS, Scope: the counts of the GDRs that grew.
-    expect([
-      catalog.enemyArchetypes.size,
-      catalog.weapons.size,
-      catalog.armors.size,
-      catalog.leads.length,
-      catalog.missionSiteArchetypes.filter((site) => site.kind === 'initiative').length,
-      catalog.missionSiteArchetypes.filter((site) => site.kind === 'response').length,
-      catalog.factionActivityLevels.size,
-      catalog.factionOperationLevels.length,
-    ]).toEqual([9, 9, 9, 44, 6, 15, 8, 5]);
-    expect(catalog.factionArchetypes.map((faction) => [faction.id, faction.initialActivityLevel])).toEqual([
-      ['red_dawn', 'faint'],
-      ['exalt', 'dormant'],
-      ['black_lotus', 'dormant'],
-    ]);
-    expect(catalog.factionActivityLevels.get('dormant')).toMatchObject({
-      operationEveryTurns: null,
-      operationLevelWeights: [],
-    });
     const byId = (id: string) => catalog.leads.find((lead) => lead.id === id)!;
-    // The first Lead concerns no Faction and creates no Mission site; it is completed once.
-    expect(byId('criminal_organizations')).toMatchObject({
-      faction: null,
-      discoveredWhen: null,
-      investigateAgain: 'never',
-      onCompletion: { createMissionSite: null, eliminateFaction: false, winCampaign: false },
-    });
-    // Follow each Faction's chain from its first Lead: a locate Lead's Won Mission discovers the next Lead, and a Lead
-    // that creates no Mission site discovers the next one by its completion, up to the Terminate Lead.
+    // The first Lead, discovered at the start, concerns no Faction.
+    const first = catalog.leads.filter((lead) => lead.discoveredWhen === null);
+    expect(first.map((lead) => lead.faction)).toEqual([null]);
+    // Follow each Faction's chain from its first Lead: a Lead that creates a Mission site discovers the next Lead by a
+    // Won Mission there, and one that creates none discovers the next one by its completion, up to the Terminate Lead.
     const next = (lead: string, site: string | null) =>
       catalog.leads.filter((item) => {
         const condition = item.discoveredWhen;
@@ -183,38 +151,34 @@ describe('GDRS: the GDRs', () => {
               condition.missionSiteArchetype === site &&
               item.faction === byId(lead).faction;
       });
+    const terminates: string[] = [];
     for (const faction of catalog.factionArchetypes) {
-      let lead = byId(`locate_${faction.id}_member`);
-      expect(lead.discoveredWhen).toEqual({ kind: 'lead_completed', lead: 'criminal_organizations' });
+      const starts = next(first[0]!.id, null).filter((lead) => lead.faction === faction.id);
+      expect(starts, `the first Lead of ${faction.id}`).toHaveLength(1);
+      let lead = starts[0]!;
       const path: string[] = [lead.id];
       while (!lead.onCompletion.eliminateFaction) {
         const following = next(lead.id, lead.onCompletion.createMissionSite);
         expect(following, `after ${lead.id}`).toHaveLength(1);
         lead = following[0]!;
+        // A chain that came back to a Lead it passed would never reach its Terminate Lead.
+        expect(path, `after ${lead.id}`).not.toContain(lead.id);
         path.push(lead.id);
       }
-      expect(path).toHaveLength(14);
-      expect(path.filter((id) => byId(id).onCompletion.createMissionSite !== null)).toHaveLength(6);
       expect(path.at(-1)).toBe(`terminate_${faction.id}`);
       expect(path.every((id) => byId(id).faction === faction.id)).toBe(true);
-      // The locate Leads of tiers 1 to 5 can be completed again; the HQ Lead only until its Mission is Won.
-      expect(byId(`locate_${faction.id}_outpost`).investigateAgain).toBe('always');
-      expect(byId(`locate_${faction.id}_hq`).investigateAgain).toBe('until_mission_won');
-      expect(byId(`${faction.id}_profile`).investigateAgain).toBe('never');
+      terminates.push(lead.id);
     }
-    // Peace on Earth wins the Campaign once all three Terminate Leads are completed.
-    expect(byId('peace_on_earth')).toMatchObject({
+    // Peace on Earth, the one Lead that wins the Campaign, is discovered once every Terminate Lead is completed.
+    const winning = catalog.leads.filter((lead) => lead.onCompletion.winCampaign);
+    expect(winning.map((lead) => lead.id)).toEqual(['peace_on_earth']);
+    expect(winning[0]).toMatchObject({
       faction: null,
       discoveredWhen: {
         kind: 'all',
-        conditions: catalog.factionArchetypes.map((faction) => ({
-          kind: 'lead_completed',
-          lead: `terminate_${faction.id}`,
-        })),
+        conditions: terminates.map((lead) => ({ kind: 'lead_completed', lead })),
       },
-      onCompletion: { createMissionSite: null, eliminateFaction: false, winCampaign: true },
+      onCompletion: { createMissionSite: null, eliminateFaction: false },
     });
-    // No Mission site eliminates a Faction.
-    expect(catalog.missionSiteArchetypes.some((site) => site.onWin.eliminateTargetFaction)).toBe(false);
   });
 });

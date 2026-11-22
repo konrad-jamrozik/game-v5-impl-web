@@ -10,11 +10,12 @@ const agent = (id: string, assignment: string, effectiveSkill: number, exhaustio
   exhaustion,
 });
 
+// The orders by Instance ID, by effective skill, and by exhaustion all differ, so that each test shows its own key.
 const candidates = [
-  agent('agent-10', 'Training', 120, 5),
-  agent('agent-2', 'Standby', 129, 29),
-  agent('agent-9', 'Standby', 100, 0),
-  agent('agent-3', 'Training', 123, 23),
+  agent('agent-10', 'Training', 120, 29),
+  agent('agent-2', 'Standby', 129, 5),
+  agent('agent-9', 'Standby', 100, 23),
+  agent('agent-3', 'Training', 123, 0),
 ];
 const ids = (rows: readonly { id: string }[]) => rows.map((row) => row.id);
 const assignment = (row: { assignment: string }) => row.assignment;
@@ -39,13 +40,13 @@ describe('MVIEW: Deployment table', () => {
     ]);
   });
 
-  it('sorts by exhaustion even where its cell is empty', () => {
+  it('sorts by exhaustion, highest first, even where its cell is empty', () => {
     const tiers = pressHeader([], 'exhaustion', DEPLOY_NUMERIC.has('exhaustion'));
     expect(ids(deployRows(candidates, tiers, assignment))).toEqual([
-      'agent-2',
-      'agent-3',
       'agent-10',
       'agent-9',
+      'agent-2',
+      'agent-3',
     ]);
   });
 

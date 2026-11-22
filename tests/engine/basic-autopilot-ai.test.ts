@@ -1,7 +1,8 @@
 /**
  * Tests of BASICAI: the Required rating share, the Combat margin plus the Loss margin step for each Lost Mission at a
- * Mission site of the same MissionSiteArchetype, which a team's Combat rating must at least reach; the Muster; and the
- * Agent groups.
+ * Mission site of the same MissionSiteArchetype, which a team's Combat rating must at least reach; the Muster; the
+ * Agent groups; and the Tuning parameters that switch a choice off. Each test runs one Turn routine on a Campaign it
+ * sets up, and every Tuning parameter it depends on is read from BASIC_AI_THRESHOLDS or set as a Fixture value.
  */
 import { describe, expect, it } from 'vite-plus/test';
 import {
@@ -9,16 +10,21 @@ import {
   createBasicAutopilotAi,
   meetsRequiredShare,
   requiredRatingSharePct,
+  type BasicAiThresholds,
 } from '../../src/ai/index.ts';
-import type { MissionSiteView, PlayerApi } from '../../src/engine/index.ts';
+import type { CurrentLiveWorldStateView, MissionSiteView, PlayerApi } from '../../src/engine/index.ts';
+import { bootstrapGdrCatalog } from '../../src/gdr/index.ts';
 import { ok, startEngine } from '../helpers/engine.ts';
 
-describe('BASICAI: Required rating share', () => {
-  it('uses the Game designer values: a Combat margin of 110% and a Loss margin step of 5 points', () => {
-    expect(BASIC_AI_THRESHOLDS.combatMarginPct).toBe(110);
-    expect(BASIC_AI_THRESHOLDS.lossMarginStepPct).toBe(5);
-  });
+/** BASICAI, Glossary, Reserve quota: the Reserve share of the Roster size, rounded down. */
+const reserveQuota = (roster: number, t: BasicAiThresholds = BASIC_AI_THRESHOLDS) =>
+  Math.floor((roster * t.reserveSharePct) / 100);
 
+/** BASICAI, Glossary, Investigator quota: the Investigator share of the Roster size, rounded down. */
+const investigatorQuota = (roster: number, t: BasicAiThresholds = BASIC_AI_THRESHOLDS) =>
+  Math.floor((roster * t.investigatorSharePct) / 100);
+
+describe('BASICAI: Required rating share', () => {
   it('rises by the Loss margin step for each Lost Mission at a Mission site of the same MissionSiteArchetype', () => {
     const sites = [
       { id: 'site-1', archetype: 'foil_sabotage' },
@@ -35,41 +41,41 @@ describe('BASICAI: Required rating share', () => {
     ];
     const required = (archetype: string, list = missions) =>
       requiredRatingSharePct(BASIC_AI_THRESHOLDS, sites, list, archetype);
-    expect(required('apprehend_member')).toBe(110);
-    expect(required('raid_safehouse')).toBe(115);
-    expect(required('foil_sabotage')).toBe(120);
-    expect(required('foil_sabotage', [])).toBe(110);
+    const margin = BASIC_AI_THRESHOLDS.combatMarginPct;
+    const step = BASIC_AI_THRESHOLDS.lossMarginStepPct;
+    expect(required('apprehend_member')).toBe(margin);
+    expect(required('raid_safehouse')).toBe(margin + step);
+    expect(required('foil_sabotage')).toBe(margin + 2 * step);
+    expect(required('foil_sabotage', [])).toBe(margin);
   });
 
   it('is met by a Combat rating equal to the required share, and not by one below it', () => {
-    // At 100%, a team equal to the Enemies qualifies.
+    // At a share of 100%, a team equal to the Enemies qualifies.
     expect(meetsRequiredShare(500, 500, 100)).toBe(true);
     expect(meetsRequiredShare(499, 500, 100)).toBe(false);
-    // At 105%, after one Lost Mission, 525 against 500 qualifies and 524 does not.
+    // At a share of 105%, 525 against 500 qualifies and 524 does not.
     expect(meetsRequiredShare(525, 500, 105)).toBe(true);
     expect(meetsRequiredShare(524, 500, 105)).toBe(false);
   });
 });
 
 /**
- * A Campaign whose Agents 1 to 3 are the Agent reserve on Standby, at the Reserve quota of 8 Agents, and Agents 4 to
- * 8 Contractors, with a Player API that also shows an Initiative Mission site that the given team just wins at the
- * Combat margin, hires no Agent, and records every assignment the AI orders. `resting` shows that Agent on Recovery
- * with health lost 1.00 and a Health recovery rate of 0.60, so that it becomes a Deployable Agent only after two
- * Advance turns of recovery.
+ * A Campaign whose first Agents are the Agent reserve on Standby, at least 3 of them and at least the Reserve quota,
+ * and the rest of the roster Contractors, with a Player API that also shows an Initiative Mission site that the given
+ * team just wins at the Combat margin, hires no Agent, and records every assignment the AI orders. `resting` shows that
+ * Agent on Recovery with health lost 1.00 and a Health recovery rate of 0.60, so that it becomes a Deployable Agent
+ * only after two Advance turns of recovery.
  */
 async function musterCampaign(
-  rateAs: (contracting: readonly string[]) => readonly string[],
-  resting: string | null = null,
+  rateAs: (reserve: readonly string[], contracting: readonly string[]) => readonly string[],
+  resting: (reserve: readonly string[]) => string | null = () => null,
 ) {
   const { engine } = await startEngine();
   ok(await engine.session.campaign.create({ seed: 'muster' }));
-  ok(
-    await engine.player.actions.assignAgents(
-      ['agent-4', 'agent-5', 'agent-6', 'agent-7', 'agent-8'],
-      'Contracting',
-    ),
-  );
+  const roster = ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
+  const reserve = roster.slice(0, Math.max(3, reserveQuota(roster.length)));
+  expect(roster.length).toBeGreaterThan(reserve.length + 1);
+  ok(await engine.player.actions.assignAgents(roster.slice(reserve.length), 'Contracting'));
   ok(await engine.player.actions.advanceTurn());
   const real = engine.player;
   const rating = (ids: readonly string[]) => ok(real.queries.previewDeployment(null, ids)).teamCombatRating;
@@ -80,7 +86,9 @@ async function musterCampaign(
     .sort((a, b) => b.effectiveSkill - a.effectiveSkill || a.id.localeCompare(b.id))
     .map((agent) => agent.id);
   // The Enemies rate so that the given team just reaches the Combat margin, and a weaker one does not.
-  const enemiesRating = Math.floor((rating(rateAs(contracting)) * 100) / BASIC_AI_THRESHOLDS.combatMarginPct);
+  const enemiesRating = Math.floor(
+    (rating(rateAs(reserve, contracting)) * 100) / BASIC_AI_THRESHOLDS.combatMarginPct,
+  );
   const site = {
     ...({} as MissionSiteView),
     id: 'mission-site-muster',
@@ -91,6 +99,7 @@ async function musterCampaign(
     enemies: [] as MissionSiteView['enemies'],
     enemiesCombatRating: enemiesRating,
   } as MissionSiteView;
+  const restingAgent = resting(reserve);
   const orders: [string, string][] = [];
   const player: PlayerApi = {
     ...real,
@@ -102,7 +111,7 @@ async function musterCampaign(
           return result;
         }
         const agents = result.value.agents.map((agent) =>
-          agent.id === resting
+          agent.id === restingAgent
             ? {
                 ...agent,
                 assignment: { kind: 'Recovery' as const },
@@ -133,54 +142,137 @@ async function musterCampaign(
       },
     },
   };
-  return { player, orders, contracting, rating };
+  return { player, orders, reserve, contracting, rating };
 }
 
 describe('BASICAI: Muster for Initiative Mission sites', () => {
   it('recalls the Contractor a Winning team needs, and keeps the Agents of the Muster where they are', async () => {
-    // The three Agents of the Agent reserve alone cannot win; with the most capable Contractor they can.
-    const { player, orders, contracting, rating } = await musterCampaign((on) => [
-      'agent-1',
-      'agent-2',
-      'agent-3',
+    // The Agents of the Agent reserve alone cannot win; with the most capable Contractor they can.
+    const { player, orders, reserve, contracting, rating } = await musterCampaign((own, on) => [
+      ...own,
       on[0]!,
     ]);
-    expect(rating(['agent-1', 'agent-2', 'agent-3'])).toBeLessThan(
-      rating(['agent-1', 'agent-2', 'agent-3', contracting[0]!]),
-    );
+    expect(rating(reserve)).toBeLessThan(rating([...reserve, contracting[0]!]));
     await createBasicAutopilotAi().step({ player });
     expect(orders).toContainEqual([contracting[0]!, 'Standby']);
     expect(orders).not.toContainEqual([contracting[1]!, 'Standby']);
-    // An Agent of the Muster keeps the Assignment it has: no step sends Agents 1 to 3 to other work.
-    expect(orders.filter(([id]) => ['agent-1', 'agent-2', 'agent-3'].includes(id))).toEqual([]);
+    // An Agent of the Muster keeps the Assignment it has: no step sends an Agent of the reserve to other work.
+    expect(orders.filter(([id]) => reserve.includes(id))).toEqual([]);
   });
 
   it('recalls no Contractor while a member of the Muster needs more than one Advance turn to rest', async () => {
-    // agent-1 becomes a Deployable Agent only after two Advance turns on Recovery, so the Contractor keeps earning.
+    // The first Agent becomes a Deployable Agent only after two Advance turns on Recovery, so the Contractor keeps
+    // earning.
     const { player, orders } = await musterCampaign(
-      (on) => ['agent-1', 'agent-2', 'agent-3', on[0]!],
-      'agent-1',
+      (own, on) => [...own, on[0]!],
+      (own) => own[0]!,
     );
     await createBasicAutopilotAi().step({ player });
     expect(orders.filter(([, assignment]) => assignment === 'Standby')).toEqual([]);
   });
 });
 
+const kindCount = (live: CurrentLiveWorldStateView, kind: string) =>
+  live.agents.filter((agent) => agent.assignment?.kind === kind).length;
+
 describe('BASICAI: Agent groups', () => {
-  it('keeps 40% of the roster in the Agent reserve, training, and sends the rest to Contracting', async () => {
+  it('keeps the Reserve quota in the Agent reserve, training, and sends the rest to Contracting', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'groups' }));
-    await createBasicAutopilotAi().step({ player: engine.player });
-    const live = ok(engine.player.queries.getCurrentLiveWorldState());
-    const kinds = live.agents.map((agent) => agent.assignment?.kind);
-    const count = (kind: string) => kinds.filter((item) => item === kind).length;
-    // With 8 Agents the Reserve quota is 3 and the Investigator quota 0. The AI also hires one Agent, which keeps
-    // money at 5 Turns of upkeep, and that Agent joins the Agent reserve on its way to Standby, so one Agent of the
-    // reserve becomes a Spare Agent and goes to Contracting too.
-    expect(live.agency.servingAgents).toBe(9);
-    expect(count('Investigation')).toBe(0);
-    expect(count('Contracting')).toBe(6);
-    expect(count('Training') + count('Standby')).toBe(3);
-    expect(count('Training')).toBe(2);
+    // The groups are read as the Turn routine leaves them, when it requests Advance turn.
+    let routineEnd: CurrentLiveWorldStateView | null = null;
+    const player: PlayerApi = {
+      ...engine.player,
+      actions: {
+        ...engine.player.actions,
+        advanceTurn: async () => {
+          routineEnd = ok(engine.player.queries.getCurrentLiveWorldState());
+          return engine.player.actions.advanceTurn();
+        },
+      },
+    };
+    await createBasicAutopilotAi().step({ player });
+    const live = routineEnd as CurrentLiveWorldStateView | null;
+    if (live === null) {
+      throw new Error('The Turn routine did not request Advance turn.');
+    }
+    // The quotas are those of the Roster size the Turn routine leaves, which may have hired Agents; a hired Agent joins
+    // the Agent reserve on its way to Standby.
+    const roster = live.agency.servingAgents;
+    const reserve = live.agents.filter((agent) =>
+      ['Standby', 'Training', 'Recovery', 'Deployed'].includes(agent.assignment?.kind ?? ''),
+    );
+    expect(reserve).toHaveLength(reserveQuota(roster));
+    expect(kindCount(live, 'Investigation')).toBe(investigatorQuota(roster));
+    expect(kindCount(live, 'Contracting')).toBe(roster - reserveQuota(roster) - investigatorQuota(roster));
+    // Every Agent of the Agent reserve that has arrived in base trains while the Training cap has a place left.
+    const inBase = reserve.filter((agent) => agent.agentStatus !== 'InTransit');
+    expect(kindCount(live, 'Training')).toBe(Math.min(live.agency.trainingCap, inBase.length));
+  });
+});
+
+/** A new Campaign whose Basic Autopilot AI has the given Tuning parameters instead of the Game designer values. */
+async function tunedCampaign(seed: string, thresholds: Partial<BasicAiThresholds>) {
+  const ai = createBasicAutopilotAi({ ...BASIC_AI_THRESHOLDS, ...thresholds });
+  const { engine } = await startEngine({ autopilotAis: [ai] });
+  ok(await engine.session.campaign.create({ seed }));
+  return { engine, ai };
+}
+
+describe('BASICAI: Tuning parameters that switch a choice off', () => {
+  /**
+   * One Turn routine of a Campaign whose Agent cap was raised once, so that the Upgrade budget allows an Other
+   * Upgrade, with money for it above the Savings floor, and whose Upgrade weights are 0 for every Other Upgrade but
+   * `subject`, which has the given weight. Returns the Other Upgrades after the Turn routine and `subject`.
+   */
+  async function weightedTurn(seed: string, weight: number) {
+    const upgrades = bootstrapGdrCatalog().upgrades;
+    const others = upgrades.filter((upgrade) => !upgrade.effect.endsWith('_cap'));
+    const subject = others[0]!;
+    const weights = Object.fromEntries(
+      others.map((upgrade) => [upgrade.id, upgrade.id === subject.id ? weight : 0]),
+    );
+    const tuned = await tunedCampaign(seed, { upgradeWeights: weights });
+    const agentCap = upgrades.find((upgrade) => upgrade.effect === 'agent_cap')!;
+    ok(tuned.engine.session.developer.enable());
+    ok(await tuned.engine.developer.actions.addMoney(agentCap.price));
+    ok(await tuned.engine.player.actions.purchaseUpgrade(agentCap.id));
+    const agency = ok(tuned.engine.player.queries.getCurrentLiveWorldState()).agency;
+    const budget = agency.upgrades.find((upgrade) => upgrade.id === agentCap.id)!.price;
+    expect(subject.price).toBeLessThanOrEqual(budget);
+    const floor = BASIC_AI_THRESHOLDS.savingsFloorTurns * agency.projectedUpkeep;
+    ok(await tuned.engine.developer.actions.addMoney(Math.max(1, subject.price + floor - agency.money)));
+    ok(tuned.engine.session.developer.disable());
+    await tuned.ai.step({ player: tuned.engine.player });
+    const after = ok(tuned.engine.player.queries.getCurrentLiveWorldState()).agency.upgrades.filter(
+      (upgrade) => !upgrade.effect.endsWith('_cap'),
+    );
+    return { after, subject };
+  }
+
+  // CTEST, Limits: the test plays 2 Campaigns, one Turn each.
+  it('never buys an Upgrade of weight 0, which it buys with any other weight', async () => {
+    const weighted = await weightedTurn('weights', 1);
+    expect(
+      weighted.after.find((upgrade) => upgrade.id === weighted.subject.id)!.acquisitions,
+    ).toBeGreaterThan(0);
+    const unweighted = await weightedTurn('weights', 0);
+    expect(unweighted.after.map((upgrade) => upgrade.acquisitions)).toEqual(unweighted.after.map(() => 0));
+  });
+
+  // CTEST, Limits: the test plays 2 Campaigns, one Turn each.
+  it('investigates no Lead with an Investigator share of 0, and does with a larger one', async () => {
+    const investigating = await tunedCampaign('investigators', {
+      investigatorSharePct: 100 - BASIC_AI_THRESHOLDS.reserveSharePct,
+    });
+    await investigating.ai.step({ player: investigating.engine.player });
+    const some = ok(investigating.engine.player.queries.getCurrentLiveWorldState());
+    expect(kindCount(some, 'Investigation')).toBeGreaterThan(0);
+
+    const idle = await tunedCampaign('investigators', { investigatorSharePct: 0 });
+    await idle.ai.step({ player: idle.engine.player });
+    const none = ok(idle.engine.player.queries.getCurrentLiveWorldState());
+    expect(kindCount(none, 'Investigation')).toBe(0);
+    expect(none.investigations).toEqual([]);
   });
 });

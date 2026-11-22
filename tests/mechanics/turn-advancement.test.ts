@@ -33,10 +33,11 @@ import {
   units,
   setCurrentHealth,
   currentHealthOf,
-  useLegacyCatalog,
+  useExampleCatalog,
 } from '../helpers/game.ts';
 
-useLegacyCatalog();
+// The values of the examples, e.g. `upkeep_per_agent` 10, are Fixture values; see EXAMPLE_VALUES.
+useExampleCatalog({ legacy: true });
 
 const set = (
   state: CampaignState,

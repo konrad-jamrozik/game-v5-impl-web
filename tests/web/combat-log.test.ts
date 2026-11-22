@@ -1,5 +1,4 @@
-/** TRVIEW, Combat log colours, and VIS, Colours: the tints and outcome colours of the Combat log. */
-import { readFileSync } from 'node:fs';
+/** TRVIEW, Combat log colours: the tints and outcome colours of the Combat log. */
 import { describe, expect, it } from 'vite-plus/test';
 import type { CombatReport } from '../../src/engine/index.ts';
 import { armorText, combatLogRow } from '../../src/web/combat-log.ts';
@@ -85,11 +84,5 @@ describe('TRVIEW: Combat log colours', () => {
     expect(
       armorText({ start: { armor: 0 }, final: { currentArmor: 0 } } as Parameters<typeof armorText>[0]),
     ).toBe('0');
-  });
-
-  it('defines the Agent attack tint and the Enemy attack tint at 7% opacity', () => {
-    const css = readFileSync(new URL('../../src/web/styles.css', import.meta.url), 'utf8');
-    expect(css).toContain('--agent-attack-tint: rgb(183 199 122 / 7%);');
-    expect(css).toContain('--enemy-attack-tint: rgb(255 127 120 / 7%);');
   });
 });

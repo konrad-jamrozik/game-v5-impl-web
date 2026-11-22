@@ -25,7 +25,6 @@ import {
 } from '../../src/engine/views/views.ts';
 import {
   act,
-  BOOTSTRAP_GDRS as bootstrap,
   addMissionSite,
   advance,
   agent,
@@ -49,10 +48,11 @@ import {
   units,
   setCurrentHealth,
   currentHealthOf,
-  useLegacyCatalog,
+  useExampleCatalog,
 } from '../helpers/game.ts';
 
-useLegacyCatalog();
+// The values of the examples, e.g. `exhaustion_per_mission` 5, are Fixture values; see EXAMPLE_VALUES.
+useExampleCatalog({ legacy: true });
 
 const set = (
   state: CampaignState,
@@ -440,7 +440,10 @@ describe('MISSION: examples', () => {
   });
 
   it('Transport cap and other rejections of deployAgents', () => {
-    let state = withAgents(newCampaign({ money: 2000 }), 12);
+    // Eight named Agents and enough others that a1, a2, a3, and the others fill all but one place of the Transport cap.
+    const cap = gdrs.economy.baseTransportCap;
+    expect(cap).toBeGreaterThanOrEqual(4);
+    let state = withAgents(newCampaign({ money: 2000 }), cap + 4);
     const [a1, a2, a3, a4, a5, a6, a7, a8, ...fill] = agentIds(state) as string[] as [
       string,
       string,
@@ -462,7 +465,7 @@ describe('MISSION: examples', () => {
       world.agents[a7]!.state.assignment = { kind: 'Recovery' };
       world.agents[a7]!.state.status = 'Recovering';
     });
-    // Seven Deployed Agents leave one place of the Transport cap of 8.
+    // The Deployed Agents leave one place of the Transport cap.
     state = act(state, 'deployAgents', { missionSite: s6.site, agents: [a1, a2, a3, ...fill] });
     state = setAssignment(state, [a6], 'Training', 'InTransit');
     state = setAssignment(state, [a8], 'Contracting');
@@ -589,8 +592,19 @@ describe('MISSION: examples', () => {
   });
 
   it('MissionSiteArchetype selection excludes the initiating Faction previous operation when the level offers another', () => {
+    // Test GDRs: a second Response MissionSiteArchetype of level 1 and two more of level 2, after those of the test
+    // Game build, whose levels 1 and 2 have one each.
+    const several = catalogWith((raw) => {
+      for (const [id, copied] of [
+        ['second_level_1', 'foil_recruitment_push'],
+        ['second_level_2', 'foil_sabotage'],
+        ['third_level_2', 'foil_sabotage'],
+      ] as const) {
+        raw.add('missions/mission_site_archetypes.yaml', { ...raw.get(copied), id });
+      }
+    });
     // The possible values are what the selection offers its random outcome; each has the same weight.
-    const offered = (level: number, previous: string | null, catalog: GdrCatalog = bootstrap) => {
+    const offered = (level: number, previous: string | null, catalog: GdrCatalog = several) => {
       let seen: string[] = [];
       const recording = {
         ...injectedRandom({}),
@@ -605,26 +619,19 @@ describe('MISSION: examples', () => {
       selectResponseArchetype(recording, 'f', level, catalog.missionSiteArchetypes, previous);
       return seen;
     };
-    // E.g., with the Bootstrap values: after foil_sabotage, a level-2 occurrence selects one of the other two, and a
-    // level-1 occurrence any of the three of level 1.
-    expect(offered(2, 'foil_sabotage')).toEqual(['foil_vip_assassination', 'defend_against_office_raid']);
-    expect(offered(1, 'foil_sabotage')).toEqual([
-      'foil_recruitment_push',
-      'foil_supply_theft',
-      'foil_business_extortion',
-    ]);
-    expect(offered(2, null)).toHaveLength(3);
-    // The existential level offers three as well.
-    expect(offered(5, 'defend_against_hq_assault')).toEqual([
-      'foil_bioweapon_release',
-      'foil_warhead_launch',
-    ]);
+    // After foil_sabotage, a level-2 occurrence selects one of the other two, and a level-1 occurrence either of the two
+    // of level 1.
+    expect(offered(2, 'foil_sabotage')).toEqual(['second_level_2', 'third_level_2']);
+    expect(offered(1, 'foil_sabotage')).toEqual(['foil_recruitment_push', 'second_level_1']);
+    expect(offered(2, null)).toEqual(['foil_sabotage', 'second_level_2', 'third_level_2']);
+    // A level that offers no other MissionSiteArchetype offers the previous operation again.
+    expect(offered(1, 'foil_recruitment_push', gdrs)).toEqual(['foil_recruitment_push']);
 
     // The previous operation is read from the Faction's latest Response Mission site, whatever became of it, and the
     // previous operation of another Faction plays no part.
-    let state = newCampaign({ catalog: bootstrap });
+    let state = newCampaign({ catalog: several });
     const f = onlyFaction(state).id;
-    const first = addMissionSite(state, 'foil_sabotage', { catalog: bootstrap });
+    const first = addMissionSite(state, 'foil_sabotage', { catalog: several });
     state = tweak(first.state, (world) => {
       world.missionSites[first.site]!.state.lifecycle = 'Expired';
       Object.values(world.factions)[0]!.state.turnsUntilNextOperation = 1;
@@ -635,7 +642,7 @@ describe('MISSION: examples', () => {
     for (let seed = 0; seed < 40; seed += 1) {
       const next = advanceTurnOf(
         state,
-        bootstrap,
+        several,
         injectedRandom(
           { [`faction.${f}.operationLevel`]: [2], [`faction.${f}.operationInterval`]: [20] },
           seededRandom(seedRng(`no repeat ${seed}`), []),
@@ -762,17 +769,22 @@ describe('MISSION: examples', () => {
     expect(consequencesOf('Cancelled', archetype('foil_sabotage'), level2)).toMatchObject({
       panicIncreaseHundredths: 0,
     });
-    // A `defeat` Effect of a Faction operation level applies when its Response Mission is Lost or its site Expired.
-    const level5 = bootstrap.factionOperationLevels.find((item) => item.level === 5)!;
-    const hqAssault = bootstrap.missionSiteArchetypes.find(
-      (item) => item.id === 'defend_against_hq_assault',
-    )!;
-    expect(consequencesOf('Lost', hqAssault, level5)).toMatchObject({
+    // A `defeat` Effect of a Faction operation level applies when its Response Mission is Lost or its site Expired:
+    // test GDRs give level 2 the `on_ignored_or_lost` of an existential level, the `defeat` Effect alone.
+    const existential = catalogWith(
+      (raw) => (raw.get('operation_level_2')['on_ignored_or_lost'] = [effect('defeat', true)]),
+    );
+    const levelWithDefeat = existential.factionOperationLevels.find((item) => item.level === 2)!;
+    const sabotage = existential.missionSiteArchetypes.find((item) => item.id === 'foil_sabotage')!;
+    expect(consequencesOf('Lost', sabotage, levelWithDefeat)).toMatchObject({
       defeat: true,
       panicIncreaseHundredths: 0,
     });
-    expect(consequencesOf('Expired', hqAssault, level5)).toMatchObject({ defeat: true });
-    expect(consequencesOf('Won', hqAssault, level5)).toMatchObject({ defeat: false, money: 10000 });
+    expect(consequencesOf('Expired', sabotage, levelWithDefeat)).toMatchObject({ defeat: true });
+    expect(consequencesOf('Won', sabotage, levelWithDefeat)).toMatchObject({
+      defeat: false,
+      money: levelWithDefeat.onWin.money,
+    });
   });
 
   it('GDR validation', () => {
@@ -816,38 +828,53 @@ describe('MISSION: examples', () => {
   it('Effect lists of Consequences', () => {
     // EFFECT, Effect list format; ECON, Money and funding Effect kinds; ENDING, Panic Effect kind: a `panic` Effect of
     // -1 is a Panic reduction of 1.00, held as 100 hundredths, and an Effect kind the list does not hold changes
-    // nothing, e.g. `apprehend_member`'s `on_win` holds no `panic` Effect. The Bootstrap values:
+    // nothing, e.g. `apprehend_member`'s `on_win` holds no `panic` Effect. Test Effect lists:
     const site = (catalog: GdrCatalog, id: string) =>
       catalog.missionSiteArchetypes.find((item) => item.id === id)!;
     const level = (catalog: GdrCatalog, value: number) =>
       catalog.factionOperationLevels.find((item) => item.level === value)!;
-    expect(site(bootstrap, 'raid_safehouse').onWin).toEqual({
+    const lists = catalogWith((raw) => {
+      raw.get('raid_safehouse')['on_win'] = [
+        effect('money', 200),
+        effect('funding', 10),
+        effect('panic', -1),
+      ];
+      raw.get('raid_hq')['on_win'] = [effect('money', 10_000), effect('funding', 200), effect('panic', -20)];
+      raw.get('apprehend_member')['on_win'] = [effect('money', 10)];
+      raw.get('operation_level_1')['on_win'] = [effect('money', 50)];
+      raw.get('operation_level_1')['on_ignored_or_lost'] = [effect('panic', 1)];
+      raw.get('operation_level_2')['on_win'] = [effect('money', 200), effect('funding', 10)];
+      raw.get('operation_level_2')['on_ignored_or_lost'] = [effect('panic', 2), effect('funding', -5)];
+      raw.get('operation_level_5')['on_win'] = [effect('money', 10_000), effect('funding', 80)];
+      raw.get('operation_level_5')['on_ignored_or_lost'] = [effect('defeat', true)];
+    });
+    expect(site(lists, 'raid_safehouse').onWin).toEqual({
       money: 200,
       funding: 10,
       panicReductionHundredths: 100,
       eliminateTargetFaction: false,
     });
-    expect(site(bootstrap, 'raid_hq').onWin).toEqual({
+    expect(site(lists, 'raid_hq').onWin).toEqual({
       money: 10_000,
       funding: 200,
       panicReductionHundredths: 2000,
       eliminateTargetFaction: false,
     });
-    expect(site(bootstrap, 'apprehend_member').onWin).toEqual({
+    expect(site(lists, 'apprehend_member').onWin).toEqual({
       money: 10,
       funding: 0,
       panicReductionHundredths: 0,
       eliminateTargetFaction: false,
     });
-    expect(level(bootstrap, 1)).toMatchObject({
+    expect(level(lists, 1)).toMatchObject({
       onWin: { money: 50, funding: 0 },
       onIgnoredOrLost: { panicIncreaseHundredths: 100, funding: 0, defeat: false },
     });
-    expect(level(bootstrap, 2)).toMatchObject({
+    expect(level(lists, 2)).toMatchObject({
       onWin: { money: 200, funding: 10 },
       onIgnoredOrLost: { panicIncreaseHundredths: 200, funding: -5, defeat: false },
     });
-    expect(level(bootstrap, 5)).toMatchObject({
+    expect(level(lists, 5)).toMatchObject({
       onWin: { money: 10000, funding: 80 },
       onIgnoredOrLost: { panicIncreaseHundredths: 0, funding: 0, defeat: true },
     });

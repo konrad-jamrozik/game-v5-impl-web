@@ -15,6 +15,7 @@ import {
   agent,
   agentIds,
   combatEnemy,
+  currentHealthOf,
   gdrs,
   newCampaign,
   setCurrentHealth,
@@ -82,8 +83,10 @@ describe('REUSE: the incapacitation condition read by deployAgents', () => {
   it('an Agent with health lost is not Fit to start work, whatever its exhaustion', () => {
     const base = withAgents(newCampaign({ money: 2000 }), 1);
     const [a1] = agentIds(base) as [string];
+    // One point of health lost, whatever the max health the Game build gives an Agent.
     const state = tweak(base, (world) => {
-      setCurrentHealth(world.agents[a1]!.state, 1000);
+      const fresh = world.agents[a1]!.state;
+      setCurrentHealth(fresh, currentHealthOf(fresh) - 100);
     });
     const hurt = agent(state, a1).state;
     expect(hurt.healthLostHundredths).toBeGreaterThan(0);
