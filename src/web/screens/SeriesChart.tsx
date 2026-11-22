@@ -6,6 +6,8 @@
  */
 import { useState } from 'react';
 import { readoutText, type Bar, type Series } from '../agency-charts.ts';
+import { lastTurnsFrom, useLastTurns } from '../chart-range.ts';
+import { LastTurnsCheckbox } from './LastTurnsCheckbox.tsx';
 
 export interface LineSeries extends Series {
   readonly points: readonly { readonly turn: number; readonly value: number }[];
@@ -27,6 +29,20 @@ function roundUp(value: number): number {
 
 const sum = (values: readonly number[]) => values.reduce((total, value) => total + value, 0);
 
+/**
+ * VIS, Charts: the dot that marks a line's latest point, 7 px across on screen however wide the chart is drawn: a
+ * point of a 7 px round-capped stroke that keeps its width in screen pixels.
+ */
+export function ChartDot(props: { x: number; y: number; color?: string; className?: string }) {
+  return (
+    <path
+      className={props.className ?? 'chart-point'}
+      d={`M${props.x.toFixed(1)},${props.y.toFixed(1)}h0`}
+      style={props.color === undefined ? undefined : { stroke: props.color }}
+    />
+  );
+}
+
 export function SeriesChart(props: {
   title: string;
   /** The bar series, those stacked above the baseline first, then those below it. */
@@ -37,9 +53,21 @@ export function SeriesChart(props: {
   total?: boolean;
   testId?: string;
 }) {
-  const bars = props.bars ?? [];
+  const [lastOnly, setLastOnly] = useLastTurns(props.testId ?? props.title);
+  // VIS, Charts: while the Last 100 Turns checkbox is checked, only the last 100 of the Turns it would show.
+  const from = lastTurnsFrom(
+    [
+      ...(props.bars ?? []).map((bar) => bar.turn),
+      ...(props.lines ?? []).flatMap((line) => line.points.map((p) => p.turn)),
+    ],
+    lastOnly,
+  );
+  const bars = (props.bars ?? []).filter((bar) => bar.turn >= from);
   const barSeries = props.barSeries ?? [];
-  const lines = props.lines ?? [];
+  const lines = (props.lines ?? []).map((line) => ({
+    ...line,
+    points: line.points.filter((p) => p.turn >= from),
+  }));
   const [hover, setHover] = useState<number | null>(null);
   const turns = [...bars.map((bar) => bar.turn), ...lines.flatMap((line) => line.points.map((p) => p.turn))];
   const legend = [
@@ -49,6 +77,7 @@ export function SeriesChart(props: {
   const caption = (
     <figcaption>
       <h4>{props.title}</h4>
+      <LastTurnsCheckbox chart={props.testId ?? props.title} on={lastOnly} onChange={setLastOnly} />
       <ul className="chart-legend">
         {legend.map((series) => (
           <li key={series.name}>
@@ -207,12 +236,14 @@ export function SeriesChart(props: {
           const path = line.points
             .map((p, index) => `${index === 0 ? 'M' : 'L'}${cx(p.turn).toFixed(1)},${at(p.value).toFixed(1)}`)
             .join(' ');
+          // VIS, Charts: a line over stacked bars has a 4 px Background outline beneath its 2 px line, and the line,
+          // its outline, and its dot are drawn at 50% opacity.
+          const overBars = bars.length > 0;
           return (
-            <g key={line.name}>
-              {/* VIS, Charts: a line over stacked bars has a 4 px Background outline beneath its 2 px line. */}
-              {bars.length === 0 ? null : <path className="chart-series-outline" d={path} />}
+            <g key={line.name} opacity={overBars ? 0.5 : undefined} data-testid="chart-series-line">
+              {overBars ? <path className="chart-series-outline" d={path} /> : null}
               <path className="chart-series-line" d={path} style={{ stroke: line.color }} />
-              <circle cx={cx(latest.turn)} cy={at(latest.value)} r={4} fill={line.color} />
+              <ChartDot x={cx(latest.turn)} y={at(latest.value)} color={line.color} />
             </g>
           );
         })}

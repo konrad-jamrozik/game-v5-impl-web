@@ -5,6 +5,9 @@
  * below the line, and marks its losing limit with a line and a band.
  */
 import { useState } from 'react';
+import { lastTurnsFrom, useLastTurns } from '../chart-range.ts';
+import { LastTurnsCheckbox } from './LastTurnsCheckbox.tsx';
+import { ChartDot } from './SeriesChart.tsx';
 
 export interface Point {
   readonly turn: number;
@@ -37,7 +40,16 @@ export function LineChart(props: {
   valueText?: (value: number) => string;
   testId?: string;
 }) {
-  const { points } = props;
+  const [lastOnly, setLastOnly] = useLastTurns(props.testId ?? props.title);
+  // VIS, Charts: while the Last 100 Turns checkbox is checked, only the last 100 of the Turns it would show.
+  const from = lastTurnsFrom(
+    props.points.map((point) => point.turn),
+    lastOnly,
+  );
+  const points = props.points.filter((point) => point.turn >= from);
+  const checkbox = (
+    <LastTurnsCheckbox chart={props.testId ?? props.title} on={lastOnly} onChange={setLastOnly} />
+  );
   const text = props.valueText ?? String;
   const [hover, setHover] = useState<number | null>(null);
   const headline = props.headline === true;
@@ -51,6 +63,7 @@ export function LineChart(props: {
       <figure className={className} data-testid={props.testId}>
         <figcaption>
           <h4>{props.title}</h4>
+          {checkbox}
         </figcaption>
         <p className="muted small">No ended Turn yet.</p>
       </figure>
@@ -76,6 +89,7 @@ export function LineChart(props: {
     <figure className={className} data-testid={props.testId}>
       <figcaption>
         <h4>{props.title}</h4>
+        {checkbox}
         <span className="chart-value">
           {shown === null ? (
             <>
@@ -168,7 +182,7 @@ export function LineChart(props: {
         <path className="chart-area" d={area} />
         <path className="chart-line" d={line} />
         {shown === null ? (
-          <circle className="chart-dot" cx={x(last.turn)} cy={y(last.value)} r={4} />
+          <ChartDot className="chart-dot" x={x(last.turn)} y={y(last.value)} />
         ) : (
           <>
             <line
@@ -178,7 +192,7 @@ export function LineChart(props: {
               y1={PAD.top}
               y2={height - PAD.bottom}
             />
-            <circle className="chart-dot" cx={x(shown.turn)} cy={y(shown.value)} r={4} />
+            <ChartDot className="chart-dot" x={x(shown.turn)} y={y(shown.value)} />
           </>
         )}
       </svg>

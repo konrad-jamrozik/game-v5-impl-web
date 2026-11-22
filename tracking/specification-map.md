@@ -186,6 +186,8 @@ No files.
 - tests/web/lead-completion.test.ts
 - src/web/screens/DeveloperDrawer.tsx
 - src/web/screens/SituationPanel.tsx
+- src/web/side-panel.ts
+- tests/web/chart-range.test.ts
 
 ## CSTATE: Campaign State
 
@@ -216,6 +218,9 @@ No files.
 - src/web/screens/SeriesChart.tsx
 - tests/web/agency-charts.test.ts
 - tests/mechanics/combat-strength-values.test.ts
+- src/web/chart-range.ts
+- src/web/screens/LastTurnsCheckbox.tsx
+- tests/web/chart-range.test.ts
 
 ## DCONV: Design Specification Conventions
 
@@ -866,6 +871,9 @@ No files.
 - tests/web/undo-redo.test.ts
 - src/web/agency-charts.ts
 - src/web/screens/SeriesChart.tsx
+- src/web/chart-range.ts
+- src/web/screens/LastTurnsCheckbox.tsx
+- tests/web/chart-range.test.ts
 
 ## WHIST: History and Turn Report
 

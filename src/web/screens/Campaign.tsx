@@ -19,6 +19,7 @@ import {
 } from '../view-trail.ts';
 import { SOUND } from '../sounds.ts';
 import { autopilotSettings } from '../autopilot-controls.ts';
+import { setSidePanelHidden, useSidePanelHidden } from '../side-panel.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
@@ -68,6 +69,7 @@ const SHORTCUTS: readonly {
     keys: ['Esc'],
     what: 'Close the topmost open view, or go back to the place a Detail view was reached from',
   },
+  { keys: ['V'], what: 'Hide or show the Side panel' },
   { keys: ['1', '8'], between: 'to', what: 'Open or close a Detail view' },
   { keys: ['H'], what: 'Hire an Agent' },
   { keys: ['S', 'C', 'T'], what: 'Assign the selected Agents to Standby, Contracting, or Training' },
@@ -110,6 +112,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const [drawer, setDrawer] = useState(false);
   const [help, setHelp] = useState(false);
   const [settings, setSettings] = useState(false);
+  // CSCR, Hiding the Side panel.
+  const sidePanelHidden = useSidePanelHidden();
   const [autosaves, setAutosaves] = useState<AutosaveStatus | null>(null);
   /**
    * GUI, Turn summary: the Turn ended by the Advance turn the Player requested through this screen, until the Player
@@ -374,6 +378,10 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             close();
           }
         }
+      } else if (key === 'v') {
+        // CSCR, Hiding the Side panel: the V key hides or shows it wherever the Player is on the Campaign screen.
+        playSound(SOUND.select);
+        setSidePanelHidden(!sidePanelHidden);
       } else if (key === 'a') {
         // SOUNDS, Select click: the key selects as Select all does, so it plays `select-click`.
         playSound(SOUND.select);
@@ -587,7 +595,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         </div>
       )}
 
-      <div className="campaign-body">
+      <div className={sidePanelHidden ? 'campaign-body side-hidden' : 'campaign-body'}>
         <main className="globe-stage" data-testid="globe-stage">
           <Globe covered={open !== null} />
           {open === null ? null : (
@@ -612,63 +620,100 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           )}
         </main>
 
-        <aside className="side-panel" aria-label="Side panel">
-          <nav className="side-nav">
-            {DETAIL_VIEW_GROUPS.map((group) => (
-              <div key={group.name} className="nav-group">
-                <span className="label">{group.name}</span>
-                <div className="nav-buttons">
-                  {group.views.map((view) => {
-                    const count = counts[view.id];
-                    const index = DETAIL_VIEWS.findIndex((item) => item.id === view.id) + 1;
-                    return (
+        {sidePanelHidden ? (
+          // CSCR, Hiding the Side panel: a strip along the right edge holds the button that shows it again.
+          <aside className="side-strip" aria-label="Side panel hidden">
+            <button
+              type="button"
+              className="btn side-toggle"
+              aria-label="Show the Side panel"
+              title="Show the Side panel (V)"
+              data-testid="show-side-panel"
+              data-sound="select"
+              onClick={() => {
+                setSidePanelHidden(false);
+              }}
+            >
+              «
+            </button>
+          </aside>
+        ) : (
+          <aside className="side-panel" aria-label="Side panel">
+            <nav className="side-nav">
+              {DETAIL_VIEW_GROUPS.map((group, groupIndex) => (
+                <div key={group.name} className="nav-group">
+                  <div className="nav-group-head">
+                    <span className="label">{group.name}</span>
+                    {/* CSCR, Hiding the Side panel: the » button at the right end of the Operations line. */}
+                    {groupIndex === 0 ? (
                       <button
-                        key={view.id}
                         type="button"
-                        className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
-                        aria-pressed={open?.id === view.id}
-                        data-sound={open?.id === view.id ? 'back' : 'main'}
-                        title={`Shortcut: ${index}`}
-                        data-testid={`nav-${view.id}`}
+                        className="btn side-toggle"
+                        aria-label="Hide the Side panel"
+                        title="Hide the Side panel (V)"
+                        data-testid="hide-side-panel"
+                        data-sound="select"
                         onClick={() => {
-                          toggleView(view.id);
+                          setSidePanelHidden(true);
                         }}
                       >
-                        <span>{view.name}</span>
-                        {count === undefined || count === 0 ? null : <span className="count">{count}</span>}
+                        »
                       </button>
-                    );
-                  })}
+                    ) : null}
+                  </div>
+                  <div className="nav-buttons">
+                    {group.views.map((view) => {
+                      const count = counts[view.id];
+                      const index = DETAIL_VIEWS.findIndex((item) => item.id === view.id) + 1;
+                      return (
+                        <button
+                          key={view.id}
+                          type="button"
+                          className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
+                          aria-pressed={open?.id === view.id}
+                          data-sound={open?.id === view.id ? 'back' : 'main'}
+                          title={`Shortcut: ${index}`}
+                          data-testid={`nav-${view.id}`}
+                          onClick={() => {
+                            toggleView(view.id);
+                          }}
+                        >
+                          <span>{view.name}</span>
+                          {count === undefined || count === 0 ? null : <span className="count">{count}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+              ))}
+            </nav>
+
+            <SituationPanel state={state} leads={leads} onShow={show} />
+
+            <footer className="side-footer">
+              {/* CSCR, Autopilot settings: while Autopilot controls shown is off, the footer holds only its bottom row. */}
+              {autopilotSettings(snapshot.configuration.settings).shown ? (
+                <AutopilotBar snapshot={snapshot} />
+              ) : null}
+              {/* CSCR, Side panel: the bottom row holds the Music control and, at its right end, the Settings button. */}
+              <div className="side-footer-row">
+                <MusicControl snapshot={snapshot} />
+                <button
+                  type="button"
+                  className="btn btn-plain settings-button"
+                  aria-label="Settings"
+                  title="Settings"
+                  data-testid="open-settings"
+                  onClick={() => {
+                    setSettings(true);
+                  }}
+                >
+                  <Cogwheel />
+                </button>
               </div>
-            ))}
-          </nav>
-
-          <SituationPanel state={state} leads={leads} onShow={show} />
-
-          <footer className="side-footer">
-            {/* CSCR, Autopilot settings: while Autopilot controls shown is off, the footer holds only its bottom row. */}
-            {autopilotSettings(snapshot.configuration.settings).shown ? (
-              <AutopilotBar snapshot={snapshot} />
-            ) : null}
-            {/* CSCR, Side panel: the bottom row holds the Music control and, at its right end, the Settings button. */}
-            <div className="side-footer-row">
-              <MusicControl snapshot={snapshot} />
-              <button
-                type="button"
-                className="btn btn-plain settings-button"
-                aria-label="Settings"
-                title="Settings"
-                data-testid="open-settings"
-                onClick={() => {
-                  setSettings(true);
-                }}
-              >
-                <Cogwheel />
-              </button>
-            </div>
-          </footer>
-        </aside>
+            </footer>
+          </aside>
+        )}
       </div>
 
       {settings ? (

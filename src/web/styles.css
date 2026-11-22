@@ -1570,8 +1570,26 @@ summary {
   fill: none;
 }
 
-.chart-dot {
-  fill: var(--text);
+/* VIS, Charts: a dot 7 px across on screen, however wide the chart is drawn: a point of a round-capped stroke. */
+.chart-dot,
+.chart-point {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 7;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* VIS, Charts: the Last 100 Turns checkbox at the right end of the title row, before the legend or value. */
+.chart-last-turns {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .chart-headline .chart-line {
@@ -1583,7 +1601,7 @@ summary {
 }
 
 .chart-headline .chart-dot {
-  fill: var(--accent);
+  stroke: var(--accent);
 }
 
 .chart-cross {
@@ -1946,6 +1964,38 @@ label:has(> input[type='checkbox']:disabled) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* CSCR, Hiding the Side panel: the group name with, on the Operations line, the » button at its right end. */
+.nav-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+}
+
+.side-toggle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+/* CSCR, Hiding the Side panel: while hidden, a 44 px strip with the « button takes the Side panel's place. */
+.campaign-body.side-hidden {
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+.side-strip {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+  background: var(--surface);
+  border-left: 1px solid var(--divider);
 }
 
 .nav-buttons {
