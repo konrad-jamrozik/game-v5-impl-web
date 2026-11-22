@@ -168,6 +168,32 @@ export function skillBands(
   return { series, bars };
 }
 
+/** VIS, Chart series colours: the three lines over the Agents by effective skill chart. */
+const WORN_COLORS = { recovering: '#FF4D4D', aboveWorkLimit: '#FF9A2E', aboveFreePoints: '#FFE14D' } as const;
+
+/**
+ * CVIEW, Agency charts, Agents by effective skill: the lines over the bars, of the Serving Agents of each Turn-end
+ * state that are recovering, whose exhaustion is above `exhaustion_work_limit`, and whose exhaustion is above
+ * `exhaustion_free_points`, named with those thresholds, e.g. "Exhaustion > 70" and "Exhaustion > 30".
+ */
+export function wornLines(
+  entries: readonly HistoryEntry[],
+  open: OpenHistoryEntry | null,
+  thresholds: { readonly workLimit: number; readonly freePoints: number },
+): (Series & { readonly points: { turn: number; value: number }[] })[] {
+  const ends = turnEnds(entries, open);
+  const line = (key: keyof StateSummary['wornAgents'], name: string) => ({
+    name,
+    color: WORN_COLORS[key],
+    points: ends.map(({ turn, summary }) => ({ turn, value: summary.wornAgents[key] })),
+  });
+  return [
+    line('recovering', 'Recovering'),
+    line('aboveWorkLimit', `Exhaustion > ${thresholds.workLimit}`),
+    line('aboveFreePoints', `Exhaustion > ${thresholds.freePoints}`),
+  ];
+}
+
 /** The creation count that ends an Instance ID, e.g. 12 for `mission-site-12`; see CINST, Campaign instance identity. */
 function creationCount(id: string): number {
   return Number(id.slice(id.lastIndexOf('-') + 1));

@@ -60,6 +60,27 @@ describe('MISSION: Deployable Agents and Combat ratings', () => {
     expect(views.get(tired)?.deployable).toBe(false);
   });
 
+  it('the History entry counts the Agents recovering and above each exhaustion threshold (AGENT, Turn report)', () => {
+    const start = withAgents(newCampaign(), 4);
+    const [recovering, worn, tired] = agentIds(start) as [string, string, string];
+    const assigned = setAssignment(start, [recovering], 'Recovery');
+    const { exhaustionFreePoints, exhaustionWorkLimit } = gdrs.agentParameters;
+    const state = tweak(assigned, (world) => {
+      world.agents[recovering]!.state.healthLostHundredths = 100;
+      // Exactly at a threshold is not above it.
+      world.agents[worn]!.state.exactExhaustionHundredths = (exhaustionFreePoints + 1) * 100;
+      world.agents[tired]!.state.exactExhaustionHundredths = (exhaustionWorkLimit + 1) * 100;
+      for (const id of agentIds(start).slice(3)) {
+        world.agents[id]!.state.exactExhaustionHundredths = exhaustionFreePoints * 100;
+      }
+    });
+    expect(historyView(state, gdrs).openEntry.turnEnd.wornAgents).toEqual({
+      recovering: 1,
+      aboveWorkLimit: 1,
+      aboveFreePoints: 2,
+    });
+  });
+
   it('the History entry and the Open History entry hold the Combat ratings of the Serving and Deployable Agents', () => {
     const start = newCampaign({ money: 500 });
     const { state: withSite, site } = addMissionSite(start, 'apprehend_member');

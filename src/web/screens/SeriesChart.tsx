@@ -209,6 +209,8 @@ export function SeriesChart(props: {
             .join(' ');
           return (
             <g key={line.name}>
+              {/* VIS, Charts: a line over stacked bars has a 4 px Background outline beneath its 2 px line. */}
+              {bars.length === 0 ? null : <path className="chart-series-outline" d={path} />}
               <path className="chart-series-line" d={path} style={{ stroke: line.color }} />
               <circle cx={cx(latest.turn)} cy={at(latest.value)} r={4} fill={line.color} />
             </g>

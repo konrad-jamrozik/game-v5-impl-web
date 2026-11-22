@@ -491,6 +491,15 @@ export interface StateSummary {
   readonly servingCombatRating: number;
   /** MISSION, Turn report: the Combat rating of every Deployable Agent taken as one side. */
   readonly deployableCombatRating: number;
+  /**
+   * AGENT, Turn report: the Serving Agents whose Assignment is Recovery, Recovering or In transit; those whose
+   * exhaustion is above `exhaustion_work_limit`; and those whose exhaustion is above `exhaustion_free_points`.
+   */
+  readonly wornAgents: {
+    readonly recovering: number;
+    readonly aboveWorkLimit: number;
+    readonly aboveFreePoints: number;
+  };
   /** ECON, Turn report: the Agency caps. */
   readonly caps: { readonly agentCap: number; readonly transportCap: number; readonly trainingCap: number };
 }

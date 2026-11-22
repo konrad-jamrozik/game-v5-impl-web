@@ -16,6 +16,7 @@ import {
   moneyFlow,
   NET_FLOW,
   skillBands,
+  wornLines,
 } from '../agency-charts.ts';
 import { responseSitesSeries } from '../faction-activity.ts';
 import { decimalText } from '../format.ts';
@@ -38,6 +39,12 @@ function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
   );
   const flow = moneyFlow(entries, moneyAtStart, capUpgrades);
   const skills = skillBands(entries, open);
+  // CVIEW, Agents by effective skill: the thresholds of its exhaustion lines come from AgentParameters.
+  const parameters = snapshot.gameData?.agentParameters ?? {};
+  const worn = wornLines(entries, open, {
+    workLimit: parameters['exhaustionWorkLimit'] ?? 70,
+    freePoints: parameters['exhaustionFreePoints'] ?? 30,
+  });
   const assets = assetLines(entries, open, moneyAtStart);
   const strength = combatStrength(entries, open, [
     ...(snapshot.state?.missionSites ?? []),
@@ -74,6 +81,7 @@ function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
         title="Agents by effective skill · end of Turn"
         barSeries={skills.series}
         bars={skills.bars}
+        lines={worn}
         total
         testId="skill-chart"
       />

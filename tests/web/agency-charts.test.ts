@@ -9,7 +9,31 @@ import {
   moneyFlow,
   readoutText,
   skillBands,
+  wornLines,
 } from '../../src/web/agency-charts.ts';
+
+describe('CVIEW: the lines over Agents by effective skill', () => {
+  it('count the Agents recovering and above each exhaustion threshold, named with the thresholds', () => {
+    const worn = (recovering: number, aboveWorkLimit: number, aboveFreePoints: number) =>
+      summary({ wornAgents: { recovering, aboveWorkLimit, aboveFreePoints } });
+    const lines = wornLines(
+      [entry(1, { turnEnd: worn(1, 0, 2) }), entry(2, { turnEnd: worn(2, 1, 3) })],
+      { turn: 3, turnEnd: worn(0, 0, 1) } as unknown as OpenHistoryEntry,
+      { workLimit: 70, freePoints: 30 },
+    );
+    expect(lines.map((line) => [line.name, line.color])).toEqual([
+      ['Recovering', '#FF4D4D'],
+      ['Exhaustion > 70', '#FF9A2E'],
+      ['Exhaustion > 30', '#FFE14D'],
+    ]);
+    expect(lines[0]!.points).toEqual([
+      { turn: 1, value: 1 },
+      { turn: 2, value: 2 },
+      { turn: 3, value: 0 },
+    ]);
+    expect(lines[2]!.points.map((point) => point.value)).toEqual([2, 3, 1]);
+  });
+});
 
 const summary = (over: Partial<StateSummary> = {}): StateSummary => ({
   money: 0,
@@ -30,6 +54,7 @@ const summary = (over: Partial<StateSummary> = {}): StateSummary => ({
   effectiveSkills: [],
   servingCombatRating: 0,
   deployableCombatRating: 0,
+  wornAgents: { recovering: 0, aboveWorkLimit: 0, aboveFreePoints: 0 },
   caps: { agentCap: 20, transportCap: 8, trainingCap: 10 },
   ...over,
 });

@@ -1639,6 +1639,15 @@ summary {
   stroke-linecap: round;
 }
 
+/* VIS, Charts: the 4 px Background outline beneath a line drawn over stacked bars. */
+.chart-series-outline {
+  fill: none;
+  stroke: var(--background);
+  stroke-width: 4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
 .chart-hover {
   fill: var(--raised);
   opacity: 0.6;
@@ -2259,8 +2268,9 @@ label:has(> input[type='checkbox']:disabled) {
   margin: 0 auto 0 0;
 }
 
-/* A text aside, e.g. "2 Active", shares the title's baseline, so that it sits on the title's line rather than above
-   the capitals' centre; the cap figures of the Agents View centre on the line instead. */
+/* VIS, Detail views and navigation; MVIEW: a text aside, e.g. "2 Active", is centred on the title's line, i.e. the
+   middle of its 14 px figures sits at the middle of the title's 22 px capitals: from the shared baseline it is raised
+   by half the difference of their heights, 3 px. The cap figures of the Agents View centre on the line instead. */
 .detail-head h2 {
   display: flex;
   align-items: baseline;
@@ -2269,8 +2279,14 @@ label:has(> input[type='checkbox']:disabled) {
   line-height: 36px;
 }
 
+.detail-head h2 > .detail-aside {
+  position: relative;
+  top: -3px;
+}
+
 .detail-head h2 > .detail-aside:has(.cap-figures) {
   align-self: center;
+  top: 0;
 }
 
 .detail-lead {

@@ -1772,17 +1772,20 @@
 - **Why:** A half-typed number, e.g. "1" on the way to "100", must not become the setting.
 - **Links:** PROB-054
 
-## DEC-087: The Detail view title row holds a lead slot after the title, and a text aside shares the title's baseline
+## DEC-087: The Detail view title row holds a lead slot after the title, and a text aside centres its figures on the title's capitals
 
 - **Category:** Gap resolution
 - **Affected specifications:** VIS, Detail views and navigation; MVIEW, Mission site list: the Finished toggle after
-  the number of Active Mission sites; TRVIEW, Turn summary button; AVIEW, Header.
+  the number of Active Mission sites, "centred on the title's line"; TRVIEW, Turn summary button; AVIEW, Header.
 - **Description:** The Detail view frame takes, besides its aside, a lead slot of controls right after the title and
   the aside, which holds the Finished toggle of the Missions View and the Turn summary button of the Turn Report View.
-  A text aside, e.g. "2 Active", shares the title's baseline, so that it sits on the title's line; the cap figures of
-  the Agents View stand 40 px after the title and 40 px apart, centred on the title's line.
-- **Options considered:** Centring the aside's box on the title's line; sharing the title's baseline.
-- **Option chosen:** Sharing the title's baseline.
-- **Why:** A small figure whose box is centred on the 36 px line reads above the title's capitals, which the Game
-  designer saw as too high.
+  A text aside, e.g. "2 Active", shares the title's baseline and is raised 3 px from it, half the difference between
+  the height of its 14 px figures and of the title's 22 px capitals, so that the middle of its figures sits at the
+  middle of the capitals; the cap figures of the Agents View stand 40 px after the title and 40 px apart, centred on
+  the title's line.
+- **Options considered:** Centring the aside's box on the title's line; sharing the title's baseline; sharing it and
+  raising the aside to centre its figures on the capitals.
+- **Option chosen:** Sharing the baseline and raising the aside by 3 px.
+- **Why:** A box centred on the 36 px line reads above the title's capitals, and a shared baseline reads below their
+  middle; the Game designer saw both as misaligned.
 - **Links:** PROB-054
