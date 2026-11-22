@@ -808,6 +808,7 @@ No files.
 ## VIS: Visual Design
 
 - index.html
+- tests/web/chart-strokes.test.ts
 - src/web/tally.ts
 - tests/web/tally.test.ts
 - src/web/styles.css
