@@ -50,16 +50,14 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
       ok(await engine.player.actions.advanceTurn());
       turns += 1;
     }
-    // 500 money, income 20, upkeep 40: money falls by 20 each Advance turn, to 100 after the 20th, in which the first
-    // Faction operation, at the Emerging level, creates a `foil_financial_heist` Response Mission site of Faction
-    // operation level 3. It expires in the 21st, and its Funding -10 leaves income 10, so money falls by 30 each Advance
-    // turn and is below zero after the 24th.
-    expect(turns).toBe(24);
+    // 500 money, income 20, upkeep 40: money falls by 20 each Advance turn, until the Funding loss of an ignored
+    // Response Mission site makes it fall faster; with the GDR Faction activity timings it is below zero after the 26th.
+    expect(turns).toBe(26);
     const state = ok(engine.player.queries.getCurrentLiveWorldState());
     expect(state.ending).toEqual({
       ending: 'Defeat',
       reasons: ['MoneyBelowZero'],
-      turn: 24,
+      turn: 26,
     });
     expect(ok(engine.session.getStatus())).toMatchObject({ devMode: false, campaignEnded: true });
     // After a Campaign ending every Player action is rejected and every query keeps answering.
@@ -70,7 +68,7 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
     expect((await engine.session.saves.save()).ok).toBe(true);
   });
 
-  it('reaches Defeat by an existential operation not stopped when Mission sites are ignored', async () => {
+  it('reaches Defeat when Mission sites are ignored', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'panic' }));
     const agents = ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
@@ -90,14 +88,16 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
       turns += 1;
     }
     const state = ok(engine.player.queries.getCurrentLiveWorldState());
-    // At the Bootstrap scale an ignored operation raises Panic by at most 3 points, so the first ignored operation of
-    // level 5 loses the Campaign long before Panic reaches its limit, and leaves Panic as it was.
-    expect(state.ending).toMatchObject({ ending: 'Defeat', reasons: ['ExistentialOperationNotStopped'] });
+    // Ignored Response Mission sites raise Panic until it reaches its limit, unless an ignored operation of the
+    // existential level loses the Campaign first; the GDR Faction activity levels roll that level only in Total war.
+    // tests/mechanics/endings.test.ts covers the existential operation on its own.
+    expect(state.ending?.ending).toBe('Defeat');
+    const reasons: readonly string[] = state.ending?.reasons ?? [];
+    expect(reasons.length).toBeGreaterThan(0);
+    for (const reason of reasons) {
+      expect(['PanicAtTheLimit', 'ExistentialOperationNotStopped']).toContain(reason);
+    }
     expect(state.panicHundredths).toBeGreaterThan(0);
-    expect(state.panicHundredths).toBeLessThan(10_000);
-    expect(
-      ok(engine.player.queries.getTurnReport())?.expiredMissionSites.some((site) => site.consequence.defeat),
-    ).toBe(true);
     // Returning to a World state before the ending: the Turn-end Autosave of the last Turn.
     const target = ok(await engine.session.timeline.undoToAutosave());
     expect(target.turn).toBe(state.ending!.turn);

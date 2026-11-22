@@ -33,6 +33,8 @@
   --limit-band: rgb(229 72 77 / 12%);
   --accent-fill: rgb(255 122 26 / 14%);
   --scrim: rgb(13 13 11 / 72%);
+  /* VIS, Colours: Control backdrop. */
+  --control-backdrop: rgb(13 13 11 / 55%);
   --font-heading: 'Barlow Condensed', 'Arial Narrow', sans-serif;
   --font-body: 'Barlow', system-ui, sans-serif;
   --font-figure: 'JetBrains Mono', ui-monospace, Consolas, monospace;
@@ -511,11 +513,20 @@ input::placeholder {
   gap: 16px;
 }
 
-/* AVIEW, Row filters: the Hide checkboxes below the row filters, each label 8 px right of its box. */
+/* AVIEW, Row filters: the Hide checkboxes below the row filters, one above the other, each label 8 px right of its
+   box. */
 .hide-checks {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 2px;
+}
+
+/* VIS, Colours: Control backdrop, the fill behind a group of controls over a Background artwork. */
+.control-backdrop {
+  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--control-backdrop);
 }
 
 .hide-check {
@@ -700,6 +711,28 @@ input::placeholder {
   display: block;
   font-size: 13px;
   color: var(--text-muted);
+}
+
+/* GUI, Changed settings: one line per changed setting, each ending with its Reset button. */
+.settings-changed {
+  align-items: flex-start;
+}
+
+.changed-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 340px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changed-setting {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 .settings-music .music-control {
@@ -1386,6 +1419,18 @@ summary {
 
 .enemies-block > .sit-group-head {
   align-items: center;
+  gap: 24px;
+}
+
+/* MVIEW, Selected Mission site: one line per EnemyArchetype under the Enemies heading. */
+.enemy-lines {
+  border-top: 1px solid var(--border);
+  padding: 4px 8px 0;
+}
+
+.enemy-line {
+  font-size: 14px;
+  line-height: 1.9;
 }
 
 .deploy-figures {
@@ -2204,19 +2249,47 @@ label:has(> input[type='checkbox']:disabled) {
   padding: 18px 18px 12px;
 }
 
-.detail-head h2 {
+/* VIS, Detail views and navigation: the title, what the view says of what it shows, and the controls beside it, all
+   centred on the title's 36 px line. MVIEW and TRVIEW: the Finished toggle and the Turn summary button follow it. */
+.detail-title {
   align-self: flex-start;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   margin: 0 auto 0 0;
+}
+
+/* A text aside, e.g. "2 Active", shares the title's baseline, so that it sits on the title's line rather than above
+   the capitals' centre; the cap figures of the Agents View centre on the line instead. */
+.detail-head h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0;
   line-height: 36px;
 }
 
-/* VIS, Close controls: in a Detail view the close control ends the title row as one of its controls, on their centre
-   line and level with the controls of a group under a Label; the buttons end 8 px before it. */
+.detail-head h2 > .detail-aside:has(.cap-figures) {
+  align-self: center;
+}
+
+.detail-lead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* VIS, Detail views and navigation: the Back control and the close control always sit on the title's line, whatever
+   else the row holds; a taller group of controls ends 8 px before them and hangs below that line. */
+.detail-back {
+  align-self: flex-start;
+  display: flex;
+  margin-left: -4px;
+}
+
 .detail-head > .close-control {
   position: static;
+  align-self: flex-start;
   flex: 0 0 auto;
   margin-left: -4px;
 }
@@ -2232,12 +2305,13 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 /* AVIEW, Header: the free places under each cap side by side, each its Label above its free count and cap bar, the
-   two together as tall as the title's 36 px line and centred on it. */
+   two together as tall as the title's 36 px line and centred on it, 40 px after the title and 40 px apart. */
 .cap-figures {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 40px;
   height: 36px;
+  margin-left: 28px;
 }
 
 .cap-figure {

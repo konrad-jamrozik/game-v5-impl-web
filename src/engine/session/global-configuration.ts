@@ -13,7 +13,10 @@ export interface SettingDescriptor {
   isPermitted(value: unknown): value is SettingValue;
 }
 
-/** The complete set of Global configuration settings of this Game build; see DEC-011, MUSIC, Music settings, and SOUNDS, Sound settings. */
+/**
+ * The complete set of Global configuration settings of this Game build, in the order of the Global configuration table
+ * in CONFIG; see DEC-011, MUSIC, Music settings, SOUNDS, Sound settings, and CSCR, Autopilot settings.
+ */
 export const SETTINGS: readonly SettingDescriptor[] = [
   {
     setting: 'autosaveLimit',
@@ -60,6 +63,22 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     permitted: 'A whole number from 0 to 100',
     isPermitted: (value): value is SettingValue =>
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 100,
+  },
+  // CSCR, Autopilot settings: whether the Autopilot controls are shown, and the number of Turns of the Turns field.
+  {
+    setting: 'autopilotControlsShown',
+    name: 'Autopilot controls shown',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
+  {
+    setting: 'autopilotTurns',
+    name: 'Autopilot Turns',
+    gameBuildDefault: 10,
+    permitted: 'A whole number of at least 1',
+    isPermitted: (value): value is SettingValue =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 1,
   },
 ];
 

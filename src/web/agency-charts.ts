@@ -1,9 +1,15 @@
 /**
- * CVIEW, Agency charts: the per-Turn values of the four Agency charts, read from the History entries, the Open History
- * entry, and the Turn series of money, as AGENT, Turn report and ECON, Turn report declare them. Colours are the Chart
- * series colours of VIS.
+ * CVIEW, Agency charts: the per-Turn values of the five Agency charts, read from the History entries, the Open History
+ * entry, and the Turn series of money, as AGENT, Turn report, MISSION, Turn report, and ECON, Turn report declare
+ * them, and from the Creation Combat ratings of the Mission sites. Colours are the Chart series colours of VIS.
  */
-import type { HistoryEntry, OpenHistoryEntry, StateSummary, TurnSeriesValue } from '../engine/index.ts';
+import type {
+  HistoryEntry,
+  MissionSiteView,
+  OpenHistoryEntry,
+  StateSummary,
+  TurnSeriesValue,
+} from '../engine/index.ts';
 
 export interface Series {
   readonly name: string;
@@ -50,8 +56,69 @@ export const ASSET_SERIES = {
   trainingCap: { name: 'Training cap', color: '#E8C547' },
 } as const;
 
-const BAND_COLORS = ['#6A5ACD', '#4A86D9', '#2FB0B8', '#45BF6E', '#A3CC3F', '#E3C43A', '#F0913A', '#E8605A'];
+/** VIS, Chart series colours: skill bands 1 to 12, from the lowest. */
+const BAND_COLORS = [
+  '#6A5ACD',
+  '#4A86D9',
+  '#2FB0B8',
+  '#45BF6E',
+  '#A3CC3F',
+  '#E3C43A',
+  '#F0913A',
+  '#E8605A',
+  '#D94A8C',
+  '#B45AD6',
+  '#F2A6D8',
+  '#F4EFE6',
+];
 const BAND_WIDTH = 50;
+/** CVIEW, Agents by effective skill: twelve bands, eleven 50 wide and a last one of every effective skill from 550 up. */
+const BAND_COUNT = BAND_COLORS.length;
+
+export const COMBAT_BAR_SERIES: readonly Series[] = [
+  { name: 'Deployable Agents', color: '#4A86D9' },
+  { name: 'Other Agents', color: '#2E4E78' },
+];
+
+export const COMBAT_LINE_SERIES = {
+  lastSite: { name: 'Last Mission site', color: '#E8605A' },
+  lastFiveSites: { name: 'Last 5 Mission sites', color: '#E3C43A' },
+} as const;
+
+/**
+ * VIS, Charts: the line below a chart with a legend that reads the hovered Turn's values: "Turn" and its number, then
+ * each series with its value in legend order, the bar series first, those below the baseline as negative values,
+ * leaving out every series whose value is 0. With `total`, for a chart whose stacked bars all count one quantity above
+ * the baseline, the list starts with "Total" and the sum of the bar. A single space while no Turn is hovered, so that
+ * the line keeps its height.
+ */
+export function readoutText(input: {
+  readonly turn: number | null;
+  readonly barSeries: readonly Series[];
+  readonly bars: readonly Bar[];
+  readonly lines: readonly (Series & { readonly points: readonly { turn: number; value: number }[] })[];
+  readonly total?: boolean;
+}): string {
+  const { turn } = input;
+  if (turn === null) {
+    return ' ';
+  }
+  const bar = input.bars.find((item) => item.turn === turn);
+  const barValues = bar === undefined ? [] : [...bar.above, ...bar.below.map((value) => -value)];
+  const details = [
+    ...barValues.map((value, index) => ({ name: input.barSeries[index]?.name ?? '', value })),
+    ...input.lines.flatMap((line) => {
+      const point = line.points.find((p) => p.turn === turn);
+      return point === undefined ? [] : [{ name: line.name, value: point.value }];
+    }),
+  ].filter((detail) => detail.value !== 0);
+  const total =
+    input.total === true && bar !== undefined
+      ? [{ name: 'Total', value: bar.above.reduce((sum, value) => sum + value, 0) }]
+      : [];
+  const text = [...total, ...details].map((detail) => `${detail.name} ${String(detail.value)}`).join(' · ');
+  return `Turn ${String(turn)}:${text === '' ? '' : ` ${text}`}`;
+}
 
 /** The Turn-end part of every ended Turn, then the Current world state for the current Turn. */
 function turnEnds(
@@ -72,29 +139,80 @@ export function activityBars(entries: readonly HistoryEntry[], open: OpenHistory
 }
 
 /**
- * CVIEW, Agency charts, Agents by effective skill: the Serving Agents of each Turn-end state in bands 50 wide, from
- * 0–49 up to the highest band that holds an Agent in any Turn shown.
+ * CVIEW, Agency charts, Agents by effective skill: the Serving Agents of each Turn-end state in twelve bands, eleven
+ * 50 wide and a last one, "550+", from 0–49 up to the highest band that holds an Agent in any Turn shown.
  */
 export function skillBands(
   entries: readonly HistoryEntry[],
   open: OpenHistoryEntry | null,
 ): { series: Series[]; bars: Bar[] } {
   const ends = turnEnds(entries, open);
-  const highest = Math.max(0, ...ends.flatMap(({ summary }) => summary.effectiveSkills));
-  const count = Math.floor(highest / BAND_WIDTH) + 1;
+  const bandOf = (skill: number) => Math.min(BAND_COUNT - 1, Math.floor(skill / BAND_WIDTH));
+  const highest = Math.max(0, ...ends.flatMap(({ summary }) => summary.effectiveSkills.map(bandOf)));
+  const count = highest + 1;
   const series = Array.from({ length: count }, (_, band) => ({
-    name: `${band * BAND_WIDTH}–${band * BAND_WIDTH + BAND_WIDTH - 1}`,
-    color: BAND_COLORS[Math.min(band, BAND_COLORS.length - 1)] ?? '#E8605A',
+    name:
+      band === BAND_COUNT - 1
+        ? `${band * BAND_WIDTH}+`
+        : `${band * BAND_WIDTH}–${band * BAND_WIDTH + BAND_WIDTH - 1}`,
+    color: BAND_COLORS[band] ?? '#F4EFE6',
   }));
   const bars = ends.map(({ turn, summary }) => {
     const above = Array.from({ length: count }, () => 0);
     for (const skill of summary.effectiveSkills) {
-      const band = Math.floor(skill / BAND_WIDTH);
+      const band = bandOf(skill);
       above[band] = (above[band] ?? 0) + 1;
     }
     return { turn, above, below: [] };
   });
   return { series, bars };
+}
+
+/** The creation count that ends an Instance ID, e.g. 12 for `mission-site-12`; see CINST, Campaign instance identity. */
+function creationCount(id: string): number {
+  return Number(id.slice(id.lastIndexOf('-') + 1));
+}
+
+/**
+ * CVIEW, Agency charts, Combat strength: for each Turn, a bar of the Combat rating of the Deployable Agents and of the
+ * other Serving Agents in its Turn-end state, and lines of the Creation Combat rating of the last Mission site created
+ * and of the mean, rounded down, of the last five, over the Mission sites that exist in that Turn-end state, in their
+ * creation order. A Mission site exists in the Turn-end state of every Turn after the one whose Advance turn created
+ * it, i.e. of every Turn later than its Turn created, since only an Advance turn creates one. A Turn in which no
+ * Mission site exists has no point. `sites` holds every Mission site, live and Retired.
+ */
+export function combatStrength(
+  entries: readonly HistoryEntry[],
+  open: OpenHistoryEntry | null,
+  sites: readonly Pick<MissionSiteView, 'id' | 'turnCreated' | 'creationCombatRating'>[],
+): {
+  bars: Bar[];
+  lastSite: { turn: number; value: number }[];
+  lastFiveSites: { turn: number; value: number }[];
+} {
+  const ordered = [...sites].sort((a, b) => creationCount(a.id) - creationCount(b.id));
+  const ends = turnEnds(entries, open);
+  const bars = ends.map(({ turn, summary }) => ({
+    turn,
+    above: [summary.deployableCombatRating, summary.servingCombatRating - summary.deployableCombatRating],
+    below: [],
+  }));
+  const lastSite: { turn: number; value: number }[] = [];
+  const lastFiveSites: { turn: number; value: number }[] = [];
+  for (const { turn } of ends) {
+    const existing = ordered.filter((site) => site.turnCreated < turn);
+    const last = existing.at(-1);
+    if (last === undefined) {
+      continue;
+    }
+    const five = existing.slice(-5);
+    lastSite.push({ turn, value: last.creationCombatRating });
+    lastFiveSites.push({
+      turn,
+      value: Math.floor(five.reduce((total, site) => total + site.creationCombatRating, 0) / five.length),
+    });
+  }
+  return { bars, lastSite, lastFiveSites };
 }
 
 /**

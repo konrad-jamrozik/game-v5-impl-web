@@ -761,4 +761,23 @@
   no History entry lists it, and it was not discovered at campaign creation either. The Leads shown rule then gives it
   no place in the order.
 - **Links:** DEC-083
+- **Resolution:** Resolved in f8b5718c92547f6e7226911c6db24a49b0391877, which the Implementation follows since this
+  update: SITP no longer has a Leads group, so no Lead needs a place in its order.
+
+## PROB-054: Details of the Combat strength chart, the Changed settings row, the Autopilot Turns field, and the title row are left open
+
+- **Category:** Implicit gap
+- **Severity:** Low
+- **Affected specifications:** CVIEW, Agency charts, Combat strength; VIS, Charts, the readout line; GUI, Changed
+  settings; CSCR, Autopilot settings; VIS, Detail views and navigation; MVIEW, Mission site list: the number of Active
+  Mission sites "centred on the title's line"; MISSION, Glossary, Deployable Agent; MISSION, Mission site properties,
+  Creation Combat rating; MVIEW, Selected Mission site.
+- **Description:** The specifications settle what each of these shows but leave open details an Implementation must
+  choose: where the Combat strength chart reads the Mission sites of a Turn-end state from, and how the readout lists a
+  bar below the baseline or a Turn whose every value is 0; how the Changed settings row words an on/off setting and
+  whether it lists a stored value equal to the default; when the Turns field stores Autopilot Turns while the Player
+  types; how a text figure after the title sits on the title's line, where a box centred on the 36 px line reads above
+  the title's capitals; and through which Player API values the GUI and the Basic Autopilot AI read the Deployable
+  Agent, the Creation Combat rating, and the Combat rating of one Enemy, which no Player API specification names.
+- **Links:** DEC-084, DEC-085, DEC-086, DEC-087
 - **Resolution:** Open

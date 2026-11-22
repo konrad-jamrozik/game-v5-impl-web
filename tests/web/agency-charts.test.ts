@@ -1,7 +1,15 @@
 /** CVIEW, Agency charts. */
 import { describe, expect, it } from 'vite-plus/test';
 import type { HistoryEntry, OpenHistoryEntry, StateSummary } from '../../src/engine/index.ts';
-import { activityBars, assetLines, moneyFlow, skillBands } from '../../src/web/agency-charts.ts';
+import {
+  ACTIVITY_SERIES,
+  activityBars,
+  assetLines,
+  combatStrength,
+  moneyFlow,
+  readoutText,
+  skillBands,
+} from '../../src/web/agency-charts.ts';
 
 const summary = (over: Partial<StateSummary> = {}): StateSummary => ({
   money: 0,
@@ -20,6 +28,8 @@ const summary = (over: Partial<StateSummary> = {}): StateSummary => ({
     inTransit: 0,
   },
   effectiveSkills: [],
+  servingCombatRating: 0,
+  deployableCombatRating: 0,
   caps: { agentCap: 20, transportCap: 8, trainingCap: 10 },
   ...over,
 });
@@ -61,6 +71,70 @@ describe('CVIEW: Agency charts', () => {
     const { series, bars } = skillBands([], open);
     expect(series.map((band) => band.name)).toEqual(['0–49', '50–99', '100–149', '150–199', '200–249']);
     expect(bars).toEqual([{ turn: 7, above: [5, 0, 7, 0, 1], below: [] }]);
+  });
+
+  it('puts every effective skill from 550 up in the twelfth band, "550+", with the twelfth colour', () => {
+    const open: OpenHistoryEntry = {
+      turn: 3,
+      turnStart: summary(),
+      turnEnd: summary({ effectiveSkills: [549, 550, 900] }),
+      actions: [],
+    };
+    const { series, bars } = skillBands([], open);
+    expect(series).toHaveLength(12);
+    expect(series.at(-2)).toEqual({ name: '500–549', color: '#F2A6D8' });
+    expect(series.at(-1)).toEqual({ name: '550+', color: '#F4EFE6' });
+    expect(bars[0]?.above.slice(-2)).toEqual([1, 2]);
+  });
+
+  it('example: Combat strength stacks the Deployable and Other Agents and draws the last and last five Mission sites', () => {
+    const sites = [10, 20, 30, 40, 50, 61].map((rating, index) => ({
+      id: `mission-site-${index + 1}`,
+      // Mission sites 1 and 2 were created by the Advance turn of Turn 1, the others by that of Turn 2.
+      turnCreated: index < 2 ? 1 : 2,
+      creationCombatRating: rating,
+    }));
+    const result = combatStrength(
+      [
+        entry(1, { turnEnd: summary({ servingCombatRating: 300, deployableCombatRating: 120 }) }),
+        entry(2, { turnEnd: summary({ servingCombatRating: 310, deployableCombatRating: 310 }) }),
+      ],
+      {
+        turn: 3,
+        turnStart: summary(),
+        turnEnd: summary({ servingCombatRating: 280, deployableCombatRating: 200 }),
+        actions: [],
+      },
+      // Listed out of creation order, as the live and Retired Mission sites are.
+      [...sites.slice(3), ...sites.slice(0, 3)],
+    );
+    expect(result.bars).toEqual([
+      { turn: 1, above: [120, 180], below: [] },
+      { turn: 2, above: [310, 0], below: [] },
+      { turn: 3, above: [200, 80], below: [] },
+    ]);
+    // Turn 1 has no Mission site yet, so it has no point.
+    expect(result.lastSite).toEqual([
+      { turn: 2, value: 20 },
+      { turn: 3, value: 61 },
+    ]);
+    // ⌊(20 + 30 + 40 + 50 + 61) / 5⌋ = ⌊40.2⌋ = 40; Turn 2 averages the two that exist.
+    expect(result.lastFiveSites).toEqual([
+      { turn: 2, value: 15 },
+      { turn: 3, value: 40 },
+    ]);
+  });
+
+  it('example: the readout starts with the Total of the bar and leaves out every series whose value is 0', () => {
+    const bars = [{ turn: 94, above: [8, 6, 10, 0, 16, 0, 0], below: [] }];
+    expect(readoutText({ turn: 94, barSeries: ACTIVITY_SERIES, bars, lines: [], total: true })).toBe(
+      'Turn 94: Total 40 · Standby 8 · Training 6 · Contracting 10 · Deployed 16',
+    );
+    expect(readoutText({ turn: 94, barSeries: ACTIVITY_SERIES, bars, lines: [] })).toBe(
+      'Turn 94: Standby 8 · Training 6 · Contracting 10 · Deployed 16',
+    );
+    // The line keeps its height while no Turn is hovered.
+    expect(readoutText({ turn: null, barSeries: ACTIVITY_SERIES, bars, lines: [], total: true })).toBe(' ');
   });
 
   it('counts the Agents of each Turn-end state by activity, the current Turn from the Open History entry', () => {

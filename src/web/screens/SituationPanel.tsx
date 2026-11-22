@@ -3,21 +3,13 @@
  * it opens the Detail view that details it, with that item selected.
  */
 import type { ReactNode } from 'react';
-import type { CurrentLiveWorldStateView, HistoryView, LeadView } from '../../engine/index.ts';
-import {
-  GROUP_TITLES,
-  SOON_EXPIRING_TURNS,
-  leadDiscoveryTurns,
-  situationGroups,
-  type SituationGroup,
-} from '../situation.ts';
+import type { CurrentLiveWorldStateView, LeadView } from '../../engine/index.ts';
+import { GROUP_TITLES, SOON_EXPIRING_TURNS, situationGroups, type SituationGroup } from '../situation.ts';
 import { ProgressCircle } from './ProgressCircle.tsx';
 
 /** The Detail view a selected item opens, and the item it selects there. */
 export type SituationTarget =
   | { readonly kind: 'lead'; readonly lead: string }
-  /** The Leads View with its default selection. */
-  | { readonly kind: 'leads' }
   | { readonly kind: 'missionSite'; readonly missionSite: string }
   | { readonly kind: 'agents' };
 
@@ -26,12 +18,10 @@ const TONES = { next: ' tone-accent', plain: '', muted: ' muted' } as const;
 export function SituationPanel(props: {
   state: CurrentLiveWorldStateView;
   leads: readonly LeadView[];
-  /** The History, whose entries record the Turn in which each Lead was discovered (SITP, Leads shown). */
-  history: Pick<HistoryView, 'entries'> | null;
   onShow: (target: SituationTarget) => void;
 }) {
   const { state } = props;
-  const groups = situationGroups(state, props.leads, leadDiscoveryTurns(props.history));
+  const groups = situationGroups(state, props.leads);
   return (
     <section className="situation" data-testid="situation" aria-label="Situation">
       <header className="section-head">
@@ -110,36 +100,6 @@ function GroupRows(props: { group: SituationGroup; onShow: (target: SituationTar
           }}
         />
       ));
-    case 'leads':
-      return [
-        ...group.rows.map((lead) => (
-          <Row
-            key={lead.id}
-            testId={`situation-row-${lead.id}`}
-            name={lead.name}
-            onClick={() => {
-              onShow({ kind: 'lead', lead: lead.id });
-            }}
-          />
-        )),
-        // SITP, Leads shown: the line saying how many Leads the group does not show, in Text muted; it opens the
-        // Leads View with its default selection.
-        group.more > 0 ? (
-          <button
-            key="more"
-            type="button"
-            className="sit-row"
-            data-testid="situation-row-more-leads"
-            onClick={() => {
-              onShow({ kind: 'leads' });
-            }}
-          >
-            <span className="sit-name muted">
-              {group.more} more lead{group.more === 1 ? '' : 's'}
-            </span>
-          </button>
-        ) : null,
-      ];
     case 'agents': {
       const parts: ReactNode[] = [];
       if (group.standby > 0) {

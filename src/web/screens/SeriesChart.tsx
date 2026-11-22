@@ -2,10 +2,10 @@
  * A chart with several series in SVG, styled under VIS, Charts: stacked bars, one per Turn and 70% as wide as a Turn's
  * share of the plot, stacked outward from the baseline in legend order, and lines with their latest point marked by a
  * dot, on a left axis and optionally a right one. It shows a legend in place of a current value; hovering a Turn
- * writes that Turn's values under it.
+ * writes that Turn's values under it, on a line that keeps its height while no Turn is hovered.
  */
 import { useState } from 'react';
-import type { Bar, Series } from '../agency-charts.ts';
+import { readoutText, type Bar, type Series } from '../agency-charts.ts';
 
 export interface LineSeries extends Series {
   readonly points: readonly { readonly turn: number; readonly value: number }[];
@@ -33,6 +33,8 @@ export function SeriesChart(props: {
   barSeries?: readonly Series[];
   bars?: readonly Bar[];
   lines?: readonly LineSeries[];
+  /** VIS, Charts: the stacked bars all count one quantity above the baseline, so the readout starts with "Total". */
+  total?: boolean;
   testId?: string;
 }) {
   const bars = props.bars ?? [];
@@ -95,23 +97,13 @@ export function SeriesChart(props: {
   const aboveCount = bars[0]?.above.length ?? 0;
 
   const shownTurn = hover;
-  const shownBar = bars.find((bar) => bar.turn === shownTurn);
-  const details = [
-    ...(shownBar === undefined
-      ? []
-      : [...shownBar.above, ...shownBar.below.map((value) => -value)].map((value, index) => ({
-          name: barSeries[index]?.name ?? '',
-          value,
-        }))),
-    ...lines.flatMap((line) => {
-      const point = line.points.find((p) => p.turn === shownTurn);
-      return point === undefined ? [] : [{ name: line.name, value: point.value }];
-    }),
-  ].filter((detail) => detail.value !== 0);
-  const detailText =
-    shownTurn === null
-      ? ' '
-      : `Turn ${String(shownTurn)}: ${details.map((detail) => `${detail.name} ${String(detail.value)}`).join(' · ') || 'none'}`;
+  const detailText = readoutText({
+    turn: shownTurn,
+    barSeries,
+    bars,
+    lines,
+    ...(props.total === true ? { total: true } : {}),
+  });
 
   return (
     <figure className="chart chart-wide" data-testid={props.testId}>

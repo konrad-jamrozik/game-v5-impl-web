@@ -235,6 +235,8 @@ export function buildDetachedCombat(
       enemyArchetypes: gdrs.enemyArchetypes,
       weapons: gdrs.weapons,
       armors: gdrs.armors,
+      combat: gdrs.combatParameters,
+      agentParameters: gdrs.agentParameters,
     });
     enemyEntries = enemies.map((enemy) => ({ kind: 'enemyArchetype', id: enemy.archetype }));
   } else {

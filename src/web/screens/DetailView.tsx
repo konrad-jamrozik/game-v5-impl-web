@@ -52,6 +52,11 @@ export function DetailView(props: {
   title: ReactNode;
   /** Text after the title in the Figure style, e.g. counts against caps. */
   aside?: ReactNode;
+  /**
+   * Controls right after the title and its aside, beside what they switch or reopen, e.g. the Finished toggle of the
+   * Missions View (MVIEW) or the Turn summary button of the Turn Report View (TRVIEW).
+   */
+  lead?: ReactNode;
   actions?: ReactNode;
   onClose: () => void;
   children: ReactNode;
@@ -86,19 +91,23 @@ export function DetailView(props: {
         />
       )}
       <header className="detail-head">
-        <h2>
-          {props.title}
-          {props.aside === undefined ? null : <span className="detail-aside">{props.aside}</span>}
-        </h2>
-        <div className="detail-actions">
-          {props.actions}
-          {/* VIS, Detail view: the Back control is the last button of the row, 8 px before the close control. */}
-          {place.back === null ? null : (
+        <div className="detail-title">
+          <h2>
+            {props.title}
+            {props.aside === undefined ? null : <span className="detail-aside">{props.aside}</span>}
+          </h2>
+          {props.lead === undefined ? null : <div className="detail-lead">{props.lead}</div>}
+        </div>
+        {props.actions === undefined ? null : <div className="detail-actions">{props.actions}</div>}
+        {/* VIS, Detail views and navigation: the Back control is the last button of the row, 8 px before the close
+            control, and both always sit on the title's line. */}
+        {place.back === null ? null : (
+          <div className="detail-back">
             <Button testId="view-back" sound={place.back.toSummary ? 'main' : 'back'} onClick={place.back.go}>
               {place.back.label}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
         <CloseControl
           testId="close-view"
           sound={place.closeShowsSummary ? 'main' : 'back'}

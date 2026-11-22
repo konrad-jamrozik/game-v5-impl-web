@@ -134,15 +134,15 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('GDRS: the GDRs', () => {
-  it('supplies 267 GDRs, and a Victory path through the Leads of every Faction to Peace on Earth', () => {
-    // GDRS, GDR files: 23 files that each hold every GDR of one Type, and one file for each of the 135 Compendium
+  it('supplies 268 GDRs, and a Victory path through the Leads of every Faction to Peace on Earth', () => {
+    // GDRS, GDR files: 23 files that each hold every GDR of one Type, and one file for each of the 136 Compendium
     // articles in the one directory that holds one file per GDR.
     const articleFiles = RAW_GDR_FILES.filter((file) =>
       file.path.startsWith('compendium/compendium_articles/'),
     );
-    expect(articleFiles).toHaveLength(135);
-    expect(RAW_GDR_FILES).toHaveLength(23 + 135);
-    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(267);
+    expect(articleFiles).toHaveLength(136);
+    expect(RAW_GDR_FILES).toHaveLength(23 + 136);
+    expect(RAW_GDR_FILES.reduce((sum, file) => sum + file.gdrs.length, 0)).toBe(268);
     const catalog = bootstrapGdrCatalog();
     // GDRS, Scope: the counts of the GDRs that grew.
     expect([

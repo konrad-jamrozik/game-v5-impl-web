@@ -520,7 +520,8 @@ export function AgentsView(props: {
         </span>
       }
       actions={
-        <div className="control-group" role="group" aria-labelledby="agent-filters-label">
+        // AVIEW, Row filters: the group stands on a Control backdrop (VIS, Colours).
+        <div className="control-group control-backdrop" role="group" aria-labelledby="agent-filters-label">
           <span className="label" id="agent-filters-label">
             Show agents
           </span>
@@ -530,10 +531,11 @@ export function AgentsView(props: {
             {rowFilterButton('away', 'Away', state.agents.filter((agent) => agent.away).length)}
             {rowFilterButton('memorial', 'Memorial', terminated.length)}
           </div>
-          {/* AVIEW, Row filters: below the four filters, two checkboxes hide more Agents; disabled for the Memorial. */}
+          {/* AVIEW, Row filters: below the four filters, two checkboxes, one above the other, hide more Agents;
+              disabled for the Memorial. */}
           <div className="hide-checks">
-            {hideCheck('hideRecovering', 'Hide recovering')}
             {hideCheck('hideExhausted', `Hide with exhaustion > ${freePoints}`)}
+            {hideCheck('hideRecovering', 'Hide recovering')}
           </div>
         </div>
       }

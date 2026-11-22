@@ -338,6 +338,8 @@ export function applyAdvanceTurn(
           enemyArchetypes: gdrs.enemyArchetypes,
           weapons: gdrs.weapons,
           armors: gdrs.armors,
+          combat: gdrs.combatParameters,
+          agentParameters: gdrs.agentParameters,
         });
         world.missionSites[site.id] = site;
         for (const enemy of enemies) {
@@ -686,6 +688,8 @@ export function applyAdvanceTurn(
         enemyArchetypes: gdrs.enemyArchetypes,
         weapons: gdrs.weapons,
         armors: gdrs.armors,
+        combat: gdrs.combatParameters,
+        agentParameters: gdrs.agentParameters,
       });
       world.missionSites[site.id] = site;
       for (const enemy of enemies) {

@@ -4,7 +4,6 @@
  */
 import type {
   CurrentLiveWorldStateView,
-  HistoryView,
   InvestigationView,
   LeadView,
   MissionSiteView,
@@ -37,15 +36,6 @@ export type SituationGroup =
       readonly rows: readonly ActiveInvestigationRow[];
     }
   | {
-      readonly id: 'leads';
-      /** The number of all the Leads of the group, however many of them it shows. */
-      readonly count: number;
-      /** The Leads shown, newest first. */
-      readonly rows: readonly LeadView[];
-      /** How many Leads the group does not show; 0 when it shows them all. */
-      readonly more: number;
-    }
-  | {
       readonly id: 'agents';
       /** The number of Serving Agents. */
       readonly count: number;
@@ -57,7 +47,6 @@ export const GROUP_TITLES: Record<SituationGroup['id'], string> = {
   agents: 'Agents',
   missionSites: 'Active Mission sites',
   investigations: 'Active Investigations',
-  leads: 'Leads',
 };
 
 /** The Active Investigations, each with its Lead, Progress circle, and Completion estimate. */
@@ -88,43 +77,12 @@ export function leadsToInvestigate(state: CurrentLiveWorldStateView, leads: read
 }
 
 /**
- * SITP, Leads shown: the Turn in which each Lead was discovered, as the History entries record it. A Lead discovered at
- * campaign creation is in no History entry, and so has none.
- */
-export function leadDiscoveryTurns(
-  history: Pick<HistoryView, 'entries'> | null,
-): ReadonlyMap<string, number> {
-  const turns = new Map<string, number>();
-  for (const entry of history?.entries ?? []) {
-    for (const lead of entry.report.discoveredLeads) {
-      turns.set(lead, entry.turn);
-    }
-  }
-  return turns;
-}
-
-/**
- * SITP, Leads shown: the Leads from the newest to the oldest by the Turn in which each was discovered, those of one
- * Turn, or of campaign creation, in the authored order of the Lead GDRs, which `leads` keeps. A Lead discovered at
- * campaign creation is older than every Lead discovered in a Turn.
- */
-export function newestLeadsFirst(
-  leads: readonly LeadView[],
-  discoveryTurns: ReadonlyMap<string, number>,
-): LeadView[] {
-  const turnOf = (lead: LeadView) => discoveryTurns.get(lead.id) ?? Number.NEGATIVE_INFINITY;
-  // The sort is stable, so Leads of one Turn keep their authored order.
-  return [...leads].sort((a, b) => (turnOf(a) === turnOf(b) ? 0 : turnOf(a) > turnOf(b) ? -1 : 1));
-}
-
-/**
  * The Situation panel's groups, in the order SITP, Groups lists them; an empty result means that nothing needs
- * attention. `discoveryTurns` orders the Leads group, under SITP, Leads shown.
+ * attention. SITP shows no Leads group: the Leads View lists the Leads to investigate.
  */
 export function situationGroups(
   state: CurrentLiveWorldStateView,
   leads: readonly LeadView[],
-  discoveryTurns: ReadonlyMap<string, number> = new Map(),
 ): SituationGroup[] {
   const groups: SituationGroup[] = [];
 
@@ -144,18 +102,6 @@ export function situationGroups(
     groups.push({ id: 'investigations', count: investigations.length, rows: investigations });
   }
 
-  const toInvestigate = newestLeadsFirst(leadsToInvestigate(state, leads), discoveryTurns);
-  if (toInvestigate.length > 0) {
-    // SITP, Leads shown: at most four lines; with more than four Leads, the first three and a line for the rest.
-    const shown =
-      toInvestigate.length <= LEADS_SHOWN_MAX ? toInvestigate : toInvestigate.slice(0, LEADS_SHOWN_MAX - 1);
-    groups.push({
-      id: 'leads',
-      count: toInvestigate.length,
-      rows: shown,
-      more: toInvestigate.length - shown.length,
-    });
-  }
   return groups;
 }
 

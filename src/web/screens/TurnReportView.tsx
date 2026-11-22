@@ -80,7 +80,7 @@ export function TurnReportView(props: {
   );
   if (report === null) {
     return (
-      <DetailView id="report" title="Turn report" actions={summaryButton} onClose={props.onClose}>
+      <DetailView id="report" title="Turn report" lead={summaryButton} onClose={props.onClose}>
         <p className="muted" data-testid="turn-report">
           There is no Turn report yet. Advance the turn to get the first one.
         </p>
@@ -130,7 +130,8 @@ export function TurnReportView(props: {
       id="report"
       title="Turn report"
       aside={heading}
-      actions={summaryButton}
+      // TRVIEW, Turn summary button: right after the Turn the report covers.
+      lead={summaryButton}
       onClose={props.onClose}
     >
       <div className="stack" data-testid="turn-report">

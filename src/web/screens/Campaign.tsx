@@ -18,6 +18,7 @@ import {
   type ViewTrail,
 } from '../view-trail.ts';
 import { SOUND } from '../sounds.ts';
+import { autopilotSettings } from '../autopilot-controls.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
@@ -255,13 +256,11 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const placeOf = (target: SituationTarget | ReportTarget): { id: DetailViewId; item: string | null } =>
     target.kind === 'lead'
       ? { id: 'leads', item: target.lead }
-      : target.kind === 'leads'
-        ? { id: 'leads', item: null }
-        : target.kind === 'missionSite'
-          ? { id: 'missions', item: target.missionSite }
-          : target.kind === 'agent'
-            ? { id: 'agents', item: target.agent }
-            : { id: 'agents', item: null };
+      : target.kind === 'missionSite'
+        ? { id: 'missions', item: target.missionSite }
+        : target.kind === 'agent'
+          ? { id: 'agents', item: target.agent }
+          : { id: 'agents', item: null };
 
   /**
    * SITP: selecting an item opens the Detail view that details it, with that item selected. CSCR, View trail, Start
@@ -645,10 +644,13 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             ))}
           </nav>
 
-          <SituationPanel state={state} leads={leads} history={snapshot.history} onShow={show} />
+          <SituationPanel state={state} leads={leads} onShow={show} />
 
           <footer className="side-footer">
-            <AutopilotBar snapshot={snapshot} />
+            {/* CSCR, Autopilot settings: while Autopilot controls shown is off, the footer holds only its bottom row. */}
+            {autopilotSettings(snapshot.configuration.settings).shown ? (
+              <AutopilotBar snapshot={snapshot} />
+            ) : null}
             {/* CSCR, Side panel: the bottom row holds the Music control and, at its right end, the Settings button. */}
             <div className="side-footer-row">
               <MusicControl snapshot={snapshot} />

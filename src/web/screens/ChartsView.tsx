@@ -1,6 +1,6 @@
 /**
  * CVIEW: the Charts View. It leads with a full-width Panic chart, because Panic is how a Campaign is lost, above three
- * smaller trend charts of the resources the agency runs on, four full-width Agency charts, and one Faction chart for
+ * smaller trend charts of the resources the agency runs on, five full-width Agency charts, and one Faction chart for
  * each Faction below them.
  */
 import {
@@ -8,6 +8,9 @@ import {
   activityBars,
   ASSET_SERIES,
   assetLines,
+  COMBAT_BAR_SERIES,
+  COMBAT_LINE_SERIES,
+  combatStrength,
   EXPENDITURE_SERIES,
   INCOME_SERIES,
   moneyFlow,
@@ -21,7 +24,7 @@ import { DetailView } from './DetailView.tsx';
 import { LineChart } from './LineChart.tsx';
 import { SeriesChart } from './SeriesChart.tsx';
 
-/** CVIEW, Agency charts: four full-width charts below the trend charts and above the Faction charts. */
+/** CVIEW, Agency charts: five full-width charts below the trend charts and above the Faction charts. */
 function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
   const history = snapshot.history;
   const entries = history?.entries ?? [];
@@ -36,12 +39,17 @@ function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
   const flow = moneyFlow(entries, moneyAtStart, capUpgrades);
   const skills = skillBands(entries, open);
   const assets = assetLines(entries, open, moneyAtStart);
+  const strength = combatStrength(entries, open, [
+    ...(snapshot.state?.missionSites ?? []),
+    ...(snapshot.retired?.missionSites ?? []),
+  ]);
   return (
     <>
       <SeriesChart
         title="Agents · end of Turn"
         barSeries={ACTIVITY_SERIES}
         bars={activityBars(entries, open)}
+        total
         testId="agent-activity-chart"
       />
       <SeriesChart
@@ -66,7 +74,19 @@ function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
         title="Agents by effective skill · end of Turn"
         barSeries={skills.series}
         bars={skills.bars}
+        total
         testId="skill-chart"
+      />
+      <SeriesChart
+        title="Combat ratings · end of Turn"
+        barSeries={COMBAT_BAR_SERIES}
+        bars={strength.bars}
+        lines={[
+          { ...COMBAT_LINE_SERIES.lastSite, points: strength.lastSite },
+          { ...COMBAT_LINE_SERIES.lastFiveSites, points: strength.lastFiveSites },
+        ]}
+        total
+        testId="combat-strength-chart"
       />
     </>
   );

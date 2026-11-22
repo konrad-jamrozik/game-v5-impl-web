@@ -135,6 +135,12 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `1abadda` and `de4051b`, which also make `training_skill_gain` +0.5, the money of a Won level 5 operation 10000, and
   retune the Enemies of most Mission sites. The copy is still identical to the specification's `content/` directory
   outside `content/cut/`.
+- `factions/faction_activity_levels.yaml` and `compendium/compendium_articles/`: patched unchanged from specification
+  commit `526ebdc575691bc4611b7e9f1107f1d07c9a372f` on 2026-11-21. Faction activity levels Faint to War last 15 to 25
+  Turns, Escalating and War roll no level 5 operation, and Total war operates every 6 to 14 Turns, from commit
+  `9b44e40`; the new Mechanics article `mechanics_combat_rating` takes the Combat rating row out of
+  `mechanics_combat`, from commit `c8f6c75`. The copy is still identical to the specification's `content/` directory
+  outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

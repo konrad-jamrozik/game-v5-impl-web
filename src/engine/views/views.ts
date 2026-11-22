@@ -51,7 +51,11 @@ import {
   leadOfMissionSite,
   leadStatus,
 } from '../mechanics/leads/leads.ts';
-import { consequencesOf, type ConsequenceAmounts } from '../mechanics/missions/missions.ts';
+import {
+  consequencesOf,
+  isDeployableAgent,
+  type ConsequenceAmounts,
+} from '../mechanics/missions/missions.ts';
 import { healthRecoveryRateHundredths, recoveryTurnsRemaining } from '../mechanics/recovery/recovery.ts';
 import {
   articleForTerm,
@@ -159,6 +163,7 @@ function agentView(
     inBase: isInBase(s),
     away: isAway(s),
     ableToFight: serving && isAbleToFight(values, gdrs.combatParameters, gdrs.agentParameters),
+    deployable: isDeployableAgent(s, bonus, gdrs.combatParameters, gdrs.agentParameters),
     baseCombatRating: serving ? base : null,
     // COMBAT, Combat rating: one Agent's Combat rating is that of a side holding it alone.
     combatRating: serving ? combatRating([values], gdrs.combatParameters, gdrs.agentParameters) : null,
@@ -198,6 +203,7 @@ function enemyView(enemy: Enemy, gdrs: GdrCatalog): EnemyView {
     armor: s.armor,
     armorName: gdrs.armors.get(s.armor)?.name ?? s.armor,
     baseArmor: s.baseArmor,
+    combatRating: combatRating([enemyCombatant(s)], gdrs.combatParameters, gdrs.agentParameters),
   };
 }
 
@@ -239,6 +245,7 @@ function missionSiteView(site: MissionSite, world: CurrentWorldState, gdrs: GdrC
     operationLevel: level === null ? null : { id: level.id, level: level.level, name: level.name },
     targetFaction: site.constants.targetFaction,
     turnCreated: site.constants.turnCreated,
+    creationCombatRating: site.constants.creationCombatRating,
     lifecycle: site.state.lifecycle,
     turnsUntilExpiration: site.state.turnsUntilExpiration,
     enemies: enemies.map((enemy) => enemyView(enemy, gdrs)),

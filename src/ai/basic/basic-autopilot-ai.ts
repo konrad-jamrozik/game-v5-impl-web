@@ -28,7 +28,10 @@ export interface BasicAiThresholds {
   readonly incomeTargetPct: number;
   /** The Savings floor, in Turns of projected upkeep. */
   readonly savingsFloorTurns: number;
-  /** The Muster horizon: the most Advance turns within which the last Agent of a Muster must become Deployable. */
+  /**
+   * The Muster horizon: the most Advance turns within which the last Agent of a Muster must become a Rested deployable
+   * Agent.
+   */
   readonly musterHorizonTurns: number;
   /** The Muster income floor: the least Expected income a recall for a Muster may leave, as a Percent value of upkeep. */
   readonly musterIncomeFloorPct: number;
@@ -184,26 +187,20 @@ class Turn {
   }
 
   /**
-   * A Deployable Agent: one `deployAgents` accepts. It is In base and can take orders, so it is At assignment on
-   * Standby or Training; it is Fit to start work; and it does not meet the incapacitation condition with its current
-   * values.
+   * A Rested deployable Agent: a Deployable Agent, one `deployAgents` accepts, that is also Fit to start work, so that an
+   * Agent too tired to start work is left to rest. A Deployable Agent is In base and can take orders, so it is At
+   * assignment on Standby or Training, and it does not meet the incapacitation condition with its current values.
    */
-  private isDeployable(agent: AgentView): boolean {
-    return (
-      agent.canBeAssigned &&
-      agent.inBase &&
-      this.onStandbyOrTraining(agent) &&
-      agent.fitForWork &&
-      agent.ableToFight
-    );
+  private isRestedDeployable(agent: AgentView): boolean {
+    return agent.deployable && agent.fitForWork;
   }
 
   /**
-   * A Fully rested Deployable Agent: a Deployable Agent with no health lost and exhaustion 0. Only such Agents
+   * A Fully rested Deployable Agent: a Rested deployable Agent with no health lost and exhaustion 0. Only such Agents
    * receive routine work.
    */
   private isFullyRested(agent: AgentView): boolean {
-    return this.isDeployable(agent) && agent.healthLostHundredths === 0 && agent.exhaustion === 0;
+    return this.isRestedDeployable(agent) && agent.healthLostHundredths === 0 && agent.exhaustion === 0;
   }
 
   /** Most rested first, Standby before Training, then the more capable, then the order of the roster. */
@@ -261,27 +258,27 @@ class Turn {
   }
 
   /**
-   * The Expected reserve: the Deployable Agents, plus every other Agent whose Current assignment is Standby or Recovery,
+   * The Expected reserve: the Rested deployable Agents, plus every other Agent whose Current assignment is Standby or Recovery,
    * In transit or not.
    */
   private expectedReserve(state: CurrentLiveWorldStateView): number {
     return state.agents.filter(
       (agent) =>
-        this.isDeployable(agent) ||
+        this.isRestedDeployable(agent) ||
         agent.assignment?.kind === 'Standby' ||
         agent.assignment?.kind === 'Recovery',
     ).length;
   }
 
-  /** How many Deployable Agents there are beyond the target size of the Agent reserve. */
+  /** How many Rested deployable Agents there are beyond the target size of the Agent reserve. */
   private beyondReserve(state: CurrentLiveWorldStateView): number {
-    const deployable = state.agents.filter((agent) => this.isDeployable(agent)).length;
+    const deployable = state.agents.filter((agent) => this.isRestedDeployable(agent)).length;
     return Math.max(0, deployable - this.reserveTarget(state));
   }
 
   /**
    * The Fully rested Deployable Agents beyond the Agent reserve, in order of preference. The most rested are taken for
-   * work first, so the Deployable Agents left over form the Agent reserve.
+   * work first, so the Rested deployable Agents left over form the Agent reserve.
    */
   private fullyRestedBeyondReserve(state: CurrentLiveWorldStateView, standbyOnly = false): AgentView[] {
     const fullyRested = this.byPreference(
@@ -303,14 +300,14 @@ class Turn {
   }
 
   /**
-   * In how many Advance turns an Agent that is not a Deployable Agent becomes one, if left where it is, or null when it
+   * In how many Advance turns an Agent that is not a Rested deployable Agent becomes one, if left where it is, or null when it
    * does not within the Muster horizon or is not a Mustered Agent. An Agent on Contracting that is Fit to start work
    * becomes one when its recall arrives, after one Advance turn, because exhaustion does not change In transit. An
    * Agent on Standby or Recovery becomes one once its exhaustion has recovered to exhaustion_work_start_max and its
    * health lost to 0 at the Agency's current rates; one In transit to Standby first arrives, which costs an Advance
    * turn without recovery.
    */
-  private turnsUntilDeployable(state: CurrentLiveWorldStateView, agent: AgentView): number | null {
+  private turnsUntilRestedDeployable(state: CurrentLiveWorldStateView, agent: AgentView): number | null {
     const kind = agent.assignment?.kind;
     if (kind === 'Contracting') {
       return agent.canBeAssigned && agent.fitForWork && agent.ableToFight ? 1 : null;
@@ -328,20 +325,20 @@ class Turn {
   }
 
   /**
-   * BASICAI, Turn routine, step 3: the Muster, for the most urgent Active Initiative Mission site that Deployable Agents
-   * alone cannot win and for which a winning team can be gathered: Deployable Agents first, then the Mustered Agents
-   * that become Deployable Agents soonest, a resting Agent before an Agent on Contracting that becomes one as soon, and
+   * BASICAI, Turn routine, step 3: the Muster, for the most urgent Active Initiative Mission site that Rested deployable Agents
+   * alone cannot win and for which a winning team can be gathered: Rested deployable Agents first, then the Mustered Agents
+   * that become Rested deployable Agents soonest, a resting Agent before an Agent on Contracting that becomes one as soon, and
    * the last of them within the Muster horizon and before the Mission site expires. None when the recalls it needs would
    * leave Expected income below the Muster income floor. It is derived anew from the current state for every Player
    * action, so the Basic Autopilot AI keeps no plan across Turns.
    */
   private muster(state: CurrentLiveWorldStateView): Muster {
-    const deployable = this.byPreference(state.agents.filter((agent) => this.isDeployable(agent)));
+    const deployable = this.byPreference(state.agents.filter((agent) => this.isRestedDeployable(agent)));
     const pending = state.agents
       .map((agent, index) => ({
         agent,
         index,
-        turns: this.isDeployable(agent) ? null : this.turnsUntilDeployable(state, agent),
+        turns: this.isRestedDeployable(agent) ? null : this.turnsUntilRestedDeployable(state, agent),
       }))
       .filter((item): item is { agent: AgentView; index: number; turns: number } => item.turns !== null)
       .sort(
@@ -421,7 +418,7 @@ class Turn {
   }
 
   /**
-   * A team of Deployable Agents whose Combat rating is at least the Required rating share of the Enemies' Combat rating
+   * A team of Rested deployable Agents whose Combat rating is at least the Required rating share of the Enemies' Combat rating
    * and that has enough Agents for the number of Enemies; none when no such team fits within the Transport cap. Agents are
    * taken in the order of preference; when that order gives no winning team, the most capable are taken first,
    * because a winning team can then still be formed.
@@ -547,7 +544,7 @@ class Turn {
           a.site.turnsUntilExpiration - b.site.turnsUntilExpiration ||
           a.index - b.index,
       );
-    const deployable = this.byPreference(state.agents.filter((agent) => this.isDeployable(agent)));
+    const deployable = this.byPreference(state.agents.filter((agent) => this.isRestedDeployable(agent)));
     for (const { site } of sites) {
       const team = this.winningTeam(
         state,
@@ -574,7 +571,7 @@ class Turn {
   /**
    * Step 4: while the Expected reserve is below its target size, recall one Agent at a time to Standby: the most
    * exhausted Agent that does not already count toward the Expected reserve, i.e. any Agent on Contracting and any
-   * Agent on Training that is not a Deployable Agent; on equal exhaustion an Agent on Training before an Agent on
+   * Agent on Training that is not a Rested deployable Agent; on equal exhaustion an Agent on Training before an Agent on
    * Contracting, then the order of the roster. An Agent on Contracting whose recall would leave Expected income short
    * of projected upkeep with the margin is passed over. A recalled Agent counts toward the Expected reserve at once,
    * so no more Agents are recalled than the shortfall.
@@ -591,7 +588,7 @@ class Turn {
           agent.canBeAssigned &&
           !mustered(muster, agent) &&
           (agent.assignment?.kind === 'Contracting' ||
-            (agent.assignment?.kind === 'Training' && !this.isDeployable(agent))),
+            (agent.assignment?.kind === 'Training' && !this.isRestedDeployable(agent))),
       )
       .sort(
         (a, b) =>
@@ -623,7 +620,7 @@ class Turn {
       return false;
     }
     const team = candidates.slice(0, count).map((agent) => agent.id);
-    const deployable = this.byPreference(state.agents.filter((agent) => this.isDeployable(agent)));
+    const deployable = this.byPreference(state.agents.filter((agent) => this.isRestedDeployable(agent)));
     const retired = this.unwrap(this.player.queries.getCurrentRetiredWorldState());
     // A Lead that creates no Mission site advances progression by its completion alone, so it is always worth
     // investigating. One that creates a Mission site is worth it only if a winning team for that Mission site could be

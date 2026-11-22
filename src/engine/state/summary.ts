@@ -1,8 +1,11 @@
 import type { GdrCatalog } from '../../gdr/index.ts';
 import { agentCombatantValues, effectiveSkill } from '../mechanics/agents/agents.ts';
+import { agentCombatantState, combatRating } from '../mechanics/combat/combat.ts';
 import { agencyCaps, agentUpgradeBonus } from '../mechanics/economy/economy.ts';
+import { isDeployableAgent } from '../mechanics/missions/missions.ts';
 import {
   isServing,
+  type Agent,
   type AgentActivityCounts,
   type AgentState,
   type CurrentWorldState,
@@ -11,7 +14,8 @@ import {
 
 /**
  * The reduced form of one World state that a History entry keeps; see DEC-016. It also holds the Serving Agents by
- * activity and their effective skills, which AGENT, Turn report, requires of the Turn-end state, and the Agency caps,
+ * activity and their effective skills, which AGENT, Turn report, requires of the Turn-end state, the Combat ratings of
+ * the Serving and the Deployable Agents, which MISSION, Turn report, requires of it, and the Agency caps,
  * which ECON, Turn report, requires of the Turn-start state; every summary holds all of them, so the Turn-start and
  * Turn-end summaries share one shape.
  */
@@ -31,6 +35,13 @@ export function summarize(world: CurrentWorldState, gdrs: GdrCatalog): StateSumm
     activity[activityOf(agent.state)] += 1;
   }
   const caps = agencyCaps(gdrs.economy, gdrs.upgrades, world.agency.state.acquisitions);
+  // MISSION, Turn report: the Combat rating of a group of Agents taken as one side, under COMBAT, Combat rating.
+  const rate = (agents: readonly Agent[]): number =>
+    combatRating(
+      agents.map((agent) => agentCombatantState(agent.state, bonus)),
+      gdrs.combatParameters,
+      gdrs.agentParameters,
+    );
   return {
     money: world.agency.state.money,
     funding: world.agency.state.funding,
@@ -44,6 +55,12 @@ export function summarize(world: CurrentWorldState, gdrs: GdrCatalog): StateSumm
     agentActivity: activity,
     effectiveSkills: serving.map((agent) =>
       effectiveSkill(agentCombatantValues(agent.state, bonus), gdrs.agentParameters),
+    ),
+    servingCombatRating: rate(serving),
+    deployableCombatRating: rate(
+      serving.filter((agent) =>
+        isDeployableAgent(agent.state, bonus, gdrs.combatParameters, gdrs.agentParameters),
+      ),
     ),
     caps: { agentCap: caps.agentCap, transportCap: caps.transportCap, trainingCap: caps.trainingCap },
   };

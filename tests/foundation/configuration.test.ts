@@ -109,6 +109,36 @@ describe('CONFIG: examples', () => {
     expect(await h.storage.readGlobalConfiguration()).toBeNull();
   });
 
+  it('Autopilot settings: Autopilot controls shown and Autopilot Turns persist across Sessions once set', async () => {
+    const h = await startHarness();
+    expect(setting(h, 'autopilotControlsShown')).toMatchObject({
+      name: 'Autopilot controls shown',
+      effectiveValue: false,
+      gameBuildDefault: false,
+      stored: false,
+    });
+    expect(setting(h, 'autopilotTurns')).toMatchObject({
+      name: 'Autopilot Turns',
+      effectiveValue: 10,
+      gameBuildDefault: 10,
+      stored: false,
+    });
+    for (const value of [0, -1, 1.5, '100']) {
+      const invalid = await h.core.setGlobalSetting(CONTROLLER, 'autopilotTurns', value);
+      expect(!invalid.ok && invalid.error.code).toBe('invalid_input');
+    }
+    const notBoolean = await h.core.setGlobalSetting(CONTROLLER, 'autopilotControlsShown', 1);
+    expect(!notBoolean.ok && notBoolean.error.code).toBe('invalid_input');
+    expect(await h.storage.readGlobalConfiguration()).toBeNull();
+    expectOk(await h.core.setGlobalSetting(CONTROLLER, 'autopilotControlsShown', true));
+    expectOk(await h.core.setGlobalSetting(CONTROLLER, 'autopilotTurns', 100));
+    await h.restart();
+    expect(setting(h, 'autopilotControlsShown')).toMatchObject({ effectiveValue: true, stored: true });
+    expect(setting(h, 'autopilotTurns')).toMatchObject({ effectiveValue: 100, stored: true });
+    expectOk(await h.core.resetGlobalSetting(CONTROLLER, 'autopilotTurns'));
+    expect(setting(h, 'autopilotTurns')).toMatchObject({ effectiveValue: 10, stored: false });
+  });
+
   it('Listing presets and their values', async () => {
     const h = await startHarness();
     expect(presets(h)).toEqual([

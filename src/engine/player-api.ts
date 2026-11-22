@@ -87,6 +87,11 @@ export interface AgentView {
    * for which it is false (MISSION, Deploying Agents, precondition 9).
    */
   readonly ableToFight: boolean;
+  /**
+   * MISSION, Glossary, Deployable Agent: whether the Agent is Serving, In base, can take orders, and is Capable for
+   * deployment, i.e. At assignment on Standby or Training and able to fight. A Derived value.
+   */
+  readonly deployable: boolean;
   /** COMBAT, Combat rating: the base Combat rating of the Agent alone, its effective skill; absent when Terminated. */
   readonly baseCombatRating: number | null;
   /**
@@ -133,6 +138,8 @@ export interface EnemyView {
   readonly armorName: string;
   /** The base armor, which is also the effective armor of an Enemy. */
   readonly baseArmor: number;
+  /** COMBAT, Combat rating: the Combat rating of this Enemy alone, from its current values. */
+  readonly combatRating: number;
 }
 
 export interface ConsequenceView {
@@ -163,6 +170,8 @@ export interface MissionSiteView {
   readonly operationLevel: { readonly id: string; readonly level: number; readonly name: string } | null;
   readonly targetFaction: string;
   readonly turnCreated: number;
+  /** MISSION, Mission site properties: the Combat rating of its Enemies taken as one side, as created; never changes. */
+  readonly creationCombatRating: number;
   readonly lifecycle: MissionSiteLifecycle;
   readonly turnsUntilExpiration: number;
   readonly enemies: readonly EnemyView[];

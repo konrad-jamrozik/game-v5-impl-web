@@ -163,6 +163,8 @@ export interface MissionSiteConstants {
   readonly origin: MissionSiteOrigin;
   readonly targetFaction: string;
   readonly turnCreated: number;
+  /** MISSION, Mission site properties: the Combat rating of its Enemies taken as one side, as created. */
+  readonly creationCombatRating: number;
 }
 
 export interface MissionSiteState {
@@ -485,6 +487,10 @@ export interface StateSummary {
   readonly agentActivity: AgentActivityCounts;
   /** AGENT, Turn report: the effective skill of each Serving Agent, without its Instance ID. */
   readonly effectiveSkills: readonly number[];
+  /** MISSION, Turn report: the Combat rating of every Serving Agent taken as one side. */
+  readonly servingCombatRating: number;
+  /** MISSION, Turn report: the Combat rating of every Deployable Agent taken as one side. */
+  readonly deployableCombatRating: number;
   /** ECON, Turn report: the Agency caps. */
   readonly caps: { readonly agentCap: number; readonly transportCap: number; readonly trainingCap: number };
 }

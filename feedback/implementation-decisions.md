@@ -1718,3 +1718,71 @@
 - **Why:** The History entries are Player-visible and already hold the discovery of every Lead discovered in a Turn,
   which is where the specification says the order comes from, so no new Player API value is needed.
 - **Links:** PROB-053
+- **Update:** Overridden by Specification revision f8b5718c92547f6e7226911c6db24a49b0391877, which removes the
+  Situation panel's Leads group; the Implementation no longer orders Leads for it.
+
+## DEC-084: The Combat strength chart reads Mission sites from the views, and its readout leads with a Total
+
+- **Category:** Gap resolution
+- **Affected specifications:** CVIEW, Agency charts, Combat strength: "each over the Mission sites that exist in that
+  Turn-end state, in their creation order"; VIS, Charts: the readout line and its "Total".
+- **Description:** The chart takes the Mission sites from the live and Retired Mission site views, merged and ordered
+  by the creation count that ends their Instance ID, and keeps for Turn T those whose Turn created is below T: only an
+  Advance turn creates a Mission site and none is ever removed, so they are exactly those of Turn T's Turn-end state.
+  Other Agents is the Combat rating of every Serving Agent less that of the Deployable Agents, as the specification
+  states, which is not the Combat rating of the other Agents taken alone, because the team size factor is not linear.
+  The readout's Total is the sum of the bars above the baseline, shown even when it is 0; bars below the baseline are
+  listed as negative values, and lines after the bars, in legend order. A Turn whose every value is 0 reads "Turn N:".
+- **Options considered:** Reading the Mission sites from the History entries; from the Mission site views.
+- **Option chosen:** From the Mission site views.
+- **Why:** Every Mission site keeps its Creation Combat rating and its Turn created for the whole Campaign, so the
+  views already hold everything the chart needs without a new History value.
+- **Links:** PROB-054
+
+## DEC-085: The Player API reports the Deployable Agent, the Creation Combat rating, and each Enemy's Combat rating
+
+- **Category:** Gap resolution
+- **Affected specifications:** MISSION, Glossary, Deployable Agent; MISSION, Mission site properties, Creation Combat
+  rating; MVIEW, Selected Mission site: "the Combat rating of one of them"; BASICAI, Rested deployable Agent.
+- **Description:** The AgentView reports `deployable`, the engine's Deployable Agent, which the Basic Autopilot AI
+  reads for its Rested deployable Agents together with `fitForWork`; the MissionSiteView reports
+  `creationCombatRating`; and the EnemyView reports `combatRating`, the Combat rating of that Enemy alone from its
+  current values, which the Missions View shows per EnemyArchetype. A Mission site now stores its Creation Combat
+  rating, so the save format is 15 and saves of an earlier format no longer load.
+- **Options considered:** Computing these values in the GUI and the AI; reporting them through the Player API.
+- **Option chosen:** Reporting them through the Player API.
+- **Why:** They are Combat ratings and an engine term, which the GUI and the AI must not compute themselves, under API
+  hierarchy in Engine Contract.
+- **Links:** PROB-054
+
+## DEC-086: How the Changed settings row words a setting, and when the Turns field stores Autopilot Turns
+
+- **Category:** Gap resolution
+- **Affected specifications:** GUI, Changed settings; CSCR, Autopilot settings: "whenever the Player leaves it holding
+  a permitted value".
+- **Description:** Music on and Sounds on read "Music: on" or "off" and "Sounds: on" or "off", Autopilot controls shown
+  reads "Autopilot controls: shown" or "hidden", the volumes read as percentages, and every other setting reads
+  "<name>: <value> (default <default>)". A setting is listed whenever a stored value overrides its default, even one
+  equal to it. The Turns field stores Autopilot Turns when it loses focus or on Enter, never on each keystroke; text
+  that is not a permitted value reverts to the stored one, and the Turns button engages with the field's value when it
+  is permitted and with the stored Autopilot Turns otherwise. The "Show Autopilot controls" checkbox, while disabled,
+  says "Unavailable while Autopilot is engaged."
+- **Options considered:** Storing on each keystroke; storing when the Player leaves the field.
+- **Option chosen:** Storing when the Player leaves the field.
+- **Why:** A half-typed number, e.g. "1" on the way to "100", must not become the setting.
+- **Links:** PROB-054
+
+## DEC-087: The Detail view title row holds a lead slot after the title, and a text aside shares the title's baseline
+
+- **Category:** Gap resolution
+- **Affected specifications:** VIS, Detail views and navigation; MVIEW, Mission site list: the Finished toggle after
+  the number of Active Mission sites; TRVIEW, Turn summary button; AVIEW, Header.
+- **Description:** The Detail view frame takes, besides its aside, a lead slot of controls right after the title and
+  the aside, which holds the Finished toggle of the Missions View and the Turn summary button of the Turn Report View.
+  A text aside, e.g. "2 Active", shares the title's baseline, so that it sits on the title's line; the cap figures of
+  the Agents View stand 40 px after the title and 40 px apart, centred on the title's line.
+- **Options considered:** Centring the aside's box on the title's line; sharing the title's baseline.
+- **Option chosen:** Sharing the title's baseline.
+- **Why:** A small figure whose box is centred on the 36 px line reads above the title's capitals, which the Game
+  designer saw as too high.
+- **Links:** PROB-054

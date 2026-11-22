@@ -289,7 +289,7 @@ describe('Terminal CLI', () => {
     expect(segments.some((segment) => segment.kind === 'value')).toBe(true);
     expect(segments.find((segment) => segment.kind === 'link')?.article).toMatch(/^[a-z_]+$/);
     expect(segments.map((segment) => segment.text).join('')).not.toMatch(/[{}]/);
-    expect(parse(term)).toMatchObject({ command: 'term', ok: true, value: 'mechanics_combat' });
+    expect(parse(term)).toMatchObject({ command: 'term', ok: true, value: 'mechanics_combat_rating' });
     expect(parse(none)).toMatchObject({ command: 'term', ok: true, value: null });
     // The readable form gives the same segments, as a table of each segment's kind, text, and linked article.
     const [text] = await run(engine, ['articles'], false);

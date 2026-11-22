@@ -525,6 +525,8 @@ export function addMissionSite(
       enemyArchetypes: catalog.enemyArchetypes,
       weapons: catalog.weapons,
       armors: catalog.armors,
+      combat: catalog.combatParameters,
+      agentParameters: catalog.agentParameters,
     });
     site.state.turnsUntilExpiration = options.turnsUntilExpiration ?? archetype.expiresInTurns;
     world.missionSites[site.id] = site;

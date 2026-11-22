@@ -7,8 +7,10 @@ import {
 } from '../../src/engine/views/views.ts';
 import {
   NEW_SESSION_CONTROLS,
+  autopilotSettings,
   keepAutopilotControls,
   keptAutopilotControls,
+  permittedAutopilotTurns,
   resetAutopilotControls,
   shownAutopilotAi,
 } from '../../src/web/autopilot-controls.ts';
@@ -70,8 +72,26 @@ describe('CSCR: Autopilot controls', () => {
     expect(keptAutopilotControls()).toEqual(NEW_SESSION_CONTROLS);
     expect(NEW_SESSION_CONTROLS.expanded).toBe(false);
     keepAutopilotControls({ expanded: true });
-    keepAutopilotControls({ turns: 100 });
-    expect(keptAutopilotControls()).toEqual({ expanded: true, aiId: null, turns: 100 });
+    keepAutopilotControls({ aiId: 'second' });
+    expect(keptAutopilotControls()).toEqual({ expanded: true, aiId: 'second' });
+  });
+
+  it('take Autopilot controls shown and Autopilot Turns from Global configuration', () => {
+    expect(autopilotSettings([])).toEqual({ shown: false, turns: 10 });
+    expect(
+      autopilotSettings([
+        { setting: 'autopilotControlsShown', effectiveValue: true },
+        { setting: 'autopilotTurns', effectiveValue: 100 },
+      ]),
+    ).toEqual({ shown: true, turns: 100 });
+  });
+
+  it('store only a permitted number of Turns from the Turns field', () => {
+    expect(permittedAutopilotTurns('100')).toBe(100);
+    expect(permittedAutopilotTurns(' 1 ')).toBe(1);
+    for (const text of ['', '0', '-3', '1.5', 'abc', '1e3']) {
+      expect(permittedAutopilotTurns(text)).toBeNull();
+    }
   });
 
   it('show the kept Autopilot AI while it is listed, and otherwise the first one listed', () => {

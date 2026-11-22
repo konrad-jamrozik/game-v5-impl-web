@@ -4,8 +4,13 @@
  */
 import { useEffect, useState } from 'react';
 import type { AutopilotLimit, DisengagementResult } from '../../engine/index.ts';
-import { shownAutopilotAi, useAutopilotControls } from '../autopilot-controls.ts';
-import { run, theEngine, type Snapshot } from '../store.ts';
+import {
+  autopilotSettings,
+  permittedAutopilotTurns,
+  shownAutopilotAi,
+  useAutopilotControls,
+} from '../autopilot-controls.ts';
+import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { Button } from '../ui.tsx';
 
 const REASONS: Record<string, string> = {
@@ -43,10 +48,23 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
   const { session } = theEngine();
   const listed = session.autopilot.listAutopilotAis();
   const ais = listed.ok ? listed.value : [];
-  // CSCR, Autopilot controls: whether they are expanded, the chosen Autopilot AI, and the number of Turns are kept for
-  // the rest of the Session.
+  // CSCR, Autopilot controls: whether they are expanded and the chosen Autopilot AI are kept for the rest of the
+  // Session.
   const [controls, keep] = useAutopilotControls();
-  const { expanded, turns } = controls;
+  const { expanded } = controls;
+  // CSCR, Autopilot settings: the Turns field shows Autopilot Turns and stores it whenever the Player leaves it holding
+  // a permitted value; leaving it holding any other text shows Autopilot Turns again.
+  const { turns: storedTurns } = autopilotSettings(snapshot.configuration.settings);
+  const [draft, setDraft] = useState<{ from: number; text: string } | null>(null);
+  const turnsText = draft !== null && draft.from === storedTurns ? draft.text : String(storedTurns);
+  const turns = permittedAutopilotTurns(turnsText) ?? storedTurns;
+  const leaveTurns = () => {
+    setDraft(null);
+    const typed = permittedAutopilotTurns(turnsText);
+    if (typed !== null && typed !== storedTurns) {
+      act(() => session.globalConfiguration.set('autopilotTurns', typed));
+    }
+  };
   const aiId = shownAutopilotAi(
     controls.aiId,
     ais.map((ai) => ai.autopilotAiId),
@@ -176,13 +194,19 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
         <input
           type="number"
           min={1}
-          max={1000}
+          step={1}
           aria-label="Number of Turns"
           data-testid="autopilot-turns"
-          value={turns}
+          value={turnsText}
           disabled={active !== null}
           onChange={(event) => {
-            keep({ turns: Math.max(1, Math.trunc(Number(event.target.value)) || 1) });
+            setDraft({ from: storedTurns, text: event.target.value });
+          }}
+          onBlur={leaveTurns}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              leaveTurns();
+            }
           }}
         />
         <Button

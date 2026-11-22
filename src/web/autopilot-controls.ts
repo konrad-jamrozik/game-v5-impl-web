@@ -1,9 +1,12 @@
 /**
  * CSCR, Autopilot controls: the Player sets up Autopilot once per Session. The GUI keeps whether the Autopilot controls
- * are expanded, the chosen Autopilot AI, and the number of Turns for the rest of the Session, as the Player last left
- * them; loading a Campaign save, Timeline navigation, creating a Campaign, and returning to the Main menu change none of
- * them. They belong to the GUI alone and are never persisted, so they live in this module for as long as the page,
- * which holds the Session, and a new Session starts with them collapsed.
+ * are expanded and the chosen Autopilot AI for the rest of the Session, as the Player last left them; loading a
+ * Campaign save, Timeline navigation, creating a Campaign, and returning to the Main menu change neither. They belong
+ * to the GUI alone and are never persisted, so they live in this module for as long as the page, which holds the
+ * Session, and a new Session starts with them collapsed.
+ *
+ * CSCR, Autopilot settings: whether the controls are shown at all and the number of Turns are Global configuration
+ * settings instead, kept across Sessions.
  */
 import { useState } from 'react';
 
@@ -11,11 +14,10 @@ export interface AutopilotControls {
   readonly expanded: boolean;
   /** The chosen Autopilot AI, or null before the Player chose one. */
   readonly aiId: string | null;
-  readonly turns: number;
 }
 
-/** The Autopilot controls of a new Session: collapsed, with no Autopilot AI chosen, and 10 Turns. */
-export const NEW_SESSION_CONTROLS: AutopilotControls = { expanded: false, aiId: null, turns: 10 };
+/** The Autopilot controls of a new Session: collapsed, with no Autopilot AI chosen. */
+export const NEW_SESSION_CONTROLS: AutopilotControls = { expanded: false, aiId: null };
 
 let kept: AutopilotControls = NEW_SESSION_CONTROLS;
 
@@ -52,4 +54,24 @@ export function useAutopilotControls(): [AutopilotControls, (change: Partial<Aut
       setControls(keepAutopilotControls(change));
     },
   ];
+}
+
+/** CSCR, Autopilot settings: the effective Autopilot controls shown and Autopilot Turns, from the Global configuration report. */
+export function autopilotSettings(
+  settings: readonly { readonly setting: string; readonly effectiveValue: unknown }[],
+): { shown: boolean; turns: number } {
+  const find = (setting: string) => settings.find((item) => item.setting === setting)?.effectiveValue;
+  const shown = find('autopilotControlsShown');
+  const turns = find('autopilotTurns');
+  return { shown: shown === true, turns: typeof turns === 'number' ? turns : 10 };
+}
+
+/** CSCR, Autopilot settings: the Autopilot Turns the Turns field holds, or null when it holds no permitted value. */
+export function permittedAutopilotTurns(text: string): number | null {
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  }
+  const turns = Number(trimmed);
+  return Number.isSafeInteger(turns) && turns >= 1 ? turns : null;
 }

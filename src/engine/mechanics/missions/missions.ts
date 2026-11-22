@@ -3,14 +3,61 @@ import { must, ratio, roundUp } from '../../../kernel/index.ts';
 import type {
   AgentParametersGdr,
   ArmorGdr,
+  CombatParametersGdr,
   EnemyArchetypeGdr,
   FactionOperationLevelGdr,
   MissionSiteArchetypeGdr,
   WeaponGdr,
 } from '../../../gdr/index.ts';
 import type { Random } from '../../random.ts';
-import type { Enemy, Faction, MissionSite, MissionSiteOrigin } from '../../state/types.ts';
+import {
+  isServing,
+  type AgentState,
+  type Enemy,
+  type Faction,
+  type MissionSite,
+  type MissionSiteOrigin,
+} from '../../state/types.ts';
+import { canBeAssigned, isInBase, type AgentUpgradeBonus } from '../agents/agents.ts';
+import {
+  agentCombatantState,
+  combatRating,
+  enemyCombatantState,
+  meetsIncapacitationCondition,
+} from '../combat/combat.ts';
 import { conditionHolds, type ConditionWorld } from '../conditions/conditions.ts';
+
+/**
+ * MISSION, Glossary, Capable for deployment: the Agent does not meet the incapacitation condition with its current
+ * values, so it would not be Incapacitated as soon as it is deployed. REUSE, Rules read by other rules: it calls the
+ * one implementation Combat start calls.
+ */
+export function isCapableForDeployment(
+  agent: AgentState,
+  bonus: AgentUpgradeBonus,
+  combat: CombatParametersGdr,
+  agentParameters: AgentParametersGdr,
+): boolean {
+  return !meetsIncapacitationCondition(agentCombatantState(agent, bonus), combat, agentParameters);
+}
+
+/**
+ * MISSION, Glossary, Deployable Agent: a Serving Agent that is In base, can take orders, and is Capable for
+ * deployment, i.e. one At assignment on a Base Assignment; a Recovering Agent is In base but cannot take orders.
+ */
+export function isDeployableAgent(
+  agent: AgentState,
+  bonus: AgentUpgradeBonus,
+  combat: CombatParametersGdr,
+  agentParameters: AgentParametersGdr,
+): boolean {
+  return (
+    isServing(agent) &&
+    isInBase(agent) &&
+    canBeAssigned(agent) &&
+    isCapableForDeployment(agent, bonus, combat, agentParameters)
+  );
+}
 
 /**
  * MISSION, Whether a Mission site can exist: a Mission site of the MissionSiteArchetype targeting the Faction can exist
@@ -79,6 +126,8 @@ export function createMissionSite(input: {
   enemyArchetypes: ReadonlyMap<string, EnemyArchetypeGdr>;
   weapons: ReadonlyMap<string, WeaponGdr>;
   armors: ReadonlyMap<string, ArmorGdr>;
+  combat: CombatParametersGdr;
+  agentParameters: AgentParametersGdr;
 }): { site: MissionSite; enemies: Enemy[] } {
   const siteId = input.newId('mission-site');
   const enemies: Enemy[] = [];
@@ -99,6 +148,12 @@ export function createMissionSite(input: {
         origin: input.origin,
         targetFaction: input.targetFaction,
         turnCreated: input.turn,
+        // MISSION, Mission site creation: the Combat rating of its Enemies taken as one side, as created.
+        creationCombatRating: combatRating(
+          enemies.map((enemy) => enemyCombatantState(enemy.state)),
+          input.combat,
+          input.agentParameters,
+        ),
       },
       state: {
         lifecycle: 'Active',

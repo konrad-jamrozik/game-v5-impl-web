@@ -84,6 +84,22 @@ async function afterAdvance(page: Page, turn: string): Promise<void> {
   await expect(id(page, 'turn-summary')).toHaveCount(0);
 }
 
+/**
+ * CSCR, Autopilot settings: the Autopilot controls stay hidden until the "Show Autopilot controls" checkbox of the
+ * developer tools, which Dev mode does not gate, turns Autopilot controls shown on.
+ */
+async function showAutopilotControls(page: Page): Promise<void> {
+  await expect(id(page, 'autopilot-bar')).toHaveCount(0);
+  await id(page, 'open-settings').click();
+  await id(page, 'open-developer').click();
+  await expect(id(page, 'dev-mode')).not.toBeChecked();
+  // The setting is stored asynchronously, so the checkbox is checked once Game storage holds it.
+  await id(page, 'dev-show-autopilot').click();
+  await expect(id(page, 'dev-show-autopilot')).toBeChecked();
+  await id(page, 'close-developer').click();
+  await expect(id(page, 'autopilot-bar')).toBeVisible();
+}
+
 async function viaWeb(page: Page): Promise<unknown> {
   await page.goto('/');
   await id(page, 'seed-input').fill(SEED);
@@ -168,6 +184,7 @@ test('the Autopilot controls leave the Turn to the Player and say why each engag
   await page.goto('/');
   await id(page, 'seed-input').fill('autopilot');
   await id(page, 'new-campaign').click();
+  await showAutopilotControls(page);
   await id(page, 'autopilot-toggle').click();
   // CSCR, Autopilot controls: neither One action nor This Turn's actions advances the Turn.
   await expect(id(page, 'autopilot-turn')).toHaveText("This Turn's actions");
@@ -337,12 +354,14 @@ test('the Situation panel stays in view beside a Detail view and an item opens i
   await id(page, 'nav-history').click();
   await expect(id(page, 'view-history')).toBeVisible();
   await expect(id(page, 'situation')).toBeVisible();
-  await id(page, 'situation-row-criminal_organizations').click();
-  await expect(id(page, 'nav-leads')).toHaveAttribute('aria-pressed', 'true');
-  await expect(id(page, 'lead-details-criminal_organizations')).toBeVisible();
+  // SITP, Groups: no Leads group; the Agents line opens the Agents View.
+  await expect(id(page, 'situation-leads')).toHaveCount(0);
+  await id(page, 'situation-row-agents').click();
+  await expect(id(page, 'nav-agents')).toHaveAttribute('aria-pressed', 'true');
+  await expect(id(page, 'view-agents')).toBeVisible();
   // CSCR, Detail views: selecting the button of the open Detail view, or Escape, closes it.
-  await id(page, 'nav-leads').click();
-  await expect(id(page, 'view-leads')).toHaveCount(0);
+  await id(page, 'nav-agents').click();
+  await expect(id(page, 'view-agents')).toHaveCount(0);
   await id(page, 'nav-compendium').click();
   await expect(id(page, 'compendium-category-Guide')).toBeVisible();
   // SOUNDS, Select click: selecting a category or an article of the Compendium View is a List item.
@@ -637,6 +656,7 @@ test('the keyboard shortcuts view shows every key whole, and Undo names an Autop
   // CSCR, Undo and redo: after an Autopilot engagement that advanced Turns, one press undoes all of it, and the
   // button says so before it is pressed: Undo Autopilot, as an Autopilot button, at the width of every other label.
   const width = (await id(page, 'undo').boundingBox())?.width;
+  await showAutopilotControls(page);
   await id(page, 'autopilot-toggle').click();
   await id(page, 'autopilot-turns').fill('2');
   await id(page, 'autopilot-many').click();
@@ -660,21 +680,40 @@ test('the keyboard shortcuts view shows every key whole, and Undo names an Autop
   );
 });
 
-test('the Autopilot controls keep their state for the rest of the Session', async ({ page }) => {
+test('the Autopilot controls keep their state for the rest of the Session, and their settings across Sessions', async ({
+  page,
+}) => {
   await page.goto('/');
+  // GUI, Changed settings: with nothing changed, the row says so.
+  await expect(id(page, 'changed-settings')).toContainText('Every setting is at its default.');
   await id(page, 'seed-input').fill('autopilot-kept');
   await id(page, 'new-campaign').click();
+  await showAutopilotControls(page);
   await id(page, 'autopilot-toggle').click();
+  await expect(id(page, 'autopilot-turns')).toHaveValue('10');
   await id(page, 'autopilot-turns').fill('100');
+  await id(page, 'autopilot-turns').press('Enter');
   // CSCR, Autopilot controls: returning to the Main menu and creating a Campaign change none of them.
   await id(page, 'to-menu').click();
+  // GUI, Settings panel: the Autopilot settings have no row of their own, but Changed settings lists them.
+  await expect(id(page, 'setting-autopilotTurns')).toHaveCount(0);
+  await expect(id(page, 'changed-settings')).toContainText('Autopilot controls: shown (default hidden)');
+  await expect(id(page, 'changed-settings')).toContainText('Autopilot Turns: 100 (default 10)');
   await id(page, 'seed-input').fill('autopilot-kept-2');
   await id(page, 'new-campaign').click();
   await expect(id(page, 'autopilot-toggle')).toHaveAttribute('aria-expanded', 'true');
   await expect(id(page, 'autopilot-turns')).toHaveValue('100');
-  // A new Session starts with them collapsed.
+  // A new Session starts with them collapsed, while Autopilot controls shown and Autopilot Turns stay.
   await page.reload();
   await expect(id(page, 'autopilot-toggle')).toHaveAttribute('aria-expanded', 'false');
+  await id(page, 'autopilot-toggle').click();
+  await expect(id(page, 'autopilot-turns')).toHaveValue('100');
+  // GUI, Changed settings: Reset makes the setting follow its Game build default again.
+  await id(page, 'open-settings').click();
+  await id(page, 'changed-reset-autopilotControlsShown').click();
+  await expect(id(page, 'changed-reset-autopilotControlsShown')).toHaveCount(0);
+  await id(page, 'close-settings').click();
+  await expect(id(page, 'autopilot-bar')).toHaveCount(0);
 });
 
 test('completing Criminal organizations discovers the Locate member Leads, and Panic shows two decimals', async ({

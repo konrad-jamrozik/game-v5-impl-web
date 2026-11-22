@@ -10,6 +10,7 @@ import type {
   MissionSiteView,
 } from '../../engine/index.ts';
 import { Consequences } from '../consequences.tsx';
+import { enemyGroups } from '../enemy-groups.ts';
 import { enemyLabels } from '../enemy-labels.ts';
 import { decimalText, wholeText } from '../format.ts';
 import {
@@ -176,7 +177,8 @@ export function MissionsView(props: {
       id="missions"
       title="Missions"
       aside={`${active.length} Active`}
-      actions={
+      // MVIEW, Mission site list: the Finished toggle follows the number of Active Mission sites in the title row.
+      lead={
         <button
           type="button"
           className={showFinished ? 'chip chip-on' : 'chip'}
@@ -300,19 +302,7 @@ function SiteDetails(props: {
           {reached?.text ?? site.lifecycle}
         </dd>
       </dl>
-      {site.lifecycle === 'Concluded' && record !== null ? (
-        <Participants site={site} record={record} onShow={props.onShow} />
-      ) : (
-        /* MVIEW, Combat ratings: the Enemies' Combat rating sits on the line of the Enemies heading and ends at the
-           right edge of the Enemies table. */
-        <div className="enemies-block">
-          <div className="sit-group-head pane-sub">
-            <span className="label">Enemies</span>
-            <CombatRating value={site.enemiesCombatRating} testId="enemies-combat-rating" />
-          </div>
-          <EnemiesTable site={site} />
-        </div>
-      )}
+      {/* MVIEW, Selected Mission site: the Consequences come before the Enemies. */}
       <div className="label pane-sub">Consequences</div>
       {reached === null ? (
         <dl className="pairs">
@@ -329,6 +319,22 @@ function SiteDetails(props: {
           ) : (
             <Consequences consequence={applied} label="Applied" />
           )}
+        </div>
+      )}
+      {site.lifecycle === 'Concluded' && record !== null ? (
+        <Participants site={site} record={record} onShow={props.onShow} />
+      ) : (
+        /* MVIEW, Combat ratings: the Enemies' Combat rating sits on the line of the Enemies heading and ends at the
+           right edge of the Enemies lines. */
+        <div className="enemies-block">
+          <div className="sit-group-head pane-sub">
+            <span className="label">Enemies</span>
+            <CombatRating value={site.enemiesCombatRating} testId="enemies-combat-rating" />
+          </div>
+          <EnemyLines
+            site={site}
+            archetypeOrder={(snapshot.gameData?.enemyArchetypes ?? []).map((archetype) => archetype.id)}
+          />
         </div>
       )}
       {site.lifecycle === 'Deployed' && mission !== undefined ? (
@@ -455,31 +461,19 @@ function teamCombatRating(player: ReturnType<typeof theEngine>['player'], agents
   return preview.ok ? preview.value.teamCombatRating : 0;
 }
 
-function EnemiesTable(props: { site: MissionSiteView }) {
-  const { site } = props;
+/**
+ * MVIEW, Selected Mission site: the Enemies counted by EnemyArchetype, one line each with the Combat rating of one of
+ * them, in ascending order of it; their skill, health, and weapon damage are in the Compendium.
+ */
+function EnemyLines(props: { site: MissionSiteView; archetypeOrder: readonly string[] }) {
   return (
-    <Grid widths={['180px', '76px', '88px', '88px']} className="compact">
-      <thead>
-        <tr>
-          <th>Enemy</th>
-          <th className="num">Skill</th>
-          <th className="num">Health</th>
-          <th className="num">Damage</th>
-        </tr>
-      </thead>
-      <tbody>
-        {site.enemies.map((enemy) => (
-          <tr key={enemy.id}>
-            <td>{enemy.archetypeName}</td>
-            <td className="num">{enemy.skill}</td>
-            <td className="num">
-              {enemy.currentHealth}/{enemy.baseHealth}
-            </td>
-            <td className="num">{enemy.weaponDamage}</td>
-          </tr>
-        ))}
-      </tbody>
-    </Grid>
+    <div className="enemy-lines" data-testid="enemy-lines">
+      {enemyGroups(props.site.enemies, props.archetypeOrder).map((group) => (
+        <div key={group.archetype} className="enemy-line" data-testid={`enemy-group-${group.archetype}`}>
+          {group.text}
+        </div>
+      ))}
+    </div>
   );
 }
 

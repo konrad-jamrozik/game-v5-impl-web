@@ -1,11 +1,12 @@
 /**
  * GUI, Settings panel: the one place where the Player sets Global configuration, on both screens. Its rows, from top
- * to bottom, are the Music volume slider, the Sounds row, one row for each other setting, and, on the Campaign screen
- * only, the Tools row. On the Main menu it stands in the right column with the Music control above its rows and no
+ * to bottom, are the Music volume slider, the Sounds row, one row for each other setting except the Autopilot settings,
+ * the Changed settings row, and, on the Campaign screen only, the Tools row. On the Main menu it stands in the right column with the Music control above its rows and no
  * close control; on the Campaign screen it is a dialog over a Scrim with no buttons at its bottom, closed with its
  * close control or the Escape key.
  */
 import { useEffect, useRef, useState } from 'react';
+import { changedSettingLine, changedSettings } from '../changed-settings.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND, soundSettings } from '../sounds.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
@@ -17,6 +18,39 @@ import { MusicControl, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
  * settings have no rows of their own beyond the Music volume and Sounds rows.
  */
 const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume']);
+
+/** GUI, Settings panel: the Autopilot settings have no row; the Player sets them where they are used. */
+const SET_ELSEWHERE = new Set(['autopilotControlsShown', 'autopilotTurns']);
+
+/** GUI, Changed settings: one line per setting whose stored value overrides its Game build default, with Reset. */
+function ChangedSettingsRow({ snapshot }: { snapshot: Snapshot }) {
+  const { session } = theEngine();
+  const changed = changedSettings(snapshot.configuration.settings);
+  return (
+    <div className="settings-row settings-changed" data-testid="changed-settings">
+      <div>Changed settings</div>
+      {changed.length === 0 ? (
+        <div className="muted">Every setting is at its default.</div>
+      ) : (
+        <ul className="changed-settings">
+          {changed.map((setting) => (
+            <li key={setting.setting} className="changed-setting">
+              <span>{changedSettingLine(setting)}</span>
+              <Button
+                testId={`changed-reset-${setting.setting}`}
+                onClick={() => {
+                  act(() => session.globalConfiguration.reset(setting.setting));
+                }}
+              >
+                Reset
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /** SOUNDS, Sound settings: the Sounds toggle and the Sounds volume slider, in one row labelled Sounds. */
 function SoundsRow({ snapshot }: { snapshot: Snapshot }) {
@@ -87,7 +121,7 @@ function SettingsRows(props: {
       </div>
       <SoundsRow snapshot={snapshot} />
       {snapshot.configuration.settings
-        .filter((setting) => !OWN_ROWS.has(setting.setting))
+        .filter((setting) => !OWN_ROWS.has(setting.setting) && !SET_ELSEWHERE.has(setting.setting))
         .map((setting) => (
           <div key={setting.setting} className="settings-row">
             <div>
@@ -121,6 +155,7 @@ function SettingsRows(props: {
             </div>
           </div>
         ))}
+      <ChangedSettingsRow snapshot={snapshot} />
       {tools === undefined ? null : (
         <div className="settings-row">
           <div>Tools</div>

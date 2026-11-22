@@ -67,6 +67,7 @@
 - tests/engine/basic-autopilot-ai.test.ts
 - tests/engine/campaign.test.ts
 - tests/mechanics/initiative-operation-level.test.ts
+- src/engine/views/views.ts
 
 ## CINST: Campaign Instances
 
@@ -151,6 +152,8 @@
 - src/engine/saves/encoding.ts
 - src/cli/cli.ts
 - tests/helpers/test-rules.ts
+- src/web/changed-settings.ts
+- tests/web/changed-settings.test.ts
 
 ## CONV: Specification Conventions
 
@@ -181,6 +184,8 @@ No files.
 - tests/web/faction-activity.test.ts
 - src/web/autopilot-controls.ts
 - tests/web/lead-completion.test.ts
+- src/web/screens/DeveloperDrawer.tsx
+- src/web/screens/SituationPanel.tsx
 
 ## CSTATE: Campaign State
 
@@ -210,6 +215,7 @@ No files.
 - src/web/agency-charts.ts
 - src/web/screens/SeriesChart.tsx
 - tests/web/agency-charts.test.ts
+- tests/mechanics/combat-strength-values.test.ts
 
 ## DCONV: Design Specification Conventions
 
@@ -398,6 +404,10 @@ No files.
 - tests/web/enemy-labels.test.ts
 - src/web/memorial.ts
 - tests/web/memorial.test.ts
+- src/web/changed-settings.ts
+- tests/web/changed-settings.test.ts
+- src/web/enemy-groups.ts
+- tests/web/enemy-groups.test.ts
 
 ## HEADLESS: Headless First
 
@@ -534,6 +544,8 @@ No files.
 - tests/mechanics/incapacitation-agreement.test.ts
 - src/engine/mechanics/combat/combat.ts
 - tests/web/situation-and-summary.test.ts
+- tests/mechanics/combat-strength-values.test.ts
+- src/engine/state/summary.ts
 
 ## MUSIC: Music
 
@@ -572,6 +584,8 @@ No files.
 - src/web/styles.css
 - src/engine/views/views.ts
 - src/engine/player-api.ts
+- src/web/enemy-groups.ts
+- tests/web/enemy-groups.test.ts
 
 ## NUMBERS: Numbers
 
@@ -871,3 +885,4 @@ No files.
 - src/cli/cli.ts
 - tests/cli/cli.test.ts
 - tests/foundation/history-chart-values.test.ts
+- tests/mechanics/combat-strength-values.test.ts

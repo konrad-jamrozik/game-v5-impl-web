@@ -5,6 +5,7 @@
 import { useState, type CSSProperties } from 'react';
 import { detailViewName, fileName } from '../artwork-names.ts';
 import { IMAGE_PATHS, resetTuning, shownTuning, tune, useTunings } from '../artwork.ts';
+import { autopilotSettings } from '../autopilot-controls.ts';
 import { sliderFill } from '../slider.ts';
 import { act, setRevealHiddenContent, theEngine, type Snapshot } from '../store.ts';
 import { Button, CloseControl, Section } from '../ui.tsx';
@@ -119,6 +120,7 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
       ? null
       : 'Unavailable while Autopilot is engaged.'
     : 'Enable Dev mode first.';
+  const engaged = snapshot.status.autopilot === null ? null : 'Unavailable while Autopilot is engaged.';
   const inspection = devMode && inspecting ? developer.queries.getCampaignState() : null;
 
   return (
@@ -154,6 +156,20 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
           }}
         />
         Reveal hidden content
+      </label>
+      {/* CSCR, Autopilot settings: Dev mode does not gate it; it is disabled while an Autopilot engagement is active, so
+          that the Stop button never leaves the screen while it is needed. */}
+      <label className="inline" title={engaged ?? undefined}>
+        <input
+          type="checkbox"
+          data-testid="dev-show-autopilot"
+          checked={autopilotSettings(snapshot.configuration.settings).shown}
+          disabled={engaged !== null}
+          onChange={(event) => {
+            act(() => session.globalConfiguration.set('autopilotControlsShown', event.target.checked));
+          }}
+        />
+        Show Autopilot controls
       </label>
 
       <Section title="Cheats">

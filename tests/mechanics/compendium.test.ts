@@ -104,9 +104,9 @@ const bodyOf = (list: readonly CatalogCompendiumArticle[], id: string) =>
   shown(resolveArticles(list).find((item) => item.article.id === id)!.body);
 
 describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
-  it('supplies 6 Guide articles, 26 Mechanics articles, and 103 Subject articles, in the order of their identifiers', () => {
+  it('supplies 6 Guide articles, 27 Mechanics articles, and 103 Subject articles, in the order of their identifiers', () => {
     const all = bootstrapGdrCatalog().compendiumArticles;
-    expect(all).toHaveLength(135);
+    expect(all).toHaveLength(136);
     expect(all.filter((article) => article.category === 'guide').map((article) => article.id)).toEqual([
       'guide_agency',
       'guide_agents',
@@ -116,7 +116,7 @@ describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
       'guide_upgrades',
     ]);
     const mechanics = all.filter((article) => article.category === 'mechanics');
-    expect(mechanics).toHaveLength(26);
+    expect(mechanics).toHaveLength(27);
     for (const article of mechanics) {
       expect(article.id).toMatch(/^mechanics_/);
       expect(article.formulas.length).toBeGreaterThan(0);
@@ -726,7 +726,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
       (article) =>
         article.category !== 'subject' || ['AgentArchetype', 'Upgrade'].includes(article.subjectType ?? ''),
     );
-    expect(always).toHaveLength(6 + 26 + 1 + 8);
+    expect(always).toHaveLength(6 + 27 + 1 + 8);
     const operative = gdrs.enemyArchetypes.get('operative')!;
     const met = new Set([
       'initiate',
@@ -789,12 +789,19 @@ describe('COMP: Article visibility and Player-visible information', () => {
     expect(combat).toMatchObject({ category: 'mechanics', title: 'Combat', subject: null });
     expect(combat.formulas.length).toBeGreaterThan(0);
     expect(combat.seeAlso.map((link) => link.article)).toEqual([
+      'mechanics_combat_rating',
       'mechanics_damage',
       'mechanics_retreat',
       'mechanics_skill',
       'mechanics_missions',
     ]);
-    expect(combat.seeAlso.map((link) => link.text)).toEqual(['Damage', 'Retreat', 'Skill', 'Missions']);
+    expect(combat.seeAlso.map((link) => link.text)).toEqual([
+      'Combat rating',
+      'Damage',
+      'Retreat',
+      'Skill',
+      'Missions',
+    ]);
   });
 
   it('The first Mission Won', () => {
@@ -890,7 +897,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
     }
     expect(withoutArticles).toEqual(withArticles);
     // COMP, Met subjects: 13 of the 18 Enemy and Weapon articles still wait for their subjects to be met.
-    expect(visibleArticles(withArticles.world.current, gdrs)).toHaveLength(50);
+    expect(visibleArticles(withArticles.world.current, gdrs)).toHaveLength(51);
   });
 
   it('every Bootstrap article lies in the directory of one file per GDR', () => {
@@ -909,7 +916,7 @@ describe('COMP: Player API', () => {
     const initial = ok(engine.player.queries.getCompendiumArticles());
     expect(initial.map((article) => article.id)).toEqual(visible(newCampaign({ firstLead: false })));
     expect(initial.find((article) => article.id === 'red_dawn_article')).toBeUndefined();
-    expect(ok(engine.player.queries.getArticleForTerm('Combat rating'))).toBe('mechanics_combat');
+    expect(ok(engine.player.queries.getArticleForTerm('Combat rating'))).toBe('mechanics_combat_rating');
     expect(ok(engine.player.queries.getArticleForTerm('Raid safehouse'))).toBeNull();
 
     // Play with the Basic Autopilot AI, one Advance turn at a time, until an Advance turn discovers a Lead.
@@ -1051,7 +1058,7 @@ describe('COMP: Revealed Compendium', () => {
     expect(links.some((id) => !shownIds.includes(id))).toBe(true);
     // The Article term lookup reports the article of any Article term.
     expect(revealed.terms['raid safehouse']).toBe('raid_safehouse_article');
-    expect(revealed.terms['combat rating']).toBe('mechanics_combat');
+    expect(revealed.terms['combat rating']).toBe('mechanics_combat_rating');
     for (const article of all) {
       for (const term of article.terms) {
         expect(revealed.terms[term.toLowerCase()]).toBe(articleForTerm(term, all)!.id);
