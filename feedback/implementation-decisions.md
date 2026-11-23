@@ -549,6 +549,14 @@
   Player-visible; an Agent of the Agent reserve In transit recovers nothing in
   the Advance turn of its arrival; ties keep the order of the roster, of the Mission sites, or of the Leads; and a
   Player action that was rejected is not tried again in that Turn.
+- **Update:** Since Specification revision 2510d5502f53baec5c8302dde98dc32f848f9d35, BASICAI, Game designer values: the
+  Reserve share is 35%, the Investigator share 5%, and the Cap share 25%, so `BASIC_AI_THRESHOLDS` holds
+  `reserveSharePct` 35, `investigatorSharePct` 5, and `capSharePct` 25.
+- **Update:** Since Specification revision 851e9638a13fc232daf7ebae7cb7810f6079200a, BASICAI, Information: the Basic
+  Autopilot AI reads the Current world state once at the start of each step of its Turn routine and keeps it current
+  from what each of its Player actions returns, overriding the reading after every Player action that the update for
+  0fbe9cdd8fa04cd800e7278c0c5791872a66a3f5 above still describes. The other choices that update lists as remaining
+  this decision's are unchanged.
 - **Links:** None.
 
 ## DEC-022: Properties and name of a Campaign configuration preset
@@ -700,6 +708,10 @@
 - **Options considered:** The suggested values unchanged; values tuned against whole Campaigns.
 - **Option chosen:** Tuned values.
 - **Why:** With the suggested values the roster grew without bound and no team could win the last Mission site.
+- **Update:** Since Specification revision eac6dd78b8d4f7bf0bb74b0469e808470828b1b2, BASICAI has no game-ts appendix,
+  so the guidance this decision treated is gone, and since Specification revision
+  0fbe9cdd8fa04cd800e7278c0c5791872a66a3f5 every value of the Basic Autopilot AI is a Game designer value. This
+  decision no longer has any effect; the Implementation's remaining choices about the Basic Autopilot AI are in DEC-021.
 - **Links:** None.
 
 ## DEC-030: GitHub Pages Deployment followed
