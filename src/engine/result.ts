@@ -1,6 +1,6 @@
 /**
  * The result of every engine API operation. A failed operation changes nothing; see ENG, World state integrity.
- * The error representation is the Implementer's choice; see DEC-009.
+ * The error representation is the Implementer's choice.
  */
 export type ErrorCode =
   /** The operation needs a Current campaign and the Session has none. */

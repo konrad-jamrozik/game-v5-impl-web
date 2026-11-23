@@ -1,6 +1,6 @@
 /**
  * ECON (Economy and Upgrades): the Agency caps, income, upkeep, funding changes, and Upgrade effects. Every function
- * receives only the values it needs; see DEC-003.
+ * receives only the values it needs.
  */
 import { q, ratio, roundDown, type Rational } from '../../../kernel/index.ts';
 import type {

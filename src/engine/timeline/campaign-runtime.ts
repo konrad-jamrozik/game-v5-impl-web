@@ -4,7 +4,9 @@ import type { ActionRecord, GameRules, ShellState } from '../rules.ts';
 
 /**
  * One Campaign as a Session holds it: its Campaign ID, the Timeline of the current Turn with its Timeline pointer,
- * and the stamps that order its World states on the line of play; see TIMELINE and DEC-010.
+ * and the stamps that order its World states on the line of play; see TIMELINE. A stamp for each World state,
+ * unlike a comparison of Turn numbers and action counts, tells lines of play apart exactly, also after a Campaign
+ * save of another line of play is loaded, and costs a few bytes for each Player action.
  *
  * `states[i]` is the World state after `i` Timeline entries, and `states[0]` is the Turn-start state. The
  * Timeline pointer is `position`: the Current world state is `states[position]`, and the Timeline entries from

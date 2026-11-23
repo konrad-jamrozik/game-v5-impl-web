@@ -20,7 +20,7 @@ export function requiredProgressRange(
   };
 }
 
-/** The name of the Required progress outcome of the next Investigation of a Lead; see DEC-018. */
+/** The name of the Required progress outcome of the next Investigation of a Lead. */
 export function requiredProgressOutcome(lead: string): string {
   return `investigation.requiredProgress.${lead}`;
 }

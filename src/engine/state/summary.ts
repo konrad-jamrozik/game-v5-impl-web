@@ -14,7 +14,7 @@ import {
 } from './types.ts';
 
 /**
- * The reduced form of one World state that a History entry keeps; see DEC-016. It also holds the Serving Agents by
+ * The reduced form of one World state that a History entry keeps. It also holds the Serving Agents by
  * activity and their effective skills, which AGENT, Turn report, requires of the Turn-end state, the Combat ratings of
  * the Serving and the Deployable Agents, which MISSION, Turn report, requires of it, and the Agency caps,
  * which ECON, Turn report, requires of the Turn-start state; every summary holds all of them, so the Turn-start and

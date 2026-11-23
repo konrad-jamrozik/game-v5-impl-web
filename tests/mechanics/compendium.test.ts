@@ -460,7 +460,7 @@ describe('COMP: Compendium article GDR validation', () => {
     ]);
   });
 
-  it('a subject that identifies GDRs of more than one Type identifies no single GDR (DEC-045)', () => {
+  it('a subject that identifies GDRs of more than one Type identifies no single GDR', () => {
     expect(() =>
       catalogWith((raw) => {
         raw.add('combat/weapons.yaml', {
@@ -1089,7 +1089,7 @@ describe('COMP: Revealed Compendium', () => {
     expect(revealed.articles.filter((article) => article.playerVisible).map((article) => article.id)).toEqual(
       ok(engine.player.queries.getCompendiumArticles()).map((article) => article.id),
     );
-    // DEC-080: every Lead, as though discovered and Assessed; investigating an undiscovered one stays impossible.
+    // Every Lead, as though discovered and Assessed; investigating an undiscovered one stays impossible.
     const leads = ok(engine.developer.queries.getRevealedLeads());
     expect(leads.map((lead) => lead.id)).toEqual(gdrs.leads.map((lead) => lead.id));
     const hq = leads.find((lead) => lead.id === 'locate_red_dawn_hq')!;

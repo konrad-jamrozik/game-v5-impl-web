@@ -1,4 +1,4 @@
-/** Game storage as JSON files in a data directory, for the terminal CLI; see DEC-008. */
+/** Game storage as JSON files in a data directory, for the terminal CLI. */
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { GameStorage, SaveHeader } from '../engine/index.ts';

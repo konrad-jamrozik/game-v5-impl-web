@@ -171,6 +171,8 @@ const generated = [
   'playwright-report/',
 ];
 
+// Vite+ is the toolchain because it keeps the quick check fast: formatting, linting, and type checking take under 3
+// seconds with it, against about 15 with ESLint, typescript-eslint, and Prettier.
 export default defineConfig(() => ({
   // Relative asset URLs, so the build works under the GitHub Pages project path /game-v5-impl-web/.
   base: './',

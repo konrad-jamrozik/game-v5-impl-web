@@ -594,7 +594,7 @@ function addAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Reje
   return null;
 }
 
-/** The named random outcomes an override can fix, with the kind of value each takes; see DEC-020. */
+/** The named random outcomes an override can fix, with the kind of value each takes. */
 const OUTCOME_PATTERNS: readonly {
   readonly pattern: RegExp;
   readonly value: 'boolean' | 'whole' | 'text';
@@ -700,7 +700,7 @@ function dispatchAction(
   const args: Args =
     typeof record.args === 'object' && record.args !== null ? (record.args as Args) : ({} satisfies Args);
   if (record.surface === 'player') {
-    // DEC-089: a Timeline entry written before hiring took a count names `hireAgent`, which hired one Agent.
+    // A Timeline entry written before hiring took a count names `hireAgent`, which hired one Agent.
     if (record.name === 'hireAgent') {
       return hireAgents(world, { count: 1 }, gdrs);
     }

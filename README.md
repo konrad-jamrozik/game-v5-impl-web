@@ -4,16 +4,19 @@ An Implementation of the Game v5 specifications in TypeScript: a headless engine
 interfaces are adapters over the same engine API and implement no gameplay rule.
 
 The specifications are in the sibling directory `../game-v5`. The GDR files in `content/` are a copy of its
-`content/` directory; `content/SOURCE.md` names the commit they were copied from. The Soundtrack in `assets/music/tracks/`
-is an unchanged copy of its `assets/music/tracks/` directory, and the web UI plays it. The Sound set in `assets/sounds/` is an
-unchanged copy of the sound files of its `assets/sounds/` directory, and the web UI plays each Sound in answer to the
-Player's clicks. The Background artwork in
-`assets/images/` is an unchanged copy of the images of its `assets/images/` directory, and the web UI shows each
-image behind the Detail view its BackgroundArtwork GDR names. The records that Implementation
-Feedback requires are in `feedback/`: `specification-problems.md` and `implementation-decisions.md`. The records that
-Specification Tracking requires are in `tracking/`: `specification-baseline.md` names the commit of the
-specifications this Implementation conforms to, and `specification-map.md` lists the files that implement each
-specification.
+`content/` directory, without its Cut content. The Soundtrack in `assets/music/tracks/` is an unchanged copy of its
+`assets/music/tracks/` directory, and the web UI plays it. The Sound set in `assets/sounds/` is an unchanged copy of
+the sound files of its `assets/sounds/` directory, and the web UI plays each Sound in answer to the Player's clicks.
+The Background artwork in `assets/images/` is an unchanged copy of the images of its `assets/images/` directory, and
+the web UI shows each image behind the Detail view its BackgroundArtwork GDR names. The globe in `src/web/globe/` and
+`public/globe/` is an unchanged copy of the code and the maps of its `lib/globe/` directory, and `LICENSE` is a copy
+of its license.
+
+`npm run sync:spec` mirrors every one of these copies from a commit of the Spec repo, `origin/main` of `../game-v5`
+unless `--rev` and `--from` name another: it adds, replaces, and deletes files until each copy equals its original,
+and with `--check` it only reports the differences. The copies are never edited by hand. Each commit that follows the
+specifications names the Spec repo commit it follows in a `Spec: <full hash>` trailer of its message; the script
+prints that line. Where the specifications are silent, the code decides, and no file records such a choice.
 
 ## Running it
 
@@ -21,9 +24,10 @@ Node 26.13.1 with its bundled npm is required; `.node-version` and the `engines`
 
 ```sh
 npm install
-npm run check          # the quick check: GDR build, format, lint, type check, records check, unit and property tests
+npm run check          # the quick check: GDR build, format, lint, type check, unit and property tests
 npm run check:full     # the full check: the quick check, the tests at their large size, and the Playwright tests
 npm run fix            # format and apply the lint fixes
+npm run sync:spec      # mirror the copies from the Spec repo; add -- --check to only report the differences
 npm run web:dev        # the web UI at http://localhost:5175
 npm run cli            # the terminal CLI; type help
 npm run cli -- --json  # the terminal CLI with one line of JSON per result, for scripts and LLM players
@@ -64,27 +68,27 @@ the Timeline entries, the Timeline pointer, and the Campaign configuration in fo
 
 - `tests/mechanics` and `tests/foundation` turn the acceptance examples of each specification into tests, named by
   the abbreviation of the specification, e.g. `COMBAT` or `TLINE`.
-- `tests/engine/campaign.test.ts` plays whole Campaigns through Player API: a scripted Victory and Defeat, 200
-  Campaigns of the Basic Autopilot AI, Determinism, undo and redo as a property, and the Information boundary.
+- `tests/engine/campaign.test.ts` plays whole Campaigns through Player API: a scripted Victory and Defeat,
+  Campaigns of the Basic Autopilot AI within the limits of CTEST, Determinism, undo and redo as a property, and the Information boundary.
 - `tests/cli` and `tests/web` cover the two storage layouts and the CLI.
 - `e2e/web.spec.ts` plays the same Campaign through the engine API, the CLI, and the web UI in a browser, and
   requires the full Campaign state to be equal.
 
 ## The web UI
 
-The web UI follows Graphical User Interface, and DEC-007 settles the screens that it leaves open. It looks as Visual
-Design states: the Field HUD direction, with its Design tokens in `src/web/styles.css` and its three typefaces loaded
-from Google Fonts; DEC-034 gives the light theme.
+The web UI follows Graphical User Interface, and the code settles what that leaves open. It looks as Visual Design
+states: the Field HUD direction, with its Design tokens in `src/web/styles.css` and its three typefaces loaded from
+Google Fonts, in a dark theme only.
 
 - **Main menu.** The Campaign saves grouped by Campaign, with a Load and a Delete button on each Campaign save and a
   Delete Campaign button on each Campaign, every deletion confirmed first; New-Campaign setup with the preset, its
-  values and Preset edits, and an optional Campaign seed; and the Global configuration settings, i.e. the Autosave limit and
-  the theme, dark or light.
+  values and Preset edits, and an optional Campaign seed; and the Global configuration settings, e.g. the Autosave
+  limit.
 - **Status bar.** Turn, money, funding, projected income and upkeep, Agents against the Agent cap, a Panic meter,
   each Faction with its Faction activity level, and the buttons Undo, Redo, earlier and later Autosave, Save, Main
   menu, and Advance turn.
 - **Globe stage.** The rest of the screen, left of the Side panel: a rotating Earth that the Player can drag and zoom,
-  copied unchanged from the Spec repo's `lib/globe/` (DEC-043). Its buttons at the bottom left stop and start its
+  copied unchanged from the Spec repo's `lib/globe/`. Its buttons at the bottom left stop and start its
   rotation, show its clouds in full, at half opacity, or not at all, and set the day and night speed to 1×, 2×, 4×, or
   stopped. It loads on first show, stops drawing while a Detail view covers it, and shows a message in its place
   without WebGL 2. Imagery: NASA Blue Marble and Earth at Night, in the public domain.
@@ -111,8 +115,7 @@ disabled button shows the engine's reason as its tooltip. Every error message sh
 reads the engine through one store that caches the query results of one revision, so every part of the screen shows
 the same World state.
 
-After a reload the web UI continues the Campaign from its Current Autosave, including its Undone actions; see
-DEC-023.
+After a reload the web UI continues the Campaign from its Current Autosave, including its Undone actions.
 
 Keyboard shortcuts: `N` Advance turn, `U` and `R` undo and redo, `1` to `8` open or close a Detail view, `Esc` close
 it, `H` hire, `S`, `C`, `T` assign the Agents selected in the Agents view, `A` select every Agent that can be
@@ -120,8 +123,8 @@ assigned, `` ` `` open the Developer drawer, `?` list the shortcuts.
 
 ## The terminal CLI
 
-One command per line; `help` lists them. The CLI follows Command-Line Interface, and DEC-027 settles what it leaves
-open. Each command is one engine API operation, e.g. `new my-seed`, `agents`,
+One command per line; `help` lists them. The CLI follows Command-Line Interface, and the code settles what that
+leaves open. Each command is one engine API operation, e.g. `new my-seed`, `agents`,
 `assign Contracting agent-2 agent-3`, `investigate locate_red_dawn_member agent-4`, `deploy mission-site-1 agent-2`,
 `next`, `undo`, `auto basic turns 10`, `dev on`, `inspect`. Each prints the whole result of its operation: as
 indented `key: value` lines and tables, or with `--json` as one line of JSON. Game storage is the directory `.data`, or the one that

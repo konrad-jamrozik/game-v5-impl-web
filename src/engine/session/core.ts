@@ -123,7 +123,7 @@ interface Engagement {
   readonly limit: AutopilotLimit;
   playerActions: number;
   turnAdvancements: number;
-  /** The Player actions committed since this Autopilot engagement began or last advanced the Turn; see DEC-012. */
+  /** The Player actions committed since this Autopilot engagement began or last advanced the Turn. */
   actionsThisTurn: number;
   status: 'active' | 'ended';
   result: DisengagementResult | null;
@@ -420,7 +420,7 @@ export class EngineCore<S extends ShellState> {
   }
 
   /**
-   * Counts one engine call of the active Autopilot AI against its execution budget; see DEC-012. Exhausting the
+   * Counts one engine call of the active Autopilot AI against its execution budget. Exhausting the
    * budget disengages Autopilot as AI failed, so that an Autopilot AI cannot repeat invalid actions indefinitely.
    */
   private budgetExhausted(engagement: Engagement): boolean {
@@ -680,7 +680,7 @@ export class EngineCore<S extends ShellState> {
   /**
    * `session.campaignConfiguration.set(values)`: validates the whole request first, so an invalid one changes nothing.
    * It is not a Player action: it adds no Timeline entry and moves no Timeline pointer, and the change stays in force
-   * through undo, redo, and Autosave navigation until the next change or a load; see DEC-013.
+   * through undo, redo, and Autosave navigation until the next change or a load.
    */
   setCampaignConfiguration(principal: Principal, values: unknown): Promise<Result<null>> {
     return this.runExclusive(async () => {
@@ -1871,7 +1871,7 @@ export class EngineCore<S extends ShellState> {
     } else if (this.campaign !== null && this.rules.isEnded(currentState(this.campaign))) {
       await this.endEngagement(engagement, 'campaignEnded');
     } else if (engagement.actionsThisTurn >= ACTION_BUDGET_PER_TURN) {
-      // DEC-012: an Autopilot AI that never requests Advance turn exhausts its execution budget.
+      // An Autopilot AI that never requests Advance turn exhausts its execution budget.
       await this.endEngagement(
         engagement,
         'aiFailed',

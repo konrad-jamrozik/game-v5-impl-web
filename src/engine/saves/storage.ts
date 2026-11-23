@@ -25,7 +25,7 @@ export interface SaveHeader {
   readonly actions?: number;
   /** The Game build that wrote the Campaign save. */
   readonly gameBuild: string;
-  /** Identifies the saved World state on its line of play; see DEC-010. */
+  /** Identifies the saved World state on its line of play. */
   readonly stamp: string;
   /** When the Campaign save was last written, as an ISO 8601 UTC time; not Campaign state, see SAVES. */
   readonly writtenAt: string;

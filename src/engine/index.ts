@@ -175,7 +175,7 @@ export interface Engine {
        */
       getRevealedCompendium(): Result<RevealedCompendiumView>;
       /**
-       * DEV, Revealed presentation (DEC-080): every Lead of the Game build, each as though discovered and Assessed;
+       * DEV, Revealed presentation: every Lead of the Game build, each as though discovered and Assessed;
        * whether it can be investigated now still follows the Current world state.
        */
       getRevealedLeads(): Result<readonly LeadView[]>;

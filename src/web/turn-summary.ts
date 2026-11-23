@@ -33,7 +33,7 @@ export interface SummaryMission {
 export interface SummaryInvestigation {
   readonly investigation: string;
   readonly leadName: string;
-  /** The number of Turns from its Turn started to the Turn the Advance turn ended; see DEC-042. */
+  /** The number of Turns from its Turn started to the Turn the Advance turn ended. */
   readonly turns: number;
   readonly finalProgress: number;
   readonly gain: number;

@@ -7,7 +7,7 @@ export const SAVE_SIZE_LIMIT_BYTES = 100 * 1024 * 1024;
 
 const FORMAT = 16;
 
-/** Encoded Turn-start states, reused while the same Turn-start state is written again; see DEC-008. */
+/** Encoded Turn-start states, reused while the same Turn-start state is written again. */
 const turnStartCache = new WeakMap<object, string>();
 
 function encodeTurnStart(state: object): string {
@@ -19,7 +19,7 @@ function encodeTurnStart(state: object): string {
   return text;
 }
 
-/** The body of a Campaign save: one JSON text; see DEC-008. */
+/** The body of a Campaign save: one JSON text. */
 export function encodeSave<S extends ShellState>(header: SaveHeader, saved: SavedCampaign<S>): string {
   const rest = JSON.stringify({
     pastStamps: saved.pastStamps,
@@ -103,7 +103,7 @@ const KINDS: readonly string[] = [
 /**
  * Reads the body of a Campaign save, or says why the Game build does not load it. A Campaign save written before
  * Autopilot memory was removed also holds `memoryBase` and `memoryWrites`, which are ignored, and holds no
- * `configuration`, so its Campaign configuration is that of its saved World state; it loads; see DEC-008.
+ * `configuration`, so its Campaign configuration is that of its saved World state; it loads.
  */
 export function decodeSave<S extends ShellState>(
   body: string,

@@ -128,7 +128,7 @@ export function leadDiscovered(lead: LeadGdr, world: Pick<LeadWorld, 'discovered
 /**
  * LEAD, Lead discovery: adds to the set of discovered Leads every Lead not yet in it whose `discovered_when` holds in
  * the given World state, with the Faction of the Lead supplied to every `mission_won` Condition; a Lead without
- * `discovered_when` always joins it. Leads that join together are added in Game build order (DEC-035). No Lead ever
+ * `discovered_when` always joins it. Leads that join together are added in Game build order. No Lead ever
  * leaves the set. Returns the Leads it added.
  */
 export function discoverLeads(

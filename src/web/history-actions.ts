@@ -41,7 +41,7 @@ function text(item: ActionRecordItem, key: string): string {
   return typeof value === 'string' ? value : String(value);
 }
 
-/** The Agents a hiring item hired; DEC-089: an item written before hiring took a count hired one. */
+/** The Agents a hiring item hired; an item written before hiring took a count hired one. */
 function hiredCount(item: ActionRecordItem): number {
   const count = arg(item, 'count');
   return item.operation === 'hireAgent' ? 1 : typeof count === 'number' ? count : 0;

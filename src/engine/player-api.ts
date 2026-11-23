@@ -196,7 +196,7 @@ export interface MissionView {
   readonly currentTeam: readonly string[];
 }
 
-/** A value that exists but is hidden from the player, as opposed to an absent value (null); see DEC-039. */
+/** A value that exists but is hidden from the player, as opposed to an absent value (null). */
 export type Unknown = 'unknown';
 
 export interface InvestigationView {
@@ -210,7 +210,7 @@ export interface InvestigationView {
   readonly progress: number;
   /** INVSTG, Assessment: whether its progress has ever reached the assessment threshold of its Lead. */
   readonly assessed: boolean;
-  /** The Actual required progress exists but is hidden, so it is always reported as unknown; see DEC-039. */
+  /** The Actual required progress exists but is hidden, so it is always reported as unknown. */
   readonly actualRequiredProgress: Unknown;
   readonly currentTeam: readonly { readonly agent: string; readonly agentStatus: AgentStatus }[];
   /**

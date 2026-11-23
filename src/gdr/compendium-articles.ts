@@ -312,7 +312,7 @@ const REFERENCE_PROPERTIES: Readonly<Record<string, Readonly<Record<string, stri
   EnemyArchetype: { weapon: 'Weapon', armor: 'Armor' },
 };
 
-/** The GDRs of a Game build as authored, by identifier; an identifier is unique only within a Type (DEC-014). */
+/** The GDRs of a Game build as authored, by identifier; an identifier is unique only within a Type. */
 type RawGdrs = ReadonlyMap<string, readonly RawGdr[]>;
 
 /**
@@ -382,7 +382,7 @@ function resolvePlaceholder(
  * COMP, Compendium article GDR validation, rules 4 to 9, across the Game build. Returns each article with its
  * displayed title, the Type of its subject, and every Placeholder replaced. `gdrs` holds every GDR of the Game build
  * as authored. A `subject` or a Placeholder that identifies GDRs of more than one Type identifies no single GDR and
- * is a data defect (DEC-045).
+ * is a data defect.
  */
 export function validateCompendiumArticles(
   articles: readonly CompendiumArticleGdr[],

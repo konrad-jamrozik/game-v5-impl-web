@@ -15,7 +15,7 @@ export interface SettingDescriptor {
 
 /**
  * The complete set of Global configuration settings of this Game build, in the order of the Global configuration table
- * in CONFIG; see DEC-011, MUSIC, Music settings, SOUNDS, Sound settings, and CSCR, Autopilot settings.
+ * in CONFIG; see MUSIC, Music settings, SOUNDS, Sound settings, and CSCR, Autopilot settings.
  */
 export const SETTINGS: readonly SettingDescriptor[] = [
   {

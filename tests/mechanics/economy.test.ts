@@ -344,7 +344,7 @@ describe('ECON: examples', () => {
     );
     expectRejected(start, 'hireAgents', { count: 0 }, 'invalid_count');
     expectRejected(start, 'hireAgents', { count: 1.5 }, 'invalid_count');
-    // DEC-089: a Timeline entry written before hiring took a count names hireAgent and hires one Agent.
+    // A Timeline entry written before hiring took a count names hireAgent and hires one Agent.
     expect(act(start, 'hireAgent').world.current).toEqual(
       act(start, 'hireAgents', { count: 1 }).world.current,
     );

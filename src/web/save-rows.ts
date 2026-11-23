@@ -10,7 +10,7 @@ type Row = Pick<SaveListEntry, 'saveId' | 'autosaveKind' | 'turn' | 'actions' | 
  * Orders the Campaign saves of one Campaign by Turn, earliest first, then by number of Player actions, fewest first,
  * then by the time each was last written, earliest first, except that the Current Autosave comes after every other
  * Autosave equal to it in Turn and actions. To keep the order total, the Current Autosave is placed as if it were
- * written no earlier than the latest of those Autosaves; see DEC-077.
+ * written no earlier than the latest of those Autosaves.
  */
 export function orderSaveRows<T extends Row>(saves: readonly T[]): T[] {
   const place = (save: T) => `${save.turn}:${save.actions}`;

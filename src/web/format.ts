@@ -16,7 +16,7 @@ export function decimalText(hundredths: number): string {
 /**
  * GUI, Decimal quantities shown: by default a Decimal quantity, held in hundredths, is shown as a whole number,
  * rounded down so that it never reads as having reached a threshold it has not, e.g. 10190 as 101 and 2940 as 29. A
- * whole number held in hundredths, e.g. an Enemy's health in a Combat report (DEC-056), is shown as it is.
+ * whole number held in hundredths, e.g. an Enemy's health in a Combat report, is shown as it is.
  */
 export function wholeText(hundredths: number): string {
   return String(Math.floor(hundredths / 100));

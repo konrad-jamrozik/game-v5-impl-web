@@ -1,5 +1,5 @@
 /**
- * Game storage in the browser's IndexedDB; see DEC-023. One database with three object stores: `configuration`
+ * Game storage in the browser's IndexedDB. One database with three object stores: `configuration`
  * holds the Global configuration text, `headers` one small record for each Campaign save, and `bodies` its text.
  */
 import type { GameStorage, SaveHeader } from '../engine/index.ts';

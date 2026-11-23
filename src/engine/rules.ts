@@ -85,7 +85,7 @@ export interface GameRules<S extends ShellState> {
   availableActionsView(state: S): unknown;
   /**
    * Full Campaign state for Developer API inspection, detached: the Timeline of the current Turn with its Timeline
-   * pointer, and the History, Campaign configuration, and Turn report of the Current world state; see DEC-019.
+   * pointer, and the History, Campaign configuration, and Turn report of the Current world state.
    */
   inspect(timeline: {
     readonly states: readonly S[];

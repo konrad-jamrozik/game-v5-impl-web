@@ -1,7 +1,7 @@
 /**
  * AGENT (Agents): effective skill, attribute clamps, which Agents can be ordered, the start-work gate, work
  * exhaustion, and Agent creation. Every function
- * receives only the values it needs; see DEC-003.
+ * receives only the values it needs.
  */
 import {
   EngineDefect,

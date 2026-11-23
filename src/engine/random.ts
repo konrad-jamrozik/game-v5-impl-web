@@ -22,7 +22,7 @@ export interface RandomOverride {
 /**
  * Random outcomes derived from the Campaign seed through the generator state in Campaign state, with pending
  * overrides applied first. An override is consumed by the outcome it fixes; an override whose value is not one of
- * the possible values of the outcome is discarded and the outcome is drawn as usual; see DEC-020.
+ * the possible values of the outcome is discarded and the outcome is drawn as usual.
  */
 export function seededRandom(rng: RngState, overrides: RandomOverride[]): Random {
   const take = (outcome: string): RandomOverride | null => {

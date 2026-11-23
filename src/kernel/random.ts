@@ -3,7 +3,7 @@ import type { Rational } from './rational.ts';
 
 /**
  * A counter-based generator of 32-bit whole numbers, written with integer operations only so that it gives the same
- * values on every machine; see DEC-005. Its state is two stored quantities kept in Campaign state: the key, derived
+ * values on every machine. Its state is two stored quantities kept in Campaign state: the key, derived
  * once from the Campaign seed, and the count of values drawn so far.
  */
 export interface RngState {

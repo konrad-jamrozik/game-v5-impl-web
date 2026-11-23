@@ -220,7 +220,9 @@ export interface CombatParticipantReport {
   readonly side: 'agent' | 'enemy';
   /**
    * Base skill, current health, and the damage values are in hundredths for every Combatant, an Agent's being Decimal
-   * quantities and an Enemy's whole numbers times 100; exhaustion is the whole exhaustion; see DEC-056.
+   * quantities and an Enemy's whole numbers times 100; exhaustion is the whole exhaustion. One unit for both sides
+   * keeps the report uniform, and every such field is named for hundredths so that code which takes its value for
+   * whole units fails to compile instead of misreading it.
    */
   readonly start: {
     readonly skillHundredths: number;
@@ -546,7 +548,7 @@ export interface HistoryParticipant {
   readonly condition: CombatantCondition;
 }
 
-/** One ended Turn in reduced form; see DEC-016. */
+/** One ended Turn in reduced form. */
 export interface HistoryEntry {
   readonly turn: number;
   readonly turnStart: StateSummary;

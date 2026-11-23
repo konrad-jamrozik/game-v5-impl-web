@@ -71,7 +71,7 @@ function share(value: number, max: number): number {
 
 /**
  * The bar of an Active Investigation, e.g. in the Situation panel. `projectedGain` is null for an Investigation that
- * is not Active. Progress beyond the greatest value of the range is drawn at the bar's end; see DEC-042.
+ * is not Active. Progress beyond the greatest value of the range is drawn at the bar's end.
  */
 export function progressBar(
   lead: RequiredKnowledge,
@@ -146,7 +146,7 @@ const near = (a: number, b: number) => Math.abs(a - b) < LABEL_GAP_SHARE;
 /**
  * VIS, Progress bars: which values of the range are written under the bar. On a Completed Investigation, a value of
  * the range that the final Investigation progress would overlap is left out, and the final Investigation progress
- * keeps its place; the Required progress also gives way to the progress before the last Advance turn, under DEC-042.
+ * keeps its place; the Required progress also gives way to the progress before the last Advance turn.
  */
 export function rangeLabels(model: ScaledBar | CompletedBar): {
   readonly requiredProgress: boolean;

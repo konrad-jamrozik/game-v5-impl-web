@@ -1,6 +1,6 @@
 /*
  * VIS, Design tokens: the Field HUD direction. Every colour, font, and radius below comes from Visual Design; a screen
- * uses these variables and no literal value. The light theme is a TODO in VIS; DEC-034 gives its interim values.
+ * uses these variables and no literal value. The interface has a dark theme only.
  */
 :root {
   color-scheme: dark;
@@ -2351,7 +2351,9 @@ label:has(> input[type='checkbox']:disabled) {
 
 /* VIS, Detail views and navigation; MVIEW: a text aside, e.g. "2 Active", is centred on the title's line, i.e. the
    middle of its 14 px figures sits at the middle of the title's 22 px capitals: from the shared baseline it is raised
-   by half the difference of their heights, 3 px. The cap figures of the Agents View centre on the line instead. */
+   by half the difference of their heights, 3 px. A box centred on the 36 px line reads above the capitals, and the
+   shared baseline alone reads below their middle; the Game designer saw both as misaligned. The cap figures of the
+   Agents View centre on the line instead. */
 .detail-head h2 {
   display: flex;
   align-items: baseline;

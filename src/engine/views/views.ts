@@ -112,7 +112,7 @@ function ratesOf(world: CurrentWorldState, gdrs: GdrCatalog): UpgradedRates {
   );
 }
 
-/** An Enemy's values in the hundredths form that effective skill and a Combat read; see DEC-056. */
+/** An Enemy's values in the hundredths form that effective skill and a Combat read. */
 function enemyCombatant(enemy: Enemy['state']): CombatantState {
   return enemyCombatantState(enemy);
 }
@@ -364,7 +364,7 @@ function investigationView(
 
 /**
  * LEAD, Player-visible information: only discovered Leads; an undiscovered Lead is left out of every result. With
- * `reveal`, DEV, Revealed presentation: every Lead, each as though discovered and Assessed (DEC-080), while
+ * `reveal`, DEV, Revealed presentation: every Lead, each as though discovered and Assessed, while
  * `canBeInvestigatedNow` still follows the Lead as it is, because every Player action is validated as without it.
  */
 function leadViews(world: CurrentWorldState, gdrs: GdrCatalog, reveal = false): LeadView[] {
@@ -1023,7 +1023,7 @@ export interface RevealedArticleView extends CompendiumArticleView {
 /**
  * `developer.queries.getRevealedCompendium()`: COMP, Revealed Compendium. Every Compendium article of the Game build
  * in Game build order, each resolved with every article taking part in Article links, and `terms`, the Article term
- * lookup over every article: the identifier of the article each Article term in lower case names (DEC-081).
+ * lookup over every article: the identifier of the article each Article term in lower case names.
  */
 export interface RevealedCompendiumView {
   readonly articles: readonly RevealedArticleView[];
@@ -1058,7 +1058,7 @@ export function revealedCompendiumView(state: CampaignState, gdrs: GdrCatalog): 
 }
 
 /**
- * `developer.queries.getRevealedLeads()`: DEV, Revealed presentation of the Leads (DEC-080). Every Lead of the Game
+ * `developer.queries.getRevealedLeads()`: DEV, Revealed presentation of the Leads. Every Lead of the Game
  * build, in Game build order, as `getCurrentRetiredWorldState()` would report it if it were discovered and Assessed.
  */
 export function revealedLeadsView(state: CampaignState, gdrs: GdrCatalog): readonly LeadView[] {
@@ -1240,8 +1240,8 @@ function historyOf(state: CampaignState): unknown {
 
 /**
  * `developer.queries.getCampaignState()`: Campaign state in full, detached, in its conceptual hierarchy, with each
- * Campaign instance as its four properties; see CSTATE, Campaign state composition, DEV, Inspection contract, and
- * DEC-019. The Timeline holds its World states, each after the first with the Player action that produced it.
+ * Campaign instance as its four properties; see CSTATE, Campaign state composition, and DEV, Inspection
+ * contract. The Timeline holds its World states, each after the first with the Player action that produced it.
  */
 export function inspectCampaignState(timeline: {
   readonly states: readonly CampaignState[];

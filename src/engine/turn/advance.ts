@@ -1,6 +1,6 @@
 /**
  * TURN (Turn Advancement): the twelve Turn advancement steps, each applied once and in the canonical order. The
- * steps hold Campaign state and hand each rule function only the values it needs; see DEC-003.
+ * steps hold Campaign state and hand each rule function only the values it needs.
  *
  * Within a step, every rule uses Step-start values apart from the exceptions TURN lists, so the order in which
  * Campaign instances are processed does not change the result. `order` lets a test choose that order.
@@ -399,7 +399,7 @@ export function applyAdvanceTurn(
       .sort(byInstanceId);
     // COMBAT, Fighting a Combat: the inputs come from the World state, the Combat is fought by the one shared
     // implementation, and this step applies its outputs. An Agent fights with its effective max health, current
-    // health, and effective weapon damage; an Enemy in the hundredths form of an Agent; see DEC-056.
+    // health, and effective weapon damage; an Enemy in the hundredths form of an Agent.
     const fought = fightCombat(
       {
         agents: team.map((agent) => ({ id: agent.id, state: agentCombatantState(agent.state, bonus) })),
@@ -856,7 +856,7 @@ function ratingAt(combat: CombatReport, index: number): { agents: number; enemie
   return { agents: rating.agents, enemies: rating.enemies };
 }
 
-/** The reduced form of a Turn report that its History entry keeps; see DEC-016. */
+/** The reduced form of a Turn report that its History entry keeps. */
 function reduceReport(
   report: TurnReport,
   turnStart: HistoryEntry['turnStart'],

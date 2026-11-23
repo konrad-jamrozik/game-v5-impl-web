@@ -3,7 +3,7 @@
  * Player action from the current Player-visible information alone, and keeps no plan across turns. It splits the roster
  * into the Agent reserve, the Investigators, and the Contractors, deploys and musters teams, and buys in a fixed cycle.
  * When no step of its Turn routine has a Player action left to make, it requests Advance turn, which the engine
- * withholds under the Autopilot limits `singleAction` and `turnActions`. See DEC-021.
+ * withholds under the Autopilot limits `singleAction` and `turnActions`.
  */
 import type {
   AgentView,

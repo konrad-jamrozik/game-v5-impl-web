@@ -49,7 +49,7 @@ import {
  * health, and Exact exhaustion in hundredths, under NUMBERS, Decimal quantities, with the effective values. An Agent's
  * current health and Exact exhaustion are written back to its health lost and Exact exhaustion after the Combat; an
  * Enemy's whole values are multiplied by 100 before the Combat and divided back after it, which is exact because
- * every change a Combat makes is a whole number of points; see DEC-056.
+ * every change a Combat makes is a whole number of points.
  */
 export interface CombatantState {
   readonly skillHundredths: number;
@@ -85,7 +85,7 @@ export function agentCombatantState(agent: AgentState, bonus: AgentUpgradeBonus)
 
 /**
  * COMBAT, Combat inputs and outputs, item 3: an Enemy's current values in the hundredths form of an Agent; its whole
- * values are written back after the Combat; see DEC-056. Its effective armor is its base armor.
+ * values are written back after the Combat. Its effective armor is its base armor.
  */
 export function enemyCombatantState(enemy: EnemyState): CombatantState {
   return { ...enemyCombatantValues(enemy), weaponDamage: enemy.baseWeaponDamage, armor: enemy.baseArmor };

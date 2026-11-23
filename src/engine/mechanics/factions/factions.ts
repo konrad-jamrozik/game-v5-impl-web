@@ -1,6 +1,6 @@
 /**
  * FACTION (Factions): initial Factions, Escalation, Faction operation occurrence generation, and Elimination. Every
- * function receives one Faction, the GDRs it reads, and the random source; see DEC-003.
+ * function receives one Faction, the GDRs it reads, and the random source.
  */
 import { must } from '../../../kernel/index.ts';
 import type { FactionActivityLevelGdr, FactionArchetypeGdr } from '../../../gdr/index.ts';

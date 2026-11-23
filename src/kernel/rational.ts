@@ -159,7 +159,9 @@ export function ratio(n: bigint | number, d: bigint | number): Rational {
 
 /**
  * Turns an exact whole result into a stored quantity. A stored quantity outside the safe-integer range is reported
- * as an engine defect; see DEC-004.
+ * as an engine defect, never wrapped, saturated, or approximated. A stored quantity is a plain number, not a `bigint`,
+ * because none can approach 2^53 in a playable Campaign and a number serializes to JSON and displays without
+ * conversion.
  */
 export function toStored(value: bigint): number {
   if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER)) {

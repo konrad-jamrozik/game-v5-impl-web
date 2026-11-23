@@ -6,7 +6,7 @@ export { buildGdrCatalog, COMBAT_GDR_VALUE_NAMES, withCombatGdrValues, type RawG
 export { GDR_HASH, PACKAGE_VERSION, RAW_GDR_FILES };
 export type * from './types.ts';
 
-/** Identifies the Game build: the package version and a hash of its GDRs; see DEC-010. */
+/** Identifies the Game build: the package version and a hash of its GDRs. */
 export const GAME_BUILD = `${PACKAGE_VERSION}+${GDR_HASH}`;
 
 let bootstrap: GdrCatalog | null = null;

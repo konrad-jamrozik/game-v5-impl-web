@@ -24,7 +24,7 @@ export interface RawGdrFile {
   readonly gdrs: readonly unknown[];
 }
 
-/** GDR identifiers: a lowercase letter, then lowercase letters, digits, and underscores; see DEC-014. */
+/** GDR identifiers: a lowercase letter, then lowercase letters, digits, and underscores. */
 const ID_PATTERN = /^[a-z][a-z0-9_]*$/;
 
 const id = z.string().regex(ID_PATTERN);

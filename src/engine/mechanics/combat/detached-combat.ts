@@ -70,7 +70,10 @@ export interface DetachedCombatSetup {
   readonly seed: string;
 }
 
-/** COMBAT, Detached Combat, Outputs: one participant, identified by its side and position. */
+/**
+ * COMBAT, Detached Combat, Outputs: one participant, identified by its side and position, because a participant given
+ * by explicit values has no Instance ID.
+ */
 export interface DetachedCombatParticipant {
   /** The identifier the Combat report and its Combat log use for the participant, e.g. `agent#1`. */
   readonly id: string;
@@ -344,7 +347,9 @@ export function buildDetachedCombat(
 
 /**
  * COMBAT, Detached Combat, Random outcomes: every random outcome derives from the Detached seed alone. No random
- * outcome of the Current campaign is drawn, and no random outcome override applies.
+ * outcome of the Current campaign is drawn, and no random outcome override applies. The seed takes no prefix: it is
+ * derived as a Campaign seed is, so a Detached seed equal to a Campaign seed repeats that Campaign's first draws, which
+ * lets the Agreement test of REUSE supply equal random outcomes without a second random source.
  */
 export function detachedRandom(seed: string): Random {
   return seededRandom(seedRng(seed), []);

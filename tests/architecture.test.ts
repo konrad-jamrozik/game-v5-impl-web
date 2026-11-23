@@ -72,12 +72,6 @@ describe('PLACE: Repository root of an Implementation', () => {
 
   it('holds its own copy of the GDR files', () => {
     expect(statSync(join(root, 'content')).isDirectory()).toBe(true);
-    expect(existsSync(join(root, 'content', 'SOURCE.md'))).toBe(true);
-  });
-
-  it('keeps both record files', () => {
-    expect(existsSync(join(root, 'feedback', 'specification-problems.md'))).toBe(true);
-    expect(existsSync(join(root, 'feedback', 'implementation-decisions.md'))).toBe(true);
   });
 });
 

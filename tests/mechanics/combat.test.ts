@@ -84,7 +84,7 @@ describe('COMBAT: examples', () => {
           baseArmor: armor.armor,
         },
       });
-      // A Combat holds an Enemy's whole values in hundredths, as an Agent holds its own; see DEC-056.
+      // A Combat holds an Enemy's whole values in hundredths, as an Agent holds its own.
       const state = enemyCombatantState(enemy.state);
       expect(state).toEqual({
         skillHundredths: archetype.skill * 100,

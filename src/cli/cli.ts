@@ -2,7 +2,7 @@
  * The terminal adapter: one command per line over the engine API. It implements no gameplay rule: every figure it
  * prints comes from a query, and every command is one engine API operation; see ENG, API hierarchy, and CLI, Reach of
  * the CLI. Each result is printed in one of the two Output forms of CLI, readable text or one line of JSON, and both
- * carry the whole value the operation returned; see DEC-027.
+ * carry the whole value the operation returned.
  */
 import type {
   AutopilotLimit,
