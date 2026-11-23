@@ -55,7 +55,7 @@ type RawGdrs = Parameters<Parameters<typeof catalogWith>[0]>[0];
 function setExampleValues(raw: RawGdrs): void {
   const level = (
     id: string,
-    lasts: [number, number] | null,
+    lasts: [number, number] | 'per_faction' | null,
     every: [number, number] | null,
     weights: [string, number][],
   ) => {
@@ -64,7 +64,7 @@ function setExampleValues(raw: RawGdrs): void {
     gdr['operation_every_turns'] = every;
     gdr['operation_level_weights'] = { $entries: weights };
   };
-  level('dormant', [10, 20], null, []);
+  level('dormant', 'per_faction', null, []);
   level(
     'faint',
     [15, 25],
@@ -217,7 +217,11 @@ describe('FACTION: examples', () => {
     // Campaign creation at `dormant`, a level without operations, e.g. the initial level of Exalt and Black Lotus.
     const catalog = example;
     const levels = (id: string) => catalog.factionActivityLevels.get(id)!;
-    const sleeper = { ...catalog.factionArchetypes[0]!, initialActivityLevel: 'dormant' };
+    const sleeper = {
+      ...catalog.factionArchetypes[0]!,
+      initialActivityLevel: 'dormant',
+      initialLastsTurns: [10, 20] as const,
+    };
     const created = createFaction(
       'faction-2',
       sleeper,
@@ -377,6 +381,7 @@ describe('FACTION: examples', () => {
         type: 'FactionArchetype',
         name: 'Test Faction',
         initial_activity_level: 'active',
+        initial_lasts_turns: null,
       });
     });
     let state = createCampaignState({ startingMoney: 500, startingFunding: 20 }, 'two', catalog);
@@ -442,6 +447,7 @@ describe('FACTION: examples', () => {
         type: 'FactionArchetype',
         name: 'Test Faction',
         initial_activity_level: 'active',
+        initial_lasts_turns: null,
       });
       raw.files.find((file) => file.path === 'factions/faction_archetypes.yaml')!.gdrs.reverse();
     });
@@ -490,7 +496,32 @@ describe('FACTION: examples', () => {
     expectDefective((raw) => (raw.get('dormant')['operation_every_turns'] = [10, 20]));
     expectDefective((raw) => (raw.get('faint')['operation_every_turns'] = null));
     expectDefective((raw) => raw.get('dormant')['operation_level_weights'].$entries.push(['1', 5]));
-    expect(catalogWith((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'dormant'))).toBeDefined();
+    // Rule 5: `initial_lasts_turns` is a pair exactly when the initial level lasts per Faction, and no `next`
+    // enters such a level.
+    expect(
+      catalogWith((raw) => {
+        raw.get('red_dawn')['initial_activity_level'] = 'dormant';
+        raw.get('red_dawn')['initial_lasts_turns'] = [5, 10];
+      }),
+    ).toBeDefined();
+    expectDefective((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'dormant'));
+    expectDefective((raw) => (raw.get('red_dawn')['initial_lasts_turns'] = [5, 10]));
+    expectDefective((raw) => {
+      raw.get('red_dawn')['initial_activity_level'] = 'dormant';
+      raw.get('red_dawn')['initial_lasts_turns'] = [0, 10];
+    });
+    expectDefective((raw) => delete raw.get('red_dawn')['initial_lasts_turns']);
+    expectDefective((raw) =>
+      raw.add('factions/faction_activity_levels.yaml', {
+        id: 'prelude',
+        type: 'FactionActivityLevel',
+        name: 'Prelude',
+        lasts_turns: [5, 5],
+        operation_every_turns: null,
+        operation_level_weights: {},
+        next: 'dormant',
+      }),
+    );
     expectDefective((raw) => (raw.get('faint')['operation_level_weights'].$entries[0][1] = 0));
     expectDefective((raw) => (raw.get('red_dawn')['description'] = 'x'));
     expectDefective((raw) => delete raw.get('war')['next']);

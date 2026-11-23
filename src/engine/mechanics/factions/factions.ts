@@ -9,12 +9,25 @@ import type { Faction, FactionState } from '../../state/types.ts';
 
 type Levels = (id: string) => FactionActivityLevelGdr;
 
-/** FACTION, Level duration: a uniform whole-number outcome over `lasts_turns` of the level entered. */
-function levelDuration(random: Random, factionId: string, level: FactionActivityLevelGdr): number | null {
+/**
+ * FACTION, Level duration: a uniform whole-number outcome over `lasts_turns` of the level entered, or, at creation into
+ * a level whose `lasts_turns` is `per_faction`, over the FactionArchetype's `initial_lasts_turns`. Faction GDR
+ * validation keeps every move out of such a level, so only creation passes `perFaction`.
+ */
+function levelDuration(
+  random: Random,
+  factionId: string,
+  level: FactionActivityLevelGdr,
+  perFaction: readonly [number, number] | null = null,
+): number | null {
   if (level.lastsTurns === null) {
     return null;
   }
-  return random.uniform(`faction.${factionId}.levelDuration`, level.lastsTurns[0], level.lastsTurns[1]);
+  const range =
+    level.lastsTurns === 'per_faction'
+      ? must(perFaction, 'initial_lasts_turns of a Faction starting at a per_faction level')
+      : level.lastsTurns;
+  return random.uniform(`faction.${factionId}.levelDuration`, range[0], range[1]);
 }
 
 /**
@@ -46,7 +59,7 @@ export function createFaction(
     constants: {},
     state: {
       activityLevel: level.id,
-      turnsUntilNextLevel: levelDuration(random, id, level),
+      turnsUntilNextLevel: levelDuration(random, id, level, archetype.initialLastsTurns),
       turnsUntilNextOperation: operationInterval(random, id, level),
       eliminated: false,
       eliminatedTurn: null,

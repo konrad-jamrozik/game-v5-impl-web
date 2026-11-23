@@ -161,13 +161,16 @@ export interface FactionArchetypeGdr {
   readonly id: string;
   readonly name: string;
   readonly initialActivityLevel: string;
+  /** FACTION, FactionArchetype: a pair exactly when the initial level's `lasts_turns` is `per_faction`. */
+  readonly initialLastsTurns: readonly [number, number] | null;
 }
 
 export interface FactionActivityLevelGdr {
   readonly type: 'FactionActivityLevel';
   readonly id: string;
   readonly name: string;
-  readonly lastsTurns: readonly [number, number] | null;
+  /** FACTION, FactionActivityLevel: `null` for a final level; `per_faction` for a level a Faction only starts at. */
+  readonly lastsTurns: readonly [number, number] | 'per_faction' | null;
   /** FACTION, FactionActivityLevel: `null` for a level without operations. */
   readonly operationEveryTurns: readonly [number, number] | null;
   /** The `level` of a FactionOperationLevel and its weight, in the authored order; empty for a level without operations. */

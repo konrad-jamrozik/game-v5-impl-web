@@ -163,6 +163,10 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 - `configuration/campaign_configurations.yaml`: patched unchanged from specification commit
   `1524e1656bc4b866890de2e2818dbb8d697a2a93` on 2026-11-22, raising the preset `standard`'s `starting_funding` from 20
   to 100. The copy is still identical to the specification's `content/` directory outside `content/cut/`.
+- `factions/faction_activity_levels.yaml` and `factions/faction_archetypes.yaml`: patched unchanged from specification
+  commit `2b77aaf741c457839372fd10954ed1ea89ec3f5b` on 2026-11-22, making `dormant`'s `lasts_turns` `per_faction` and
+  giving each FactionArchetype its `initial_lasts_turns`. The copy is still identical to the specification's
+  `content/` directory outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

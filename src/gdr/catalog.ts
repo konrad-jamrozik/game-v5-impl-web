@@ -401,19 +401,26 @@ const schemas = {
     .strictObject({ id, type: z.literal('ConfigurationParameters'), default_preset: id })
     .transform((g) => ({ type: g.type, id: g.id, defaultPreset: g.default_preset })),
   FactionArchetype: z
-    .strictObject({ id, type: z.literal('FactionArchetype'), name, initial_activity_level: id })
+    .strictObject({
+      id,
+      type: z.literal('FactionArchetype'),
+      name,
+      initial_activity_level: id,
+      initial_lasts_turns: range.nullable(),
+    })
     .transform((g) => ({
       type: g.type,
       id: g.id,
       name: g.name,
       initialActivityLevel: g.initial_activity_level,
+      initialLastsTurns: g.initial_lasts_turns,
     })),
   FactionActivityLevel: z
     .strictObject({
       id,
       type: z.literal('FactionActivityLevel'),
       name,
-      lasts_turns: range.nullable(),
+      lasts_turns: z.union([range, z.literal('per_faction')]).nullable(),
       operation_every_turns: range.nullable(),
       operation_level_weights: entries(z.int()),
       next: id.nullable(),
@@ -963,8 +970,17 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
 
   // FACTION, Faction GDR validation.
   for (const archetype of factionArchetypes) {
-    if (!factionActivityLevels.has(archetype.initialActivityLevel)) {
+    const initial = factionActivityLevels.get(archetype.initialActivityLevel);
+    if (initial === undefined) {
       problems.push(`FactionArchetype ${archetype.id}: Initial level resolves`);
+    }
+    const pair = archetype.initialLastsTurns;
+    if (pair !== null && !(pair[0] >= 1 && pair[0] <= pair[1])) {
+      problems.push(`FactionArchetype ${archetype.id}: Ranges are valid`);
+    }
+    // Rule 5: a pair exactly when the initial level lasts per Faction.
+    if (initial !== undefined && (pair !== null) !== (initial.lastsTurns === 'per_faction')) {
+      problems.push(`FactionArchetype ${archetype.id}: Per-Faction durations agree`);
     }
   }
   const operationLevelNumbers = factionOperationLevels.map((level) => level.level);
@@ -973,12 +989,16 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   }
   for (const level of factionActivityLevels.values()) {
     for (const pair of [level.operationEveryTurns, level.lastsTurns]) {
-      if (pair !== null && !(pair[0] >= 1 && pair[0] <= pair[1])) {
+      if (pair !== null && pair !== 'per_faction' && !(pair[0] >= 1 && pair[0] <= pair[1])) {
         problems.push(`FactionActivityLevel ${level.id}: Ranges are valid`);
       }
     }
     if ((level.lastsTurns === null) !== (level.next === null)) {
       problems.push(`FactionActivityLevel ${level.id}: Final levels agree`);
+    }
+    // Rule 5: no escalation enters a level that lasts per Faction.
+    if (level.next !== null && factionActivityLevels.get(level.next)?.lastsTurns === 'per_faction') {
+      problems.push(`FactionActivityLevel ${level.id}: Per-Faction durations agree`);
     }
     if (level.next !== null && !factionActivityLevels.has(level.next)) {
       problems.push(`FactionActivityLevel ${level.id}: Next resolves`);

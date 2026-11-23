@@ -514,6 +514,7 @@ describe('TURN: Values a step uses, as a property', () => {
       type: 'FactionArchetype',
       name: 'Second Faction',
       initial_activity_level: 'active',
+      initial_lasts_turns: null,
     });
     for (const id of ['lead_b', 'lead_c']) {
       raw.add('leads-and-progression/leads.yaml', {
