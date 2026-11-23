@@ -2188,6 +2188,34 @@ label:has(> input[type='checkbox']:disabled) {
   text-align: left;
 }
 
+/* TSUM, Groups: the line of an Investigation that unlocked Contracting, a button that reads as a line of text. */
+.summary-unlock {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+}
+
+/* AVIEW, Agent table: the Lead or Mission site an Assignment names leads to it; it reads as the text around it. */
+.assignment-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.assignment-link:hover,
+.assignment-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .strong {
   color: var(--text);
 }

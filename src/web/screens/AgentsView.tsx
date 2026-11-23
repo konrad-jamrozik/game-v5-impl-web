@@ -28,6 +28,7 @@ import {
   type OrderAssignment,
   type Selectability,
 } from '../agent-selection.ts';
+import { assignmentParts, assignmentText } from '../assignment.ts';
 import { capBar, type CapBarModel } from '../cap-bar.ts';
 import { memorialDeath, type MemorialDeath } from '../memorial.ts';
 import { fillColour } from '../progress-bar.ts';
@@ -61,8 +62,13 @@ const NUMERIC = new Set([
   'effectiveWeaponDamage',
 ]);
 
-/** VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. */
-const SERVING_WIDTHS = ['36px', '104px', '116px', '84px', '64px', '96px', '132px', '104px', '280px', '220px'];
+/**
+ * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. Eff. holds four digits and
+ * Exh. three after the warning triangle, each with its sort arrow. AVIEW, Agent table: Assignment holds the longest
+ * Lead `name` of the GDRs after "Investigating: " and before " · In transit", e.g. "Investigating: Interrogate Black
+ * Lotus high commander · In transit", so that it is never cut short.
+ */
+const SERVING_WIDTHS = ['36px', '104px', '84px', '84px', '64px', '96px', '76px', '104px', '480px', '220px'];
 /** VIS, Tables: the fixed widths of the Memorial table. */
 /**
  * AVIEW, Memorial: Killed by holds the longest Enemy label of the GDRs with a two-digit number, e.g.
@@ -115,33 +121,6 @@ function CapFigure(props: { label: string; testId: string; model: CapBarModel })
 /** Instance IDs in their creation order, e.g. agent-9 before agent-10. */
 function byId(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true });
-}
-
-/** AVIEW, Agent table: an Assignment names its Lead or Mission site, and an Agent In transit says so. */
-export function assignmentText(
-  agent: AgentView,
-  state: CurrentLiveWorldStateView,
-  retired?: CurrentRetiredWorldStateView | null,
-): string {
-  const assignment = agent.assignment;
-  let text: string;
-  if (assignment === null) {
-    text = agent.agentStatus;
-  } else if (assignment.kind === 'Investigation') {
-    const investigation =
-      state.investigations.find((item) => item.id === assignment.investigation) ??
-      retired?.investigations.find((item) => item.id === assignment.investigation);
-    text = `Investigation · ${investigation?.leadName ?? assignment.investigation}`;
-  } else if (assignment.kind === 'Deployed') {
-    const mission = state.missions.find((item) => item.id === assignment.mission);
-    const site = state.missionSites.find((item) => item.id === mission?.missionSite);
-    text = `Mission · ${site?.name ?? assignment.mission}`;
-  } else if (assignment.kind === 'Recovery' && agent.recoveryTurnsRemaining !== null) {
-    text = `Recovery · ${agent.recoveryTurnsRemaining} T left`;
-  } else {
-    text = assignment.kind;
-  }
-  return agent.agentStatus === 'InTransit' ? `${text} · In transit` : text;
 }
 
 /** VIS, Tables: text that encodes a state takes the colour of that state. */
@@ -205,7 +184,7 @@ export function AgentsView(props: {
   onClose: () => void;
 }) {
   const { player } = theEngine();
-  const { snapshot, state, selected, locked, onSelect } = props;
+  const { snapshot, state, selected, locked, onSelect, onShow } = props;
   const actions = snapshot.actions;
   const levels = exhaustionLevels(snapshot.gameData);
   // VIS, Tables: up to four sort tiers over the default order by Instance ID.
@@ -351,7 +330,8 @@ export function AgentsView(props: {
           </button>
         ),
       }),
-      helper.accessor('effectiveSkill', { header: 'Effective' }),
+      // VIS, Tables: effective skill is headed Eff.
+      helper.accessor('effectiveSkill', { header: 'Eff.' }),
       // GUI, Decimal quantities shown: base skill and current health with two decimals, e.g. "101.10", "29.40/30".
       helper.accessor('skillHundredths', { header: 'Skill', cell: (cell) => wholeText(cell.getValue()) }),
       // AVIEW, Agent table: Experience, a whole number, headed Exp.
@@ -363,7 +343,8 @@ export function AgentsView(props: {
         ),
       }),
       helper.accessor('exhaustion', {
-        header: 'Exhaustion',
+        // VIS, Tables: exhaustion is headed Exh.
+        header: 'Exh.',
         cell: (cell) => <Exhaustion value={cell.getValue()} levels={levels} />,
       }),
       // AVIEW, Agent table: the effective weapon damage.
@@ -371,7 +352,32 @@ export function AgentsView(props: {
       helper.accessor((agent) => assignmentText(agent, state, snapshot.retired), {
         id: 'assignment',
         header: 'Assignment',
-        cell: (cell) => <span className={assignmentTone(cell.row.original)}>{cell.getValue()}</span>,
+        cell: (cell) => {
+          const parts = assignmentParts(cell.row.original, state, snapshot.retired);
+          const target = parts.target;
+          return (
+            <span className={assignmentTone(cell.row.original)}>
+              {parts.lead}
+              {parts.name === null ? null : target === null ? (
+                parts.name
+              ) : (
+                // AVIEW, Agent table: the Lead or Mission site opens its Detail view with it selected, as a Follow.
+                <button
+                  type="button"
+                  className="assignment-link"
+                  data-testid={`assignment-link-${cell.row.original.id}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onShow(target);
+                  }}
+                >
+                  {parts.name}
+                </button>
+              )}
+              {parts.transit}
+            </span>
+          );
+        },
       }),
       helper.accessor('blockedBy', {
         header: 'Blocked by',
@@ -384,7 +390,7 @@ export function AgentsView(props: {
         ),
       }),
     ],
-    [state, snapshot.retired, levels],
+    [state, snapshot.retired, levels, onShow],
   );
 
   const table = useReactTable({

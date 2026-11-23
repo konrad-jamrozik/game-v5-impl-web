@@ -19,7 +19,7 @@ import { act, theEngine, type Snapshot } from '../store.ts';
 import { useRowSelection } from '../row-selection.ts';
 import { pressHeader, sortRows, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
-import { assignmentText } from './AgentsView.tsx';
+import { assignmentText } from '../assignment.ts';
 import { DetailView } from './DetailView.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
 
@@ -369,7 +369,7 @@ function Team(props: {
         <p className="muted small">No Agent that is Fit to start work can take orders now.</p>
       ) : (
         <Grid
-          widths={['36px', '104px', '170px', '84px', '80px', '96px']}
+          widths={['36px', '104px', '170px', '84px', '80px', '76px']}
           className="compact pick-grid"
           testId="agents-to-add"
         >
@@ -378,9 +378,10 @@ function Team(props: {
               <th className="check" />
               {header('id', 'Agent', false)}
               {header('assignment', 'Assignment', false)}
-              {header('effectiveSkill', 'Effective', true)}
+              {/* VIS, Tables: effective skill is headed Eff., and exhaustion Exh. */}
+              {header('effectiveSkill', 'Eff.', true)}
               {header('skillHundredths', 'Skill', true)}
-              {header('exhaustion', 'Exhaustion', true)}
+              {header('exhaustion', 'Exh.', true)}
             </tr>
           </thead>
           <tbody>

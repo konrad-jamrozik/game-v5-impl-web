@@ -804,6 +804,10 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             // TSUM, Mission site links: the Missions View opens with that Mission site selected.
             openFromSummary(NOTHING_RESTORED, 'missions', missionSite);
           }}
+          onOpenAgents={() => {
+            // TSUM, Groups: the line of an Investigation that unlocked Contracting opens the Agents View.
+            openFromSummary(NOTHING_RESTORED, 'agents');
+          }}
         />
       ) : null}
 

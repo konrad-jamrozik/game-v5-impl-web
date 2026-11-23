@@ -43,6 +43,8 @@ export function TurnSummary(props: {
   onOpenCombat: (mission: string) => void;
   /** TSUM, Mission site links: a new or Expired Mission site item opens the Missions View with it selected. */
   onOpenSite: (missionSite: string) => void;
+  /** TSUM, Groups: the line of an Investigation that unlocked Contracting opens the Agents View. */
+  onOpenAgents: () => void;
 }) {
   const { model } = props;
   const dismiss = useRef<HTMLButtonElement>(null);
@@ -169,6 +171,17 @@ export function TurnSummary(props: {
                       )}
                     />
                   )}
+                  {item.unlocksContracting ? (
+                    <button
+                      type="button"
+                      className="link-row summary-unlock tone-good"
+                      data-testid={`summary-unlock-contracting-${item.investigation}`}
+                      onClick={props.onOpenAgents}
+                    >
+                      Contracting unlocked:{' '}
+                      <span className="link-name">assign Agents to it in the Agents View</span>
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </Group>

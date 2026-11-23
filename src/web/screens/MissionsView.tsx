@@ -32,7 +32,7 @@ import { SOUND } from '../sounds.ts';
 import { pressHeader, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
-import { assignmentText } from './AgentsView.tsx';
+import { assignmentText } from '../assignment.ts';
 import type { ReportTarget } from './TurnReportView.tsx';
 import { combatShare } from '../combat-share.ts';
 import { usePlaceState } from '../place.tsx';
@@ -572,7 +572,7 @@ function Deployment(props: {
         <p className="muted small">No Agent on Standby or in Training can be deployed now.</p>
       ) : (
         <Grid
-          widths={['36px', '110px', '220px', '96px', '112px']}
+          widths={['36px', '110px', '220px', '84px', '76px']}
           className="compact pick-grid"
           testId="deploy-grid"
         >
@@ -599,8 +599,9 @@ function Deployment(props: {
               </th>
               {header('id', 'Agent')}
               {header('assignment', 'Assignment')}
-              {header('effectiveSkill', 'Effective')}
-              {header('exhaustion', 'Exhaustion')}
+              {/* VIS, Tables: effective skill is headed Eff., and exhaustion Exh. */}
+              {header('effectiveSkill', 'Eff.')}
+              {header('exhaustion', 'Exh.')}
             </tr>
           </thead>
           <tbody>

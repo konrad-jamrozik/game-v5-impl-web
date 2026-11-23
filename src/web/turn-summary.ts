@@ -41,6 +41,8 @@ export interface SummaryInvestigation {
   readonly requiredProgress: number | null;
   readonly range: { readonly min: number; readonly max: number } | null;
   readonly createdMissionSiteName: string | null;
+  /** TSUM, Groups: its Lead's Completion effect holds unlock_contracting, so Agents can now go to Contracting. */
+  readonly unlocksContracting: boolean;
 }
 
 export interface SummarySite {
@@ -167,6 +169,7 @@ export function turnSummary(
       requiredProgress: required === undefined || required === 'unknown' ? null : required,
       range: range === undefined || range === 'unknown' ? null : range,
       createdMissionSiteName: created === null ? null : siteName(created),
+      unlocksContracting: lead?.unlocksContracting === true,
     };
   });
 
