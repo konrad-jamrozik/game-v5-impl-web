@@ -1,11 +1,11 @@
 /**
- * Tests of MISSION, Initiative won with Enemy Condition kind: when it holds, how LEAD, Initiative operation level reads
+ * Tests of MISSION, Mission won with Enemy Condition kind: when it holds, how LEAD, Initiative operation level reads
  * it, and how LEAD, Lead GDR validation and MISSION, MissionSiteArchetype validation check it.
  */
 import { describe, expect, it } from 'vite-plus/test';
 import {
   conditionHolds,
-  initiativeWonWithEnemyHolds,
+  missionWonWithEnemyHolds,
   wonMissionIndex,
   type ConditionWorld,
 } from '../../src/engine/mechanics/conditions/conditions.ts';
@@ -58,8 +58,8 @@ function worldWith(options: {
 
 /** Both ways the engine evaluates the Condition: by reading every Mission, and through the Won Mission index. */
 function holds(world: ConditionWorld, enemy: string, faction: string): boolean {
-  const direct = initiativeWonWithEnemyHolds(enemy, faction, world);
-  const indexed = conditionHolds({ kind: 'initiative_won_with_enemy', enemyArchetype: enemy }, world, {
+  const direct = missionWonWithEnemyHolds(enemy, faction, world);
+  const indexed = conditionHolds({ kind: 'mission_won_with_enemy', enemyArchetype: enemy }, world, {
     faction,
     won: wonMissionIndex(world),
   });
@@ -67,7 +67,7 @@ function holds(world: ConditionWorld, enemy: string, faction: string): boolean {
   return direct;
 }
 
-describe('MISSION, Initiative won with Enemy Condition kind', () => {
+describe('MISSION, Mission won with Enemy Condition kind', () => {
   it('holds after a Won Initiative Mission whose Mission site held the Enemy, even one killed in the Combat', () => {
     const world = worldWith({
       kind: 'Initiative',
@@ -82,15 +82,18 @@ describe('MISSION, Initiative won with Enemy Condition kind', () => {
     expect(holds(world, 'commander', 'faction-1')).toBe(false);
   });
 
-  it('does not hold for a Won Response Mission, a Lost Mission, or a Mission site of another Faction', () => {
-    const lieutenant = [{ archetype: 'lieutenant', dead: false }];
+  it('holds after a Won Response Mission too, e.g. a High commander killed at Foil warhead launch', () => {
     const response = worldWith({
       kind: 'Response',
       faction: 'faction-1',
-      enemies: lieutenant,
+      enemies: [{ archetype: 'high_commander', dead: true }],
       outcome: 'Won',
     });
-    expect(holds(response, 'lieutenant', 'faction-1')).toBe(false);
+    expect(holds(response, 'high_commander', 'faction-1')).toBe(true);
+  });
+
+  it('does not hold for a Lost Mission or a Mission site of another Faction', () => {
+    const lieutenant = [{ archetype: 'lieutenant', dead: false }];
     const lost = worldWith({
       kind: 'Initiative',
       faction: 'faction-1',
@@ -103,26 +106,52 @@ describe('MISSION, Initiative won with Enemy Condition kind', () => {
   });
 });
 
-describe('LEAD, Initiative operation level of an initiative_won_with_enemy Condition', () => {
-  it('is that of the first Initiative Mission site of the chain holding the Enemy, never of a Response one', () => {
+describe('LEAD, Initiative operation level of a mission_won_with_enemy Condition', () => {
+  it('is that of the first Initiative Mission site holding the Enemy: a Response shortcut changes no level', () => {
     const catalog = bootstrapGdrCatalog();
     const levels = initiativeOperationLevels(catalog);
+    // Each officer, the Initiative Mission site of the chain that first holds it, and the Lead its interrogation leads to.
+    const officers = [
+      ['handler', 'raid_safehouse', 'outpost'],
+      ['lieutenant', 'raid_outpost', 'logistics_hub'],
+      ['commander', 'raid_logistics_hub', 'regional_stronghold'],
+      ['high_commander', 'raid_regional_stronghold', 'hq'],
+    ] as const;
     for (const faction of ['red_dawn', 'exalt', 'black_lotus']) {
-      const lead = catalog.leads.find((item) => item.id === `interrogate_${faction}_lieutenant`)!;
-      expect(lead.discoveredWhen).toEqual({
-        kind: 'initiative_won_with_enemy',
-        enemyArchetype: 'lieutenant',
-      });
-      // Response Mission sites hold Lieutenants too, but only Initiative ones count, so the chain keeps its tiers.
-      expect(levels.leads.get(lead.id)).toBe(levels.missionSiteArchetypes.get('raid_outpost'));
-      expect(levels.leads.get(`locate_${faction}_logistics_hub`)).toBe(
-        levels.missionSiteArchetypes.get('raid_outpost')! + 1,
-      );
+      for (const [enemy, site, next] of officers) {
+        const lead = catalog.leads.find((item) => item.id === `interrogate_${faction}_${enemy}`)!;
+        expect(lead.discoveredWhen).toEqual({ kind: 'mission_won_with_enemy', enemyArchetype: enemy });
+        // Response Mission sites hold these officers too, and add nothing to the level, so the chain keeps its tiers.
+        expect(levels.leads.get(lead.id)).toBe(levels.missionSiteArchetypes.get(site));
+        expect(levels.leads.get(`locate_${faction}_${next}`)).toBe(
+          levels.missionSiteArchetypes.get(site)! + 1,
+        );
+      }
     }
+  });
+
+  it('is 0 when only Response MissionSiteArchetypes hold the Enemy, and none when none does', () => {
+    const catalog = bootstrapGdrCatalog();
+    const lead = catalog.leads.find((item) => item.id === 'interrogate_red_dawn_lieutenant')!;
+    const only = (kind: 'initiative' | 'response') =>
+      initiativeOperationLevels({
+        leads: [
+          { ...lead, discoveredWhen: { kind: 'mission_won_with_enemy', enemyArchetype: 'lieutenant' } },
+        ],
+        missionSiteArchetypes: catalog.missionSiteArchetypes.filter((item) => item.kind === kind),
+      }).leads.get(lead.id);
+    expect(only('response')).toBe(0);
+    const none = initiativeOperationLevels({
+      leads: [
+        { ...lead, discoveredWhen: { kind: 'mission_won_with_enemy', enemyArchetype: 'no_such_enemy' } },
+      ],
+      missionSiteArchetypes: catalog.missionSiteArchetypes,
+    }).leads.get(lead.id);
+    expect(none).toBeNull();
   });
 });
 
-describe('Validation of initiative_won_with_enemy Conditions', () => {
+describe('Validation of mission_won_with_enemy Conditions', () => {
   it('LEAD, Lead GDR validation, rule 4: needs a Faction and an EnemyArchetype of the Game build', () => {
     expectDefective((raw) => {
       const lead = raw.get('interrogate_red_dawn_lieutenant');
@@ -130,7 +159,7 @@ describe('Validation of initiative_won_with_enemy Conditions', () => {
     });
     expectDefective((raw) => {
       raw.get('interrogate_red_dawn_lieutenant')['discovered_when'] = cond(
-        'initiative_won_with_enemy',
+        'mission_won_with_enemy',
         'no_such_enemy',
       );
     });
@@ -138,7 +167,7 @@ describe('Validation of initiative_won_with_enemy Conditions', () => {
 
   it('MISSION, MissionSiteArchetype validation, rule 9: is not an Existence Condition kind', () => {
     expectDefective((raw) => {
-      raw.get('raid_logistics_hub')['can_exist_when'] = cond('initiative_won_with_enemy', 'lieutenant');
+      raw.get('raid_logistics_hub')['can_exist_when'] = cond('mission_won_with_enemy', 'lieutenant');
     });
   });
 });

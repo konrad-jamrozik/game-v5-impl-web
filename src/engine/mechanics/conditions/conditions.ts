@@ -1,7 +1,7 @@
 /**
  * COND (Conditions): evaluating a Condition that a GDR declares, and the three Condition kinds of the game, which their
- * owning specifications define: `mission_won` (MISSION, Mission won Condition kind), `initiative_won_with_enemy`
- * (MISSION, Initiative won with Enemy Condition kind), and `lead_completed` (LEAD, Lead completed Condition kind).
+ * owning specifications define: `mission_won` (MISSION, Mission won Condition kind), `mission_won_with_enemy`
+ * (MISSION, Mission won with Enemy Condition kind), and `lead_completed` (LEAD, Lead completed Condition kind).
  * Evaluation reads one World state and changes nothing.
  */
 import type { Condition } from '../../../gdr/index.ts';
@@ -17,7 +17,7 @@ export interface ConditionWorld {
 
 /**
  * The supplied inputs of an evaluation: the Faction, by Instance ID, that every `mission_won` and
- * `initiative_won_with_enemy` Condition reads.
+ * `mission_won_with_enemy` Condition reads.
  */
 export interface ConditionInputs {
   readonly faction: string | null;
@@ -29,8 +29,8 @@ export interface ConditionInputs {
 }
 
 /**
- * The Won Missions of a World state: `wonKey` of each one's MissionSiteArchetype and target Faction, and, for a Won
- * Initiative Mission, `enemyKey` of each EnemyArchetype in its Mission site's Enemies list and the target Faction.
+ * The Won Missions of a World state: `wonKey` of each one's MissionSiteArchetype and target Faction, and `enemyKey` of
+ * each EnemyArchetype in its Mission site's Enemies list and the target Faction.
  */
 export type WonMissionIndex = ReadonlySet<string>;
 
@@ -55,10 +55,8 @@ export function wonMissionIndex(world: ConditionWorld): WonMissionIndex {
     const site = world.missionSites[mission.constants.missionSite];
     if (mission.state.lifecycle === 'Won' && site !== undefined) {
       index.add(wonKey(site.archetype, site.constants.targetFaction));
-      if (site.constants.kind === 'Initiative') {
-        for (const archetype of enemyArchetypesAt(site, world)) {
-          index.add(enemyKey(archetype, site.constants.targetFaction));
-        }
+      for (const archetype of enemyArchetypesAt(site, world)) {
+        index.add(enemyKey(archetype, site.constants.targetFaction));
       }
     }
   }
@@ -90,11 +88,11 @@ export function missionWonHolds(
 }
 
 /**
- * MISSION, Initiative won with Enemy Condition kind: at least one Initiative Mission is Won whose Mission site has the
- * supplied Faction as its target Faction and an Enemy of the EnemyArchetype in its Enemies list, whatever became of
- * that Enemy in the Combat. A Won Response Mission never makes it hold.
+ * MISSION, Mission won with Enemy Condition kind: at least one Mission is Won whose Mission site has the supplied
+ * Faction as its target Faction and an Enemy of the EnemyArchetype in its Enemies list, whatever became of that Enemy
+ * in the Combat. A Won Response Mission makes it hold as a Won Initiative Mission does.
  */
-export function initiativeWonWithEnemyHolds(
+export function missionWonWithEnemyHolds(
   enemyArchetype: string,
   faction: string | null,
   world: ConditionWorld,
@@ -108,7 +106,6 @@ export function initiativeWonWithEnemyHolds(
     return (
       mission.state.lifecycle === 'Won' &&
       site !== undefined &&
-      site.constants.kind === 'Initiative' &&
       site.constants.targetFaction === faction &&
       enemyArchetypesAt(site, world).includes(enemyArchetype)
     );
@@ -137,8 +134,8 @@ export function conditionHolds(
       return !conditionHolds(condition.condition, world, inputs);
     case 'mission_won':
       return missionWonHolds(condition.missionSiteArchetype, inputs.faction, world, inputs.won);
-    case 'initiative_won_with_enemy':
-      return initiativeWonWithEnemyHolds(condition.enemyArchetype, inputs.faction, world, inputs.won);
+    case 'mission_won_with_enemy':
+      return missionWonWithEnemyHolds(condition.enemyArchetype, inputs.faction, world, inputs.won);
     case 'lead_completed':
       return leadCompletedHolds(condition.lead, world);
   }

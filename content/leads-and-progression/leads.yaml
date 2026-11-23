@@ -61,7 +61,7 @@ description: Extract what the captured Red Dawn handler knows.
 faction: red_dawn
 required_progress: 5
 discovered_when:
-  mission_won: raid_safehouse
+  mission_won_with_enemy: handler
 ---
 id: locate_red_dawn_outpost
 type: Lead
@@ -78,11 +78,11 @@ on_completion:
 id: interrogate_red_dawn_lieutenant
 type: Lead
 name: Interrogate Red Dawn lieutenant
-description: Learn what a Red Dawn lieutenant knew, from the officer taken alive or from the orders found on the body.
+description: Extract what the captured Red Dawn lieutenant knows.
 faction: red_dawn
 required_progress: 10
 discovered_when:
-  initiative_won_with_enemy: lieutenant
+  mission_won_with_enemy: lieutenant
 ---
 id: locate_red_dawn_logistics_hub
 type: Lead
@@ -103,7 +103,7 @@ description: Extract what the captured Red Dawn commander knows.
 faction: red_dawn
 required_progress: 20
 discovered_when:
-  mission_won: raid_logistics_hub
+  mission_won_with_enemy: commander
 ---
 id: locate_red_dawn_regional_stronghold
 type: Lead
@@ -124,7 +124,7 @@ description: Extract what the captured Red Dawn high commander knows.
 faction: red_dawn
 required_progress: 30
 discovered_when:
-  mission_won: raid_regional_stronghold
+  mission_won_with_enemy: high_commander
 ---
 id: locate_red_dawn_hq
 type: Lead
@@ -144,7 +144,7 @@ description: Extract what the captured Red Dawn cult leader knows.
 faction: red_dawn
 required_progress: 40
 discovered_when:
-  mission_won: raid_hq
+  mission_won_with_enemy: cult_leader
 ---
 id: terminate_red_dawn
 type: Lead
@@ -206,7 +206,7 @@ description: Extract what the captured Exalt handler knows.
 faction: exalt
 required_progress: 5
 discovered_when:
-  mission_won: raid_safehouse
+  mission_won_with_enemy: handler
 ---
 id: locate_exalt_outpost
 type: Lead
@@ -223,11 +223,11 @@ on_completion:
 id: interrogate_exalt_lieutenant
 type: Lead
 name: Interrogate Exalt lieutenant
-description: Learn what an Exalt lieutenant knew, from the officer taken alive or from the orders found on the body.
+description: Extract what the captured Exalt lieutenant knows.
 faction: exalt
 required_progress: 10
 discovered_when:
-  initiative_won_with_enemy: lieutenant
+  mission_won_with_enemy: lieutenant
 ---
 id: locate_exalt_logistics_hub
 type: Lead
@@ -248,7 +248,7 @@ description: Extract what the captured Exalt commander knows.
 faction: exalt
 required_progress: 20
 discovered_when:
-  mission_won: raid_logistics_hub
+  mission_won_with_enemy: commander
 ---
 id: locate_exalt_regional_stronghold
 type: Lead
@@ -269,7 +269,7 @@ description: Extract what the captured Exalt high commander knows.
 faction: exalt
 required_progress: 30
 discovered_when:
-  mission_won: raid_regional_stronghold
+  mission_won_with_enemy: high_commander
 ---
 id: locate_exalt_hq
 type: Lead
@@ -289,7 +289,7 @@ description: Extract what the captured Exalt cult leader knows.
 faction: exalt
 required_progress: 40
 discovered_when:
-  mission_won: raid_hq
+  mission_won_with_enemy: cult_leader
 ---
 id: terminate_exalt
 type: Lead
@@ -351,7 +351,7 @@ description: Extract what the captured Black Lotus handler knows.
 faction: black_lotus
 required_progress: 5
 discovered_when:
-  mission_won: raid_safehouse
+  mission_won_with_enemy: handler
 ---
 id: locate_black_lotus_outpost
 type: Lead
@@ -368,11 +368,11 @@ on_completion:
 id: interrogate_black_lotus_lieutenant
 type: Lead
 name: Interrogate Black Lotus lieutenant
-description: Learn what a Black Lotus lieutenant knew, from the officer taken alive or from the orders found on the body.
+description: Extract what the captured Black Lotus lieutenant knows.
 faction: black_lotus
 required_progress: 10
 discovered_when:
-  initiative_won_with_enemy: lieutenant
+  mission_won_with_enemy: lieutenant
 ---
 id: locate_black_lotus_logistics_hub
 type: Lead
@@ -393,7 +393,7 @@ description: Extract what the captured Black Lotus commander knows.
 faction: black_lotus
 required_progress: 20
 discovered_when:
-  mission_won: raid_logistics_hub
+  mission_won_with_enemy: commander
 ---
 id: locate_black_lotus_regional_stronghold
 type: Lead
@@ -414,7 +414,7 @@ description: Extract what the captured Black Lotus high commander knows.
 faction: black_lotus
 required_progress: 30
 discovered_when:
-  mission_won: raid_regional_stronghold
+  mission_won_with_enemy: high_commander
 ---
 id: locate_black_lotus_hq
 type: Lead
@@ -434,7 +434,7 @@ description: Extract what the captured Black Lotus cult leader knows.
 faction: black_lotus
 required_progress: 40
 discovered_when:
-  mission_won: raid_hq
+  mission_won_with_enemy: cult_leader
 ---
 id: terminate_black_lotus
 type: Lead

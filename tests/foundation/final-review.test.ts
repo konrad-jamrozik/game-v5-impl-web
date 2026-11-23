@@ -144,7 +144,7 @@ describe('GDRS: the GDRs', () => {
     const first = discoveredAtStart.filter((lead) => !lead.onCompletion.unlockContracting);
     expect(first).toHaveLength(1);
     // Follow each Faction's chain from its first Lead: a Lead that creates a Mission site discovers the next Lead by a
-    // Won Mission there, through `mission_won` naming it or `initiative_won_with_enemy` naming one of its Enemies, and
+    // Won Mission there, through `mission_won` naming it or `mission_won_with_enemy` naming one of its Enemies, and
     // one that creates none discovers the next one by its completion, up to the Terminate Lead. A Lead that an earlier
     // Mission site of the chain already discovered is not discovered again.
     const enemiesAt = (site: string) =>
@@ -158,7 +158,7 @@ describe('GDRS: the GDRs', () => {
         return (
           item.faction === byId(lead).faction &&
           ((condition?.kind === 'mission_won' && condition.missionSiteArchetype === site) ||
-            (condition?.kind === 'initiative_won_with_enemy' &&
+            (condition?.kind === 'mission_won_with_enemy' &&
               enemiesAt(site).includes(condition.enemyArchetype) &&
               !passed.includes(item.id)))
         );

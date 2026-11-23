@@ -13,7 +13,7 @@ export interface LeadWorld {
   readonly missionSites: Readonly<Record<string, MissionSite>>;
   readonly missions: Readonly<Record<string, Mission>>;
   readonly investigations: Readonly<Record<string, Investigation>>;
-  /** The Enemies, which an `initiative_won_with_enemy` Condition reads through each Mission site's Enemies list. */
+  /** The Enemies, which an `mission_won_with_enemy` Condition reads through each Mission site's Enemies list. */
   readonly enemies: Readonly<Record<string, Enemy>>;
   readonly factions: Readonly<Record<string, Faction>>;
   /** LEAD, Lead discovery: the set of discovered Leads, by GDR identifier, in the order they were discovered. */
@@ -234,17 +234,19 @@ export function initiativeOperationLevels(gdrs: {
         return kinds.get(condition.missionSiteArchetype) === 'response'
           ? 0
           : archetypeLevel(condition.missionSiteArchetype, { of: lead.faction });
-      case 'initiative_won_with_enemy':
+      case 'mission_won_with_enemy': {
         // The lowest level among the MissionSiteArchetypes of kind initiative whose `enemies` has the EnemyArchetype,
-        // as a `mission_won` naming each would have; a Won Response Mission never makes it hold.
-        return lowest(
-          gdrs.missionSiteArchetypes
-            .filter(
-              (item) =>
-                item.kind === 'initiative' && item.enemies.some(([key]) => key === condition.enemyArchetype),
-            )
-            .map((item) => archetypeLevel(item.id, { of: lead.faction })),
+        // as a `mission_won` naming each would have. One of kind response adds nothing: a Won Response Mission there
+        // is a shortcut past the level. 0 when only MissionSiteArchetypes of kind response have it; none when none do.
+        const holding = gdrs.missionSiteArchetypes.filter((item) =>
+          item.enemies.some(([key]) => key === condition.enemyArchetype),
         );
+        const initiative = holding.filter((item) => item.kind === 'initiative');
+        if (initiative.length === 0) {
+          return holding.length > 0 ? 0 : null;
+        }
+        return lowest(initiative.map((item) => archetypeLevel(item.id, { of: lead.faction })));
+      }
       case 'all': {
         const values = condition.conditions.map((item) => requiredOf(item, lead));
         return values.includes(null) ? null : Math.max(0, ...(values as number[]));

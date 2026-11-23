@@ -188,6 +188,12 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `interrogate_<faction>_soldier` becomes `interrogate_<faction>_lieutenant`, discovered by an
   `initiative_won_with_enemy` Condition. The copy is still identical to the specification's `content/` directory outside
   `content/cut/`.
+- `leads-and-progression/leads.yaml` and the six interrogate lieutenant and cult leader files of
+  `compendium/compendium_articles/`: patched unchanged from specification commits
+  `3bdeac999dc253aff89792662ab6603a94cee87c` and `19aa7d4a69eb10c5ad2949d71c8fba0a8a4a3675` on 2026-11-22. Every
+  interrogate Lead of an officer, from the handler to the cult leader, is discovered by a `mission_won_with_enemy`
+  Condition, the renamed `initiative_won_with_enemy`, and its text questions a captured officer. The copy is still
+  identical to the specification's `content/` directory outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

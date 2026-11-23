@@ -112,7 +112,7 @@ function effectsOf<S extends Record<string, z.ZodType>>(effects: ReadonlyMap<str
 /**
  * COND, Condition format: a map with exactly one key, `all`, `any`, `not`, or the name of a Condition kind, whose
  * value is a list of Conditions, one Condition, or the value of the Condition kind. The Condition kinds are
- * `mission_won`, `initiative_won_with_enemy`, and `lead_completed`, each with a GDR identifier, whose references are
+ * `mission_won`, `mission_won_with_enemy`, and `lead_completed`, each with a GDR identifier, whose references are
  * resolved under `conditionReferences`; which of them a Condition property permits is checked by its own validation.
  * Returns null for a Condition that violates the format.
  */
@@ -143,9 +143,9 @@ function parseCondition(raw: unknown): Condition | null {
       return id.safeParse(value).success
         ? { kind: 'mission_won', missionSiteArchetype: value as string }
         : null;
-    case 'initiative_won_with_enemy':
+    case 'mission_won_with_enemy':
       return id.safeParse(value).success
-        ? { kind: 'initiative_won_with_enemy', enemyArchetype: value as string }
+        ? { kind: 'mission_won_with_enemy', enemyArchetype: value as string }
         : null;
     case 'lead_completed':
       return id.safeParse(value).success ? { kind: 'lead_completed', lead: value as string } : null;
@@ -182,7 +182,7 @@ function conditionReferences(item: Condition): {
       return conditionReferences(item.condition);
     case 'mission_won':
       return { missionSiteArchetypes: [item.missionSiteArchetype], enemyArchetypes: [], leads: [] };
-    case 'initiative_won_with_enemy':
+    case 'mission_won_with_enemy':
       return { missionSiteArchetypes: [], enemyArchetypes: [item.enemyArchetype], leads: [] };
     case 'lead_completed':
       return { missionSiteArchetypes: [], enemyArchetypes: [], leads: [item.lead] };
@@ -517,7 +517,7 @@ const schemas = {
         return z.NEVER;
       }
       // LEAD, Lead GDR validation, rule 4: a Lead without `faction` has no `mission_won` and no
-      // `initiative_won_with_enemy` Condition, because both need the Faction of the Lead as their supplied input.
+      // `mission_won_with_enemy` Condition, because both need the Faction of the Lead as their supplied input.
       const discoveryReferences =
         g.discovered_when === undefined ? null : conditionReferences(g.discovered_when);
       if (
@@ -1047,7 +1047,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     }
   }
 
-  // MISSION, Mission won and Initiative won with Enemy Condition kinds, and LEAD, Lead completed Condition kind: the
+  // MISSION, Mission won and Mission won with Enemy Condition kinds, and LEAD, Lead completed Condition kind: the
   // value of each names a MissionSiteArchetype, of either kind, an EnemyArchetype, or a Lead that the Game build
   // supplies.
   const conditionResolves = (item: Condition): boolean => {

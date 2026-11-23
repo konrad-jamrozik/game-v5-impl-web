@@ -177,7 +177,7 @@ function usesFactionCondition(condition: Condition): boolean {
     case 'not':
       return usesFactionCondition(condition.condition);
     case 'mission_won':
-    case 'initiative_won_with_enemy':
+    case 'mission_won_with_enemy':
       return true;
     case 'lead_completed':
       return false;
@@ -193,7 +193,7 @@ export function leadsNamed(condition: Condition): string[] {
     case 'not':
       return leadsNamed(condition.condition);
     case 'mission_won':
-    case 'initiative_won_with_enemy':
+    case 'mission_won_with_enemy':
       return [];
     case 'lead_completed':
       return [condition.lead];
