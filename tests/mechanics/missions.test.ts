@@ -1059,13 +1059,13 @@ describe('RECOVER: examples', () => {
     });
     const exhaustion = (s: CampaignState) =>
       [b1, b2, c1, c2, c3, c5].map((id) => agent(s, id).state.exactExhaustionHundredths / 100);
-    // c1 and c2 do not recover, and their work adds nothing.
+    // c1 and c2 do not recover, and their work adds 1 in each Advance turn.
     state = advance(state);
-    expect(exhaustion(state)).toEqual([0, 9, 14, 14, 14, 9]);
+    expect(exhaustion(state)).toEqual([0, 9, 15, 15, 14, 9]);
     state = advance(state);
-    expect(exhaustion(state)).toEqual([0, 4, 14, 14, 9, 4]);
+    expect(exhaustion(state)).toEqual([0, 4, 16, 16, 9, 4]);
     state = advance(state);
-    expect(exhaustion(state)).toEqual([0, 0, 14, 14, 4, 0]);
+    expect(exhaustion(state)).toEqual([0, 0, 17, 17, 4, 0]);
     expect(currentHealthOf(agent(state, b2).state) / 100).toBe(30);
   });
 

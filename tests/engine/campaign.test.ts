@@ -16,6 +16,7 @@ import {
   liveWorld,
   ok,
   startEngine,
+  unlockContracting,
 } from '../helpers/engine.ts';
 
 /** The GDRs of the Game build under test, which every Campaign of the file is played with. */
@@ -78,15 +79,16 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
   it('reaches Defeat when Mission sites are ignored', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'panic' }));
-    const agents = ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
-    ok(await engine.player.actions.assignAgents(agents, 'Contracting'));
+    await unlockContracting(engine);
     let turns = 0;
     while (ok(engine.player.queries.getCurrentLiveWorldState()).ending === null && turns < 2000) {
-      // Every rested Agent back on Standby returns to Contracting, so that money never runs out.
-      const rested = ok(engine.player.queries.getCurrentLiveWorldState())
-        .agents.filter(
-          (agent) => agent.assignment?.kind === 'Standby' && agent.canBeAssigned && agent.exhaustion === 0,
-        )
+      // Every rested Agent on Standby goes to Contracting while the Contracting cap has a place, so that money never runs
+      // out.
+      const live = ok(engine.player.queries.getCurrentLiveWorldState());
+      const places = Math.max(0, live.agency.contractingCap - live.agency.contractingAgents);
+      const rested = live.agents
+        .filter((agent) => agent.assignment?.kind === 'Standby' && agent.canBeAssigned && agent.fitForWork)
+        .slice(0, places)
         .map((agent) => agent.id);
       if (rested.length > 0) {
         ok(await engine.player.actions.assignAgents(rested, 'Contracting'));

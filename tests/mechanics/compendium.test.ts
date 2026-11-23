@@ -734,9 +734,11 @@ describe('COMP: Article visibility and Player-visible information', () => {
     // articles about the Met subjects: the Enemies of Apprehend member, which the discovered first Lead creates, their
     // Weapons and Armors, and the Agents' Service weapon and Service armor.
     const all = gdrs.compendiumArticles;
+    // The Contracting article waits for its `visible_when`, the completion of `contracting_opportunities`.
     const always = all.filter(
       (article) =>
-        article.category !== 'subject' || ['AgentArchetype', 'Upgrade'].includes(article.subjectType ?? ''),
+        (article.category !== 'subject' && article.id !== 'mechanics_contracting') ||
+        ['AgentArchetype', 'Upgrade'].includes(article.subjectType ?? ''),
     );
     const apprehend = gdrs.missionSiteArchetypes.find((item) => item.id === 'apprehend_member')!;
     const met = new Set([
@@ -754,6 +756,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
             always.includes(article) ||
             (article.subject !== null && met.has(article.subject)) ||
             [
+              'contracting_opportunities_article',
               'criminal_organizations_article',
               'locate_red_dawn_member_article',
               'apprehend_member_article',
@@ -955,7 +958,7 @@ describe('COMP: Met subjects', () => {
       world.discoveredLeads.push(lead);
     });
 
-  it('GDRS: the first World state shows, of the Subject articles, only field_agent, service_weapon, service_armor, the Upgrades, and criminal_organizations', () => {
+  it('GDRS: the first World state shows, of the Subject articles, only field_agent, service_weapon, service_armor, the Upgrades, contracting_opportunities, and criminal_organizations', () => {
     const catalog = bootstrapGdrCatalog();
     const state = newCampaign({ catalog, firstLead: false });
     const subjects = visibleArticles(state.world.current, catalog)
@@ -965,7 +968,14 @@ describe('COMP: Met subjects', () => {
     expect(upgrades.length).toBeGreaterThan(0);
     const fieldAgent = catalog.agentArchetype;
     expect([...subjects].sort()).toEqual(
-      [fieldAgent.id, fieldAgent.weapon, fieldAgent.armor, ...upgrades, 'criminal_organizations'].sort(),
+      [
+        fieldAgent.id,
+        fieldAgent.weapon,
+        fieldAgent.armor,
+        ...upgrades,
+        'contracting_opportunities',
+        'criminal_organizations',
+      ].sort(),
     );
     expect([...metSubjects(state.world.current, catalog)]).toEqual([fieldAgent.weapon, fieldAgent.armor]);
   });

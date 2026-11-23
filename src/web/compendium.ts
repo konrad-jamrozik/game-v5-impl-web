@@ -435,10 +435,14 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
           const site = gameData.missionSiteArchetypes.find((item) => item.id === created);
           rows.push(['Reveals', [reference('MissionSiteArchetype', created, site?.name ?? created)]]);
         }
-        // COMPV, Lead data sheet: the `eliminate_faction` and `win_campaign` Effects, each in Positive.
+        // COMPV, Lead data sheet: the `eliminate_faction`, `unlock_contracting`, and `win_campaign` Effects, each in
+        // Positive.
         const completion: SheetPart[][] = [];
         if (lead.eliminatesFaction) {
           completion.push([{ text: 'Eliminates the Faction', style: 'good' }]);
+        }
+        if (lead.unlocksContracting) {
+          completion.push([{ text: 'Unlocks Contracting', style: 'good' }]);
         }
         if (lead.winsCampaign) {
           completion.push([{ text: 'Wins the Campaign', style: 'good' }]);

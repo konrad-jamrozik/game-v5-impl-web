@@ -305,6 +305,7 @@ No files.
 
 ## ECON: Economy and Upgrades
 
+- tests/mechanics/contracting-cap.test.ts
 - src/engine/mechanics/economy/
 - src/engine/actions/actions.ts
 - src/engine/turn/advance.ts
@@ -493,6 +494,7 @@ No files.
 
 ## LEAD: Leads and Progression
 
+- tests/mechanics/contracting-cap.test.ts
 - src/engine/mechanics/leads/
 - src/engine/mechanics/conditions/
 - src/engine/state/create.ts

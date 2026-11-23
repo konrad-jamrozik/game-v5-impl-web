@@ -174,8 +174,8 @@ describe('GUI: Turn summary', () => {
     );
     expect(model.missions).toEqual([]);
     expect(model.investigations).toHaveLength(1);
-    // INVSTG, Required progress range: from R to round down(R × required_progress_max_pct / 100).
-    const max = Math.floor((REQUIRED * gdrs.investigationParameters.requiredProgressMaxPct) / 100);
+    // INVSTG, Required progress range: from R to round up(R × required_progress_max_pct / 100).
+    const max = Math.ceil((REQUIRED * gdrs.investigationParameters.requiredProgressMaxPct) / 100);
     expect(model.investigations[0]).toMatchObject({
       finalProgress: WORK_TURNS * ONE_AGENT_GAIN,
       gain: ONE_AGENT_GAIN,

@@ -63,6 +63,11 @@ describe('LVIEW: Selected Lead', () => {
     expect(lines('peace_on_earth').map(onCompletionText)).toEqual(['Wins the Campaign']);
     expect(lines('peace_on_earth')[0]?.good).toBe(true);
     expect(lines('criminal_organizations')).toEqual([]);
+    // ECON, Contracting Effect kind: the Lead that unlocks Contracting names the Contracting cap it opens.
+    expect(lines('contracting_opportunities').map(onCompletionText)).toEqual([
+      `Unlocks Contracting · ${gameData.economy['baseContractingCap']} places`,
+    ]);
+    expect(lines('contracting_opportunities')[0]?.good).toBe(true);
   });
 });
 

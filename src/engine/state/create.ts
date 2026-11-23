@@ -36,6 +36,8 @@ export function createCampaignState(
         money: configuration.startingMoney,
         funding: configuration.startingFunding,
         acquisitions: Object.fromEntries(gdrs.upgrades.map((upgrade) => [upgrade.id, 0])),
+        // ECON, Agency creation: Contracting is not unlocked.
+        contractingUnlocked: false,
       },
     },
     agents: {},

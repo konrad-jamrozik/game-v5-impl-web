@@ -2,6 +2,7 @@ import type { GdrCatalog } from '../../gdr/index.ts';
 import { agentCombatantValues, effectiveSkill, exhaustionOf } from '../mechanics/agents/agents.ts';
 import { agentCombatantState, combatRating } from '../mechanics/combat/combat.ts';
 import { agencyCaps, agentUpgradeBonus } from '../mechanics/economy/economy.ts';
+import { currentContractingCap } from '../mechanics/leads/leads.ts';
 import { isDeployableAgent } from '../mechanics/missions/missions.ts';
 import {
   isServing,
@@ -65,12 +66,19 @@ export function summarize(world: CurrentWorldState, gdrs: GdrCatalog): StateSumm
     // AGENT, Turn report: the Agents recovering and those whose exhaustion is above each threshold.
     wornAgents: {
       recovering: serving.filter((agent) => agent.state.assignment?.kind === 'Recovery').length,
-      resting: serving.filter((agent) => exhaustionOf(agent.state) > 0).length,
+      aboveWorkLimit: serving.filter(
+        (agent) => exhaustionOf(agent.state) > gdrs.agentParameters.exhaustionWorkLimit,
+      ).length,
       aboveFreePoints: serving.filter(
         (agent) => exhaustionOf(agent.state) > gdrs.agentParameters.exhaustionFreePoints,
       ).length,
     },
-    caps: { agentCap: caps.agentCap, transportCap: caps.transportCap, trainingCap: caps.trainingCap },
+    caps: {
+      agentCap: caps.agentCap,
+      transportCap: caps.transportCap,
+      trainingCap: caps.trainingCap,
+      contractingCap: currentContractingCap(world, gdrs),
+    },
   };
 }
 

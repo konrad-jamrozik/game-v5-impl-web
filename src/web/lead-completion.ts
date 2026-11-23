@@ -24,7 +24,7 @@ export function leadFactionName(
  * and "Apprehend member" and " · 3 Enemies".
  */
 export interface OnCompletionLine {
-  readonly key: 'site' | 'eliminate' | 'win';
+  readonly key: 'site' | 'eliminate' | 'contracting' | 'win';
   readonly before: string;
   readonly strong: string;
   readonly after: string;
@@ -39,11 +39,12 @@ export function onCompletionText(line: OnCompletionLine): string {
 /**
  * LVIEW, Selected Lead: one line for each Effect of the Lead's `on_completion`, in the order the specification lists
  * them: the Mission site it creates with its MissionSiteArchetype's `name` and its number of Enemies; its Faction made
- * Eliminated, in Positive; and the Campaign won, in Positive. An empty `on_completion` gives no line.
+ * Eliminated, in Positive; Contracting unlocked, with the Contracting cap it opens, in Positive; and the Campaign
+ * won, in Positive. An empty `on_completion` gives no line.
  */
 export function onCompletionLines(
   lead: LeadView,
-  gameData: Pick<GameDataView, 'missionSiteArchetypes'> | null,
+  gameData: Pick<GameDataView, 'missionSiteArchetypes' | 'economy'> | null,
   state: Pick<CurrentLiveWorldStateView, 'factions'>,
 ): OnCompletionLine[] {
   const lines: OnCompletionLine[] = [];
@@ -65,6 +66,16 @@ export function onCompletionLines(
       before: 'Eliminates ',
       strong: leadFactionName(lead, state) ?? 'its Faction',
       after: '',
+      good: true,
+    });
+  }
+  if (lead.unlocksContracting) {
+    const places = gameData?.economy['baseContractingCap'];
+    lines.push({
+      key: 'contracting',
+      before: 'Unlocks Contracting',
+      strong: '',
+      after: places === undefined ? '' : ` · ${places} ${places === 1 ? 'place' : 'places'}`,
       good: true,
     });
   }

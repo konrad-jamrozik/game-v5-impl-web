@@ -208,9 +208,13 @@ class Turn {
     return Math.floor((state.agency.servingAgents * this.t.reserveSharePct) / 100);
   }
 
-  /** BASICAI, Glossary, Investigator quota. */
+  /**
+   * BASICAI, Glossary, Investigator quota: the Investigator share of the Roster size, rounded down, but at least 1 while
+   * the Roster size is at least 1 and the share is above 0, so that a small roster still unlocks Contracting.
+   */
   private investigatorQuota(state: CurrentLiveWorldStateView): number {
-    return Math.floor((state.agency.servingAgents * this.t.investigatorSharePct) / 100);
+    const share = Math.floor((state.agency.servingAgents * this.t.investigatorSharePct) / 100);
+    return this.t.investigatorSharePct > 0 && state.agency.servingAgents >= 1 ? Math.max(1, share) : share;
   }
 
   /**
@@ -322,7 +326,15 @@ class Turn {
 
   /** A Contractor as a Musterable Agent: Fit to start work, so its current values, after one Advance turn of transit. */
   private contractor(agent: AgentView, index: number): Candidate {
-    return { agent, index, effectiveSkill: agent.effectiveSkill, exhaustion: 0, turns: 1, group: 2 };
+    // BASICAI, Choosing Agents: a Contractor counts with its own exhaustion, which its transit back leaves unchanged.
+    return {
+      agent,
+      index,
+      effectiveSkill: agent.effectiveSkill,
+      exhaustion: agent.exhaustion,
+      turns: 1,
+      group: 2,
+    };
   }
 
   /**
@@ -620,7 +632,9 @@ class Turn {
         .map((site) => site.lead),
     );
     const chainPosition = (lead: LeadView): number => lead.initiativeOperationLevel ?? -1;
-    const rank = (lead: LeadView): number => (lead.winsCampaign ? 2 : eliminates(lead) ? 1 : 0);
+    // BASICAI, Choosing Leads: after one that wins the Campaign comes one that unlocks Contracting.
+    const rank = (lead: LeadView): number =>
+      lead.winsCampaign ? 3 : lead.unlocksContracting ? 2 : eliminates(lead) ? 1 : 0;
     const leads = [...retired.leads].sort((a, b) => rank(b) - rank(a) || chainPosition(b) - chainPosition(a));
     // A Lead a Mission from which was already Won is investigated again only when no other Lead qualifies.
     const ordered = [
@@ -643,7 +657,11 @@ class Turn {
    * and At assignment on Standby to Training while the Training cap has a place, the lowest base skill first.
    */
   private async contractAndTrain(state: CurrentLiveWorldStateView, muster: Muster): Promise<boolean> {
-    const spares = this.spareAgents(state, muster).map((agent) => agent.id);
+    // BASICAI, Turn routine, step 4: only as many as the Contracting cap has places left.
+    const contractingPlaces = Math.max(0, state.agency.contractingCap - state.agency.contractingAgents);
+    const spares = this.spareAgents(state, muster)
+      .slice(0, contractingPlaces)
+      .map((agent) => agent.id);
     if (
       spares.length > 0 &&
       (await this.act(`contract ${spares.join(',')}`, () =>

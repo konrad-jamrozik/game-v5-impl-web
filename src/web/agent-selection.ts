@@ -12,6 +12,8 @@ export interface Selectability {
   /** For each Assignment, the Agents `assignAgents` would accept alone, as PAPI, Action preview reports it. */
   readonly acceptedAlone: Readonly<Record<OrderAssignment, readonly string[]>>;
   readonly trainingPlacesLeft: number;
+  /** ECON, Caps on assigning Agents: the places left under the Contracting cap. */
+  readonly contractingPlacesLeft: number;
   /** The Assignment filter that is on, if any. */
   readonly assignmentFilter: OrderAssignment | null;
 }
@@ -58,6 +60,9 @@ export function blockedBy(agent: AgentView, s: Selectability, fallback: () => st
   }
   if (filter === 'Training' && s.trainingPlacesLeft === 0) {
     return 'Training full';
+  }
+  if (filter === 'Contracting' && s.contractingPlacesLeft === 0) {
+    return 'Contracting full';
   }
   return fallback();
 }

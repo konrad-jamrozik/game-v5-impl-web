@@ -36,6 +36,8 @@ describe('WHIST: History entry values for the Agency charts', () => {
       agentCap: gdrs.economy.baseAgentCap,
       transportCap: gdrs.economy.baseTransportCap,
       trainingCap: gdrs.economy.baseTrainingCap,
+      // ECON, Contracting cap: 0 while Contracting is not unlocked.
+      contractingCap: 0,
     });
     expect(entry.report.fundingUsed).toBe(fundingBefore);
     expect(entry.report.income).toBeGreaterThanOrEqual(entry.report.fundingUsed);

@@ -183,7 +183,7 @@ export const LEGACY_FILES: readonly RawGdrFile[] = (() => {
   byId('/enemy_archetypes.yaml', 'initiate')['weapon'] = 'combat_pistol';
   // Compendium articles about, or naming, a GDR left out are left out.
   const kept = new Set(files.flatMap((file) => file.gdrs.map((gdr) => gdr['id'])));
-  return files.filter(
+  const remaining = files.filter(
     (file) =>
       !file.path.startsWith(ARTICLE_DIRECTORY) ||
       file.gdrs.every((gdr) => {
@@ -195,6 +195,20 @@ export const LEGACY_FILES: readonly RawGdrFile[] = (() => {
         return named.every((id) => id === 'subject' || kept.has(id));
       }),
   );
+  // A See also entry naming an article left out is left out with it.
+  const articles = new Set(
+    remaining
+      .filter((file) => file.path.startsWith(ARTICLE_DIRECTORY))
+      .flatMap((file) => file.gdrs.map((gdr) => gdr['id'])),
+  );
+  for (const file of remaining.filter((item) => item.path.startsWith(ARTICLE_DIRECTORY))) {
+    for (const gdr of file.gdrs) {
+      if (Array.isArray(gdr['see_also'])) {
+        gdr['see_also'] = (gdr['see_also'] as string[]).filter((id) => articles.has(id));
+      }
+    }
+  }
+  return remaining;
 })();
 
 /** The catalog of the Red Dawn test Game build, whichever catalog is the default. */
@@ -368,6 +382,7 @@ export function newCampaign(
     catalog?: GdrCatalog;
     quietFactions?: boolean;
     firstLead?: boolean;
+    contractingUnlocked?: boolean;
   } = {},
 ): CampaignState {
   const catalog = options.catalog ?? gdrs;
@@ -381,6 +396,13 @@ export function newCampaign(
       if (!world.discoveredLeads.includes('locate_red_dawn_member')) {
         world.discoveredLeads.push('locate_red_dawn_member');
       }
+    });
+  }
+  // Unless `contractingUnlocked` is false, Contracting is unlocked, as if `contracting_opportunities` had been
+  // completed, so that the acceptance examples written before the Contracting cap can still assign to Contracting.
+  if (options.contractingUnlocked !== false) {
+    state = tweak(state, (world) => {
+      world.agency.state.contractingUnlocked = true;
     });
   }
   if (options.quietFactions === false) {

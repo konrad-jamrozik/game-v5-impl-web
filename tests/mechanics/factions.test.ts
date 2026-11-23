@@ -498,7 +498,11 @@ describe('FACTION: examples', () => {
     // A Game build with no FactionArchetype is valid, apart from the Leads and the Subject articles about one.
     const none = catalogWith((raw) => {
       raw.files.find((file) => file.path.endsWith('/faction_archetypes.yaml'))!.gdrs.length = 0;
-      raw.files.find((file) => file.path.endsWith('/leads.yaml'))!.gdrs.length = 0;
+      // Only the Leads discovered at the start and of no Faction stay, e.g. the one the Contracting article names.
+      const leads = raw.files.find((file) => file.path.endsWith('/leads.yaml'))!;
+      leads.gdrs = leads.gdrs.filter(
+        (gdr) => gdr['faction'] === undefined && gdr['discovered_when'] === undefined,
+      );
       raw.pruneArticles();
     });
     expect(none.factionArchetypes).toHaveLength(0);

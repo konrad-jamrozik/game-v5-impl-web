@@ -41,7 +41,10 @@ function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
   const skills = skillBands(entries, open);
   // CVIEW, Agents by effective skill: the thresholds of its exhaustion lines come from AgentParameters.
   const parameters = snapshot.gameData?.agentParameters ?? {};
-  const worn = wornLines(entries, open, { freePoints: parameters['exhaustionFreePoints'] ?? 30 });
+  const worn = wornLines(entries, open, {
+    workLimit: parameters['exhaustionWorkLimit'] ?? 70,
+    freePoints: parameters['exhaustionFreePoints'] ?? 30,
+  });
   const assets = assetLines(entries, open, moneyAtStart);
   const strength = combatStrength(entries, open, [
     ...(snapshot.state?.missionSites ?? []),
@@ -71,6 +74,11 @@ function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
           { ...ASSET_SERIES.agentCap, points: assets.agentCap, axis: 'right' },
           { ...ASSET_SERIES.transportCap, points: assets.transportCap, axis: 'right' },
           { ...ASSET_SERIES.trainingCap, points: assets.trainingCap, axis: 'right' },
+          // CHARTS, Agency charts: the Contracting cap line and its legend entry only once the cap is at least 1 in a
+          // Turn shown; the cap never falls, so that is the latest Turns whenever any Turn has it.
+          ...(assets.contractingCap.some((point) => point.value >= 1)
+            ? [{ ...ASSET_SERIES.contractingCap, points: assets.contractingCap, axis: 'right' as const }]
+            : []),
         ]}
         testId="assets-chart"
       />

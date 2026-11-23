@@ -72,11 +72,10 @@ describe('AGENT: Decimal quantities', () => {
     expect(effectiveSkill(values(100, 29.99, 0), example)).toBe(99);
   });
 
-  it('Exact exhaustion just above zero', () => {
+  it('Exact exhaustion just above a threshold', () => {
     expect(exhaustionOf(values(100, 30, 30.4))).toBe(31);
-    expect(exhaustionOf(values(100, 30, 0.4))).toBe(1);
-    expect(isFitForWork({ ...values(100, 30, 0.4), healthLostHundredths: 0 })).toBe(false);
-    expect(isFitForWork({ ...values(100, 30, 0), healthLostHundredths: 0 })).toBe(true);
+    expect(isFitForWork({ ...values(100, 30, 30.4), healthLostHundredths: 0 }, p)).toBe(false);
+    expect(isFitForWork({ ...values(100, 30, 30), healthLostHundredths: 0 }, p)).toBe(true);
   });
 
   it('Training growth with a training skill gain that is not whole', () => {

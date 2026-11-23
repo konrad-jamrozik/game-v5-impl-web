@@ -781,3 +781,20 @@
   Agent, the Creation Combat rating, and the Combat rating of one Enemy, which no Player API specification names.
 - **Links:** DEC-084, DEC-085, DEC-086, DEC-087
 - **Resolution:** Open
+
+## PROB-055: With Contracting locked at the start, the Agency runs out of money before it can contract
+
+- **Category:** Conflict
+- **Severity:** High
+- **Affected specifications:** ECON, Contracting cap: "Contracting cap = 0 while Contracting unlocked is no"; GDRS,
+  `economy` and `contracting_opportunities`; CONFIG, the preset `standard`: `starting_money` 500 and
+  `starting_funding` 20; AGENT, Initial roster: `initial_roster_size` 8; BASICAI, Turn routine and Purchases.
+- **Description:** Until `contracting_opportunities` is completed, income is funding alone, 20 a Turn, while the 8
+  Agents of the initial roster cost 80 of upkeep, so money falls by 60 a Turn and 500 lasts 8 Turns. The Lead needs 3
+  to 5 progress, i.e. a Turn of transit and 3 to 5 Turns of one Agent's work, and the Contractors need one more Turn of
+  transit before they earn, so a Player who does not dismiss Agents or rush the Lead has little margin. The Basic
+  Autopilot AI, which sends one Investigator and hires at once down to its Savings floor, ends every Campaign of the
+  tests in Defeat by money below zero around Turn 8. The specifications do not say whether this pressure is intended,
+  and an Implementation cannot settle it without changing a GDR value or a BASICAI rule.
+- **Links:** DEC-091
+- **Resolution:** Open

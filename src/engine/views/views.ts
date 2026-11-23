@@ -35,6 +35,7 @@ import {
   upgradedRates,
   upkeep,
   type UpgradedRates,
+  countContracting,
 } from '../mechanics/economy/economy.ts';
 import {
   isAssessedLead,
@@ -50,6 +51,8 @@ import {
   leadInitiativeOperationLevel,
   leadOfMissionSite,
   leadStatus,
+  currentContractingCap,
+  initiativeLevelsWon,
 } from '../mechanics/leads/leads.ts';
 import {
   consequencesOf,
@@ -161,7 +164,7 @@ function agentView(
     effectiveArmor: values.armor,
     assignment: s.assignment === null ? null : { ...s.assignment },
     canBeAssigned: canBeAssigned(s),
-    fitForWork: isFitForWork(s),
+    fitForWork: isFitForWork(s, gdrs.agentParameters),
     inBase: isInBase(s),
     away: isAway(s),
     ableToFight: serving && isAbleToFight(values, gdrs.combatParameters, gdrs.agentParameters),
@@ -398,6 +401,7 @@ function leadViews(world: CurrentWorldState, gdrs: GdrCatalog, reveal = false): 
       investigateAgain: lead.investigateAgain,
       createsMissionSite: lead.onCompletion.createMissionSite,
       eliminatesFaction: lead.onCompletion.eliminateFaction,
+      unlocksContracting: lead.onCompletion.unlockContracting,
       winsCampaign: lead.onCompletion.winCampaign,
       completionCount: completionCount(lead.id, world.investigations),
       initiativeOperationLevel: leadInitiativeOperationLevel(lead.id, gdrs),
@@ -440,6 +444,10 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
       acquisitions: world.agency.state.acquisitions[upgrade.id] ?? 0,
     })),
     ...caps,
+    contractingCap: currentContractingCap(world, gdrs),
+    contractingUnlocked: world.agency.state.contractingUnlocked,
+    initiativeLevelsWon: initiativeLevelsWon(world, gdrs),
+    contractingAgents: countContracting(agents),
     ...ratesOf(world, gdrs),
     agentArmor:
       must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype').armor + bonus.armor,
@@ -819,6 +827,9 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
     assignAgents: {
       assignments: ['Standby', 'Contracting', 'Training'],
       trainingPlacesLeft: ended ? 0 : Math.max(0, caps.trainingCap - countTraining(states)),
+      contractingPlacesLeft: ended
+        ? 0
+        : Math.max(0, currentContractingCap(world, gdrs) - countContracting(states)),
     },
     dismissableAgents: ended
       ? []

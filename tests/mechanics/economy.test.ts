@@ -169,15 +169,15 @@ describe('ECON: examples', () => {
     expect(agency(state).projectedIncome).toBe(106);
     state = advance(state);
     expect(state.world.history.turnReport!.income).toMatchObject({ contractingAgents: 3, income: 106 });
-    // Contracting changes no exhaustion (AGENT, Changes to attributes), so every Agent keeps working as it was.
     expect([c1, c2, c3].map((id) => agent(state, id).state.exactExhaustionHundredths / 100)).toEqual([
-      10, 47, 69,
+      11, 48, 70,
     ]);
     expect(units(agent(state, c3).state)).toMatchObject({
-      assignment: { kind: 'Contracting' },
-      status: 'AtAssignment',
+      assignment: { kind: 'Standby' },
+      status: 'InTransit',
     });
-    expect(agency(state).projectedIncome).toBe(106);
+    // 20 + round down(30 + 30 × (1 − 18 / 200)) = 20 + round down(57.3) = 77.
+    expect(agency(state).projectedIncome).toBe(77);
     // e.g. effective skill 100, 83, and 150 give round down(94.95) = 94.
     expect(income(0, [100, 83, 150], gdrs.economy)).toBe(94);
     // An Agent with effective skill 0 still contributes 1 − 100 / 200, i.e. half.

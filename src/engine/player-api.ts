@@ -73,7 +73,8 @@ export interface AgentView {
   readonly assignment: Assignment | null;
   readonly canBeAssigned: boolean;
   /**
-   * AGENT, Start-work gate: whether the Agent is Fit to start work, i.e. its exhaustion is 0 and its health lost is 0.
+   * AGENT, Start-work gate: whether the Agent is Fit to start work, i.e. its exhaustion is at most
+   * exhaustion_work_start_max and its health lost is 0.
    */
   readonly fitForWork: boolean;
   /** AGENT, Agent statuses: whether the Agent is In base; false for a Terminated Agent. A Derived value. */
@@ -245,6 +246,8 @@ export interface LeadView {
    */
   readonly createsMissionSite: string | null;
   readonly eliminatesFaction: boolean;
+  /** ECON, Contracting Effect kind: whether an `unlock_contracting` Effect unlocks Contracting. */
+  readonly unlocksContracting: boolean;
   readonly winsCampaign: boolean;
   /** LEAD, Missions from a Lead: the number of Completed Investigations of the Lead. */
   readonly completionCount: number;
@@ -294,6 +297,14 @@ export interface AgencyView {
   readonly agentCap: number;
   readonly transportCap: number;
   readonly trainingCap: number;
+  /** ECON, Contracting cap: 0 until Contracting is unlocked. */
+  readonly contractingCap: number;
+  /** ECON, Agency properties: whether Contracting is unlocked. */
+  readonly contractingUnlocked: boolean;
+  /** LEAD, Contracting cap growth: the Initiative levels won. */
+  readonly initiativeLevelsWon: number;
+  /** ECON, Contracting cap: the Serving Agents whose Assignment is Contracting, In transit included. */
+  readonly contractingAgents: number;
   /**
    * ECON, Rate Upgrades: the training skill gain, exhaustion recovery, and health recovery percentage, each a Decimal
    * quantity held in hundredths.
@@ -408,6 +419,8 @@ export interface AvailableActionsView {
     readonly assignments: readonly SimpleAssignment[];
     /** How many more Agents can be ordered to Training under the Training cap. */
     readonly trainingPlacesLeft: number;
+    /** ECON, Caps on assigning Agents: the places left under the Contracting cap. */
+    readonly contractingPlacesLeft: number;
   };
   /** The Agents that can be dismissed. */
   readonly dismissableAgents: readonly string[];

@@ -867,6 +867,8 @@
   Game build of the former Acceptance examples, `RED_DAWN_ONLY_FILES` in `tests/helpers/game.ts`, sets
   `initial_roster_size` to 4, because no rule those tests exercise depends on it and their worked sums, e.g. upkeep and
   Instance IDs, stay as stated; the tests of the real Game build read 8.
+- **Update:** Since Specification revision 31038e992b2dd4db1f1dc0f579e2c456d42f5bbb, the work-exhaustion properties are back, with the values
+  listed above, and the Implementation's copy again follows the specifications' file unchanged.
 - **Options considered:** Copy the specifications' YAML file unchanged; take the values the Acceptance examples and
   BOOT state.
 - **Option chosen:** The values the Acceptance examples and BOOT state.
@@ -1874,3 +1876,21 @@
 - **Why:** An action changes few elements of a Campaign of thousands, and the order is needed only when an element
   entered or left a collection, e.g. a hire or a dismissal, so most actions return a few views and no order.
 - **Links:** None.
+
+## DEC-091: Tests reach Contracting by unlocking it, and the Contracting cap is derived each time it is read
+
+- **Category:** Conflict resolution
+- **Affected specifications:** ECON, Contracting cap and Caps on assigning Agents; LEAD, Contracting cap growth;
+  TESTVAL; CTEST.
+- **Description:** The Agency stores only Contracting unlocked; the Initiative levels won and the Contracting cap are
+  computed from the retained Missions whenever a rule or view reads them, by `initiativeLevelsWon` and
+  `currentContractingCap` in `src/engine/mechanics/leads/leads.ts`, which read the Lead of each Won Initiative Mission
+  site's origin Investigation. The test helper `newCampaign` unlocks Contracting unless told not to, as it already
+  discovers the first Lead, so that the former Acceptance examples still assign to Contracting; `unlockContracting` in
+  `tests/helpers/engine.ts` unlocks it through play for the engine-level tests; and the Action results test starts with
+  3000 money, so that its Campaign lives long enough to make every kind of Player action, under PROB-055.
+- **Options considered:** Store the Initiative levels won on the Agency; derive it. Unlock Contracting in tests through
+  play only; also by setting the stored value in the unit-test helper.
+- **Option chosen:** Derive it; unlock through play at the engine level and by the stored value in unit tests.
+- **Why:** A derived value cannot drift from the Missions it counts, and the Campaigns of the tests stay short.
+- **Links:** PROB-055

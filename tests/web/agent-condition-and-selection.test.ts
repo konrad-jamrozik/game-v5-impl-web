@@ -57,6 +57,7 @@ describe('AVIEW: Assignment filters and Blocked by', () => {
   const base: Selectability = {
     acceptedAlone: { Standby: [a1, a3], Contracting: [a4], Training: [a4] },
     trainingPlacesLeft: 4,
+    contractingPlacesLeft: 2,
     assignmentFilter: 'Contracting',
   };
   const blocked = (id: string, s: Selectability) => blockedBy(view(id), s, () => 'engine says no');
@@ -68,6 +69,15 @@ describe('AVIEW: Assignment filters and Blocked by', () => {
     expect(blocked(a2, base)).toBe('In transit');
     expect(blocked(a3, base)).toBe('Too exhausted');
     expect(blocked(a5, base)).toBe('Recovering');
+  });
+
+  it('with the Contracting cap full, an Agent that could otherwise go is blocked by Contracting full', () => {
+    const full = {
+      ...base,
+      acceptedAlone: { ...base.acceptedAlone, Contracting: [] },
+      contractingPlacesLeft: 0,
+    };
+    expect(blocked(a4, full)).toBe('Contracting full');
   });
 
   it('with the Standby Assignment filter, an Agent on Contracting can be selected and one In transit cannot', () => {

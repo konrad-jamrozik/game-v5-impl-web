@@ -2373,14 +2373,14 @@ label:has(> input[type='checkbox']:disabled) {
   color: var(--text-secondary);
 }
 
-/* AVIEW, Header: the free places under each cap side by side, each its Label above its free count and cap bar, the
-   two together as tall as the title's 36 px line and centred on it, 40 px after the title and 40 px apart. */
+/* AVIEW, Header: the free places under each cap side by side, each its Label above its free count and cap bar,
+   together as tall as the title's 36 px line and centred on it, 16 px after the title and 16 px apart. */
 .cap-figures {
   display: flex;
   align-items: center;
-  gap: 40px;
+  gap: 16px;
   height: 36px;
-  margin-left: 28px;
+  margin-left: 4px;
 }
 
 .cap-figure {

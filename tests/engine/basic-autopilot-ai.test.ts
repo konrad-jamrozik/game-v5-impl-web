@@ -14,15 +14,20 @@ import {
 } from '../../src/ai/index.ts';
 import type { CurrentLiveWorldStateView, MissionSiteView, PlayerApi } from '../../src/engine/index.ts';
 import { bootstrapGdrCatalog } from '../../src/gdr/index.ts';
-import { ok, startEngine } from '../helpers/engine.ts';
+import { ok, startEngine, unlockContracting } from '../helpers/engine.ts';
 
 /** BASICAI, Glossary, Reserve quota: the Reserve share of the Roster size, rounded down. */
 const reserveQuota = (roster: number, t: BasicAiThresholds = BASIC_AI_THRESHOLDS) =>
   Math.floor((roster * t.reserveSharePct) / 100);
 
-/** BASICAI, Glossary, Investigator quota: the Investigator share of the Roster size, rounded down. */
-const investigatorQuota = (roster: number, t: BasicAiThresholds = BASIC_AI_THRESHOLDS) =>
-  Math.floor((roster * t.investigatorSharePct) / 100);
+/**
+ * BASICAI, Glossary, Investigator quota: the Investigator share of the Roster size, rounded down, but at least 1 while
+ * the Roster size is at least 1.
+ */
+const investigatorQuota = (roster: number, t: BasicAiThresholds = BASIC_AI_THRESHOLDS) => {
+  const share = Math.floor((roster * t.investigatorSharePct) / 100);
+  return t.investigatorSharePct > 0 && roster >= 1 ? Math.max(1, share) : share;
+};
 
 describe('BASICAI: Required rating share', () => {
   it('rises by the Loss margin step for each Lost Mission at a Mission site of the same MissionSiteArchetype', () => {
@@ -72,10 +77,20 @@ async function musterCampaign(
 ) {
   const { engine } = await startEngine();
   ok(await engine.session.campaign.create({ seed: 'muster' }));
-  const roster = ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
+  await unlockContracting(engine);
+  const live0 = ok(engine.player.queries.getCurrentLiveWorldState());
+  const roster = live0.agents.map((agent) => agent.id);
   const reserve = roster.slice(0, Math.max(3, reserveQuota(roster.length)));
   expect(roster.length).toBeGreaterThan(reserve.length + 1);
-  ok(await engine.player.actions.assignAgents(roster.slice(reserve.length), 'Contracting'));
+  // As many of the others as the Contracting cap allows contract.
+  const contractors = roster.slice(reserve.length, reserve.length + live0.agency.contractingCap);
+  expect(contractors.length).toBeGreaterThan(1);
+  ok(await engine.player.actions.assignAgents(contractors, 'Contracting'));
+  // The Agents the Contracting cap leaves over are dismissed, so that the roster is the reserve and the Contractors.
+  const leftOver = roster.slice(reserve.length + contractors.length);
+  if (leftOver.length > 0) {
+    ok(await engine.player.actions.dismissAgents(leftOver));
+  }
   ok(await engine.player.actions.advanceTurn());
   const real = engine.player;
   const rating = (ids: readonly string[]) => ok(real.queries.previewDeployment(null, ids)).teamCombatRating;
@@ -202,9 +217,15 @@ describe('BASICAI: Agent groups', () => {
     const reserve = live.agents.filter((agent) =>
       ['Standby', 'Training', 'Recovery', 'Deployed'].includes(agent.assignment?.kind ?? ''),
     );
-    expect(reserve).toHaveLength(reserveQuota(roster));
+    // Contractors are limited by the Contracting cap, 0 until Contracting is unlocked; the others stay in the Agent
+    // reserve.
+    const contractors = Math.min(
+      live.agency.contractingCap,
+      roster - reserveQuota(roster) - investigatorQuota(roster),
+    );
     expect(kindCount(live, 'Investigation')).toBe(investigatorQuota(roster));
-    expect(kindCount(live, 'Contracting')).toBe(roster - reserveQuota(roster) - investigatorQuota(roster));
+    expect(kindCount(live, 'Contracting')).toBe(contractors);
+    expect(reserve).toHaveLength(roster - investigatorQuota(roster) - contractors);
     // Every Agent of the Agent reserve that has arrived in base trains while the Training cap has a place left.
     const inBase = reserve.filter((agent) => agent.agentStatus !== 'InTransit');
     expect(kindCount(live, 'Training')).toBe(Math.min(live.agency.trainingCap, inBase.length));

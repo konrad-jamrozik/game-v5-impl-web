@@ -148,8 +148,14 @@ by the implementer, as Implementation Placement requires under "Game data in an 
 - `factions/faction_operation_levels.yaml` and `missions/mission_site_archetypes.yaml`: patched unchanged from
   specification commit `e1d5588345322f221d72cb791f445c5046c5fbb1` on 2026-11-22, raising the money and funding of every
   Initiative Mission site's `on_win`, giving `apprehend_member` funding 10, and raising the funding of a Won Faction
-  operation of level 4 to 100 and of level 5 to 200. The copy is still identical to the specification's `content/`
-  directory outside `content/cut/`.
+  operation of level 4 to 100 and of level 5 to 200.
+- `agents/agent_parameters.yaml`, `economy-and-upgrades/economy_parameters.yaml`, `leads-and-progression/leads.yaml`,
+  and `compendium/compendium_articles/mechanics_assignments.yaml`, `mechanics_contracting.yaml`,
+  `mechanics_exhaustion.yaml`, `mechanics_investigations.yaml`, and `mechanics_training.yaml`: patched unchanged, and
+  `compendium/compendium_articles/contracting_opportunities_article.yaml` added, from specification commit
+  `31038e992b2dd4db1f1dc0f579e2c456d42f5bbb` on 2026-11-22, restoring work exhaustion, adding the Lead `contracting_opportunities`, and adding
+  the Contracting cap values. The copy is still identical to the specification's `content/` directory outside
+  `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

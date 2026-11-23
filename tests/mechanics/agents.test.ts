@@ -9,7 +9,9 @@ import {
   isAway,
   isInBase,
   survivalExperience,
+  trainingGainProbability,
 } from '../../src/engine/mechanics/agents/agents.ts';
+import { ratio } from '../../src/kernel/index.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
 import {
   currentLiveWorldStateView,
@@ -296,27 +298,29 @@ describe('AGENT: examples', () => {
       exhaustion: 0,
       status: 'AtAssignment',
     });
-    // Base skill, in hundredths, after n Training steps.
+    // At exhaustion of at most exhaustion_free_points and full health the Training gain Probability is 1: no injected
+    // outcome is needed.
+    expect(trainingGainProbability(valuesOf(agent(state, a1).state), p).eq(1)).toBe(true);
+    // Base skill, in hundredths, after n Training steps, and the exhaustion each step adds (AGENT, Work exhaustion).
     const trained = (n: number) => newAgent.skill * 100 + n * trainingGain;
+    const tired = p.exhaustionPerTrainingTurn;
     state = advance(state);
     expect([agent(state, a1).state.skillHundredths, agent(state, a2).state.skillHundredths]).toEqual([
       trained(1),
       trained(1),
     ]);
-    // Training changes no exhaustion (AGENT, Changes to attributes).
-    expect(agent(state, a1).state.exactExhaustionHundredths).toBe(0);
+    expect(agent(state, a1).state.exactExhaustionHundredths).toBe(tired * 100);
     expect(state.world.history.turnReport?.training).toEqual([
-      { agent: a1, gainedHundredths: trainingGain, skillAfterHundredths: trained(1) },
-      { agent: a2, gainedHundredths: trainingGain, skillAfterHundredths: trained(1) },
+      { agent: a1, gained: true, skillAfterHundredths: trained(1), exhaustionAfter: tired },
+      { agent: a2, gained: true, skillAfterHundredths: trained(1), exhaustionAfter: tired },
     ]);
     state = advance(state);
     expect(agent(state, a1).state).toMatchObject({
       skillHundredths: trained(2),
-      exactExhaustionHundredths: 0,
+      exactExhaustionHundredths: 2 * tired * 100,
     });
-    // Effective skill is base skill rounded down, at exhaustion 0 and full health.
     expect(effectiveSkill(valuesOf(agent(state, a1).state), p)).toBe(Math.floor(trained(2) / 100));
-    // Recalled to Standby at once, without transit.
+    // Recalled to Standby at once, without transit; it then recovers its exhaustion.
     state = act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
     expect(units(agent(state, a1).state)).toMatchObject({
       assignment: { kind: 'Standby' },
@@ -325,85 +329,121 @@ describe('AGENT: examples', () => {
     state = advance(state);
     expect(agent(state, a1).state).toMatchObject({
       skillHundredths: trained(2),
-      exactExhaustionHundredths: 0,
+      exactExhaustionHundredths: Math.max(
+        0,
+        2 * tired * 100 - gdrs.recoveryParameters.exhaustionRecoveryPerTurnHundredths,
+      ),
     });
     expect(agent(state, a2).state.skillHundredths).toBe(trained(3));
   });
 
-  it('Training growth: a fractional training skill gain, with no chance involved', () => {
+  it('Training growth: a tired Agent gains with Probability 80 / 100', () => {
     let state = newCampaign();
-    const [a1] = agentIds(state) as [string];
-    state = setAssignment(state, [a1], 'Training');
-    // One training_skill_gain Upgrade adds its Increment, e.g. 0.5, so that a base skill of 101.65 gains 1.50 every
-    // Advance turn with the values of the example.
-    const gain =
-      trainingGain + gdrs.upgrades.find((u) => u.id === 'training_skill_gain')!.incrementHundredths;
-    expect(gain % 100).not.toBe(0);
-    state = tweak(state, (world) => {
-      world.agents[a1]!.state.skillHundredths = 10165;
-      world.agency.state.acquisitions['training_skill_gain'] = 1;
-    });
-    state = advance(state);
-    expect(agent(state, a1).state.skillHundredths).toBe(10165 + gain);
-    expect(state.world.history.turnReport?.training).toEqual([
-      { agent: a1, gainedHundredths: gain, skillAfterHundredths: 10165 + gain },
-    ]);
-    state = advance(state);
-    expect(agent(state, a1).state.skillHundredths).toBe(10165 + 2 * gain);
+    const [a2] = agentIds(state) as [string];
+    state = setAssignment(state, [a2], 'Training');
+    state = tweak(state, (world) => (world.agents[a2]!.state.exactExhaustionHundredths = 5000));
+    expect(trainingGainProbability(valuesOf(agent(state, a2).state), p).eq(ratio(80, 100))).toBe(true);
+    const outcome = `agent.trainingGain.${a2}`;
+    const without = advance(state, { [outcome]: [false] });
+    expect(units(agent(without, a2).state)).toMatchObject({ skill: 100, exhaustion: 51 });
+    const gains = advance(state, { [outcome]: [true] });
+    expect(units(agent(gains, a2).state)).toMatchObject({ skill: 101, exhaustion: 51 });
   });
 
-  it('Start-work gate: Fit to start work only at exhaustion 0 and no health lost', () => {
-    let state = withAgents(newCampaign(), 3);
-    const [a1, a2, a3] = agentIds(state) as [string, string, string];
+  it('Turn report: Forced returns are listed in Agent order, whichever step made them', () => {
+    let state = withAgents(newCampaign(), 2);
+    const [a1, a2] = agentIds(state) as [string, string];
+    // a2 returns in the Agency income step, before a1 returns in the later Training step.
+    state = setAssignment(state, [a1], 'Training');
+    state = setAssignment(state, [a2], 'Contracting');
     state = tweak(state, (world) => {
-      world.agents[a1]!.state.exactExhaustionHundredths = 1200;
-      world.agents[a2]!.state.exactExhaustionHundredths = 40;
+      world.agents[a1]!.state.exactExhaustionHundredths = 6900;
+      world.agents[a2]!.state.exactExhaustionHundredths = 6900;
+    });
+    state = advance(state, { [`agent.trainingGain.${a1}`]: [false] });
+    expect(state.world.history.turnReport?.forcedReturns).toEqual([
+      { agent: a1, from: 'Training' },
+      { agent: a2, from: 'Contracting' },
+    ]);
+  });
+
+  it('Start-work gate and Forced return', () => {
+    let state = withAgents(newCampaign(), 4);
+    const [a1, a2, a3, a4] = agentIds(state) as [string, string, string, string];
+    state = setAssignment(state, [a1], 'Contracting');
+    state = setAssignment(state, [a2], 'Training');
+    state = tweak(state, (world) => {
+      world.agents[a1]!.state.exactExhaustionHundredths = 6800;
+      world.agents[a2]!.state.exactExhaustionHundredths = 6900;
+      world.agents[a3]!.state.exactExhaustionHundredths = 3100;
+      world.agents[a4]!.state.exactExhaustionHundredths = 3000;
     });
     const view = currentLiveWorldStateView(state, gdrs);
-    expect(view.agents.slice(0, 3).map((a) => a.fitForWork)).toEqual([false, false, true]);
+    expect(view.agents.map((a) => a.fitForWork)).toEqual([false, false, false, true]);
     expectRejected(
       state,
       'assignAgents',
-      { agents: [a2], assignment: 'Contracting' },
+      { agents: [a3], assignment: 'Contracting' },
       'agents_not_fit_for_work',
     );
     expectRejected(
       state,
       'assignAgents',
-      { agents: [a1, a3], assignment: 'Training' },
+      { agents: [a3, a4], assignment: 'Contracting' },
       'agents_not_fit_for_work',
     );
     expect(
-      agent(act(state, 'assignAgents', { agents: [a3], assignment: 'Contracting' }), a3).state.assignment,
+      agent(act(state, 'assignAgents', { agents: [a4], assignment: 'Contracting' }), a4).state.assignment,
     ).toEqual({ kind: 'Contracting' });
-    // a1 rests from 12 by `exhaustion_recovery_per_turn` in each Agent recovery step, e.g. to 0 in three steps with the
-    // values of the example, and is Fit to start work only once it is at 0.
-    const fit = (s: typeof state) =>
-      currentLiveWorldStateView(s, gdrs).agents.find((a) => a.id === a1)?.fitForWork;
-    const recovery = gdrs.recoveryParameters.exhaustionRecoveryPerTurnHundredths;
-    let exhaustion = 1200;
-    while (exhaustion > 0) {
-      expect(fit(state)).toBe(false);
-      exhaustion = Math.max(0, exhaustion - recovery);
-      state = advance(state);
-      expect(agent(state, a1).state.exactExhaustionHundredths).toBe(exhaustion);
-    }
-    expect(fit(state)).toBe(true);
-  });
+    // The gate applies only to Work Assignments: recalling a1 or a2 to Standby is accepted.
+    act(state, 'assignAgents', { agents: [a1], assignment: 'Standby' });
+    act(state, 'assignAgents', { agents: [a2], assignment: 'Standby' });
 
-  it('Work wears nothing down: Contracting, Training, and an Investigation keep exhaustion at 0', () => {
-    let state = withAgents(newCampaign(), 2);
-    const [a1, a2] = agentIds(state) as [string, string];
-    state = setAssignment(state, [a1], 'Contracting');
-    state = setAssignment(state, [a2], 'Training');
-    for (let turn = 0; turn < 10; turn += 1) {
-      state = advance(state);
-    }
+    state = advance(state, { [`agent.trainingGain.${a2}`]: [true] });
+    // a1 earned with effective skill 62 and then reached 69, below 70: it stays on Contracting.
     expect(units(agent(state, a1).state)).toMatchObject({
-      exhaustion: 0,
+      exhaustion: 69,
       assignment: { kind: 'Contracting' },
     });
-    expect(units(agent(state, a2).state)).toMatchObject({ exhaustion: 0, assignment: { kind: 'Training' } });
+    // a2 reached 70 in the Training step: Forced return to Standby, At assignment, then recovery to 65.
+    expect(units(agent(state, a2).state)).toMatchObject({
+      exhaustion: 65,
+      assignment: { kind: 'Standby' },
+      status: 'AtAssignment',
+    });
+    expect(agent(state, a3).state.exactExhaustionHundredths / 100).toBe(26);
+    expect(state.world.history.turnReport?.forcedReturns).toEqual([{ agent: a2, from: 'Training' }]);
+
+    state = advance(state);
+    expect(units(agent(state, a1).state)).toMatchObject({
+      exhaustion: 70,
+      assignment: { kind: 'Standby' },
+      status: 'InTransit',
+    });
+    expect(agent(state, a2).state.exactExhaustionHundredths / 100).toBe(60);
+    expect(agent(state, a3).state.exactExhaustionHundredths / 100).toBe(21);
+    // a1 is In transit, so it cannot be assigned at all, whatever its exhaustion.
+    expect(canBeAssigned(agent(state, a1).state)).toBe(false);
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a1], assignment: 'Training' },
+      'agents_cannot_be_ordered',
+    );
+    expectRejected(
+      state,
+      'assignAgents',
+      { agents: [a2], assignment: 'Training' },
+      'agents_not_fit_for_work',
+    );
+    expect(currentLiveWorldStateView(state, gdrs).agents.find((a) => a.id === a3)?.fitForWork).toBe(true);
+    // a1 arrives in the next Advance turn and then recovers 5 per Advance turn, to 30 after eight of them.
+    state = advance(state);
+    for (let turn = 0; turn < 8; turn += 1) {
+      expect(agent(state, a1).state.exactExhaustionHundredths / 100).toBe(70 - 5 * turn);
+      state = advance(state);
+    }
+    expect(agent(state, a1).state.exactExhaustionHundredths / 100).toBe(30);
   });
 
   it('Assigning Agents: rejections and recall', () => {
@@ -547,8 +587,10 @@ describe('AGENT: examples', () => {
       (raw) => (raw.get('agent_parameters')['training_skill_gain_per_turn'] = { $decimal: '0.125' }),
     );
     expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_per_attack'] = { $decimal: '0.5' }));
+    expectDefective((raw) => delete raw.get('agent_parameters')['exhaustion_work_limit']);
     expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_cap'] = 100));
-    expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_work_limit'] = 70));
+    expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_work_start_max'] = 70));
+    expectDefective((raw) => (raw.get('agent_parameters')['exhaustion_work_limit'] = 120));
     // experience_per_mission_survived is a list of one or more whole numbers of at least 0.
     expectDefective((raw) => (raw.get('agent_parameters')['experience_per_mission_survived'] = []));
     expectDefective((raw) => (raw.get('agent_parameters')['experience_per_mission_survived'] = [30, -1]));

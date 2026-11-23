@@ -26,7 +26,12 @@ function lead(
     requiredProgress: 10,
     discoveredWhen: options.discoveredWhen ?? null,
     investigateAgain: 'never',
-    onCompletion: { createMissionSite: options.creates ?? null, eliminateFaction: false, winCampaign: false },
+    onCompletion: {
+      createMissionSite: options.creates ?? null,
+      eliminateFaction: false,
+      unlockContracting: false,
+      winCampaign: false,
+    },
   };
 }
 

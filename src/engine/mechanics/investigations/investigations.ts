@@ -15,7 +15,8 @@ export function requiredProgressRange(
 ): { readonly min: number; readonly max: number } {
   return {
     min: requiredProgress,
-    max: Math.floor((requiredProgress * parameters.requiredProgressMaxPct) / 100),
+    // INVSTG, Required progress range and outcome: the greatest value is rounded up.
+    max: Math.ceil((requiredProgress * parameters.requiredProgressMaxPct) / 100),
   };
 }
 

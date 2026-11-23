@@ -137,9 +137,12 @@ describe('GDRS: the GDRs', () => {
   it('supply a Victory path through the Leads of every Faction to Peace on Earth', () => {
     const catalog = bootstrapGdrCatalog();
     const byId = (id: string) => catalog.leads.find((lead) => lead.id === id)!;
-    // The first Lead, discovered at the start, concerns no Faction.
-    const first = catalog.leads.filter((lead) => lead.discoveredWhen === null);
-    expect(first.map((lead) => lead.faction)).toEqual([null]);
+    // The Leads discovered at the start concern no Faction; the one whose completion discovers Leads of the Factions
+    // starts every chain, and the other unlocks Contracting.
+    const discoveredAtStart = catalog.leads.filter((lead) => lead.discoveredWhen === null);
+    expect(discoveredAtStart.every((lead) => lead.faction === null)).toBe(true);
+    const first = discoveredAtStart.filter((lead) => !lead.onCompletion.unlockContracting);
+    expect(first).toHaveLength(1);
     // Follow each Faction's chain from its first Lead: a Lead that creates a Mission site discovers the next Lead by a
     // Won Mission there, and one that creates none discovers the next one by its completion, up to the Terminate Lead.
     const next = (lead: string, site: string | null) =>

@@ -5,6 +5,8 @@ import type { Condition, LeadGdr, MissionSiteArchetypeGdr } from '../../../gdr/i
 import type { Faction, Investigation, Mission, MissionSite } from '../../state/types.ts';
 import { conditionHolds, wonMissionIndex } from '../conditions/conditions.ts';
 import { missionSiteCanExist } from '../missions/missions.ts';
+import { contractingCap } from '../economy/economy.ts';
+import type { EconomyParametersGdr } from '../../../gdr/index.ts';
 
 /** The parts of a World state that Lead discovery and Lead availability read. */
 export interface LeadWorld {
@@ -261,6 +263,44 @@ export function initiativeOperationLevels(gdrs: {
   };
   levelsByBuild.set(gdrs.leads, levels);
   return levels;
+}
+
+/**
+ * LEAD, Contracting cap growth: the number of distinct Initiative operation levels at which a Mission at an Initiative
+ * Mission site is Won, whatever its Faction.
+ */
+export function initiativeLevelsWon(
+  world: {
+    readonly missions: Readonly<Record<string, Mission>>;
+    readonly missionSites: Readonly<Record<string, MissionSite>>;
+    readonly investigations: Readonly<Record<string, Investigation>>;
+  },
+  gdrs: Parameters<typeof initiativeOperationLevels>[0],
+): number {
+  const levels = new Set<number>();
+  for (const mission of Object.values(world.missions)) {
+    if (mission.state.lifecycle !== 'Won') {
+      continue;
+    }
+    const site = world.missionSites[mission.constants.missionSite];
+    const lead = site === undefined ? null : leadOfMissionSite(site, world.investigations);
+    const level = lead === null ? null : leadInitiativeOperationLevel(lead, gdrs);
+    if (level !== null) {
+      levels.add(level);
+    }
+  }
+  return levels.size;
+}
+
+/** ECON, Contracting cap, with W the Initiative levels won of the given World state. */
+export function currentContractingCap(
+  world: Parameters<typeof initiativeLevelsWon>[0] & {
+    readonly agency: { readonly state: { readonly contractingUnlocked: boolean } };
+  },
+  gdrs: Parameters<typeof initiativeOperationLevels>[0] & { readonly economy: EconomyParametersGdr },
+): number {
+  const unlocked = world.agency.state.contractingUnlocked;
+  return contractingCap(gdrs.economy, unlocked, unlocked ? initiativeLevelsWon(world, gdrs) : 0);
 }
 
 /** LEAD, Initiative operation level of one Lead; null for one that has none. */

@@ -80,6 +80,20 @@ export function agencyCaps(
   };
 }
 
+/**
+ * ECON, Contracting cap: 0 while Contracting is not unlocked, and otherwise base_contracting_cap plus
+ * contracting_cap_per_initiative_level for each Initiative level won (LEAD, Contracting cap growth).
+ */
+export function contractingCap(
+  economy: EconomyParametersGdr,
+  unlocked: boolean,
+  initiativeLevelsWon: number,
+): number {
+  return unlocked
+    ? economy.baseContractingCap + economy.contractingCapPerInitiativeLevel * initiativeLevelsWon
+    : 0;
+}
+
 /** The rates a Rate Upgrade raises, each a Decimal quantity held in hundredths; see ECON, Rate Upgrades. */
 export interface UpgradedRates {
   readonly trainingSkillGainHundredths: number;
@@ -120,6 +134,11 @@ export function countServing(agents: readonly AgentLike[]): number {
 /** Serving Agents whose Current assignment is Training, At assignment or In transit. */
 export function countTraining(agents: readonly AgentLike[]): number {
   return agents.filter((agent) => isServing(agent) && agent.assignment?.kind === 'Training').length;
+}
+
+/** ECON, Contracting cap: Serving Agents whose Assignment is Contracting, whatever their Agent status. */
+export function countContracting(agents: readonly AgentLike[]): number {
+  return agents.filter((agent) => isServing(agent) && agent.assignment?.kind === 'Contracting').length;
 }
 
 /** Serving Agents whose Current assignment is Deployed, over every Mission together. */

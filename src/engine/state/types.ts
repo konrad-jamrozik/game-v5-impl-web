@@ -24,6 +24,8 @@ export interface AgencyState {
   funding: number;
   /** For each Upgrade GDR, the number of times the Agency has purchased it. */
   acquisitions: Record<string, number>;
+  /** ECON, Agency properties: whether Contracting is unlocked; once true, it stays true. */
+  contractingUnlocked: boolean;
 }
 export type Agency = Instance<Record<string, never>, AgencyState>;
 
@@ -398,10 +400,16 @@ export interface TurnReport {
   readonly upkeep: { readonly servingAgents: number; readonly upkeep: number; readonly moneyAfter: number };
   readonly training: readonly {
     readonly agent: string;
-    /** AGENT, Turn report: the base skill the Agent gained in the step, in hundredths. */
-    readonly gainedHundredths: number;
+    /** The Training gain outcome: whether the Agent gained base skill. */
+    readonly gained: boolean;
     /** Base skill after the step, in hundredths. */
     readonly skillAfterHundredths: number;
+    readonly exhaustionAfter: number;
+  }[];
+  /** AGENT, Forced return: the Agents that work sent back to Standby in this Advance turn. */
+  readonly forcedReturns: readonly {
+    readonly agent: string;
+    readonly from: 'Contracting' | 'Training' | 'Investigation';
   }[];
   readonly investigations: readonly {
     readonly investigation: string;
@@ -411,7 +419,11 @@ export interface TurnReport {
     /** Whether it became Assessed in this step. */
     readonly becameAssessed: boolean;
     readonly completed: boolean;
+    /** The progress lost to the Forced returns of this step, under INVSTG, Progress loss. */
+    readonly progressLost: number;
     readonly progressAfter: number;
+    /** Whether the Forced returns of this step left it with an empty Current team. */
+    readonly abandoned: boolean;
     readonly createdMissionSite: string | null;
   }[];
   /**
@@ -483,16 +495,21 @@ export interface StateSummary {
   readonly deployableCombatRating: number;
   /**
    * AGENT, Turn report: the Serving Agents whose Assignment is Recovery, Recovering or In transit; those whose
-   * exhaustion is above 0, i.e. still resting and not Fit to start work; and those whose exhaustion is above
-   * `exhaustion_free_points`.
+   * exhaustion is above `exhaustion_work_limit`; and those whose exhaustion is above `exhaustion_free_points`.
    */
   readonly wornAgents: {
     readonly recovering: number;
-    readonly resting: number;
+    readonly aboveWorkLimit: number;
     readonly aboveFreePoints: number;
   };
   /** ECON, Turn report: the Agency caps. */
-  readonly caps: { readonly agentCap: number; readonly transportCap: number; readonly trainingCap: number };
+  readonly caps: {
+    readonly agentCap: number;
+    readonly transportCap: number;
+    readonly trainingCap: number;
+    /** ECON, Contracting cap. */
+    readonly contractingCap: number;
+  };
 }
 
 /** AGENT, Turn report: the number of Serving Agents In transit, Recovering, and At assignment on each Assignment. */

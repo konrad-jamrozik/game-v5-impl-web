@@ -29,9 +29,10 @@ describe('CINST: Instance IDs', () => {
   it('the first Mission site of a Campaign is mission-site-1', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'instance-ids' }));
-    // Contracting keeps the Agency solvent while it waits for the first Mission site.
-    const roster = ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);
-    ok(await engine.player.actions.assignAgents(roster, 'Contracting'));
+    // Contracting keeps the Agency solvent while it waits for the first Mission site, once the cheat money of the
+    // Session controller has covered the wait in place of it: Contracting starts locked (ECON, Contracting cap).
+    ok(engine.session.developer.enable());
+    ok(await engine.developer.actions.addMoney(5000));
     let sites: string[] = [];
     for (let turn = 0; turn < 60 && sites.length === 0; turn += 1) {
       ok(await engine.player.actions.advanceTurn());

@@ -234,6 +234,11 @@ const schemas = {
       ...combatAgentParameterFields,
       exhaustion_per_mission: whole(0),
       exhaustion_per_pct_killed: whole(0),
+      exhaustion_per_contracting_turn: whole(0),
+      exhaustion_per_training_turn: whole(0),
+      exhaustion_per_investigation_turn: whole(0),
+      exhaustion_work_start_max: whole(0),
+      exhaustion_work_limit: whole(0),
       training_skill_gain_per_turn: hundredths(0),
       // AGENT, Agent GDR validation, rule 5: a list of one or more whole numbers of at least 0.
       experience_per_mission_survived: z.array(whole(0)).min(1),
@@ -249,6 +254,11 @@ const schemas = {
       exhaustionPerDefense: g.exhaustion_per_defense,
       exhaustionPerMission: g.exhaustion_per_mission,
       exhaustionPerPctKilled: g.exhaustion_per_pct_killed,
+      exhaustionPerContractingTurn: g.exhaustion_per_contracting_turn,
+      exhaustionPerTrainingTurn: g.exhaustion_per_training_turn,
+      exhaustionPerInvestigationTurn: g.exhaustion_per_investigation_turn,
+      exhaustionWorkStartMax: g.exhaustion_work_start_max,
+      exhaustionWorkLimit: g.exhaustion_work_limit,
       trainingSkillGainPerTurnHundredths: g.training_skill_gain_per_turn,
       experiencePerAttackHit: g.experience_per_attack_hit,
       experiencePerAttackMiss: g.experience_per_attack_miss,
@@ -327,6 +337,8 @@ const schemas = {
       base_agent_cap: whole(0),
       base_transport_cap: whole(0),
       base_training_cap: whole(0),
+      base_contracting_cap: whole(0),
+      contracting_cap_per_initiative_level: whole(0),
     })
     .transform((g) => ({
       type: g.type,
@@ -338,6 +350,8 @@ const schemas = {
       baseAgentCap: g.base_agent_cap,
       baseTransportCap: g.base_transport_cap,
       baseTrainingCap: g.base_training_cap,
+      baseContractingCap: g.base_contracting_cap,
+      contractingCapPerInitiativeLevel: g.contracting_cap_per_initiative_level,
     })),
   Upgrade: z
     .strictObject({
@@ -467,11 +481,12 @@ const schemas = {
     })
     .transform((g, context) => {
       // LEAD, Lead GDR validation, rule 5: at most one Effect of each of the Effect kinds `create_mission_site`,
-      // `eliminate_faction`, and `win_campaign`, and no other; a Lead that creates a Mission site or eliminates a
-      // Faction has `faction`.
+      // `eliminate_faction`, `unlock_contracting`, and `win_campaign`, and no other; a Lead that creates a Mission
+      // site or eliminates a Faction has `faction`.
       const effects = effectsOf(g.on_completion ?? new Map(), {
         create_mission_site: id,
         eliminate_faction: z.literal(true),
+        unlock_contracting: z.literal(true),
         win_campaign: z.literal(true),
       });
       if (!effects.success) {
@@ -511,6 +526,7 @@ const schemas = {
         onCompletion: {
           createMissionSite: created,
           eliminateFaction,
+          unlockContracting: effects.data.unlock_contracting === true,
           winCampaign: effects.data.win_campaign === true,
         },
       };
@@ -699,6 +715,13 @@ function agentParametersProblems(agentParameters: AgentParametersGdr): string[] 
   const problems: string[] = [];
   if (agentParameters.exhaustionPerAttack + agentParameters.exhaustionPerDefense < 1) {
     problems.push('AgentParameters: every attack must tire someone');
+  }
+  // AGENT, Agent GDR validation, rule 6: exhaustion thresholds are ordered.
+  if (agentParameters.exhaustionWorkStartMax >= agentParameters.exhaustionWorkLimit) {
+    problems.push('AgentParameters: exhaustion_work_start_max must be less than exhaustion_work_limit');
+  }
+  if (agentParameters.exhaustionWorkLimit > agentParameters.exhaustionIncapacitation) {
+    problems.push('AgentParameters: exhaustion_work_limit must be at most exhaustion_incapacitation');
   }
   return problems;
 }

@@ -356,9 +356,9 @@ describe('RECOVER: gaps', () => {
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [deployed] });
     const enemies = state.world.current.missionSites[site.site]!.state.enemies;
     state = advance(state, { ...allMiss([deployed, ...enemies]) });
-    // The Investigation completed, and c4 is In transit at the Agent recovery step, so it recovers nothing.
+    // The Investigation completed, after which c4's work added 1: In transit at the Agent recovery step.
     expect(units(agent(state, c4).state)).toMatchObject({
-      exhaustion: 14,
+      exhaustion: 15,
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });

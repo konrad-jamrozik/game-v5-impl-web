@@ -29,13 +29,19 @@ import {
   countDeployed,
   countServing,
   countTraining,
+  countContracting,
 } from '../mechanics/economy/economy.ts';
 import {
   progressAfterLoss,
   requiredProgressOutcome,
   requiredProgressRange,
 } from '../mechanics/investigations/investigations.ts';
-import { activeInvestigationOf, discoverLeads, leadAvailability } from '../mechanics/leads/leads.ts';
+import {
+  activeInvestigationOf,
+  currentContractingCap,
+  discoverLeads,
+  leadAvailability,
+} from '../mechanics/leads/leads.ts';
 import { seededRandom, type Random } from '../random.ts';
 import { reject, type Rejection } from '../result.ts';
 import type { ActionRecord } from '../rules.ts';
@@ -110,12 +116,12 @@ function requireOrderable(agents: readonly Agent[]): Rejection | null {
 }
 
 /** AGENT, Start-work gate: a new Work Assignment requires every Agent to be Fit to start work. */
-function requireFitForWork(agents: readonly Agent[]): Rejection | null {
-  const tired = agents.filter((agent) => !isFitForWork(agent.state));
+function requireFitForWork(agents: readonly Agent[], gdrs: GdrCatalog): Rejection | null {
+  const tired = agents.filter((agent) => !isFitForWork(agent.state, gdrs.agentParameters));
   return tired.length > 0
     ? reject(
         'agents_not_fit_for_work',
-        `These Agents are not Fit to start work: they are still resting from exhaustion, or they have health lost: ${list(tired.map((a) => a.id))}.`,
+        `These Agents are not Fit to start work: their exhaustion is above ${gdrs.agentParameters.exhaustionWorkStartMax}, or they have health lost: ${list(tired.map((a) => a.id))}.`,
       )
     : null;
 }
@@ -261,7 +267,7 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
     );
   }
   if (assignment === 'Contracting' || assignment === 'Training') {
-    const tired = requireFitForWork(agents) ?? requireInBase(agents);
+    const tired = requireFitForWork(agents, gdrs) ?? requireInBase(agents);
     if (tired) {
       return tired;
     }
@@ -273,6 +279,19 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
       return reject(
         'training_cap',
         `Ordering ${agents.length} more to Training would exceed the Training cap: ${training} of ${cap} places are taken.`,
+      );
+    }
+  }
+  // ECON, Caps on assigning Agents: the Contracting cap.
+  if (assignment === 'Contracting') {
+    const contracting = countContracting(Object.values(world.agents).map((agent) => agent.state));
+    const cap = currentContractingCap(world, gdrs);
+    if (contracting + agents.length > cap) {
+      return reject(
+        'contracting_cap',
+        cap === 0
+          ? 'Contracting is not unlocked: the Contracting cap is 0.'
+          : `Ordering ${agents.length} more to Contracting would exceed the Contracting cap: ${contracting} of ${cap} places are taken.`,
       );
     }
   }
@@ -402,7 +421,7 @@ function startInvestigation(
   if (isRejected(agents)) {
     return agents;
   }
-  const blocked = requireOrderable(agents) ?? requireFitForWork(agents) ?? requireInBase(agents);
+  const blocked = requireOrderable(agents) ?? requireFitForWork(agents, gdrs) ?? requireInBase(agents);
   if (blocked) {
     return blocked;
   }
@@ -434,7 +453,11 @@ function startInvestigation(
 }
 
 /** INVSTG, Assigning Agents to an Investigation. */
-function assignAgentsToInvestigation(world: CurrentWorldState, args: Args): Rejection | null {
+function assignAgentsToInvestigation(
+  world: CurrentWorldState,
+  args: Args,
+  gdrs: GdrCatalog,
+): Rejection | null {
   const investigationId = args['investigation'];
   const investigation =
     typeof investigationId === 'string' ? world.investigations[investigationId] : undefined;
@@ -462,7 +485,7 @@ function assignAgentsToInvestigation(world: CurrentWorldState, args: Args): Reje
       `These Agents already belong to its Current team: ${list(members.map((a) => a.id))}.`,
     );
   }
-  const tired = requireFitForWork(agents) ?? requireInBase(agents);
+  const tired = requireFitForWork(agents, gdrs) ?? requireInBase(agents);
   if (tired) {
     return tired;
   }
@@ -693,7 +716,7 @@ function dispatchAction(
       case 'startInvestigation':
         return startInvestigation(world, args, gdrs, random);
       case 'assignAgentsToInvestigation':
-        return assignAgentsToInvestigation(world, args);
+        return assignAgentsToInvestigation(world, args, gdrs);
       case 'deployAgents':
         return deployAgents(world, args, gdrs);
     }

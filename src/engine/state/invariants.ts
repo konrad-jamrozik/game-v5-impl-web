@@ -57,6 +57,9 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
       fail(`ECON: acquisitions of ${upgrade.id} are missing or negative`);
     }
   }
+  if (typeof world.agency.state.contractingUnlocked !== 'boolean') {
+    fail('ECON: Contracting unlocked is missing');
+  }
   if (world.turn < 1) {
     fail('TURN: the turn number is below 1');
   }

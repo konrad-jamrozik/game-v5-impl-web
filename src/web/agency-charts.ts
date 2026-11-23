@@ -54,6 +54,7 @@ export const ASSET_SERIES = {
   agentCap: { name: 'Agent cap', color: '#D7CCC8' },
   transportCap: { name: 'Transport cap', color: '#3D8FD9' },
   trainingCap: { name: 'Training cap', color: '#E8C547' },
+  contractingCap: { name: 'Contracting cap', color: '#C77DDB' },
 } as const;
 
 /** VIS, Chart series colours: skill bands 1 to 12, from the lowest. */
@@ -169,17 +170,17 @@ export function skillBands(
 }
 
 /** VIS, Chart series colours: the three lines over the Agents by effective skill chart. */
-const WORN_COLORS = { recovering: '#FF4D4D', aboveFreePoints: '#FF9A2E', resting: '#FFE14D' } as const;
+const WORN_COLORS = { recovering: '#FF4D4D', aboveWorkLimit: '#FF9A2E', aboveFreePoints: '#FFE14D' } as const;
 
 /**
  * CVIEW, Agency charts, Agents by effective skill: the lines over the bars, of the Serving Agents of each Turn-end
- * state that are recovering, whose exhaustion is above `exhaustion_free_points`, named with it, e.g.
- * "Exhaustion > 30", and whose exhaustion is above 0, i.e. still resting.
+ * state that are recovering, whose exhaustion is above `exhaustion_work_limit`, and whose exhaustion is above
+ * `exhaustion_free_points`, named with those thresholds, e.g. "Exhaustion > 70" and "Exhaustion > 30".
  */
 export function wornLines(
   entries: readonly HistoryEntry[],
   open: OpenHistoryEntry | null,
-  thresholds: { readonly freePoints: number },
+  thresholds: { readonly workLimit: number; readonly freePoints: number },
 ): (Series & { readonly points: { turn: number; value: number }[] })[] {
   const ends = turnEnds(entries, open);
   const line = (key: keyof StateSummary['wornAgents'], name: string) => ({
@@ -189,8 +190,8 @@ export function wornLines(
   });
   return [
     line('recovering', 'Recovering'),
+    line('aboveWorkLimit', `Exhaustion > ${thresholds.workLimit}`),
     line('aboveFreePoints', `Exhaustion > ${thresholds.freePoints}`),
-    line('resting', 'Exhaustion > 0'),
   ];
 }
 
@@ -312,5 +313,7 @@ export function assetLines(
     agentCap: line((summary) => summary.caps.agentCap),
     transportCap: line((summary) => summary.caps.transportCap),
     trainingCap: line((summary) => summary.caps.trainingCap),
+    // A History entry written before the Contracting cap existed has none; it was 0 then.
+    contractingCap: line((summary) => summary.caps.contractingCap ?? 0),
   };
 }

@@ -23,6 +23,11 @@ export interface AgentParametersGdr {
   readonly exhaustionPerDefense: number;
   readonly exhaustionPerMission: number;
   readonly exhaustionPerPctKilled: number;
+  readonly exhaustionPerContractingTurn: number;
+  readonly exhaustionPerTrainingTurn: number;
+  readonly exhaustionPerInvestigationTurn: number;
+  readonly exhaustionWorkStartMax: number;
+  readonly exhaustionWorkLimit: number;
   /** A Decimal quantity, in hundredths; see NUMBERS, Decimal quantities. */
   readonly trainingSkillGainPerTurnHundredths: number;
   /** COMBAT, Combat experience: the amounts per attack, by the Agent's part in it and its hit outcome. */
@@ -100,6 +105,10 @@ export interface EconomyParametersGdr {
   readonly baseAgentCap: number;
   readonly baseTransportCap: number;
   readonly baseTrainingCap: number;
+  /** ECON, Contracting cap: the Contracting cap once Contracting is unlocked, before any first win raises it. */
+  readonly baseContractingCap: number;
+  /** ECON, Contracting cap: what each Initiative level won adds to the Contracting cap once Contracting is unlocked. */
+  readonly contractingCapPerInitiativeLevel: number;
 }
 
 export type UpgradeEffect =
@@ -205,6 +214,8 @@ export interface LeadGdr {
     readonly createMissionSite: string | null;
     /** Whether an `eliminate_faction` Effect makes the Faction of the Lead Eliminated. */
     readonly eliminateFaction: boolean;
+    /** Whether an `unlock_contracting` Effect unlocks Contracting (ECON, Contracting Effect kind). */
+    readonly unlockContracting: boolean;
     /** Whether a `win_campaign` Effect wins the Campaign (ENDING, Victory Effect kind). */
     readonly winCampaign: boolean;
   };

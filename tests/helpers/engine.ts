@@ -96,6 +96,24 @@ export function liveWorld(engine: Engine): any {
   return currentWorld(inspect(engine)).liveWorldState;
 }
 
+/**
+ * ECON, Contracting cap: unlocks Contracting through play, as the Player does. The last Agent of the roster
+ * investigates `contracting_opportunities` until the Investigation completes, and arrives back on Standby one Advance
+ * turn later.
+ */
+export async function unlockContracting(engine: Engine): Promise<void> {
+  const live = () => ok(engine.player.queries.getCurrentLiveWorldState());
+  const investigator = live().agents.at(-1)!.id;
+  ok(await engine.player.actions.startInvestigation('contracting_opportunities', [investigator]));
+  for (let turn = 0; turn < 30 && !live().agency.contractingUnlocked; turn += 1) {
+    ok(await engine.player.actions.advanceTurn());
+  }
+  if (!live().agency.contractingUnlocked) {
+    throw new Error('Contracting was not unlocked within 30 Advance turns.');
+  }
+  ok(await engine.player.actions.advanceTurn());
+}
+
 /** Engages Autopilot and waits for disengagement. */
 export async function autopilot(
   engine: Engine,

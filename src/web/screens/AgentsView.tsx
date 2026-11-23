@@ -276,6 +276,7 @@ export function AgentsView(props: {
     () => ({
       acceptedAlone: acceptedAlone ?? { Standby: [], Contracting: [], Training: [] },
       trainingPlacesLeft: actions?.assignAgents.trainingPlacesLeft ?? 0,
+      contractingPlacesLeft: actions?.assignAgents.contractingPlacesLeft ?? 0,
       assignmentFilter: memorial ? null : assignmentFilter,
     }),
     [acceptedAlone, actions, assignmentFilter, memorial],
@@ -500,12 +501,20 @@ export function AgentsView(props: {
     </button>
   );
 
+  // AVIEW, Header: Contracting, its Assignment filter, and its places free are shown only while the Contracting cap is
+  // at least 1, i.e. once a Lead has unlocked Contracting.
+  const contractingShown = state.agency.contractingCap >= 1;
+  const shownAssignments = ASSIGNMENTS.filter(
+    (assignment) => assignment !== 'Contracting' || contractingShown,
+  );
+
   return (
     <DetailView
       id="agents"
       title="Agents"
       aside={
-        // AVIEW, Header: the places still free under the Agent cap and the Training cap, each with its cap bar.
+        // AVIEW, Header: the places still free under the Agent cap, the Training cap, and, while it is at least 1, the
+        // Contracting cap, each with its cap bar.
         <span className="cap-figures">
           <CapFigure
             label="Agent places free"
@@ -517,6 +526,13 @@ export function AgentsView(props: {
             testId="training-places-free"
             model={capBar(state.agency.trainingAgents, state.agency.trainingCap)}
           />
+          {contractingShown && (
+            <CapFigure
+              label="Contracting places free"
+              testId="contracting-places-free"
+              model={capBar(state.agency.contractingAgents, state.agency.contractingCap)}
+            />
+          )}
         </span>
       }
       actions={
@@ -557,7 +573,7 @@ export function AgentsView(props: {
             Assign to
           </span>
           <div className="actions">
-            {ASSIGNMENTS.map((assignment) => {
+            {shownAssignments.map((assignment) => {
               const on = !memorial && assignmentFilter === assignment;
               return (
                 <span key={assignment} className="button-pair">

@@ -54,6 +54,9 @@ describe('PAPI, Action results', () => {
       },
     };
     const { engine } = await startEngine({ autopilotAis: [checking] });
+    // More Starting money keeps the Campaign going long enough to make every kind of Player action, because income is
+    // funding alone until Contracting is unlocked (see the Open Specification problem on early upkeep).
+    ok(engine.session.newCampaignSetup.setPresetEdit('standard', { key: 'startingMoney', value: 3000 }));
     ok(await engine.session.campaign.create({ seed: 'action-results' }));
     await autopilot(engine, { kind: 'turnAdvancements', count: 60 }, 'checking');
     // The Campaign made the Player actions whose changes differ the most in kind.

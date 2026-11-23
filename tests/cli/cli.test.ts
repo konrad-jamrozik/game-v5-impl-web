@@ -132,7 +132,7 @@ describe('Terminal CLI', () => {
     const viaCli = await start(new MemoryStorage());
     await run(viaCli, [
       'new same-seed',
-      'assign Contracting agent-2 agent-3',
+      'assign Training agent-2 agent-3',
       'investigate criminal_organizations agent-4',
       'next',
       'next',
@@ -144,7 +144,7 @@ describe('Terminal CLI', () => {
     const viaApi = await start(new MemoryStorage());
     ok(await viaApi.session.campaign.create({ seed: 'same-seed' }));
     // An Agent is hired after the undone turn, because no Upgrade costs as little as the money left.
-    ok(await viaApi.player.actions.assignAgents(['agent-2', 'agent-3'], 'Contracting'));
+    ok(await viaApi.player.actions.assignAgents(['agent-2', 'agent-3'], 'Training'));
     ok(await viaApi.player.actions.startInvestigation('criminal_organizations', ['agent-4']));
     ok(await viaApi.player.actions.advanceTurn());
     ok(await viaApi.player.actions.advanceTurn());
