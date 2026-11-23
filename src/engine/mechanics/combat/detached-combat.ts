@@ -66,6 +66,11 @@ export interface DetachedCombatSetup {
    * other one is the Game build's. A decimal value may be given as a number or as its text.
    */
   readonly gdrValues?: Readonly<Record<string, number | string>>;
+  /**
+   * COMBAT, Detached Combat, Ammo: the rounds at hand of any AmmoType, by identifier; an AmmoType left out has no limit.
+   * An Agent by Instance ID spends its Weapon's `ammo_type`; an Agent of explicit values none.
+   */
+  readonly ammo?: Readonly<Record<string, number>>;
   /** The Detached seed: a permitted Campaign seed, from which every random outcome derives. */
   readonly seed: string;
 }
@@ -265,6 +270,7 @@ export function buildDetachedCombat(
       }
       const kind = entry['kind'];
       let state: CombatantState;
+      let ammoType: string | null = null;
       let entryName: DetachedCombatParticipant['named'] = null;
       if (kind === 'explicit') {
         const explicit = explicitState(entry, side);
@@ -283,6 +289,7 @@ export function buildDetachedCombat(
           return reject('agent_not_serving', `${where}: Agent ${agent.id} is not Serving.`);
         }
         state = agentCombatantState(agent.state, bonus);
+        ammoType = gdrs.weapons.get(agent.state.weapon)?.ammoType ?? null;
         entryName = { kind: 'agent', id: agent.id };
       } else if (side === 'enemy' && kind === 'enemy') {
         const enemy = world.enemies[entry['id']];
@@ -311,7 +318,7 @@ export function buildDetachedCombat(
         named.add(entryName.id);
       }
       participants.push({ id, side, position, named: entryName });
-      (side === 'agent' ? agents : enemies).push({ id, state });
+      (side === 'agent' ? agents : enemies).push({ id, state, ammoType });
     }
   }
 
@@ -326,6 +333,15 @@ export function buildDetachedCombat(
   if ('problem' in values) {
     return reject('invalid_gdr_value', `GDR values: ${values.problem}.`);
   }
+  const ammoPart = setup['ammo'] ?? {};
+  if (
+    !isRecord(ammoPart) ||
+    !Object.entries(ammoPart).every(
+      ([id, rounds]) => gdrs.ammoTypes.has(id) && Number.isSafeInteger(rounds) && (rounds as number) >= 0,
+    )
+  ) {
+    return malformed('ammo must be an object of whole rounds of at least 0 by AmmoType.');
+  }
   const seed = setup['seed'];
   if (!isPermittedSeed(seed)) {
     return reject(
@@ -339,6 +355,9 @@ export function buildDetachedCombat(
       enemies,
       combat: values.combat,
       agentParameters: values.agent,
+      ammo: new Map(Object.entries(ammoPart as Record<string, number>)),
+      fallbackWeaponDamage: must(gdrs.weapons.get(gdrs.combatParameters.fallbackWeapon), 'Fallback Weapon')
+        .damage,
     },
     participants,
     seed,

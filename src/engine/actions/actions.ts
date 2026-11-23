@@ -42,6 +42,22 @@ import {
   discoverLeads,
   leadAvailability,
 } from '../mechanics/leads/leads.ts';
+import {
+  buyCost,
+  equip,
+  equipmentGdr,
+  fallbacks,
+  isItem,
+  priceOf,
+  returnItemsOf,
+  saleValue,
+  storageCount,
+  storeBought,
+  takeSold,
+  unlockedEquipment,
+  equippedCounts,
+  type ItemEntry,
+} from '../mechanics/equipment/equipment.ts';
 import { seededRandom, type Random } from '../random.ts';
 import { reject, type Rejection } from '../result.ts';
 import type { ActionRecord } from '../rules.ts';
@@ -60,6 +76,9 @@ export const PLAYER_ACTIONS = [
   'hireAgents',
   'dismissAgents',
   'purchaseUpgrade',
+  'equipAgent',
+  'buyItems',
+  'sellItems',
   'startInvestigation',
   'assignAgentsToInvestigation',
   'deployAgents',
@@ -369,7 +388,113 @@ function dismissAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): 
     // AGENT, Service record: Turn terminated is the Turn in which dismissAgents dismissed it, and the Final max health,
     // Final weapon damage, and Final armor are its effective values before it.
     terminateAgent(agent.state, 'Dismissed', world.turn, bonus);
+    // EQUIP, Equipment of departing Agents: a Dismissed Agent's Items go into Storage.
+    returnItemsOf(world, agent.state, gdrs);
   }
+  return null;
+}
+
+/** EQUIP, Equipping Agents. */
+function equipAgent(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
+  const agent = typeof args['agent'] === 'string' ? world.agents[args['agent']] : undefined;
+  if (agent === undefined) {
+    return reject('agents_unknown', 'That Instance ID identifies no Agent.');
+  }
+  if (!isServing(agent.state)) {
+    return reject('agents_not_serving', `${agent.id} is not Serving.`);
+  }
+  const id = args['equipment'];
+  const gdr = typeof id === 'string' ? equipmentGdr(gdrs, id) : undefined;
+  if (gdr === undefined) {
+    return reject('unknown_equipment', 'That identifier names no Weapon or Armor.');
+  }
+  if (agent.state.weapon === gdr.id || agent.state.armor === gdr.id) {
+    return reject('already_equipped', `${agent.id} already wears the ${gdr.name}.`);
+  }
+  const { weapon, armor } = fallbacks(gdrs);
+  const isFallback = gdr.id === weapon.id || gdr.id === armor.id;
+  if (!isFallback && (!isItem(gdr) || storageCount(world, gdr.id) < 1)) {
+    return reject('not_in_storage', `Storage holds no ${gdr.name}.`);
+  }
+  equip(world, agent.state, gdr, gdrs);
+  return null;
+}
+
+/** The entries of `buyItems` and `sellItems`: Items or AmmoTypes, each named once, with whole counts of at least 1. */
+function resolveEntries(value: unknown, gdrs: GdrCatalog): ItemEntry[] | Rejection {
+  if (!Array.isArray(value) || value.length === 0) {
+    return reject('invalid_items', 'The items must be a non-empty list of entries.', 'invalid_input');
+  }
+  const entries: ItemEntry[] = [];
+  for (const raw of value as unknown[]) {
+    const entry = raw as { id?: unknown; count?: unknown } | null;
+    if (typeof entry?.id !== 'string' || !isWhole(entry.count) || entry.count < 1) {
+      return reject(
+        'invalid_items',
+        'Each entry names an Item or AmmoType and a count of at least 1.',
+        'invalid_input',
+      );
+    }
+    if (priceOf(gdrs, entry.id) === undefined) {
+      return reject('unknown_item', `${entry.id} is no Item or AmmoType.`);
+    }
+    if (entries.some((other) => other.id === entry.id)) {
+      return reject('items_duplicate', `${entry.id} is listed more than once.`);
+    }
+    entries.push({ id: entry.id, count: entry.count });
+  }
+  return entries;
+}
+
+/** EQUIP, Buying Items. */
+function buyItems(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
+  const entries = resolveEntries(args['items'], gdrs);
+  if (isRejected(entries)) {
+    return entries;
+  }
+  const unlocked = unlockedEquipment(world, gdrs);
+  const locked = entries.filter((entry) => !unlocked.has(entry.id));
+  if (locked.length > 0) {
+    return reject('not_unlocked', `These cannot be bought yet: ${list(locked.map((entry) => entry.id))}.`);
+  }
+  const cost = buyCost(entries, gdrs);
+  if (world.agency.state.money < cost) {
+    return reject(
+      'not_enough_money',
+      `The purchase costs ${cost} and the Agency has ${world.agency.state.money}.`,
+    );
+  }
+  world.agency.state.money -= cost;
+  storeBought(world, entries);
+  return null;
+}
+
+/** EQUIP, Selling Items. */
+function sellItems(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
+  const entries = resolveEntries(args['items'], gdrs);
+  if (isRejected(entries)) {
+    return entries;
+  }
+  const takeEquipped = args['takeEquipped'] === true;
+  const equipped = equippedCounts(
+    Object.values(world.agents).map((agent) => agent.state),
+    gdrs,
+  );
+  for (const entry of entries) {
+    const held = storageCount(world, entry.id);
+    const limit = takeEquipped && !gdrs.ammoTypes.has(entry.id) ? held + (equipped.get(entry.id) ?? 0) : held;
+    if (entry.count > limit) {
+      return reject(
+        held < entry.count && (equipped.get(entry.id) ?? 0) > 0 && !takeEquipped
+          ? 'items_equipped'
+          : 'not_enough_items',
+        `The Agency cannot sell ${entry.count} of ${entry.id}; it has ${limit} to sell.`,
+      );
+    }
+  }
+  const value = saleValue(entries, gdrs);
+  takeSold(world, entries, bonusOf(world, gdrs), gdrs);
+  world.agency.state.money += value;
   return null;
 }
 
@@ -387,8 +512,8 @@ function purchaseUpgrade(world: CurrentWorldState, args: Args, gdrs: GdrCatalog)
   }
   world.agency.state.money -= upgrade.price;
   world.agency.state.acquisitions[upgrade.id] = (world.agency.state.acquisitions[upgrade.id] ?? 0) + 1;
-  // No Upgrade changes a stored value beyond the Acquisitions: the Weapon damage, Max health, and Armor Upgrades raise
-  // the Derived effective values of every Serving Agent; see ECON, Upgrade effects, and AGENT, Modifiable values.
+  // No Upgrade changes a stored value beyond the Acquisitions: a Max health Upgrade raises the Derived effective max
+  // health of every Serving Agent; see ECON, Upgrade effects.
   return null;
 }
 
@@ -650,9 +775,7 @@ function overrideRandomOutcome(world: CurrentWorldState, args: Args, gdrs: GdrCa
     const agent = world.agents[instanceId];
     const enemy = world.enemies[instanceId];
     const weaponDamage =
-      agent !== undefined
-        ? effectiveWeaponDamage(agent.state, bonusOf(world, gdrs))
-        : enemy?.state.baseWeaponDamage;
+      agent !== undefined ? effectiveWeaponDamage(agent.state) : enemy?.state.baseWeaponDamage;
     if (outcome.startsWith('combat.damage.') && weaponDamage !== undefined && isWhole(value)) {
       const bounds = damageBounds(weaponDamage, gdrs.combatParameters);
       if (value < bounds.lo || value > bounds.hi) {
@@ -713,6 +836,12 @@ function dispatchAction(
         return dismissAgents(world, args, gdrs);
       case 'purchaseUpgrade':
         return purchaseUpgrade(world, args, gdrs);
+      case 'equipAgent':
+        return equipAgent(world, args, gdrs);
+      case 'buyItems':
+        return buyItems(world, args, gdrs);
+      case 'sellItems':
+        return sellItems(world, args, gdrs);
       case 'startInvestigation':
         return startInvestigation(world, args, gdrs, random);
       case 'assignAgentsToInvestigation':

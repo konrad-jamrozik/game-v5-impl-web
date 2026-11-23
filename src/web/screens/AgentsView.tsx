@@ -47,6 +47,7 @@ import {
 } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
+import { EquipmentPicker } from './EquipmentPicker.tsx';
 import type { ReportTarget } from './TurnReportView.tsx';
 
 /** AVIEW, Row filters: both checkboxes are unchecked whenever the Agents View opens. */
@@ -54,12 +55,12 @@ const NO_HIDING: HideChecks = { hideRecovering: false, hideExhausted: false };
 
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
 const NUMERIC = new Set([
+  'combatRating',
   'effectiveSkill',
   'skillHundredths',
   'experience',
   'currentHealthHundredths',
   'exhaustion',
-  'effectiveWeaponDamage',
 ]);
 
 /**
@@ -68,7 +69,20 @@ const NUMERIC = new Set([
  * Lead `name` of the GDRs after "Investigating: " and before " · In transit", e.g. "Investigating: Interrogate Black
  * Lotus high commander · In transit", so that it is never cut short.
  */
-const SERVING_WIDTHS = ['36px', '104px', '84px', '84px', '64px', '96px', '76px', '104px', '480px', '220px'];
+const SERVING_WIDTHS = [
+  '36px',
+  '104px',
+  '112px',
+  '84px',
+  '84px',
+  '64px',
+  '96px',
+  '76px',
+  '200px',
+  '220px',
+  '480px',
+  '220px',
+];
 /** VIS, Tables: the fixed widths of the Memorial table. */
 /**
  * AVIEW, Memorial: Killed by holds the longest Enemy label of the GDRs with a two-digit number, e.g.
@@ -330,6 +344,23 @@ export function AgentsView(props: {
           </button>
         ),
       }),
+      // AVIEW, Agent table: the Combat rating headed CR, with the Equipment Combat rating in parentheses.
+      helper.accessor((agent) => agent.combatRating ?? 0, {
+        id: 'combatRating',
+        header: 'CR',
+        cell: (cell) => {
+          const equipment = cell.row.original.equipmentCombatRating ?? 0;
+          const tone = equipment > 0 ? 'tone-good' : equipment < 0 ? 'tone-bad' : 'muted';
+          return (
+            <span data-testid={`cr-${cell.row.original.id}`}>
+              {cell.getValue()}{' '}
+              <span className={tone}>
+                ({equipment > 0 ? `+${equipment}` : equipment < 0 ? `−${-equipment}` : '0'})
+              </span>
+            </span>
+          );
+        },
+      }),
       // VIS, Tables: effective skill is headed Eff.
       helper.accessor('effectiveSkill', { header: 'Eff.' }),
       // GUI, Decimal quantities shown: base skill and current health with two decimals, e.g. "101.10", "29.40/30".
@@ -347,8 +378,31 @@ export function AgentsView(props: {
         header: 'Exh.',
         cell: (cell) => <Exhaustion value={cell.getValue()} levels={levels} />,
       }),
-      // AVIEW, Agent table: the effective weapon damage.
-      helper.accessor('effectiveWeaponDamage', { header: 'Damage' }),
+      // AVIEW, Weapon and Armor cells: each opens the Equipment picker; each column sorts by its number.
+      helper.accessor('baseWeaponDamage', {
+        header: 'Weapon',
+        cell: (cell) => (
+          <EquipmentPicker
+            agent={cell.row.original}
+            kind="weapon"
+            state={state}
+            locked={locked}
+            testId={`weapon-${cell.row.original.id}`}
+          />
+        ),
+      }),
+      helper.accessor('baseArmor', {
+        header: 'Armor',
+        cell: (cell) => (
+          <EquipmentPicker
+            agent={cell.row.original}
+            kind="armor"
+            state={state}
+            locked={locked}
+            testId={`armor-${cell.row.original.id}`}
+          />
+        ),
+      }),
       helper.accessor((agent) => assignmentText(agent, state, snapshot.retired), {
         id: 'assignment',
         header: 'Assignment',
@@ -390,7 +444,7 @@ export function AgentsView(props: {
         ),
       }),
     ],
-    [state, snapshot.retired, levels, onShow],
+    [state, snapshot.retired, levels, onShow, locked],
   );
 
   const table = useReactTable({
@@ -447,7 +501,13 @@ export function AgentsView(props: {
   if (shownDetails !== undefined) {
     return (
       <DetailView id="agents" title={`Agent ${shownDetails.id}`} onClose={props.onClose}>
-        <AgentDetails agent={shownDetails} snapshot={snapshot} state={state} onShow={props.onShow} />
+        <AgentDetails
+          agent={shownDetails}
+          snapshot={snapshot}
+          state={state}
+          locked={locked}
+          onShow={props.onShow}
+        />
       </DetailView>
     );
   }
@@ -930,9 +990,10 @@ function AgentDetails(props: {
   agent: AgentView;
   snapshot: Snapshot;
   state: CurrentLiveWorldStateView;
+  locked: string | null;
   onShow: (target: ReportTarget) => void;
 }) {
-  const { agent, snapshot, state } = props;
+  const { agent, snapshot, state, locked } = props;
   /** AVIEW, Agent details: a Terminated Agent shows its Final max health and no exhaustion. */
   const terminated = agent.agentStatus === 'Killed' || agent.agentStatus === 'Dismissed';
   const participation = participationRows(agent, state, snapshot.retired);
@@ -945,13 +1006,38 @@ function AgentDetails(props: {
         <dd className="figure">{agent.turnHired}</dd>
         <dt>Weapon</dt>
         <dd>
-          {agent.weaponName} <span className="figure secondary">· damage {agent.effectiveWeaponDamage}</span>
+          {terminated ? (
+            <>
+              {agent.weaponName}{' '}
+              <span className="figure secondary">· damage {agent.effectiveWeaponDamage}</span>
+            </>
+          ) : (
+            <EquipmentPicker
+              agent={agent}
+              kind="weapon"
+              state={state}
+              locked={locked}
+              testId="details-weapon"
+            />
+          )}
         </dd>
         {/* AVIEW, Agent details: the Armor with its effective armor, e.g. "Standard uniform · armor 2"; a Terminated
             Agent's is its Final armor, which the view reports as its effective armor. */}
         <dt>Armor</dt>
         <dd data-testid="details-armor">
-          {agent.armorName} <span className="figure secondary">· armor {agent.effectiveArmor}</span>
+          {terminated ? (
+            <>
+              {agent.armorName} <span className="figure secondary">· armor {agent.effectiveArmor}</span>
+            </>
+          ) : (
+            <EquipmentPicker
+              agent={agent}
+              kind="armor"
+              state={state}
+              locked={locked}
+              testId="details-armor-picker"
+            />
+          )}
         </dd>
         {/* GUI, Decimal quantities shown: the one place that shows these values with two decimals. */}
         <dt>Skill</dt>
@@ -982,7 +1068,26 @@ function AgentDetails(props: {
         <span className="combat-rating" data-testid="details-combat-rating">
           <span className="label">Combat rating</span>
           <span className="figure tone-accent">{agent.combatRating}</span>
-          <span className="figure secondary">· base {agent.baseCombatRating}</span>
+          <span className="figure secondary">
+            · max {agent.restedCombatRating} · equipment{' '}
+            <span
+              className={
+                (agent.equipmentCombatRating ?? 0) > 0
+                  ? 'tone-good'
+                  : (agent.equipmentCombatRating ?? 0) < 0
+                    ? 'tone-bad'
+                    : undefined
+              }
+            >
+              {(agent.equipmentCombatRating ?? 0) > 0
+                ? '+'
+                : (agent.equipmentCombatRating ?? 0) < 0
+                  ? '−'
+                  : ''}
+              {Math.abs(agent.equipmentCombatRating ?? 0)}
+            </span>{' '}
+            · effective skill {agent.baseCombatRating}
+          </span>
         </span>
       )}
       <div className="label">Participation history</div>

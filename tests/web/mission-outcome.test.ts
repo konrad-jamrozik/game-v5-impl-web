@@ -39,6 +39,8 @@ function mission(
     ratingsStart: { agents: 296, enemies: 240 },
     ratingsEnd: { agents: 88, enemies: 0 },
     consequence: { ...none, money: 100 },
+    equipment: { lost: {}, returned: {}, spoils: {} },
+    ammo: [],
   };
 }
 

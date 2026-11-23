@@ -80,7 +80,7 @@ export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
   lossMarginStepPct: 5,
   enemiesPerAgent: 2.5,
   recoveryLookaheadTurns: 2,
-  upgradeWeights: { armor: 2, training_skill_gain: 2, exhaustion_recovery: 2, health_recovery: 2 },
+  upgradeWeights: { training_skill_gain: 2, exhaustion_recovery: 2, health_recovery: 2 },
 };
 
 /** Thrown inside a step when the Autopilot engagement has ended, so that the step makes no further call. */
@@ -709,7 +709,23 @@ class Turn {
         .filter((item) => item.effect === effect && item.incrementHundredths > 0)
         .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price)[0];
 
-    // 1. Other Upgrades, up to the Upgrade budget.
+    // 1. Ammo: each AmmoType a Serving Agent's Weapon uses, brought up to twice what Ammo short asks for, in one
+    // buyItems. An AmmoType that is not Unlocked cannot be bought.
+    const ammo = agency.equipment.items
+      .filter((item) => item.kind === 'ammo' && item.unlocked && item.ammoAgents > 0)
+      .filter((item) => item.available < 2 * item.ammoNeeded)
+      .map((item) => ({ id: item.id, count: 2 * item.ammoNeeded - item.available, price: item.price }));
+    if (ammo.length > 0) {
+      const cost = ammo.reduce((sum, item) => sum + item.price * item.count, 0);
+      return (
+        affordable(cost, agency.projectedUpkeep) &&
+        (await this.act(`ammo ${ammo.map((item) => item.id).join(',')}`, () =>
+          this.player.actions.buyItems(ammo.map(({ id, count }) => ({ id, count }))),
+        ))
+      );
+    }
+
+    // 2. Other Upgrades, up to the Upgrade budget.
     const agentCapUpgrade = ofEffect('agent_cap');
     const agentCapBought = agency.upgrades
       .filter((item) => item.effect === 'agent_cap')
@@ -726,7 +742,7 @@ class Turn {
     if (next !== undefined) {
       return buy(next.id, next.price);
     }
-    // 2. Supporting caps: the Transport cap first, then the Training cap.
+    // 3. Supporting caps: the Transport cap first, then the Training cap.
     for (const [cap, effect] of [
       [agency.transportCap, 'transport_cap'],
       [agency.trainingCap, 'training_cap'],
@@ -736,7 +752,7 @@ class Turn {
         return upgrade !== undefined && buy(upgrade.id, upgrade.price);
       }
     }
-    // 3. Hire up to the Agent cap, in one hireAgents: as many as hiring one at a time would, each one judged against
+    // 4. Hire up to the Agent cap, in one hireAgents: as many as hiring one at a time would, each one judged against
     // the Savings floor with the upkeep of every Agent hired so far and itself.
     if (agency.servingAgents < agency.agentCap) {
       let count = 0;
@@ -748,8 +764,51 @@ class Turn {
       }
       return count > 0 && (await this.act('hire', () => this.player.actions.hireAgents(count)));
     }
-    // 4. Raise the Agent cap.
+    // 5. Raise the Agent cap.
     return agentCapUpgrade !== undefined && buy(agentCapUpgrade.id, agentCapUpgrade.price);
+  }
+
+  /**
+   * Step 5, BASICAI, Equipping: for Weapons and then Armors, every Item worn or in Storage, from the highest number
+   * down, goes to the Serving Agents from the highest effective skill down, ties by the lower Instance ID; Agents
+   * beyond the Items keep the fallback. It makes one equipAgent per call: the first Agent whose share differs gets it
+   * from Storage, or, when another Agent wears it, that Agent first takes the fallback, which frees it.
+   */
+  private async equip(state: CurrentLiveWorldStateView): Promise<boolean> {
+    const view = state.agency.equipment;
+    const number = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
+    const serving = state.agents
+      .filter((agent) => agent.agentStatus !== 'Killed' && agent.agentStatus !== 'Dismissed')
+      .sort((x, y) => y.effectiveSkill - x.effectiveSkill || number(x.id) - number(y.id));
+    for (const kind of ['weapon', 'armor'] as const) {
+      const worn = (agent: (typeof serving)[number]) => (kind === 'weapon' ? agent.weapon : agent.armor);
+      const fallback = kind === 'weapon' ? view.fallbackWeapon : view.fallbackArmor;
+      const pool = view.items
+        .filter((item) => item.kind === kind)
+        .sort((x, y) => (y.stat ?? 0) - (x.stat ?? 0))
+        .flatMap((item) => Array.from({ length: item.owned }, () => item.id));
+      for (const [index, agent] of serving.entries()) {
+        const share = pool[index] ?? fallback;
+        if (worn(agent) === share) {
+          continue;
+        }
+        const stored = view.items.find((item) => item.id === share)?.available ?? 0;
+        if (share === fallback || stored > 0) {
+          return this.act(`equip ${agent.id} ${share}`, () =>
+            this.player.actions.equipAgent(agent.id, share),
+          );
+        }
+        const wearer = serving.find(
+          (other, at) => at !== index && worn(other) === share && pool[at] !== share,
+        );
+        if (wearer !== undefined) {
+          return this.act(`equip ${wearer.id} ${fallback}`, () =>
+            this.player.actions.equipAgent(wearer.id, fallback),
+          );
+        }
+      }
+    }
+    return false;
   }
 
   /** Makes the next Player action of the Turn routine. Returns false once it has advanced the turn. */
@@ -760,6 +819,7 @@ class Turn {
       (state, muster) => this.investigate(state, muster),
       (state, muster) => this.contractAndTrain(state, muster),
       (state) => this.purchase(state),
+      (state) => this.equip(state),
     ];
     // BASICAI, Information: the World state is read at the start of each step; within a step, and for an earlier step
     // looked at again, the views held are current from the changes each Player action returned.

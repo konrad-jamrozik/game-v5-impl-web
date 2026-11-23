@@ -444,131 +444,6 @@ describe('ECON: examples', () => {
     expectRejected(state, 'purchaseUpgrade', { upgrade: 'training_cap' }, 'not_enough_money');
   });
 
-  it('Weapon damage Upgrade', () => {
-    let state = withAgents(setMoney(newCampaign(), upgrade('weapon_damage').price + 100), 6);
-    const [a1, a2, a3, a4, a5, a6] = agentIds(state) as [string, string, string, string, string, string];
-    state = setAssignment(state, [a1], 'Contracting');
-    state = setAssignment(state, [a4], 'Standby', 'InTransit');
-    state = act(state, 'dismissAgents', { agents: [a6] });
-    state = tweak(state, (world) => {
-      setCurrentHealth(world.agents[a3]!.state, 1000);
-      world.agents[a3]!.state.assignment = { kind: 'Recovery' };
-      world.agents[a3]!.state.status = 'InTransit';
-      const dead = world.agents[a5]!.state;
-      dead.status = 'Killed';
-      dead.turnTerminated = 1;
-      dead.finalMaxHealth = dead.baseHealth;
-      dead.finalWeaponDamage = dead.baseWeaponDamage;
-      dead.finalArmor = dead.baseArmor;
-      dead.killedBy = { enemy: 'enemy-1', missionSite: 'mission-site-1' };
-      setCurrentHealth(dead, 0);
-      dead.assignment = null;
-    });
-    const site = addMissionSite(state, 'apprehend_member');
-    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a2] });
-    const damages = (s: CampaignState) =>
-      [a1, a2, a3, a4, a5, a6].map((id) => effectiveValuesOf(s, id).weaponDamage);
-    const before = state;
-    const base = agentWeaponDamage();
-    const step = increment('weapon_damage');
-    const price = upgrade('weapon_damage').price;
-    // a1 to a4 are Serving; a5 is Killed and a6 Dismissed, each with its Final weapon damage.
-    const serving = (bought: number) => base + bought * step;
-
-    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    expect(money(state)).toBe(100);
-    expect(damages(state)).toEqual([serving(1), serving(1), serving(1), serving(1), base, base]);
-    // AGENT, Modifiable values: buying the Upgrade rewrites no Agent value, and a Terminated Agent keeps its Final
-    // weapon damage.
-    expect(agents(state)).toEqual(agents(before));
-    expect(agents(state).every((a) => a.state.baseWeaponDamage === base)).toBe(true);
-    expect(agent(state, a5).state.finalWeaponDamage).toBe(base);
-    expectRejected(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' }, 'not_enough_money');
-    state = act(state, 'addMoney', { amount: price + 400 }, 'developer');
-    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    expect(money(state)).toBe(500);
-    expect(damages(state)).toEqual([serving(2), serving(2), serving(2), serving(2), base, base]);
-    // Agents created after the purchases, by hiring or by the cheat operation, have the same effective weapon damage.
-    state = act(state, 'hireAgents', { count: 1 });
-    state = act(state, 'addAgents', { count: 1 }, 'developer');
-    expect(money(state)).toBe(500 - economy.hireCost);
-    expect(
-      agentIds(state)
-        .slice(6)
-        .map((id) => effectiveValuesOf(state, id).weaponDamage),
-    ).toEqual([serving(2), serving(2)]);
-    expect(
-      Object.values(state.world.current.enemies).every(
-        (e) => e.state.baseWeaponDamage === gdrs.weapons.get(e.state.weapon)!.damage,
-      ),
-    ).toBe(true);
-    // An Agent dismissed after the purchases records the effective weapon damage it had as its Final weapon damage.
-    state = act(setAssignment(state, [a4], 'Standby'), 'dismissAgents', { agents: [a4] });
-    expect(agent(state, a4).state.finalWeaponDamage).toBe(serving(2));
-    state = act(state, 'addMoney', { amount: price }, 'developer');
-    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    expect(damages(state)).toEqual([serving(3), serving(3), serving(3), serving(2), base, base]);
-    // The purchases change no Weapon.
-    expect(agentWeaponDamage()).toBe(base);
-  });
-
-  it('Armor Upgrade', () => {
-    const price = upgrade('armor').price;
-    const step = increment('armor');
-    // GDRS: every Agent wears the Armor of the AgentArchetype, whose base armor no Upgrade changes.
-    const worn = gdrs.armors.get(gdrs.agentArchetype.armor)!;
-    const armored = (bought: number) => worn.armor + bought * step;
-    let state = setMoney(newCampaign(), 2 * price + 500);
-    const [a1, a2] = agentIds(state) as [string, string];
-    const armors = (s: CampaignState) => agentIds(s).map((id) => effectiveValuesOf(s, id).armor);
-    expect(armors(state)).toEqual(agentIds(state).map(() => armored(0)));
-    expect(agents(state).every((a) => a.state.armor === worn.id && a.state.baseArmor === worn.armor)).toBe(
-      true,
-    );
-    const beforePurchase = state;
-    state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
-    expect(money(state)).toBe(price + 500);
-    // ECON, Armor Upgrade: effective armor = base armor + Upgrade bonus of agent_armor, at once, rewriting no value.
-    expect(armors(state)).toEqual(agentIds(state).map(() => armored(1)));
-    expect(agents(state)).toEqual(agents(beforePurchase));
-    // AGENT, Service record: a dismissed Agent keeps its effective armor as its Final armor.
-    state = act(state, 'dismissAgents', { agents: [a1] });
-    expect(agent(state, a1).state.finalArmor).toBe(armored(1));
-    state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
-    expect([a1, a2].map((id) => effectiveValuesOf(state, id).armor)).toEqual([armored(1), armored(2)]);
-    // Player API: each Agent's Armor and effective armor, a Terminated Agent's Final armor, and the effective armor
-    // that the Armor Upgrade card of the Upgrades View shows.
-    const live = currentLiveWorldStateView(state, gdrs);
-    expect(live.agency.agentArmor).toBe(armored(2));
-    expect(live.agents.find((item) => item.id === a2)).toMatchObject({
-      armor: worn.id,
-      armorName: worn.name,
-      baseArmor: worn.armor,
-      effectiveArmor: armored(2),
-      finalArmor: null,
-    });
-    expect(currentRetiredWorldStateView(state, gdrs).agents.find((item) => item.id === a1)).toMatchObject({
-      effectiveArmor: armored(1),
-      finalArmor: armored(1),
-    });
-    // A new Agent has the effective armor of every other Serving Agent.
-    state = act(state, 'hireAgents', { count: 1 });
-    expect(effectiveValuesOf(state, agentIds(state).at(-1)!).armor).toBe(armored(2));
-    // The first Combat after the purchase starts every Agent with the raised current armor; no Enemy is affected: each
-    // starts with the base armor of its own Armor.
-    const site = addMissionSite(state, 'apprehend_member');
-    state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a2] });
-    state = advance(state, winning(state, site.site));
-    const report = state.world.history.turnReport!.combatReports[0]!;
-    expect(report.participants.find((item) => item.id === a2)!.start.armor).toBe(armored(2));
-    const enemyArmor = (id: string) => gdrs.armors.get(state.world.current.enemies[id]!.state.armor)!.armor;
-    expect(
-      report.participants
-        .filter((item) => item.side === 'enemy')
-        .every((item) => item.start.armor === enemyArmor(item.id)),
-    ).toBe(true);
-  });
-
   it('Max health and Rate Upgrades', () => {
     // No Upgrade is a Max health Upgrade, so this example adds one (GDRS, Economy and Upgrades GDRs).
     const withMaxHealth = catalogWith((raw) => {
@@ -711,7 +586,9 @@ describe('ECON: examples', () => {
   });
 
   it('GDR validation', () => {
-    expectDefective((raw) => (raw.get('weapon_damage')['effect'] = 'agent_morale'));
+    expectDefective((raw) => (raw.get('training_cap')['effect'] = 'agent_morale'));
+    // ECON, Upgrade effects: no Upgrade raises weapon damage or armor any more.
+    expectDefective((raw) => (raw.get('training_cap')['effect'] = 'agent_weapon_damage'));
     expectDefective((raw) => delete raw.get('transport_cap')['increment']);
     expectDefective((raw) => (raw.get('agent_cap')['max_acquisitions'] = 3));
     expectDefective((raw) => (raw.get('training_cap')['price'] = -1));

@@ -99,6 +99,17 @@ export interface AgentView {
    * down, or 0 when it is not able to fight; absent when Terminated.
    */
   readonly combatRating: number | null;
+  /** COMBAT, Rested Combat rating: the Combat rating with exhaustion 0 and health lost 0; absent when Terminated. */
+  readonly restedCombatRating: number | null;
+  /**
+   * COMBAT, Equipment Combat rating: the Combat rating minus that in the AgentArchetype's `weapon` and `armor`; below 0
+   * when the Agent wears less; absent when Terminated.
+   */
+  readonly equipmentCombatRating: number | null;
+  /** COMBAT, Ammo: the AmmoType of the Agent's Weapon, or null. */
+  readonly weaponAmmoType: string | null;
+  /** EQUIP, Ammo short: whether the AmmoType of the Agent's Weapon is Ammo short; false without one. */
+  readonly ammoShort: boolean;
   readonly participationHistory: readonly Participation[];
   /** AGENT, Service record: the number of Enemies the Agent's attacks have made dead. */
   readonly enemiesKilled: number;
@@ -312,11 +323,8 @@ export interface AgencyView {
   readonly trainingSkillGainHundredths: number;
   readonly exhaustionRecoveryHundredths: number;
   readonly healthRecoveryPctHundredths: number;
-  /**
-   * ECON, Armor Upgrade: the effective armor every Serving Agent has, i.e. the `base_armor` of the Armor that the
-   * AgentArchetype's `armor` references plus the Upgrade bonus of agent_armor; reported even with no Serving Agent.
-   */
-  readonly agentArmor: number;
+  /** EQUIP: the Storage and every Item and AmmoType with its counts, whether it is Unlocked, and its Ammo needs. */
+  readonly equipment: EquipmentView;
   readonly servingAgents: number;
   readonly deployedAgents: number;
   readonly trainingAgents: number;
@@ -399,6 +407,52 @@ export interface HistoryView {
   };
 }
 
+/** One entry of `buyItems` or `sellItems`: an Item or an AmmoType and a count of at least 1. */
+export interface ItemEntryView {
+  readonly id: string;
+  readonly count: number;
+}
+
+/** EQUIP: one Item or AmmoType as the Agency holds it. */
+export interface EquipmentItemView {
+  readonly id: string;
+  readonly kind: 'weapon' | 'armor' | 'ammo';
+  readonly name: string;
+  readonly price: number;
+  /** The `base_weapon_damage` of a Weapon or the `base_armor` of an Armor; null for an AmmoType. */
+  readonly stat: number | null;
+  /** The AmmoType a Weapon spends; null otherwise. */
+  readonly ammoType: string | null;
+  /** EQUIP, Owned count. */
+  readonly owned: number;
+  /** EQUIP, Equipped count; 0 for an AmmoType. */
+  readonly equipped: number;
+  /** EQUIP, Storage: the count in Storage. */
+  readonly available: number;
+  /** EQUIP, Unlocked Items. */
+  readonly unlocked: boolean;
+  /** EQUIP, Ammo short, for an AmmoType: the Serving Agents whose Weapons use it, the rounds they need, and whether short. */
+  readonly ammoAgents: number;
+  readonly ammoNeeded: number;
+  readonly ammoShort: boolean;
+}
+
+/** EQUIP: what the Agency holds, in Game build order: Weapons, then Armors, then AmmoTypes; Items only. */
+export interface EquipmentView {
+  readonly items: readonly EquipmentItemView[];
+  /** EQUIP, Selling Items: `sale_price_fraction` as an exact fraction. */
+  readonly salePriceFraction: { readonly numerator: number; readonly denominator: number };
+  readonly ammoShortRoundsPerAgent: number;
+  /** The Fallback Weapon and the Fallback Armor, by identifier and `name`. */
+  readonly fallbackWeapon: string;
+  readonly fallbackArmor: string;
+  readonly fallbackWeaponName: string;
+  readonly fallbackArmorName: string;
+  /** The `base_weapon_damage` of the Fallback Weapon and the `base_armor` of the Fallback Armor. */
+  readonly fallbackWeaponDamage: number;
+  readonly fallbackArmorValue: number;
+}
+
 export interface ActionAvailability {
   readonly available: boolean;
   /** Why the action is unavailable, as a stable identifier and a message. */
@@ -463,9 +517,18 @@ export interface GameDataView {
     readonly damage: number;
     /** COMBAT, Damage outcome: the inclusive bounds of the damage of a hit for a weapon damage equal to `damage`. */
     readonly damageOfAHit: { readonly min: number; readonly max: number };
+    readonly price: number | null;
+    readonly ammoType: string | null;
   }[];
   /** COMBAT, Armor: every Armor GDR, with its `base_armor` as `armor`. */
-  readonly armors: readonly { readonly id: string; readonly name: string; readonly armor: number }[];
+  readonly armors: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly armor: number;
+    readonly price: number | null;
+  }[];
+  /** COMBAT, AmmoType: every AmmoType GDR. */
+  readonly ammoTypes: readonly { readonly id: string; readonly name: string; readonly price: number }[];
   readonly enemyArchetypes: readonly {
     readonly id: string;
     readonly name: string;
@@ -651,6 +714,12 @@ export interface PlayerApi {
     hireAgents(count: number): Promise<Result<ActionOutcome>>;
     dismissAgents(agents: readonly string[]): Promise<Result<ActionOutcome>>;
     purchaseUpgrade(upgrade: string): Promise<Result<ActionOutcome>>;
+    /** EQUIP, Equipping Agents: puts a Weapon or an Armor on a Serving Agent, through Storage. */
+    equipAgent(agent: string, equipment: string): Promise<Result<ActionOutcome>>;
+    /** EQUIP, Buying Items. */
+    buyItems(items: readonly ItemEntryView[]): Promise<Result<ActionOutcome>>;
+    /** EQUIP, Selling Items: `takeEquipped` lets Items that Agents wear be sold. */
+    sellItems(items: readonly ItemEntryView[], takeEquipped: boolean): Promise<Result<ActionOutcome>>;
     startInvestigation(lead: string, agents: readonly string[]): Promise<Result<ActionOutcome>>;
     assignAgentsToInvestigation(
       investigation: string,

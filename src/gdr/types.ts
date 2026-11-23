@@ -44,6 +44,34 @@ export interface WeaponGdr {
   readonly id: string;
   readonly name: string;
   readonly damage: number;
+  /** EQUIP, Item: the money one costs; null for a Weapon that is no Item, e.g. the Fallback Weapon. */
+  readonly price: number | null;
+  /** COMBAT, Ammo in a Combat: the AmmoType one Agent attack with it spends; present exactly when `price` is. */
+  readonly ammoType: string | null;
+  /** EQUIP, Unlocked Items: the Leads of which any one, once completed, unlocks it; null when Unlocked from the start. */
+  readonly unlockedBy: readonly string[] | null;
+}
+
+/** COMBAT, AmmoType: one kind of round a Weapon spends. */
+export interface AmmoTypeGdr {
+  readonly type: 'AmmoType';
+  readonly id: string;
+  readonly name: string;
+  /** The money one round costs: a whole number of at least 1. */
+  readonly price: number;
+}
+
+/** EQUIP, EquipmentParameters. */
+export interface EquipmentParametersGdr {
+  readonly type: 'EquipmentParameters';
+  readonly id: string;
+  /** The Fallback Armor: an Armor with no price. */
+  readonly fallbackArmor: string;
+  /** The rounds of each AmmoType in the Storage of a new Campaign; an AmmoType absent starts at 0. */
+  readonly startingAmmo: Readonly<Record<string, number>>;
+  readonly salePriceFraction: Rational;
+  readonly spoilsAmmoMax: number;
+  readonly ammoShortRoundsPerAgent: number;
 }
 
 /** COMBAT, Armor: the base armor of the Combatants equipped with it. */
@@ -53,6 +81,10 @@ export interface ArmorGdr {
   readonly name: string;
   /** `base_armor`: a whole number of at least 0. */
   readonly armor: number;
+  /** EQUIP, Item: the money one costs; null for an Armor that is no Item, e.g. the Fallback Armor. */
+  readonly price: number | null;
+  /** EQUIP, Unlocked Items: as for a Weapon. */
+  readonly unlockedBy: readonly string[] | null;
 }
 
 export interface EnemyArchetypeGdr {
@@ -84,6 +116,8 @@ export interface CombatParametersGdr {
   readonly ratingBaseWeaponDamage: number;
   /** COMBAT, Combat rating: the exponent of the number of a side's Combatants able to fight; from 1 to 2. */
   readonly ratingTeamSizeExponent: Rational;
+  /** COMBAT, Ammo: the Fallback Weapon, a Weapon with no price and no ammo_type. */
+  readonly fallbackWeapon: string;
 }
 
 export interface RecoveryParametersGdr {
@@ -115,9 +149,7 @@ export type UpgradeEffect =
   | 'agent_cap'
   | 'transport_cap'
   | 'training_cap'
-  | 'agent_weapon_damage'
   | 'agent_max_health'
-  | 'agent_armor'
   | 'training_skill_gain'
   | 'exhaustion_recovery'
   | 'health_recovery';
@@ -347,6 +379,8 @@ export type AnyGdr =
   | AgentParametersGdr
   | WeaponGdr
   | ArmorGdr
+  | AmmoTypeGdr
+  | EquipmentParametersGdr
   | EnemyArchetypeGdr
   | CombatParametersGdr
   | RecoveryParametersGdr
@@ -406,6 +440,10 @@ export interface GdrCatalog {
   readonly configurationParameters: ConfigurationParametersGdr;
   readonly weapons: ReadonlyMap<string, WeaponGdr>;
   readonly armors: ReadonlyMap<string, ArmorGdr>;
+  /** COMBAT, AmmoType: every AmmoType, in Game build order. */
+  readonly ammoTypes: ReadonlyMap<string, AmmoTypeGdr>;
+  /** EQUIP, EquipmentParameters: the GDR `equipment`. */
+  readonly equipment: EquipmentParametersGdr;
   readonly enemyArchetypes: ReadonlyMap<string, EnemyArchetypeGdr>;
   readonly upgrades: readonly UpgradeGdr[];
   readonly campaignConfigurations: readonly CampaignConfigurationGdr[];

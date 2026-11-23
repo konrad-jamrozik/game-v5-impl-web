@@ -74,6 +74,10 @@ export const RED_DAWN_ONLY_FILES: readonly RawGdrFile[] = (() => {
         );
         gdr['discovered_when'] = kept.length === 1 ? kept[0] : { $entries: [['all', kept]] };
       }
+      // EQUIP, Unlocked Items: an Item keeps only the interrogate Leads of the Faction kept in its `unlocked_by`.
+      if ((gdr['type'] === 'Weapon' || gdr['type'] === 'Armor') && Array.isArray(gdr['unlocked_by'])) {
+        gdr['unlocked_by'] = (gdr['unlocked_by'] as unknown[]).filter((lead) => !leftOut.has(lead));
+      }
     }
   }
   // The acceptance examples and the tests built on them count Instance IDs from an initial roster of 4 Agents, the
@@ -208,6 +212,21 @@ export const LEGACY_FILES: readonly RawGdrFile[] = (() => {
       }
     }
   }
+  // EQUIP, Unlocked Items: an Item keeps only the Leads of this build in its `unlocked_by`, and none left unlocks it
+  // from the start.
+  const leadIds = new Set(
+    remaining.flatMap((file) => file.gdrs.filter((gdr) => gdr['type'] === 'Lead').map((gdr) => gdr['id'])),
+  );
+  for (const gdr of remaining.flatMap((file) => file.gdrs)) {
+    if (Array.isArray(gdr['unlocked_by'])) {
+      const kept = (gdr['unlocked_by'] as unknown[]).filter((lead) => leadIds.has(lead));
+      if (kept.length === 0) {
+        delete gdr['unlocked_by'];
+      } else {
+        gdr['unlocked_by'] = kept;
+      }
+    }
+  }
   return remaining;
 })();
 
@@ -286,8 +305,6 @@ export const EXAMPLE_VALUES: Readonly<Record<string, Readonly<Record<string, unk
   agent_cap: { price: 2000, effect: 'agent_cap', increment: 20 },
   transport_cap: { price: 1500, effect: 'transport_cap', increment: 8 },
   training_cap: { price: 1000, effect: 'training_cap', increment: 10 },
-  weapon_damage: { price: 2000, effect: 'agent_weapon_damage', increment: 2 },
-  armor: { price: 1000, effect: 'agent_armor', increment: 5 },
   training_skill_gain: { price: 1000, effect: 'training_skill_gain', increment: { $decimal: '0.5' } },
   exhaustion_recovery: { price: 1000, effect: 'exhaustion_recovery', increment: 1 },
   health_recovery: { price: 1000, effect: 'health_recovery', increment: 1 },
@@ -740,12 +757,11 @@ export function allMiss(ids: readonly string[], attacks = 400): Injected {
 function hitHardest(state: CampaignState, ids: readonly string[]): Injected {
   const world = state.world.current;
   const injected: Injected = {};
-  const bonus = agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
   for (const id of ids) {
     const agent = world.agents[id];
     const weaponDamage =
       agent !== undefined
-        ? effectiveWeaponDamage(agent.state, bonus)
+        ? effectiveWeaponDamage(agent.state)
         : (world.enemies[id]?.state.baseWeaponDamage ?? 1);
     Object.assign(injected, allHit([id], damageBounds(weaponDamage, gdrs.combatParameters).hi));
   }
@@ -766,9 +782,9 @@ export function losing(state: CampaignState, site: string): Injected {
   return { ...allMiss(Object.keys(world.agents)), ...hitHardest(state, enemies) };
 }
 
-/** The Upgrade bonus of a Campaign without any Max health, Weapon damage, or Armor Upgrade, or with the given ones. */
-export function bonusOf(maxHealth = 0, weaponDamage = 0, armor = 0): AgentUpgradeBonus {
-  return { maxHealth, weaponDamage, armor };
+/** The Upgrade bonus of a Campaign without any Max health Upgrade, or with the given one. */
+export function bonusOf(maxHealth = 0): AgentUpgradeBonus {
+  return { maxHealth };
 }
 
 /**
@@ -784,8 +800,8 @@ export function effectiveValuesOf(
   const bonus = agentUpgradeBonus(catalog.upgrades, world.agency.state.acquisitions);
   const found = agent(state, id).state;
   return {
-    weaponDamage: effectiveWeaponDamage(found, bonus),
-    armor: effectiveArmor(found, bonus),
+    weaponDamage: effectiveWeaponDamage(found),
+    armor: effectiveArmor(found),
     maxHealth: effectiveMaxHealth(found, bonus),
     currentHealth: agentCurrentHealthHundredths(found, bonus) / 100,
   };

@@ -279,12 +279,66 @@ const schemas = {
       experiencePerMissionSurvived: g.experience_per_mission_survived,
     })),
   Weapon: z
-    .strictObject({ id, type: z.literal('Weapon'), name, base_weapon_damage: whole(1) })
-    .transform((g) => ({ type: g.type, id: g.id, name: g.name, damage: g.base_weapon_damage })),
+    .strictObject({
+      id,
+      type: z.literal('Weapon'),
+      name,
+      base_weapon_damage: whole(1),
+      price: whole(1).optional(),
+      ammo_type: id.optional(),
+      unlocked_by: z.array(id).min(1).optional(),
+    })
+    // COMBAT, Weapon: `ammo_type` is present exactly when `price` is, and `unlocked_by` only with `price`.
+    .refine((g) => (g.price === undefined) === (g.ammo_type === undefined))
+    .refine((g) => g.unlocked_by === undefined || g.price !== undefined)
+    .transform((g) => ({
+      type: g.type,
+      id: g.id,
+      name: g.name,
+      damage: g.base_weapon_damage,
+      price: g.price ?? null,
+      ammoType: g.ammo_type ?? null,
+      unlockedBy: g.unlocked_by ?? null,
+    })),
   // COMBAT, Combat GDR validation, rules 3 and 8: base_armor is a whole number of at least 0.
   Armor: z
-    .strictObject({ id, type: z.literal('Armor'), name, base_armor: whole(0) })
-    .transform((g) => ({ type: g.type, id: g.id, name: g.name, armor: g.base_armor })),
+    .strictObject({
+      id,
+      type: z.literal('Armor'),
+      name,
+      base_armor: whole(0),
+      price: whole(1).optional(),
+      unlocked_by: z.array(id).min(1).optional(),
+    })
+    .refine((g) => g.unlocked_by === undefined || g.price !== undefined)
+    .transform((g) => ({
+      type: g.type,
+      id: g.id,
+      name: g.name,
+      armor: g.base_armor,
+      price: g.price ?? null,
+      unlockedBy: g.unlocked_by ?? null,
+    })),
+  AmmoType: z.strictObject({ id, type: z.literal('AmmoType'), name, price: whole(1) }),
+  EquipmentParameters: z
+    .strictObject({
+      id,
+      type: z.literal('EquipmentParameters'),
+      fallback_armor: id,
+      starting_ammo: entries(whole(1)),
+      sale_price_fraction: decimal,
+      spoils_ammo_max: whole(0),
+      ammo_short_rounds_per_agent: whole(0),
+    })
+    .transform((g) => ({
+      type: g.type,
+      id: g.id,
+      fallbackArmor: g.fallback_armor,
+      startingAmmo: Object.fromEntries(g.starting_ammo),
+      salePriceFraction: g.sale_price_fraction,
+      spoilsAmmoMax: g.spoils_ammo_max,
+      ammoShortRoundsPerAgent: g.ammo_short_rounds_per_agent,
+    })),
   EnemyArchetype: z
     .strictObject({
       id,
@@ -309,6 +363,7 @@ const schemas = {
       id,
       type: z.literal('CombatParameters'),
       ...combatParameterFields,
+      fallback_weapon: id,
     })
     .transform((g) => ({
       type: g.type,
@@ -323,6 +378,7 @@ const schemas = {
       ratingBaseArmor: g.rating_base_armor,
       ratingBaseWeaponDamage: g.rating_base_weapon_damage,
       ratingTeamSizeExponent: g.rating_team_size_exponent,
+      fallbackWeapon: g.fallback_weapon,
     })),
   RecoveryParameters: z
     .strictObject({
@@ -375,9 +431,7 @@ const schemas = {
         'agent_cap',
         'transport_cap',
         'training_cap',
-        'agent_weapon_damage',
         'agent_max_health',
-        'agent_armor',
         'training_skill_gain',
         'exhaustion_recovery',
         'health_recovery',
@@ -670,6 +724,8 @@ const DETAIL_VIEW_NAMES = [
   'missions',
   'leads',
   'agents',
+  'storage',
+  'acquisitions',
   'upgrades',
   'turn_report',
   'history',
@@ -905,9 +961,11 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const endingParameters = single<GdrCatalog['endingParameters']>('EndingParameters');
   const configurationParameters = single<GdrCatalog['configurationParameters']>('ConfigurationParameters');
   const music = single<GdrCatalog['music']>('MusicParameters');
+  const equipment = single<GdrCatalog['equipment']>('EquipmentParameters');
 
   const weapons = mapOf<ReturnType<GdrCatalog['weapons']['get']> & AnyGdr>('Weapon');
   const armors = mapOf<ReturnType<GdrCatalog['armors']['get']> & AnyGdr>('Armor');
+  const ammoTypes = mapOf<ReturnType<GdrCatalog['ammoTypes']['get']> & AnyGdr>('AmmoType');
   const enemyArchetypes = mapOf<ReturnType<GdrCatalog['enemyArchetypes']['get']> & AnyGdr>('EnemyArchetype');
   const upgrades = all<GdrCatalog['upgrades'][number]>('Upgrade');
   const campaignConfigurations = all<GdrCatalog['campaignConfigurations'][number]>('CampaignConfiguration');
@@ -952,6 +1010,40 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   }
   if (combatParameters) {
     problems.push(...combatParametersProblems(combatParameters));
+  }
+  // COMBAT, Weapon, Armor, and Ammo; EQUIP, EquipmentParameters: every reference resolves, and the fallbacks are no Items.
+  const leadIds = new Set(all<LeadGdr>('Lead').map((lead) => lead.id));
+  for (const item of [...weapons.values(), ...armors.values()]) {
+    for (const lead of item.unlockedBy ?? []) {
+      if (!leadIds.has(lead)) {
+        problems.push(`${item.type} ${item.id}: unlocked_by ${lead} is not a Lead`);
+      }
+    }
+  }
+  for (const weapon of weapons.values()) {
+    if (weapon.ammoType !== null && !ammoTypes.has(weapon.ammoType)) {
+      problems.push(`Weapon ${weapon.id}: ammo_type ${weapon.ammoType} is not an AmmoType`);
+    }
+  }
+  if (combatParameters) {
+    const fallback = weapons.get(combatParameters.fallbackWeapon);
+    if (!fallback || fallback.price !== null) {
+      problems.push('CombatParameters: fallback_weapon must be a Weapon with no price');
+    }
+  }
+  if (equipment) {
+    const fallback = armors.get(equipment.fallbackArmor);
+    if (!fallback || fallback.price !== null) {
+      problems.push('EquipmentParameters: fallback_armor must be an Armor with no price');
+    }
+    for (const ammoType of Object.keys(equipment.startingAmmo)) {
+      if (!ammoTypes.has(ammoType)) {
+        problems.push(`EquipmentParameters: starting_ammo names ${ammoType}, which is not an AmmoType`);
+      }
+    }
+    if (equipment.salePriceFraction.lte(0) || equipment.salePriceFraction.gt(1)) {
+      problems.push('EquipmentParameters: sale_price_fraction must be greater than 0 and at most 1');
+    }
   }
   if (agentParameters) {
     problems.push(...agentParametersProblems(agentParameters));
@@ -1114,7 +1206,8 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     !missionArchetype ||
     !endingParameters ||
     !configurationParameters ||
-    !music
+    !music ||
+    !equipment
   ) {
     throw new EngineDefect(`The GDRs of the Game build are defective: ${[...new Set(problems)].join('; ')}`);
   }
@@ -1133,6 +1226,8 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     configurationParameters,
     weapons,
     armors,
+    ammoTypes,
+    equipment,
     enemyArchetypes,
     upgrades,
     campaignConfigurations,

@@ -123,6 +123,11 @@ export function HistoryView({
     investigationLead: (id) => investigations.find((item) => item.id === id)?.leadName ?? id,
     missionSite: (id) => missionSites.find((site) => site.id === id)?.name ?? id,
     upgrade: (id) => state?.agency.upgrades.find((upgrade) => upgrade.id === id)?.name ?? id,
+    item: (id) =>
+      snapshot.gameData?.weapons.find((item) => item.id === id)?.name ??
+      snapshot.gameData?.armors.find((item) => item.id === id)?.name ??
+      snapshot.gameData?.ammoTypes.find((item) => item.id === id)?.name ??
+      id,
   };
   const toggle = (turn: number) => {
     const next = new Set(open);

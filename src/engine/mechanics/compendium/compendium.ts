@@ -4,6 +4,8 @@
  */
 import type { ArticleTemplate, CatalogCompendiumArticle, GdrCatalog } from '../../../gdr/index.ts';
 import { conditionHolds } from '../conditions/conditions.ts';
+import { equippedCounts, isItem, itemUnlocked } from '../equipment/equipment.ts';
+import type { CurrentWorldState } from '../../state/types.ts';
 import { leadDiscovered, type LeadWorld } from '../leads/leads.ts';
 
 /**
@@ -25,8 +27,31 @@ function missionSiteArchetypeVisible(archetype: string, world: LeadWorld, gdrs: 
  * MissionSiteArchetype, and of the Weapons and Armors that the AgentArchetype or such an EnemyArchetype carries. A Derived value
  * of the World state, never stored.
  */
-export function metSubjects(world: LeadWorld, gdrs: GdrCatalog): ReadonlySet<string> {
-  const met = new Set<string>([gdrs.agentArchetype.weapon, gdrs.agentArchetype.armor]);
+export function metSubjects(
+  world: LeadWorld & Partial<Pick<CurrentWorldState, 'agents' | 'agency'>>,
+  gdrs: GdrCatalog,
+): ReadonlySet<string> {
+  const met = new Set<string>([
+    gdrs.agentArchetype.weapon,
+    gdrs.agentArchetype.armor,
+    // COMP, Met subjects: the Fallback Weapon and the Fallback Armor.
+    gdrs.combatParameters.fallbackWeapon,
+    gdrs.equipment.fallbackArmor,
+  ]);
+  // COMP, Met subjects: an Item that is Unlocked or has an Owned count of at least 1.
+  const equipped =
+    world.agents === undefined
+      ? new Map<string, number>()
+      : equippedCounts(
+          Object.values(world.agents).map((agent) => agent.state),
+          gdrs,
+        );
+  for (const item of [...gdrs.weapons.values(), ...gdrs.armors.values()]) {
+    const owned = (world.agency?.state.storage[item.id] ?? 0) + (equipped.get(item.id) ?? 0);
+    if (isItem(item) && (owned > 0 || itemUnlocked(item, world))) {
+      met.add(item.id);
+    }
+  }
   for (const archetype of gdrs.missionSiteArchetypes) {
     if (!missionSiteArchetypeVisible(archetype.id, world, gdrs)) {
       continue;
@@ -38,6 +63,12 @@ export function metSubjects(world: LeadWorld, gdrs: GdrCatalog): ReadonlySet<str
         met.add(archetype.weapon);
         met.add(archetype.armor);
       }
+    }
+  }
+  // COMP, Met subjects: an AmmoType that a Met Weapon spends.
+  for (const weapon of gdrs.weapons.values()) {
+    if (weapon.ammoType !== null && met.has(weapon.id)) {
+      met.add(weapon.ammoType);
     }
   }
   return met;
@@ -77,6 +108,7 @@ export function articleVisible(
     case 'EnemyArchetype':
     case 'Weapon':
     case 'Armor':
+    case 'AmmoType':
       return (met ?? metSubjects(world, gdrs)).has(subject);
     // FACTION, Player-visible information: while a Faction whose Archetype it is exists.
     case 'FactionArchetype':
@@ -94,6 +126,7 @@ export function articleVisible(
     case 'CombatParameters':
     case 'RecoveryParameters':
     case 'EconomyParameters':
+    case 'EquipmentParameters':
     case 'InvestigationParameters':
     case 'FactionOperationLevel':
     case 'AgencyArchetype':

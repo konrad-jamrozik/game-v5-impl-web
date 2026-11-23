@@ -34,7 +34,6 @@ import {
   withAgents,
   units,
   setCurrentHealth,
-  effectiveValuesOf,
   useExampleCatalog,
 } from '../helpers/game.ts';
 
@@ -267,50 +266,44 @@ describe('ECON and MISSION: gaps', () => {
   });
 
   it('COMBAT, Combat inputs: a Combat reads the effective weapon damage and effective max health of an Agent', () => {
-    // No Bootstrap Upgrade is a Max health Upgrade, so the `armor` Upgrade is made one here: an Upgrade's effect is
-    // decided only by its `effect` (ECON, Upgrades).
-    const catalog = catalogWith((raw) => (raw.get('armor')['effect'] = 'agent_max_health'));
+    // No Bootstrap Upgrade is a Max health Upgrade, so the `health_recovery` Upgrade is made one here: an Upgrade's
+    // effect is decided only by its `effect` (ECON, Upgrades). EQUIP, Equipping Agents: a rifle from Storage gives the
+    // Agent its weapon damage.
+    const catalog = catalogWith((raw) => {
+      raw.get('health_recovery')['effect'] = 'agent_max_health';
+      raw.get('health_recovery')['increment'] = 1;
+    });
     let state = newCampaign({ money: 5000, catalog });
-    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' }, 'player', catalog);
-    state = act(state, 'purchaseUpgrade', { upgrade: 'armor' }, 'player', catalog);
+    state = act(state, 'purchaseUpgrade', { upgrade: 'health_recovery' }, 'player', catalog);
     const [a1] = agentIds(state) as [string];
+    state = tweak(state, (world) => {
+      world.agency.state.storage['rifle'] = 1;
+      world.agency.state.storage['rifle_ammo'] = 100;
+    });
+    state = act(state, 'equipAgent', { agent: a1, equipment: 'rifle' }, 'player', catalog);
     const site = addMissionSite(state, 'apprehend_member');
     state = act(site.state, 'deployAgents', { missionSite: site.site, agents: [a1] }, 'player', catalog);
     state = advance(state, winning(state, site.site), catalog);
     const participant = state.world.history.turnReport!.combatReports[0]!.participants.find(
       (item) => item.id === a1,
     )!;
-    // The `weapon_damage` Upgrade adds its Increment to the base weapon damage, and the `armor` Upgrade, made a Max
-    // health Upgrade here, its Increment to the base health.
+    // The rifle gives its base weapon damage, and the Upgrade made a Max health Upgrade here its Increment to the base
+    // health.
     const incrementOf = (id: string) =>
       catalog.upgrades.find((item) => item.id === id)!.incrementHundredths / 100;
-    const weaponDamage = agent(state, a1).state.baseWeaponDamage + incrementOf('weapon_damage');
-    const maxHealth = agent(state, a1).state.baseHealth + incrementOf('armor');
+    const weaponDamage = catalog.weapons.get('rifle')!.damage;
+    const maxHealth = agent(state, a1).state.baseHealth + incrementOf('health_recovery');
     expect(participant.start).toMatchObject({
       weaponDamage,
       maxHealth,
       currentHealthHundredths: maxHealth * 100,
     });
-    // The hardest hit of the effective weapon damage, above the highest that the base weapon damage allows.
+    // The hardest hit of the effective weapon damage, above the highest that the issued pistol allows.
     const hits = state.world.history.turnReport!.combatReports[0]!.log.filter((item) => item.attacker === a1);
     expect(hits[0]!.damage).toBe(damageBounds(weaponDamage, gdrs.combatParameters).hi);
     expect(hits[0]!.damage).toBeGreaterThan(
-      damageBounds(agent(state, a1).state.baseWeaponDamage, gdrs.combatParameters).hi,
+      damageBounds(gdrs.weapons.get(gdrs.agentArchetype.weapon)!.damage, gdrs.combatParameters).hi,
     );
-  });
-
-  it('Weapon damage Upgrade: a later purchase also raises Agents created after an earlier one', () => {
-    let state = newCampaign({ money: 5000 });
-    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    state = act(state, 'hireAgents', { count: 1 });
-    state = act(state, 'purchaseUpgrade', { upgrade: 'weapon_damage' });
-    // Every Agent, the hired one too, has its base weapon damage plus two Increments.
-    const base = gdrs.weapons.get(gdrs.agentArchetype.weapon)!.damage;
-    const step = gdrs.upgrades.find((item) => item.id === 'weapon_damage')!.incrementHundredths / 100;
-    expect(agentIds(state).map((id) => effectiveValuesOf(state, id).weaponDamage)).toEqual(
-      agentIds(state).map(() => base + 2 * step),
-    );
-    expect(agents(state).map((a) => a.state.baseWeaponDamage)).toEqual(agentIds(state).map(() => base));
   });
 
   it('Structure of a Deployed Mission site: an Expired Mission site with Turns until expiration 1 is invalid', () => {

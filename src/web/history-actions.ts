@@ -17,6 +17,23 @@ export interface ActionNames {
   /** The MissionSiteArchetype `name` of a Mission site. */
   missionSite(id: string): string;
   upgrade(id: string): string;
+  /** The `name` of a Weapon, an Armor, or an AmmoType. */
+  item(id: string): string;
+}
+
+/** HVIEW, `buyItems` and `sellItems`: each entry's count and `name`, joined by ", ", e.g. "2 Rifles, 100 Pistol ammo". */
+function entriesText(item: ActionRecordItem, names: ActionNames): string {
+  const items = arg(item, 'items');
+  if (!Array.isArray(items)) {
+    return '';
+  }
+  return items
+    .map((entry: { id?: unknown; count?: unknown }) => {
+      const count = typeof entry.count === 'number' ? entry.count : 0;
+      const name = names.item(typeof entry.id === 'string' ? entry.id : '');
+      return `${count} ${name}`;
+    })
+    .join(', ');
 }
 
 /** One line of the Player actions list. */
@@ -81,6 +98,12 @@ function lineText(
       return `Dismissed ${agents}`;
     case 'purchaseUpgrade':
       return `Bought ${count} ${names.upgrade(text(item, 'upgrade'))} ${count === 1 ? 'Upgrade' : 'Upgrades'}`;
+    case 'equipAgent':
+      return `Equipped ${text(item, 'agent')} with ${names.item(text(item, 'equipment'))}`;
+    case 'buyItems':
+      return `Bought ${entriesText(item, names)}`;
+    case 'sellItems':
+      return `Sold ${entriesText(item, names)}`;
     case 'assignAgents':
       return `Assigned ${agents} to ${text(item, 'assignment')}`;
     case 'startInvestigation':

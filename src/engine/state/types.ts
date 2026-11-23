@@ -26,6 +26,8 @@ export interface AgencyState {
   acquisitions: Record<string, number>;
   /** ECON, Agency properties: whether Contracting is unlocked; once true, it stays true. */
   contractingUnlocked: boolean;
+  /** EQUIP, Storage: for each Item and AmmoType, the count the Agency holds and no Agent wears; absent is 0. */
+  storage: Record<string, number>;
 }
 export type Agency = Instance<Record<string, never>, AgencyState>;
 
@@ -278,6 +280,13 @@ export interface AttackRecord {
   readonly defenderDead: boolean;
   readonly defenderIncapacitated: boolean;
   readonly attackerIncapacitated: boolean;
+  /** COMBAT, Combat report, item 9: the AmmoType of the round an Agent's attack spent, or null. */
+  readonly ammoSpent: string | null;
+  /**
+   * COMBAT, Combat report, item 9: the AmmoType that had run out when an Agent attacked with the Fallback Weapon
+   * because of it, or null.
+   */
+  readonly outOfAmmo: string | null;
 }
 
 export interface CombatReport {
@@ -292,6 +301,8 @@ export interface CombatReport {
   /** The Combat rating of each side at Combat start, as round 0, and at the end of every Combat round. */
   readonly ratings: readonly { readonly round: number; readonly agents: number; readonly enemies: number }[];
   readonly log: readonly AttackRecord[];
+  /** COMBAT, Combat report, item 8: the rounds at hand at Combat start and left at Combat end, per limited AmmoType. */
+  readonly ammo: readonly { readonly ammoType: string; readonly start: number; readonly end: number }[];
 }
 
 // ---- Campaign-wide values (ENDING, LEAD, TURN) ---------------------------------------------------
@@ -364,6 +375,15 @@ export interface MissionResultRecord {
   /** MISSION, Turn report, and AGENT, Mission growth: what each survivor gained, in the order of the Current team. */
   readonly growth: readonly MissionGrowthRecord[];
   readonly consequence: ConsequenceRecord;
+  /** EQUIP, Turn report: the Items lost and returned to Storage, and the spoils of war, as counts. */
+  readonly equipment: MissionEquipmentRecord;
+}
+
+/** EQUIP, Turn report: what one resolved Mission did to its team's equipment and to Storage, as counts by identifier. */
+export interface MissionEquipmentRecord {
+  readonly lost: Readonly<Record<string, number>>;
+  readonly returned: Readonly<Record<string, number>>;
+  readonly spoils: Readonly<Record<string, number>>;
 }
 
 /** AGENT, Mission growth: one survivor's gains from one Mission and its values after them. */
@@ -437,6 +457,8 @@ export interface TurnReport {
   readonly combatReports: readonly CombatReport[];
   /** LEAD, Turn report: the Leads discovered in this Advance turn, by GDR identifier, in Game build order. */
   readonly discoveredLeads: readonly string[];
+  /** EQUIP, Turn report: the Items and AmmoTypes that became Unlocked in this Advance turn. */
+  readonly unlockedEquipment: readonly string[];
   /** INVSTG, Turn report: the Investigations interrupted in this Advance turn, in Instance ID order, with their Leads. */
   readonly investigationsInterrupted: readonly InvestigationInterruptedRecord[];
   /** MISSION, Turn report: the Mission sites created in this Advance turn, in creation order. */
@@ -584,11 +606,17 @@ export interface HistoryEntry {
       readonly ratingsEnd: { readonly agents: number; readonly enemies: number };
       /** MISSION, Turn report: the Consequences that applied. */
       readonly consequence: ConsequenceRecord;
+      /** EQUIP, Turn report: the Items lost and returned, and the spoils of war. */
+      readonly equipment: MissionEquipmentRecord;
+      /** EQUIP, Turn report: the rounds of each AmmoType the Combat spent, as at hand and left. */
+      readonly ammo: readonly { readonly ammoType: string; readonly start: number; readonly end: number }[];
     }[];
     /** INVSTG, Turn report: the same list as the Turn report, unreduced. */
     readonly investigationsCompleted: readonly InvestigationCompletedRecord[];
     /** LEAD, Turn report: the same list as the Turn report, unreduced. */
     readonly discoveredLeads: readonly string[];
+    /** EQUIP, Turn report: the same list as the Turn report. */
+    readonly unlockedEquipment: readonly string[];
     /** INVSTG, Turn report: the same list as the Turn report, unreduced. */
     readonly investigationsInterrupted: readonly InvestigationInterruptedRecord[];
     /** MISSION, Turn report: the same three lists as the Turn report, unreduced, by Instance ID. */

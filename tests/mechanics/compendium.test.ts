@@ -40,6 +40,25 @@ const articles = (state: CampaignState, catalog: GdrCatalog = gdrs) => compendiu
 const visible = (state: CampaignState, catalog: GdrCatalog = gdrs) =>
   articles(state, catalog).map((article) => article.id);
 const sites = (state: CampaignState) => Object.values(state.world.current.missionSites);
+/**
+ * COMP, Met subjects, in a World state with no Item in Storage or worn beyond the issued kit: the Fallback Weapon and
+ * Armor, every Item Unlocked from the start, i.e. with no `unlocked_by`, and the AmmoTypes those Weapons spend.
+ */
+const startingEquipment = (catalog: GdrCatalog): string[] => {
+  const items = [...catalog.weapons.values(), ...catalog.armors.values()].filter(
+    (item) => item.price !== null && item.unlockedBy === null,
+  );
+  return [
+    ...new Set([
+      catalog.combatParameters.fallbackWeapon,
+      catalog.equipment.fallbackArmor,
+      ...items.map((item) => item.id),
+      ...[...catalog.weapons.values()]
+        .filter((weapon) => items.includes(weapon) && weapon.ammoType !== null)
+        .map((weapon) => weapon.ammoType!),
+    ]),
+  ];
+};
 const arrive = (state: CampaignState) =>
   tweak(state, (world) => {
     for (const item of Object.values(world.agents)) {
@@ -748,6 +767,8 @@ describe('COMP: Article visibility and Player-visible information', () => {
       }),
       gdrs.agentArchetype.weapon,
       gdrs.agentArchetype.armor,
+      // COMP, Met subjects: the Fallback Weapon and Armor, every Item Unlocked from the start, and their AmmoTypes.
+      ...startingEquipment(gdrs),
     ]);
     expect(ids).toEqual(
       all
@@ -960,7 +981,7 @@ describe('COMP: Met subjects', () => {
       world.discoveredLeads.push(lead);
     });
 
-  it('GDRS: the first World state shows, of the Subject articles, only field_agent, combat_pistol, standard_uniform, the Upgrades, contracting_opportunities, and criminal_organizations', () => {
+  it('GDRS: the first World state shows, of the Subject articles, only field_agent, its issued kit, the Fallback Weapon and Armor, the Items Unlocked from the start and their Ammo, the Upgrades, contracting_opportunities, and criminal_organizations', () => {
     const catalog = bootstrapGdrCatalog();
     const state = newCampaign({ catalog, firstLead: false });
     const subjects = visibleArticles(state.world.current, catalog)
@@ -974,18 +995,22 @@ describe('COMP: Met subjects', () => {
         fieldAgent.id,
         fieldAgent.weapon,
         fieldAgent.armor,
+        ...startingEquipment(catalog).filter((id) => id !== fieldAgent.weapon && id !== fieldAgent.armor),
         ...upgrades,
         'contracting_opportunities',
         'criminal_organizations',
       ].sort(),
     );
-    expect([...metSubjects(state.world.current, catalog)]).toEqual([fieldAgent.weapon, fieldAgent.armor]);
+    expect([...metSubjects(state.world.current, catalog)].sort()).toEqual(
+      [...new Set([fieldAgent.weapon, fieldAgent.armor, ...startingEquipment(catalog)])].sort(),
+    );
   });
 
   it('an Enemy is met once a Player-visible MissionSiteArchetype lists it, and its Weapon with it', () => {
     let state = newCampaign({ firstLead: false });
     expect(visible(state)).not.toContain('initiate_article');
-    expect(visible(state)).not.toContain('basic_pistol_article');
+    // COMP, Met subjects: the basic pistol is Unlocked from the start, so it is met from the start too.
+    expect(visible(state)).toContain('basic_pistol_article');
     expect(visible(state)).not.toContain('basic_clothing_article');
     // COMP, Met subjects: the combat pistol is met from the start, because every Agent carries one.
     expect(visible(state)).toContain('combat_pistol_article');
@@ -1014,6 +1039,7 @@ describe('COMP: Met subjects', () => {
     }
     const carried = new Set([
       gdrs.agentArchetype.weapon,
+      ...startingEquipment(gdrs),
       ...[...gdrs.enemyArchetypes.values()]
         .filter((enemy) => after.has(enemy.id))
         .map((enemy) => enemy.weapon),

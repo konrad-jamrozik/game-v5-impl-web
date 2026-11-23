@@ -262,7 +262,13 @@ describe('BASICAI: Tuning parameters that switch a choice off', () => {
     const budget = agency.upgrades.find((upgrade) => upgrade.id === agentCap.id)!.price;
     expect(subject.price).toBeLessThanOrEqual(budget);
     const floor = BASIC_AI_THRESHOLDS.savingsFloorTurns * agency.projectedUpkeep;
-    ok(await tuned.engine.developer.actions.addMoney(Math.max(1, subject.price + floor - agency.money)));
+    // BASICAI, Purchases, item 1: the Ammo it buys first, up to twice what Ammo short asks for.
+    const ammo = agency.equipment.items
+      .filter((item) => item.kind === 'ammo' && item.unlocked && item.ammoAgents > 0)
+      .reduce((sum, item) => sum + item.price * Math.max(0, 2 * item.ammoNeeded - item.available), 0);
+    ok(
+      await tuned.engine.developer.actions.addMoney(Math.max(1, subject.price + ammo + floor - agency.money)),
+    );
     ok(tuned.engine.session.developer.disable());
     await tuned.ai.step({ player: tuned.engine.player });
     const after = ok(tuned.engine.player.queries.getCurrentLiveWorldState()).agency.upgrades.filter(

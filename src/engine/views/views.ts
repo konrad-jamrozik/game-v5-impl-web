@@ -61,6 +61,12 @@ import {
 } from '../mechanics/missions/missions.ts';
 import { healthRecoveryRateHundredths, recoveryTurnsRemaining } from '../mechanics/recovery/recovery.ts';
 import {
+  ammoNeeds,
+  equippedCounts,
+  storageCount,
+  unlockedEquipment,
+} from '../mechanics/equipment/equipment.ts';
+import {
   articleForTerm,
   resolveArticles,
   visibleArticles,
@@ -69,6 +75,8 @@ import {
 import type {
   ActionAvailability,
   AgencyView,
+  EquipmentItemView,
+  EquipmentView,
   AgentView,
   AvailableActionsView,
   CollectionChanges,
@@ -127,11 +135,100 @@ function agentCombatant(agent: Agent['state'], bonus: AgentUpgradeBonus): Combat
   return agentCombatantState(agent, bonus);
 }
 
+/**
+ * COMBAT, Rested and Equipment Combat ratings of one Serving Agent: the Combat rating with exhaustion 0 and health lost
+ * 0, and the Combat rating minus that in the AgentArchetype's `weapon` and `armor`.
+ */
+function equipmentRatings(
+  s: Agent['state'],
+  values: CombatantState,
+  serving: boolean,
+  gdrs: GdrCatalog,
+  bonus: AgentUpgradeBonus,
+): { restedCombatRating: number | null; equipmentCombatRating: number | null } {
+  if (!serving) {
+    return { restedCombatRating: null, equipmentCombatRating: null };
+  }
+  const rate = (state: CombatantState): number =>
+    combatRating([state], gdrs.combatParameters, gdrs.agentParameters);
+  const rested = agentCombatant({ ...s, exactExhaustionHundredths: 0, healthLostHundredths: 0 }, bonus);
+  const weapon = must(gdrs.weapons.get(gdrs.agentArchetype.weapon), 'Weapon of the AgentArchetype');
+  const armor = must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype');
+  const issued = { ...values, weaponDamage: weapon.damage, armor: armor.armor };
+  return { restedCombatRating: rate(rested), equipmentCombatRating: rate(values) - rate(issued) };
+}
+
+/** EQUIP: the Storage and every Item and AmmoType with its counts, Unlocked, and Ammo needs. */
+function equipmentView(world: CurrentWorldState, gdrs: GdrCatalog): EquipmentView {
+  const equipped = equippedCounts(
+    Object.values(world.agents).map((agent) => agent.state),
+    gdrs,
+  );
+  const unlocked = unlockedEquipment(world, gdrs);
+  const needs = new Map(ammoNeeds(world, gdrs).map((need) => [need.ammoType, need]));
+  const row = (
+    id: string,
+    kind: EquipmentItemView['kind'],
+    name: string,
+    price: number,
+    stat: number | null,
+    ammoType: string | null,
+  ): EquipmentItemView => {
+    const available = storageCount(world, id);
+    const used = equipped.get(id) ?? 0;
+    const need = needs.get(id);
+    return {
+      id,
+      kind,
+      name,
+      price,
+      stat,
+      ammoType,
+      owned: available + used,
+      equipped: used,
+      available,
+      unlocked: unlocked.has(id),
+      ammoAgents: need?.agents ?? 0,
+      ammoNeeded: need?.needed ?? 0,
+      ammoShort: need?.short ?? false,
+    };
+  };
+  const items: EquipmentItemView[] = [];
+  for (const weapon of gdrs.weapons.values()) {
+    if (weapon.price !== null) {
+      items.push(row(weapon.id, 'weapon', weapon.name, weapon.price, weapon.damage, weapon.ammoType));
+    }
+  }
+  for (const armor of gdrs.armors.values()) {
+    if (armor.price !== null) {
+      items.push(row(armor.id, 'armor', armor.name, armor.price, armor.armor, null));
+    }
+  }
+  for (const ammo of gdrs.ammoTypes.values()) {
+    items.push(row(ammo.id, 'ammo', ammo.name, ammo.price, null, null));
+  }
+  return {
+    items,
+    salePriceFraction: {
+      numerator: Number(gdrs.equipment.salePriceFraction.n),
+      denominator: Number(gdrs.equipment.salePriceFraction.d),
+    },
+    ammoShortRoundsPerAgent: gdrs.equipment.ammoShortRoundsPerAgent,
+    fallbackWeapon: gdrs.combatParameters.fallbackWeapon,
+    fallbackArmor: gdrs.equipment.fallbackArmor,
+    fallbackWeaponName: gdrs.weapons.get(gdrs.combatParameters.fallbackWeapon)?.name ?? '',
+    fallbackArmorName: gdrs.armors.get(gdrs.equipment.fallbackArmor)?.name ?? '',
+    fallbackWeaponDamage: gdrs.weapons.get(gdrs.combatParameters.fallbackWeapon)?.damage ?? 0,
+    fallbackArmorValue: gdrs.armors.get(gdrs.equipment.fallbackArmor)?.armor ?? 0,
+  };
+}
+
 function agentView(
   agent: Agent,
   gdrs: GdrCatalog,
   healthRecoveryPctHundredths: number,
   bonus: AgentUpgradeBonus,
+  shortAmmo: ReadonlySet<string>,
 ): AgentView {
   const s = agent.state;
   const serving = isServing(s);
@@ -172,6 +269,9 @@ function agentView(
     baseCombatRating: serving ? base : null,
     // COMBAT, Combat rating: one Agent's Combat rating is that of a side holding it alone.
     combatRating: serving ? combatRating([values], gdrs.combatParameters, gdrs.agentParameters) : null,
+    ...equipmentRatings(s, values, serving, gdrs, bonus),
+    weaponAmmoType: gdrs.weapons.get(s.weapon)?.ammoType ?? null,
+    ammoShort: shortAmmo.has(gdrs.weapons.get(s.weapon)?.ammoType ?? ''),
     participationHistory: s.participationHistory.map((item) => ({ ...item })),
     enemiesKilled: s.enemiesKilled,
     turnTerminated: s.turnTerminated,
@@ -208,7 +308,13 @@ const AGENT_VIEWS = new WeakMap<Agent, CachedAgentView>();
 function agentViews(agents: readonly Agent[], world: CurrentWorldState, gdrs: GdrCatalog): AgentView[] {
   const healthRecoveryPctHundredths = ratesOf(world, gdrs).healthRecoveryPctHundredths;
   const bonus = bonusOf(world, gdrs);
-  const bonusKey = JSON.stringify(bonus);
+  // EQUIP, Ammo short: read from the whole Agency, so the cache key holds it with the Upgrade bonus.
+  const shortAmmo = new Set(
+    ammoNeeds(world, gdrs)
+      .filter((need) => need.short)
+      .map((need) => need.ammoType),
+  );
+  const bonusKey = JSON.stringify({ bonus, short: [...shortAmmo] });
   return agents.map((agent) => {
     const cached = AGENT_VIEWS.get(agent);
     if (
@@ -219,7 +325,7 @@ function agentViews(agents: readonly Agent[], world: CurrentWorldState, gdrs: Gd
     ) {
       return cached.view;
     }
-    const view = deepFreeze(agentView(agent, gdrs, healthRecoveryPctHundredths, bonus));
+    const view = deepFreeze(agentView(agent, gdrs, healthRecoveryPctHundredths, bonus, shortAmmo));
     if (Object.isFrozen(agent)) {
       AGENT_VIEWS.set(agent, { gdrs, healthRecoveryPctHundredths, bonusKey, view });
     }
@@ -449,8 +555,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
     initiativeLevelsWon: initiativeLevelsWon(world, gdrs),
     contractingAgents: countContracting(agents),
     ...ratesOf(world, gdrs),
-    agentArmor:
-      must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype').armor + bonus.armor,
+    equipment: equipmentView(world, gdrs),
     servingAgents: serving,
     deployedAgents: countDeployed(agents),
     trainingAgents: countTraining(agents),
@@ -1123,12 +1228,20 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
           name: weapon.name,
           damage: weapon.damage,
           damageOfAHit: { min: bounds.lo, max: bounds.hi },
+          price: weapon.price,
+          ammoType: weapon.ammoType,
         };
       }),
       armors: [...gdrs.armors.values()].map((armor) => ({
         id: armor.id,
         name: armor.name,
         armor: armor.armor,
+        price: armor.price,
+      })),
+      ammoTypes: [...gdrs.ammoTypes.values()].map((ammo) => ({
+        id: ammo.id,
+        name: ammo.name,
+        price: ammo.price,
       })),
       enemyArchetypes: [...gdrs.enemyArchetypes.values()].map((enemy) => ({
         id: enemy.id,

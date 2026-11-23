@@ -30,7 +30,9 @@ export type ReportTarget =
   | { readonly kind: 'missionSite'; readonly missionSite: string }
   | { readonly kind: 'lead'; readonly lead: string }
   /** MVIEW, Concluded Mission site: an Agent's details in the Agents View. */
-  | { readonly kind: 'agent'; readonly agent: string };
+  | { readonly kind: 'agent'; readonly agent: string }
+  /** TRVIEW, Sections, New acquisitions: the Acquisitions View. */
+  | { readonly kind: 'acquisitions' };
 
 function Section(props: { title: string; count: number; testId: string; children: ReactNode }) {
   return props.count === 0 ? null : (
@@ -125,6 +127,12 @@ export function TurnReportView(props: {
           combat={shownCombat}
           growth={mission?.growth ?? []}
           nameOf={(id) => labels.get(id) ?? id}
+          itemName={(id) =>
+            props.snapshot.gameData?.weapons.find((item) => item.id === id)?.name ??
+            props.snapshot.gameData?.ammoTypes.find((item) => item.id === id)?.name ??
+            id
+          }
+          fallbackWeaponName={props.state.agency.equipment.fallbackWeaponName}
           levels={exhaustionLevels(snapshot.gameData)}
           logOpen={logOpen}
           onToggleLog={setLogOpen}
@@ -200,6 +208,39 @@ function Sections(props: {
       <span className="list-value">{what}</span>
     </button>
   );
+  const itemName = (id: string) =>
+    snapshot.gameData?.weapons.find((item) => item.id === id)?.name ??
+    snapshot.gameData?.armors.find((item) => item.id === id)?.name ??
+    snapshot.gameData?.ammoTypes.find((item) => item.id === id)?.name ??
+    id;
+  const counted = (counts: Readonly<Record<string, number>>) =>
+    Object.entries(counts)
+      .map(([id, n]) => `${n} ${itemName(id)}`)
+      .join(', ');
+  // TRVIEW, Sections, Equipment: one row per Mission resolved that spent rounds or changed equipment.
+  const equipmentRows = report.missions.flatMap((mission, index) => {
+    const combat = report.combatReports[index];
+    const spent = (combat?.ammo ?? []).filter((item) => item.start > item.end);
+    const parts: { text: string; tone: string | undefined }[] = [];
+    if (spent.length > 0) {
+      parts.push({
+        text: `spent ${spent.map((item) => `${item.start - item.end} ${itemName(item.ammoType)}`).join(', ')}`,
+        tone: undefined,
+      });
+    }
+    if (Object.keys(mission.equipment.spoils).length > 0) {
+      parts.push({ text: `Spoils of war: ${counted(mission.equipment.spoils)}`, tone: 'tone-good' });
+    }
+    if (Object.keys(mission.equipment.returned).length > 0) {
+      parts.push({ text: `Recovered: ${counted(mission.equipment.returned)}`, tone: undefined });
+    }
+    if (Object.keys(mission.equipment.lost).length > 0) {
+      parts.push({ text: `Lost: ${counted(mission.equipment.lost)}`, tone: 'tone-bad' });
+    }
+    return parts.length === 0
+      ? []
+      : [{ mission: mission.mission, name: archetypeName(mission.missionSiteArchetype), parts }];
+  });
   const siteCount =
     report.createdMissionSites.length +
     report.expiredMissionSites.length +
@@ -209,6 +250,7 @@ function Sections(props: {
       report.investigationsCompleted.length +
       siteCount +
       report.discoveredLeads.length +
+      report.unlockedEquipment.length +
       report.investigationsInterrupted.length ===
     0
   ) {
@@ -342,6 +384,38 @@ function Sections(props: {
         ))}
       </Section>
 
+      {/* TRVIEW, Sections, Equipment: per Mission, the rounds spent, the Items lost, and the spoils of war. */}
+      <Section title="Equipment" count={equipmentRows.length} testId="report-equipment">
+        {equipmentRows.map((row) => (
+          <div key={row.mission} className="list-row" data-testid={`equipment-${row.mission}`}>
+            <span className="list-name">
+              {row.name}
+              <span className="secondary small equipment-detail">
+                {row.parts.map((part, index) => (
+                  <span key={index} className={part.tone}>
+                    {index === 0 ? '' : ' · '}
+                    {part.text}
+                  </span>
+                ))}
+              </span>
+            </span>
+          </div>
+        ))}
+      </Section>
+
+      {/* TRVIEW, Sections, New acquisitions: what an interrogation unlocked; it opens the Acquisitions View. */}
+      <Section title="New acquisitions" count={report.unlockedEquipment.length} testId="new-acquisitions">
+        <button
+          type="button"
+          className="list-row"
+          onClick={() => {
+            onOpen({ kind: 'acquisitions' });
+          }}
+        >
+          <span className="list-name">{report.unlockedEquipment.map(itemName).join(', ')}</span>
+        </button>
+      </Section>
+
       {/* TRVIEW, Sections: Investigations interrupted, left out when there is none. */}
       {report.investigationsInterrupted.length === 0 ? null : (
         <Section
@@ -417,6 +491,9 @@ function CombatReportDetails(props: {
   levels: ExhaustionLevels;
   logOpen: boolean;
   onToggleLog: (open: boolean) => void;
+  /** The `name` of an Item or AmmoType, and of the Fallback Weapon. */
+  itemName: (id: string) => string;
+  fallbackWeaponName: string;
 }) {
   const { combat } = props;
   const sideOf = (id: string) => combat.participants.find((who) => who.id === id)?.side ?? 'enemy';
@@ -509,6 +586,15 @@ function CombatReportDetails(props: {
             </tbody>
           ))}
         </Grid>
+        {/* TRVIEW, Combat report: the Ammo line, each AmmoType's rounds at Combat start and at Combat end. */}
+        {combat.ammo.length === 0 ? null : (
+          <p className="small secondary" data-testid="combat-ammo">
+            <span className="label">Ammo</span>{' '}
+            {combat.ammo
+              .map((item) => `${props.itemName(item.ammoType)} ${item.start} → ${item.end}`)
+              .join(' · ')}
+          </p>
+        )}
       </section>
       <section className="pane">
         <h3 className="pane-title">Combat ratings</h3>
@@ -568,7 +654,15 @@ function CombatReportDetails(props: {
                 return (
                   <tr key={index} className={`log-${row.tint}`} data-testid={`combat-log-row-${index}`}>
                     <td className="num">{attack.round}</td>
-                    <td>{props.nameOf(attack.attacker)}</td>
+                    <td>
+                      {props.nameOf(attack.attacker)}
+                      {attack.outOfAmmo === null ? null : (
+                        <span className="muted">
+                          {' '}
+                          ({props.fallbackWeaponName}, out of {props.itemName(attack.outOfAmmo)})
+                        </span>
+                      )}
+                    </td>
                     <td>{props.nameOf(attack.defender)}</td>
                     <td className="num">
                       {hitChanceText(attack.hitChance)} ({attack.a} vs {attack.d})

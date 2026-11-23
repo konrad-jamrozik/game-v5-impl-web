@@ -17,6 +17,8 @@ function attack(attacker: string, hit: boolean, extra: Partial<Attack> = {}): At
     damage: hit ? 14 : null,
     armorRemoved: 0,
     healthRemovedHundredths: hit ? 1400 : 0,
+    ammoSpent: null,
+    outOfAmmo: null,
     attackerAfter: { currentHealthHundredths: 3000, exhaustion: 1 },
     defenderAfter: { currentHealthHundredths: 600, exhaustion: 0, currentArmor: 0 },
     defenderDead: false,

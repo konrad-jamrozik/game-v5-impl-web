@@ -69,6 +69,11 @@ export interface CombatantState {
 export interface Combatant {
   readonly id: string;
   readonly state: CombatantState;
+  /**
+   * COMBAT, Ammo in a Combat: the `ammo_type` of an Agent's Weapon, whose rounds each of its attacks spends; null for
+   * a Weapon without one, for an Agent of explicit values, and for every Enemy, which never runs out.
+   */
+  readonly ammoType?: string | null;
 }
 
 /**
@@ -78,8 +83,8 @@ export interface Combatant {
 export function agentCombatantState(agent: AgentState, bonus: AgentUpgradeBonus): CombatantState {
   return {
     ...agentCombatantValues(agent, bonus),
-    weaponDamage: effectiveWeaponDamage(agent, bonus),
-    armor: effectiveArmor(agent, bonus),
+    weaponDamage: effectiveWeaponDamage(agent),
+    armor: effectiveArmor(agent),
   };
 }
 
@@ -99,6 +104,13 @@ export interface CombatInputs {
   readonly enemies: readonly Combatant[];
   readonly combat: CombatParametersGdr;
   readonly agentParameters: AgentParametersGdr;
+  /**
+   * COMBAT, Combat inputs and outputs, item 5: the rounds at hand of each AmmoType when the Combat begins. An AmmoType
+   * that is absent has no limit, and so has every AmmoType when the whole map is absent.
+   */
+  readonly ammo?: ReadonlyMap<string, number>;
+  /** COMBAT, Ammo in a Combat: the `base_weapon_damage` of the Fallback Weapon; needed only with `ammo`. */
+  readonly fallbackWeaponDamage?: number;
 }
 
 /**
@@ -122,6 +134,8 @@ export interface CombatOutputs {
   readonly agents: readonly CombatantState[];
   /** The final values of the Enemies' side, in its fixed order. */
   readonly enemies: readonly CombatantState[];
+  /** COMBAT, Combat inputs and outputs: the rounds of each limited AmmoType left when the Combat ends. */
+  readonly ammoLeft: ReadonlyMap<string, number>;
 }
 
 /**
@@ -317,7 +331,10 @@ export function hitChance(a: number, d: number): number {
 interface Fighter {
   readonly id: string;
   readonly side: 'agent' | 'enemy';
-  readonly state: CombatantState;
+  /** The Combatant's values; its effective weapon damage falls to the Fallback Weapon's once its Ammo runs out. */
+  readonly state: CombatantState & { weaponDamage: number };
+  /** COMBAT, Ammo in a Combat: the AmmoType its attacks spend, or null. */
+  readonly ammoType: string | null;
   /**
    * The effective skill of `state`, kept current: it is computed again whenever an attack changes `state`, which is
    * the only thing that changes it in a Combat, so it always equals `effectiveSkill(state)`.
@@ -386,6 +403,7 @@ function fight(
       id: combatant.id,
       side,
       state: { ...combatant.state },
+      ammoType: side === 'agent' ? (combatant.ammoType ?? null) : null,
       effective,
       incapacitated,
       // Combat start, step 1: every Combatant gains current armor, set to its effective armor.
@@ -421,6 +439,25 @@ function fight(
   };
   const agents = input.agents.map((combatant) => enter(combatant, 'agent'));
   const enemies = input.enemies.map((combatant) => enter(combatant, 'enemy'));
+
+  // COMBAT, Ammo in a Combat: the rounds left of each limited AmmoType, starting at the rounds at hand. An Agent whose
+  // AmmoType has no round left has the effective weapon damage of the Fallback Weapon, from Combat start on.
+  const roundsLeft = new Map(input.ammo ?? []);
+  const roundsAtHand = new Map(roundsLeft);
+  const fallbackWeaponDamage = input.fallbackWeaponDamage ?? 0;
+  const runOut = (ammoType: string): void => {
+    for (const fighter of agents) {
+      if (fighter.ammoType === ammoType) {
+        fighter.state.weaponDamage = fallbackWeaponDamage;
+        refresh(fighter);
+      }
+    }
+  };
+  for (const [ammoType, rounds] of roundsLeft) {
+    if (rounds <= 0) {
+      runOut(ammoType);
+    }
+  }
 
   // COMBAT, Combat rating: each Combatant able to fight weighed by its rating factor, which reads its effective values,
   // never its current armor, and the side by its size; Agents and Enemies alike.
@@ -509,6 +546,11 @@ function fight(
     let damage: number | null = null;
     let armorRemoved = 0;
     let healthRemovedHundredths = 0;
+    // COMBAT, Ammo in a Combat: an Agent's attack with rounds left spends one once its outcomes are formed; one with
+    // none left is made with the Fallback Weapon and spends nothing.
+    const limited = attacker.ammoType !== null && roundsLeft.has(attacker.ammoType);
+    const fallbackAttack = limited && (roundsLeft.get(attacker.ammoType ?? '') ?? 0) <= 0;
+    const spentAmmo = limited && !fallbackAttack ? attacker.ammoType : null;
     if (hit) {
       const bounds = damageBounds(attacker.state.weaponDamage, combat);
       damage = random.uniform(`combat.damage.${attacker.id}`, bounds.lo, bounds.hi);
@@ -548,6 +590,13 @@ function fight(
     }
     const defenderIncapacitated = evaluate(defender);
     const attackerIncapacitated = evaluate(attacker);
+    if (spentAmmo !== null) {
+      const left = (roundsLeft.get(spentAmmo) ?? 0) - 1;
+      roundsLeft.set(spentAmmo, left);
+      if (left === 0) {
+        runOut(spentAmmo);
+      }
+    }
     if (!recordReport) {
       return;
     }
@@ -574,6 +623,8 @@ function fight(
       defenderDead: defender.state.currentHealthHundredths === 0,
       defenderIncapacitated,
       attackerIncapacitated,
+      ammoSpent: spentAmmo,
+      outOfAmmo: fallbackAttack ? attacker.ammoType : null,
     });
   };
 
@@ -670,9 +721,14 @@ function fight(
       participants: [...agents, ...enemies].map(finish),
       ratings,
       log,
+      // COMBAT, Combat report, item 8: each limited AmmoType a Weapon of the Agents' side uses.
+      ammo: [...roundsAtHand]
+        .filter(([ammoType]) => agents.some((fighter) => fighter.ammoType === ammoType))
+        .map(([ammoType, start]) => ({ ammoType, start, end: roundsLeft.get(ammoType) ?? 0 })),
     },
     agents: agents.map((fighter) => ({ ...fighter.state })),
     enemies: enemies.map((fighter) => ({ ...fighter.state })),
+    ammoLeft: roundsLeft,
   };
   return { summary, outputs };
 }

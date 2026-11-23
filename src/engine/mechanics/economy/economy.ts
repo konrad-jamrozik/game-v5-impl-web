@@ -62,8 +62,6 @@ export function agentUpgradeBonus(
 ): AgentUpgradeBonus {
   return {
     maxHealth: wholeBonus('agent_max_health', upgrades, acquisitions),
-    weaponDamage: wholeBonus('agent_weapon_damage', upgrades, acquisitions),
-    armor: wholeBonus('agent_armor', upgrades, acquisitions),
   };
 }
 

@@ -291,8 +291,10 @@ const PLACEHOLDER_SOURCES: Readonly<
   AgentParameters: { properties: 'every', subjectOnly: false },
   RecoveryParameters: { properties: 'every', subjectOnly: false },
   EnemyArchetype: { properties: 'every', subjectOnly: false },
-  Weapon: { properties: 'every', subjectOnly: false },
-  Armor: { properties: 'every', subjectOnly: false },
+  Weapon: { properties: ['name', 'base_weapon_damage', 'price', 'ammo_type'], subjectOnly: false },
+  Armor: { properties: ['name', 'base_armor', 'price'], subjectOnly: false },
+  AmmoType: { properties: 'every', subjectOnly: false },
+  EquipmentParameters: { properties: 'every', subjectOnly: false },
   CombatParameters: { properties: 'every', subjectOnly: false },
   EconomyParameters: { properties: 'every', subjectOnly: false },
   Upgrade: { properties: 'every', subjectOnly: false },
@@ -310,6 +312,9 @@ const PLACEHOLDER_SOURCES: Readonly<
 const REFERENCE_PROPERTIES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   AgentArchetype: { weapon: 'Weapon', armor: 'Armor' },
   EnemyArchetype: { weapon: 'Weapon', armor: 'Armor' },
+  Weapon: { ammo_type: 'AmmoType' },
+  CombatParameters: { fallback_weapon: 'Weapon' },
+  EquipmentParameters: { fallback_armor: 'Armor' },
 };
 
 /** The GDRs of a Game build as authored, by identifier; an identifier is unique only within a Type. */

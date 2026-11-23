@@ -43,6 +43,7 @@ import { SituationPanel, type SituationTarget } from './SituationPanel.tsx';
 import { TurnReportView, type ReportTarget } from './TurnReportView.tsx';
 import { TurnSummary } from './TurnSummary.tsx';
 import { UpgradesView } from './UpgradesView.tsx';
+import { AcquisitionsView, StorageView } from './EquipmentViews.tsx';
 
 const REASONS: Record<string, string> = {
   CampaignObjectiveAchieved: 'the Campaign objective is achieved',
@@ -269,7 +270,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         ? { id: 'missions', item: target.missionSite }
         : target.kind === 'agent'
           ? { id: 'agents', item: target.agent }
-          : { id: 'agents', item: null };
+          : target.kind === 'acquisitions'
+            ? { id: 'acquisitions', item: null }
+            : { id: 'agents', item: null };
 
   /**
    * SITP: selecting an item opens the Detail view that details it, with that item selected. CSCR, View trail, Start
@@ -864,6 +867,10 @@ function OpenDetailView(props: {
           onClose={onClose}
         />
       );
+    case 'storage':
+      return <StorageView state={state} locked={locked} onClose={onClose} />;
+    case 'acquisitions':
+      return <AcquisitionsView state={state} locked={locked} onClose={onClose} />;
     case 'upgrades':
       return <UpgradesView snapshot={snapshot} state={state} locked={locked} onClose={onClose} />;
     case 'report':

@@ -2876,3 +2876,183 @@ label:has(> input[type='checkbox']:disabled) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* AVIEW, STVIEW, ACQVIEW: the sword, shield, and Ammo short icons after a number. */
+.eq-icon {
+  display: inline-block;
+  margin-left: 3px;
+  vertical-align: -2px;
+  color: var(--text-secondary);
+}
+
+.eq-icon.eq-warn {
+  margin-left: 5px;
+  color: var(--warning);
+}
+
+/* AVIEW, Weapon and Armor cells and the Equipment picker. */
+.equipment-picker {
+  position: relative;
+  display: inline-block;
+}
+
+.equipment-cell {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.equipment-cell:disabled {
+  cursor: default;
+}
+
+.equipment-cell .caret {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.equipment-options {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  min-width: 400px;
+  flex-direction: column;
+  padding: 4px 0;
+  border: 1px solid var(--border);
+  background: var(--background);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 50%);
+}
+
+.equipment-options > button {
+  display: grid;
+  align-items: center;
+  padding: 4px 10px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 13px var(--font-body);
+  grid-template-columns: 130px 44px 1fr 80px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.equipment-options > button:hover,
+.equipment-options > button.worn {
+  background: var(--raised);
+}
+
+.equipment-options > button.worn {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* STVIEW and ACQVIEW: the totals, the grouped table, the steppers, and the bar that sums a sale or a purchase. */
+.equipment-totals {
+  width: auto;
+  margin-bottom: 14px;
+  background: var(--control-backdrop);
+}
+
+.equipment-total td {
+  border-top: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.equipment-table .group-row td {
+  padding-top: 8px;
+  background: var(--background);
+  color: var(--text-secondary);
+  font: 600 14px var(--font-heading);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.equipment-table td.indent {
+  padding-left: 20px;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+}
+
+.stepper > button:not(.stepper-link) {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  background: var(--raised);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.stepper > input {
+  width: 56px;
+  height: 24px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-left: 0;
+  background: var(--background);
+  color: var(--text);
+  font: 13px var(--font-figure);
+  text-align: right;
+}
+
+.stepper > input.chosen {
+  color: var(--accent-text);
+}
+
+.stepper-link {
+  margin-left: 6px;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: 600 12px var(--font-heading);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.trade-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  margin-top: 14px;
+  border-top: 2px solid var(--accent);
+  background: var(--background);
+  gap: 8px;
+}
+
+.trade-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.trade-end {
+  justify-content: flex-end;
+}
+
+.trade-buttons {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.trade-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.equipment-detail {
+  display: block;
+}

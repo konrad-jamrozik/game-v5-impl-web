@@ -38,6 +38,8 @@ export function createCampaignState(
         acquisitions: Object.fromEntries(gdrs.upgrades.map((upgrade) => [upgrade.id, 0])),
         // ECON, Agency creation: Contracting is not unlocked.
         contractingUnlocked: false,
+        // EQUIP, Storage: the rounds starting_ammo lists and no Item.
+        storage: { ...gdrs.equipment.startingAmmo },
       },
     },
     agents: {},

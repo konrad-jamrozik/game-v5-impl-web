@@ -579,6 +579,10 @@ describe('FACTION: examples', () => {
       leads.gdrs = leads.gdrs.filter(
         (gdr) => gdr['faction'] === undefined && gdr['discovered_when'] === undefined,
       );
+      // EQUIP, Unlocked Items: with no interrogate Lead left, every Item is Unlocked from the start.
+      for (const gdr of raw.files.flatMap((file) => file.gdrs)) {
+        delete gdr['unlocked_by'];
+      }
       raw.pruneArticles();
     });
     expect(none.factionArchetypes).toHaveLength(0);

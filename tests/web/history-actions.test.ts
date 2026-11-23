@@ -8,6 +8,7 @@ const names: ActionNames = {
   investigationLead: () => 'Locate Red Dawn courier',
   missionSite: () => 'Raid safehouse',
   upgrade: (id) => (id === 'agent_cap' ? 'Agent cap' : id),
+  item: (id) => (id === 'rifle' ? 'Rifle' : id === 'pistol_ammo' ? 'Pistol ammo' : id),
 };
 
 const item = (operation: string, args: unknown, moneyChange = 0): ActionRecordItem => ({

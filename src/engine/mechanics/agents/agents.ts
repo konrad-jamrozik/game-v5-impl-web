@@ -28,14 +28,11 @@ export interface CombatantValues {
 }
 
 /**
- * ECON, Upgrade bonus: what the Agency's acquired Upgrades add to the max health, to the weapon damage, and to the
- * armor of every Serving Agent; see AGENT, Effective max health and current health, Effective weapon damage, and
- * Effective armor.
+ * ECON, Upgrade bonus: what the Agency's acquired Upgrades add to the max health of every Serving Agent; see AGENT,
+ * Effective max health and current health. No Upgrade adds to weapon damage or armor: equipment gives them.
  */
 export interface AgentUpgradeBonus {
   readonly maxHealth: number;
-  readonly weaponDamage: number;
-  readonly armor: number;
 }
 
 /**
@@ -59,24 +56,20 @@ export function agentCurrentHealthHundredths(
 
 /**
  * AGENT, Effective weapon damage: an Agent's is its Final weapon damage when it is Terminated, and otherwise its base
- * weapon damage plus the Upgrade bonus of agent_weapon_damage.
+ * weapon damage, i.e. its Weapon's; within a Combat, COMBAT, Ammo in a Combat, replaces it once its Ammo runs out.
  */
 export function effectiveWeaponDamage(
   agent: Pick<AgentState, 'baseWeaponDamage' | 'finalWeaponDamage'>,
-  bonus: AgentUpgradeBonus,
 ): number {
-  return agent.finalWeaponDamage ?? agent.baseWeaponDamage + bonus.weaponDamage;
+  return agent.finalWeaponDamage ?? agent.baseWeaponDamage;
 }
 
 /**
- * AGENT, Effective armor, and ECON, Armor Upgrade: an Agent's is its Final armor when it is Terminated, and otherwise
- * its base armor plus the Upgrade bonus of agent_armor. Effective skill never reads it.
+ * AGENT, Effective armor: an Agent's is its Final armor when it is Terminated, and otherwise its base armor, i.e. its
+ * Armor's. Effective skill never reads it.
  */
-export function effectiveArmor(
-  agent: Pick<AgentState, 'baseArmor' | 'finalArmor'>,
-  bonus: AgentUpgradeBonus,
-): number {
-  return agent.finalArmor ?? agent.baseArmor + bonus.armor;
+export function effectiveArmor(agent: Pick<AgentState, 'baseArmor' | 'finalArmor'>): number {
+  return agent.finalArmor ?? agent.baseArmor;
 }
 
 /** The values of an Agent as CombatantValues. */
@@ -112,8 +105,8 @@ export function terminateAgent(
   bonus: AgentUpgradeBonus,
 ): void {
   agent.finalMaxHealth = effectiveMaxHealth(agent, bonus);
-  agent.finalWeaponDamage = effectiveWeaponDamage(agent, bonus);
-  agent.finalArmor = effectiveArmor(agent, bonus);
+  agent.finalWeaponDamage = effectiveWeaponDamage(agent);
+  agent.finalArmor = effectiveArmor(agent);
   agent.status = status;
   agent.assignment = null;
   agent.turnTerminated = turn;

@@ -23,6 +23,12 @@ import {
 } from '../mechanics/agents/agents.ts';
 import { agentCombatantState, enemyCombatantState, fightCombat } from '../mechanics/combat/combat.ts';
 import {
+  fallbacks,
+  settleMissionEquipment,
+  storageCount,
+  unlockedEquipment,
+} from '../mechanics/equipment/equipment.ts';
+import {
   agentUpgradeBonus,
   fundingAfter,
   income,
@@ -380,7 +386,11 @@ export function applyAdvanceTurn(
       .filter((faction) => faction.state.eliminated)
       .map((faction) => faction.id),
   );
-  for (const mission of order(Object.values(world.missions))) {
+  // MISSION, Mission resolution: the Deployed Missions are resolved one at a time in the order they were deployed,
+  // i.e. in ascending order of the number of their Instance IDs, because their Combats draw on one Storage of Ammo
+  // (TURN, Exceptions to Step-start values, item 3). `order` therefore does not apply to them.
+  void order;
+  for (const mission of Object.values(world.missions).sort(byInstanceId)) {
     if (mission.state.lifecycle !== 'Deployed') {
       continue;
     }
@@ -402,13 +412,23 @@ export function applyAdvanceTurn(
     // health, and effective weapon damage; an Enemy in the hundredths form of an Agent.
     const fought = fightCombat(
       {
-        agents: team.map((agent) => ({ id: agent.id, state: agentCombatantState(agent.state, bonus) })),
+        agents: team.map((agent) => ({
+          id: agent.id,
+          state: agentCombatantState(agent.state, bonus),
+          ammoType: gdrs.weapons.get(agent.state.weapon)?.ammoType ?? null,
+        })),
         enemies: siteEnemies.map((enemy) => ({ id: enemy.id, state: enemyCombatantState(enemy.state) })),
         combat: gdrs.combatParameters,
         agentParameters,
+        // COMBAT, Ammo in a Combat: the rounds in Storage as the Missions resolved before this one left them.
+        ammo: new Map([...gdrs.ammoTypes.keys()].map((id) => [id, storageCount(world, id)])),
+        fallbackWeaponDamage: fallbacks(gdrs).weapon.damage,
       },
       random,
     );
+    for (const [ammoType, left] of fought.ammoLeft) {
+      world.agency.state.storage[ammoType] = left;
+    }
     const report: CombatReport = { mission: mission.id, ...fought.report };
     // An Enemy's whole values are written back; an Agent's current health is written back as the health lost it
     // leaves, and its Exact exhaustion as it is.
@@ -472,6 +492,16 @@ export function applyAdvanceTurn(
         addExhaustion(agent.state, survivorExhaustion);
       }
     }
+    // MISSION, Resolving one Mission, step 4: EQUIP, Mission equipment losses and Spoils of war.
+    const equipment = settleMissionEquipment({
+      world,
+      gdrs,
+      outcome: report.outcome,
+      killed: team.filter((agent) => killed.includes(agent.id)).map((agent) => agent.state),
+      survivors: team.filter((agent) => !killed.includes(agent.id)).map((agent) => agent.state),
+      enemyWeapons: siteEnemies.map((enemy) => ({ enemy: enemy.id, weapon: enemy.state.weapon })),
+      random,
+    });
     // MISSION, Resolving one Mission, step 7, and AGENT, Mission growth: every survivor, Won or Lost, gains its combat
     // experience from the Combat report and its survival experience; a Killed Agent's combat experience is lost.
     const growth: MissionGrowthRecord[] = [];
@@ -533,6 +563,7 @@ export function applyAdvanceTurn(
       toStandby,
       growth,
       consequence: toRecord(amounts, eliminatedFaction),
+      equipment,
     });
   }
   world.agency.state.funding = fundingAfter(fundingAtStep5, missionFunding);
@@ -772,6 +803,9 @@ export function applyAdvanceTurn(
   // LEAD, Lead discovery: within an Advance turn only the World state it produces counts. The Turn report lists the
   // Leads that joined the set of discovered Leads, in the authored order of the Lead GDRs (LEAD, Turn report).
   const discoveredLeads = discoverLeads(world, gdrs.leads);
+  // EQUIP, Turn report: the Items and AmmoTypes that became Unlocked in this Advance turn, in Game build order.
+  const unlockedBefore = unlockedEquipment(before, gdrs);
+  const unlockedEquipmentNow = [...unlockedEquipment(world, gdrs)].filter((id) => !unlockedBefore.has(id));
 
   const report: TurnReport = {
     turn,
@@ -788,6 +822,7 @@ export function applyAdvanceTurn(
     missions: missionReports,
     combatReports: missionReports.map((item) => must(combatReports.get(item.mission), 'Combat report')),
     discoveredLeads,
+    unlockedEquipment: unlockedEquipmentNow,
     investigationsInterrupted,
     createdMissionSites,
     cancelledMissionSites,
@@ -897,10 +932,13 @@ function reduceReport(
           ratingsStart: ratingAt(combat, 0),
           ratingsEnd: ratingAt(combat, combat.ratings.length - 1),
           consequence: { ...mission.consequence },
+          equipment: mission.equipment,
+          ammo: combat.ammo.map((item) => ({ ...item })),
         };
       }),
       investigationsCompleted: report.investigationsCompleted.map((item) => ({ ...item })),
       discoveredLeads: [...report.discoveredLeads],
+      unlockedEquipment: [...report.unlockedEquipment],
       investigationsInterrupted: report.investigationsInterrupted.map((item) => ({ ...item })),
       createdMissionSites: [...report.createdMissionSites],
       expiredMissionSites: report.expiredMissionSites.map((item) => item.missionSite),

@@ -337,8 +337,6 @@ describe('COMPV: Subject data sheets', () => {
     expect(each('agent_cap')).toBe(`+${upgrade('agent_cap').incrementHundredths / 100} to the Agent cap`);
     expect(each('transport_cap')).toMatch(/^\+\d+ to the Transport cap$/);
     expect(each('training_cap')).toMatch(/^\+\d+ to the Training cap$/);
-    expect(each('weapon_damage')).toMatch(/^\+\d+ weapon damage for every Agent$/);
-    expect(each('armor')).toMatch(/^\+\d+ armor for every Agent$/);
     // GUI, Decimal quantities shown: the Increment of a Rate Upgrade is shown with two decimals.
     expect(each('training_skill_gain')).toMatch(/^\+\d+\.\d\d skill for each turn of Training$/);
     expect(each('exhaustion_recovery')).toMatch(/^\+\d+\.\d\d exhaustion recovered each turn$/);

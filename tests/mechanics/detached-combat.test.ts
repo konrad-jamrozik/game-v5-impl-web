@@ -33,16 +33,18 @@ import {
 } from '../helpers/game.ts';
 
 /**
- * A Campaign with four Agents deployed to a new `raid_outpost`, before the Advance turn that fights its Combat, and
- * three Armor Upgrades bought, so that their current armor absorbs hits. The starting money is a Fixture value large
- * enough for any Upgrade price.
+ * A Campaign with four Agents deployed to a new `raid_outpost`, before the Advance turn that fights its Combat, each
+ * wearing a ballistic vest from Storage, so that their current armor absorbs hits.
  */
 function deployedCampaign(): { state: CampaignState; team: string[]; site: string } {
   let state = withAgents(newCampaign({ money: 1_000_000 }), 4);
-  for (let i = 0; i < 3; i += 1) {
-    state = act(state, 'purchaseUpgrade', { upgrade: 'armor' });
-  }
   const team = agentIds(state).slice(0, 4);
+  state = tweak(state, (world) => {
+    world.agency.state.storage['ballistic_vest'] = 4;
+  });
+  for (const id of team) {
+    state = act(state, 'equipAgent', { agent: id, equipment: 'ballistic_vest' });
+  }
   state = setAssignment(state, team, 'Standby');
   const added = addMissionSite(state, 'raid_outpost');
   state = act(added.state, 'deployAgents', { missionSite: added.site, agents: team });
@@ -154,13 +156,25 @@ describe('REUSE: Agreement test of developer.tools.fightCombat', () => {
       enemies: played.enemies.map(explicit),
       seed,
     });
-    expect(fromValues.combatReport).toEqual(byPosition(played));
+    // COMBAT, Detached Combat, Ammo: an Agent of explicit values spends no Ammo, so its report has no Ammo; the played
+    // Combat had rounds enough that no Agent ran out.
+    expect(played.log.some((attack) => attack.outOfAmmo !== null)).toBe(false);
+    const { ammo: _ammo, ...withoutAmmo } = byPosition(played);
+    expect(fromValues.combatReport).toEqual({
+      ...withoutAmmo,
+      ammo: [],
+      log: withoutAmmo.log.map((attack) => ({ ...attack, ammoSpent: null })),
+    });
 
     // The same Combatants named by Instance ID in the Current world state before the Advance turn.
     const sites = state.world.current.missionSites[site]!;
     const fromIds = fought(state, {
       agents: team.map((id) => ({ kind: 'agent', id })),
       enemies: sites.state.enemies.map((id) => ({ kind: 'enemy', id })),
+      // The rounds in Storage when the Mission resolution step fought the Combat.
+      ammo: Object.fromEntries(
+        [...gdrs.ammoTypes.keys()].map((id) => [id, state.world.current.agency.state.storage[id] ?? 0]),
+      ),
       seed,
     });
     expect(fromIds.combatReport).toEqual(byPosition(played));
