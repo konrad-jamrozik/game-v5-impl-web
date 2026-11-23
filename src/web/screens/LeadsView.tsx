@@ -77,7 +77,8 @@ export function LeadsView(props: {
       title: 'Leads to investigate',
       items: leadsToInvestigate(state, leads).map((lead) => ({
         lead,
-        detail: rangeText(lead) === null ? 'effort needed unknown' : `required ${rangeText(lead) ?? ''}`,
+        // LVIEW, Lead list: the Required progress range only once it is known, and nothing in its place before.
+        detail: rangeText(lead) === null ? '' : `required ${rangeText(lead) ?? ''}`,
         tone: 'secondary',
       })),
     },
