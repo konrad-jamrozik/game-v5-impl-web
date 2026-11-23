@@ -798,8 +798,8 @@ describe('MISSION: examples', () => {
     expectDefective((raw) => (raw.get('foil_recruitment_push')['enemies'].$entries[0][1] = 0));
     expectDefective((raw) => (raw.get('foil_sabotage')['on_win'] = [effect('money', 30)]));
     expectDefective((raw) => raw.get('raid_hq')['on_win'].push(effect('money', -5)));
-    // Rule 5: an Initiative `on_win` is a valid Effect list of `money`, `funding`, `panic` of at most 0, and
-    // `eliminate_faction` of `true` (EFFECT, Effect list format; FACTION, Elimination).
+    // MISSION, MissionSiteArchetype: an Initiative `on_win` is a valid Effect list of `money`, `funding`, `panic` of at
+    // most 0, and `eliminate_faction` of `true` (EFFECT, Effect list format; FACTION, Elimination).
     expectDefective((raw) => (raw.get('apprehend_member')['on_win'] = [effect('panic', 1)]));
     expectDefective(
       (raw) => (raw.get('apprehend_member')['on_win'] = [effect('panic', { $decimal: '0.01' })]),
@@ -816,8 +816,9 @@ describe('MISSION: examples', () => {
     expectDefective((raw) => (raw.get('foil_sabotage')['operation_level'] = 9));
     expectDefective((raw) => (raw.get('apprehend_member')['operation_level'] = 1));
     expectDefective((raw) => (raw.get('apprehend_member')['kind'] = 'offensive'));
-    // Rule 7: an operation level's Effect lists hold only `money` and `funding` of at least 0 on a win, and `panic`
-    // of at least 0, `funding` of any sign, and `defeat` when ignored or lost; both properties are required.
+    // MISSION, FactionOperationLevel properties used by Missions: an operation level's Effect lists hold only `money`
+    // and `funding` of at least 0 on a win, and `panic` of at least 0, `funding` of any sign, and `defeat` when ignored
+    // or lost; both properties are required.
     expectDefective((raw) => raw.get('operation_level_2')['on_ignored_or_lost'].push(effect('money', 5)));
     expectDefective((raw) => (raw.get('operation_level_2')['on_ignored_or_lost'] = [effect('panic', -1)]));
     expectDefective((raw) => (raw.get('operation_level_2')['on_win'] = [effect('funding', -1)]));

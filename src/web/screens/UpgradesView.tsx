@@ -35,7 +35,7 @@ const RATES: Record<
 
 /**
  * UVIEW, Upgrade cards: what one more acquisition changes, by its `effect` and `increment`: the value it changes, as a
- * line of its own, then that value now and after one more acquisition, or the Increment alone, as the Artboard shows.
+ * line of its own, then that value now and after one more acquisition, or the Increment alone, as the Screenshot shows.
  */
 interface Change {
   readonly kind: string;

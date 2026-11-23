@@ -2491,7 +2491,7 @@ label:has(> input[type='checkbox']:disabled) {
   padding: 0 18px 18px;
 }
 
-/* VIS, Panes: the third pane holds a table, e.g. the Deploy table of the Missions View, and is never narrower than
+/* The third pane holds a table, e.g. the Deploy table of the Missions View, and is never narrower than
    that table's columns while the Detail view has room for it; the other panes share the rest of the width. Each of
    them keeps a least width, so that a narrow window scrolls the table sideways rather than squeezing the selected
    item's pane to a few words a line. */
@@ -2575,7 +2575,8 @@ label:has(> input[type='checkbox']:disabled) {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-/* A name too long for its row wraps onto a second line, as on the Leads View Artboard, rather than being cut short. */
+/* A name too long for its row wraps onto a second line, as the Leads View Screenshot shows, rather than being cut
+   short. */
 .list-name {
   flex: 1 1 auto;
   overflow-wrap: break-word;

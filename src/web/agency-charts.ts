@@ -73,7 +73,7 @@ const BAND_COLORS = [
   '#F4EFE6',
 ];
 const BAND_WIDTH = 50;
-/** CVIEW, Agents by effective skill: twelve bands, eleven 50 wide and a last one of every effective skill from 550 up. */
+/** CVIEW, Agency charts: twelve bands, eleven 50 wide and a last one of every effective skill from 550 up. */
 const BAND_COUNT = BAND_COLORS.length;
 
 export const COMBAT_BAR_SERIES: readonly Series[] = [

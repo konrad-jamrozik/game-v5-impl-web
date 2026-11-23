@@ -39,7 +39,7 @@ export function playSound(name: SoundName, at?: { readonly volume: number }): vo
   const audio = new Audio(url);
   audio.volume = soundGain(at?.volume ?? soundsVolume);
   audio.play().catch(() => {
-    // SOUNDS, Edge cases and failure behavior: a Sound that cannot play is silent.
+    // SOUNDS, Playing a Sound: a Sound that cannot play is silent.
   });
 }
 

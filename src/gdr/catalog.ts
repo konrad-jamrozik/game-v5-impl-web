@@ -198,7 +198,7 @@ const combatParameterFields = {
   incapacitation_skill_fraction: decimal,
   target_base_weight: whole(1),
   target_preferred_hit_chance: decimal,
-  // COMBAT, Combat GDR validation, rule 5: each rating base, a divisor of the rating factor, is at least 1.
+  // COMBAT, CombatParameters: each rating base, a divisor of the rating factor, is at least 1.
   rating_base_health: whole(1),
   rating_base_armor: whole(1),
   rating_base_weapon_damage: whole(1),
@@ -252,7 +252,7 @@ const schemas = {
       exhaustion_work_start_max: whole(0),
       exhaustion_work_limit: whole(0),
       training_skill_gain_per_turn: hundredths(0),
-      // AGENT, Agent GDR validation, rule 5: a list of one or more whole numbers of at least 0.
+      // AGENT, AgentParameters: a list of one or more whole numbers of at least 0.
       experience_per_mission_survived: z.array(whole(0)).min(1),
     })
     .transform((g) => ({
@@ -300,7 +300,7 @@ const schemas = {
       ammoType: g.ammo_type ?? null,
       unlockedBy: g.unlocked_by ?? null,
     })),
-  // COMBAT, Combat GDR validation, rules 3 and 8: base_armor is a whole number of at least 0.
+  // COMBAT, Armor: base_armor is a whole number of at least 0.
   Armor: z
     .strictObject({
       id,
@@ -384,7 +384,7 @@ const schemas = {
     .strictObject({
       id,
       type: z.literal('RecoveryParameters'),
-      // RECOVER, Recovery GDR validation, rules 3 and 4: greater than 0, i.e. at least 0.01, and at least 0.
+      // RECOVER, Recovery parameters: greater than 0, i.e. at least 0.01, and at least 0.
       health_recovery_pct_per_turn: hundredths(1),
       exhaustion_recovery_per_turn: hundredths(0),
     })
@@ -438,7 +438,7 @@ const schemas = {
       ]),
       increment: hundredths(0),
     })
-    // ECON, Economy GDR validation, rule 5: only a Rate Upgrade's increment may have decimal places.
+    // ECON, Upgrade: only a Rate Upgrade's increment may have decimal places.
     .refine(
       (g) =>
         g.effect === 'training_skill_gain' ||
@@ -513,9 +513,9 @@ const schemas = {
       on_ignored_or_lost: effectList,
     })
     .transform((g, context) => {
-      // MISSION, MissionSiteArchetype validation, rule 7: Operation level Consequences are valid. A `panic` Effect is a
-      // Decimal quantity of at least 0 (ENDING, Panic Effect kind), and a `defeat` Effect is always `true` (ENDING,
-      // Defeat Effect kind).
+      // MISSION, FactionOperationLevel properties used by Missions: Operation level Consequences are valid. A `panic`
+      // Effect is a Decimal quantity of at least 0 (ENDING, Panic Effect kind), and a `defeat` Effect is always `true`
+      // (ENDING, Defeat Effect kind).
       const onWin = effectsOf(g.on_win, { money: whole(0), funding: whole(0) });
       const onLost = effectsOf(g.on_ignored_or_lost, {
         panic: signedHundredths.refine((value) => value >= 0),
@@ -545,7 +545,7 @@ const schemas = {
       type: z.literal('Lead'),
       name,
       description: z.string().min(1),
-      // LEAD, Lead GDR validation, rule 1: `faction`, `discovered_when`, `investigate_again`, and `on_completion` are
+      // LEAD, Lead: `faction`, `discovered_when`, `investigate_again`, and `on_completion` are
       // optional.
       faction: id.optional(),
       required_progress: whole(1),
@@ -554,9 +554,9 @@ const schemas = {
       on_completion: effectList.optional(),
     })
     .transform((g, context) => {
-      // LEAD, Lead GDR validation, rule 5: at most one Effect of each of the Effect kinds `create_mission_site`,
-      // `eliminate_faction`, `unlock_contracting`, and `win_campaign`, and no other; a Lead that creates a Mission
-      // site or eliminates a Faction has `faction`.
+      // LEAD, Lead, and EFFECT, Effect list format: at most one Effect of each of the Effect kinds
+      // `create_mission_site`, `eliminate_faction`, `unlock_contracting`, and `win_campaign`, and no other; a Lead
+      // that creates a Mission site or eliminates a Faction has `faction`.
       const effects = effectsOf(g.on_completion ?? new Map(), {
         create_mission_site: id,
         eliminate_faction: z.literal(true),
@@ -573,7 +573,7 @@ const schemas = {
         context.addIssue({ code: 'custom', message: 'Completion effect is valid (it needs a faction)' });
         return z.NEVER;
       }
-      // LEAD, Lead GDR validation, rule 4: a Lead without `faction` has no `mission_won` and no
+      // LEAD, Lead: a Lead without `faction` has no `mission_won` and no
       // `mission_won_with_enemy` Condition, because both need the Faction of the Lead as their supplied input.
       const discoveryReferences =
         g.discovered_when === undefined ? null : conditionReferences(g.discovered_when);
@@ -585,7 +585,7 @@ const schemas = {
         context.addIssue({ code: 'custom', message: 'Discovery Condition is valid' });
         return z.NEVER;
       }
-      // LEAD, Lead GDR validation, rule 6: `until_mission_won` only for a Lead that creates a Mission site. A Lead
+      // LEAD, Lead: `until_mission_won` only for a Lead that creates a Mission site. A Lead
       // without `investigate_again` has `until_mission_won` when it creates one, and `never` when it does not.
       if (g.investigate_again === 'until_mission_won' && created === null) {
         context.addIssue({ code: 'custom', message: 'Investigate again is valid' });
@@ -637,7 +637,7 @@ const schemas = {
       operation_level: z.int().optional(),
     })
     .transform((g, context) => {
-      // MISSION, MissionSiteArchetype validation, rule 5: a Panic reduction is a `panic` Effect of at most 0, and an
+      // MISSION, MissionSiteArchetype: a Panic reduction is a `panic` Effect of at most 0, and an
       // `eliminate_faction` Effect is always `true` (FACTION, Elimination).
       const onWin = effectsOf(g.on_win ?? new Map(), {
         money: whole(0),
@@ -653,7 +653,7 @@ const schemas = {
         context.addIssue({ code: 'custom', message: 'Operation level only for Response' });
         return z.NEVER;
       }
-      // MISSION, MissionSiteArchetype validation, rule 9: Existence Condition only for Initiative.
+      // MISSION, MissionSiteArchetype: Existence Condition only for Initiative.
       if (g.kind === 'response' && g.can_exist_when !== undefined) {
         context.addIssue({ code: 'custom', message: 'Existence Condition only for Initiative' });
         return z.NEVER;
@@ -683,7 +683,7 @@ const schemas = {
   EndingParameters: z
     .strictObject({ id, type: z.literal('EndingParameters'), defeat_at_panic_pct: z.int().min(1).max(100) })
     .transform((g) => ({ type: g.type, id: g.id, defeatAtPanicPct: g.defeat_at_panic_pct })),
-  // COMP, Compendium article GDR validation, rules 1 to 3; rules 4 to 9 are checked across the Game build.
+  // COMP, CompendiumArticle: the rules of one article; those that relate articles are checked across the Game build.
   CompendiumArticle: z
     .looseObject({ id, type: z.literal('CompendiumArticle') })
     .transform((raw, context): CompendiumArticleGdr => {
@@ -738,7 +738,7 @@ const DETAIL_VIEW_NAMES = [
 
 type TypeName = keyof typeof schemas;
 
-/** COMBAT, Combat GDR validation: the rules that relate the values of CombatParameters. */
+/** COMBAT, CombatParameters: the rules that relate the values of CombatParameters. */
 function combatParametersProblems(combatParameters: CombatParametersGdr): string[] {
   const problems: string[] = [];
   if (combatParameters.weaponDamageRange.lt(0) || combatParameters.weaponDamageRange.gt(1)) {
@@ -750,8 +750,8 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
   ) {
     problems.push('CombatParameters: the retreat thresholds must be at least 0');
   }
-  // COMBAT, Combat GDR validation, rule 5: each rating base a whole number of at least 1, and the team size exponent
-  // from 1 to 2 with at most two digits after the decimal point. The schema checks the whole numbers; these checks also
+  // COMBAT, CombatParameters: each rating base a whole number of at least 1, and the team size exponent from 1
+  // to 2 with at most two digits after the decimal point. The schema checks the whole numbers; these checks also
   // cover values a Detached Combat overrides.
   for (const [name, value] of [
     ['rating_base_health', combatParameters.ratingBaseHealth],
@@ -774,7 +774,7 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
   ) {
     problems.push('CombatParameters: incapacitation_skill_fraction must be at least 0 and less than 1');
   }
-  // Rule 9: every Selection weight is at least 1.
+  // COMBAT, CombatParameters: every Selection weight is at least 1.
   const preferred = combatParameters.targetPreferredHitChance;
   if (preferred.lt(0) || preferred.gt(1)) {
     problems.push('CombatParameters: target_preferred_hit_chance must be from 0 to 1');
@@ -789,13 +789,13 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
   return problems;
 }
 
-/** COMBAT, Combat GDR validation, and AGENT, Agent GDR validation: the rules that relate values of AgentParameters. */
+/** COMBAT, Effects of an attack, and AGENT, AgentParameters: the rules that relate values of AgentParameters. */
 function agentParametersProblems(agentParameters: AgentParametersGdr): string[] {
   const problems: string[] = [];
   if (agentParameters.exhaustionPerAttack + agentParameters.exhaustionPerDefense < 1) {
     problems.push('AgentParameters: every attack must tire someone');
   }
-  // AGENT, Agent GDR validation, rule 6: exhaustion thresholds are ordered.
+  // AGENT, AgentParameters: exhaustion thresholds are ordered.
   if (agentParameters.exhaustionWorkStartMax >= agentParameters.exhaustionWorkLimit) {
     problems.push('AgentParameters: exhaustion_work_start_max must be less than exhaustion_work_limit');
   }
@@ -834,8 +834,8 @@ export const COMBAT_GDR_VALUE_NAMES: readonly string[] = Object.keys(COMBAT_GDR_
 /**
  * COMBAT, Detached Combat, GDR values: the given CombatParameters and AgentParameters with some of the GDR values a
  * Combat reads replaced, by authored name, e.g. `{ incapacitation_skill_fraction: 0.2 }`. Each value is read by the
- * schema the Game build's GDRs are read by, and the result must pass the same Combat GDR validation and Agent GDR
- * validation; otherwise the first problem is returned. A decimal value may be given as a number or as its text.
+ * schema the Game build's GDRs are read by, and the result must pass the same checks of CombatParameters and
+ * AgentParameters; otherwise the first problem is returned. A decimal value may be given as a number or as its text.
  */
 export function withCombatGdrValues(
   base: { readonly combat: CombatParametersGdr; readonly agent: AgentParametersGdr },
@@ -996,7 +996,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     shownIn.add(artwork.detailView);
   }
 
-  // AGENT, Agent GDR validation; COMBAT, Combat GDR validation.
+  // AGENT, AgentArchetype; COMBAT, EnemyArchetype and CombatParameters.
   if (agentArchetype && !weapons.has(agentArchetype.weapon)) {
     problems.push(`AgentArchetype ${agentArchetype.id}: weapon ${agentArchetype.weapon} is not a Weapon GDR`);
   }
@@ -1052,8 +1052,8 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     problems.push(...agentParametersProblems(agentParameters));
   }
 
-  // INVSTG, Investigation GDR validation, rule 4: a decimal number with at most two digits after the decimal point,
-  // greater than 0 and at most 1. Rules 5 and 6 are checked by the schema.
+  // INVSTG, InvestigationParameters: the team efficiency exponent is greater than 0 and at most 1; the code also
+  // keeps it to at most two digits after the decimal point. The other values are checked by the schema.
   if (investigationParameters) {
     const exponent = investigationParameters.teamEfficiencyExponent;
     if (exponent.lte(0) || exponent.gt(1) || !exponent.mul(100).isWhole()) {
@@ -1076,14 +1076,14 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     );
   }
 
-  // FACTION, Faction GDR validation.
-  // Rule 2: exactly one first level, whose `lasts_turns` is `per_faction`.
+  // FACTION, Faction GDRs.
+  // FactionActivityLevel: exactly one first level, whose `lasts_turns` is `per_faction`.
   if (
     [...factionActivityLevels.values()].filter((level) => level.lastsTurns === 'per_faction').length !== 1
   ) {
     problems.push('FactionActivityLevel: One first level');
   }
-  // Rule 3: `initial_lasts_turns` may start at 0, which skips the first level.
+  // FactionArchetype: `initial_lasts_turns` may start at 0, which skips the first level.
   for (const archetype of factionArchetypes) {
     const pair = archetype.initialLastsTurns;
     if (!(pair[0] >= 0 && pair[0] <= pair[1])) {
@@ -1095,7 +1095,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     problems.push('FactionOperationLevel: Operation levels are distinct');
   }
   for (const level of factionActivityLevels.values()) {
-    // Rule 3: an Operation interval is at least 1; a Level duration may be 0, which skips the level.
+    // FactionActivityLevel: an Operation interval is at least 1; a Level duration may be 0, which skips the level.
     const interval = level.operationEveryTurns;
     if (interval !== null && !(interval[0] >= 1 && interval[0] <= interval[1])) {
       problems.push(`FactionActivityLevel ${level.id}: Ranges are valid`);
@@ -1107,7 +1107,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     if ((level.lastsTurns === null) !== (level.next === null)) {
       problems.push(`FactionActivityLevel ${level.id}: Final levels agree`);
     }
-    // Rule 2: no escalation enters the first level.
+    // FactionActivityLevel: no escalation enters the first level.
     if (level.next !== null && factionActivityLevels.get(level.next)?.lastsTurns === 'per_faction') {
       problems.push(`FactionActivityLevel ${level.id}: One first level`);
     }
@@ -1124,7 +1124,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
       seen.add(cursor.id);
       cursor = factionActivityLevels.get(cursor.next);
     }
-    // FACTION, Faction GDR validation, rule 8: at least one key for a level with operations, and none for a level
+    // FACTION, FactionActivityLevel: at least one key for a level with operations, and none for a level
     // without them.
     if ((level.operationLevelWeights.length === 0) !== (level.operationEveryTurns === null)) {
       problems.push(`FactionActivityLevel ${level.id}: Weights are valid`);
@@ -1133,7 +1133,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
       if (!operationLevelNumbers.includes(key) || weight < 1) {
         problems.push(`FactionActivityLevel ${level.id}: Weights are valid`);
       }
-      // MISSION, MissionSiteArchetype validation, rule 8.
+      // MISSION, MissionSiteArchetype: every `level` that `operation_level_weights` names is served.
       if (!missionSiteArchetypes.some((site) => site.kind === 'response' && site.operationLevel === key)) {
         problems.push(
           `FactionActivityLevel ${level.id}: Every Faction operation level can be served (${key})`,
@@ -1156,7 +1156,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     );
   };
 
-  // MISSION, MissionSiteArchetype validation.
+  // MISSION, MissionSiteArchetype.
   for (const site of missionSiteArchetypes) {
     const keys = site.enemies.map(([key]) => key);
     if (keys.some((key) => !enemyArchetypes.has(key)) || new Set(keys).size !== keys.length) {
@@ -1165,7 +1165,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     if (site.operationLevel !== null && !operationLevelNumbers.includes(site.operationLevel)) {
       problems.push(`MissionSiteArchetype ${site.id}: Operation level only for Response`);
     }
-    // MISSION, MissionSiteArchetype validation, rule 9: only the Condition kinds `mission_won` and `lead_completed`,
+    // MISSION, MissionSiteArchetype: only the Condition kinds `mission_won` and `lead_completed`,
     // each with a value its Condition kind permits.
     if (
       site.canExistWhen !== null &&
@@ -1176,7 +1176,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     }
   }
 
-  // LEAD, Lead GDR validation.
+  // LEAD, Lead.
   for (const lead of leads) {
     if (lead.faction !== null && !factionArchetypes.some((archetype) => archetype.id === lead.faction)) {
       problems.push(`Lead ${lead.id}: Faction resolves`);
@@ -1193,7 +1193,8 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     }
   }
 
-  // COMP, Compendium article GDR validation, rules 4 to 9. Rules 1 to 3 are checked by the schema.
+  // COMP, CompendiumArticle, Displayed title, and Placeholders: the rules that relate articles. Those of one article
+  // are checked by the schema.
   const compendiumArticles = validateCompendiumArticles(articles, authored, problems);
 
   if (

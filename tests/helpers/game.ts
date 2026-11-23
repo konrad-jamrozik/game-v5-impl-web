@@ -930,8 +930,8 @@ export function rawGdrs(): {
   add(path: string, gdr: RawGdr): void;
   /**
    * Removes every Compendium article that the test GDRs no longer support: a Subject article whose subject they no
-   * longer supply (COMP, rule 4), and, with `all`, every article, for a test that changes a GDR that the Placeholders
-   * of the Bootstrap articles name (COMP, rule 9).
+   * longer supply (COMP, CompendiumArticle), and, with `all`, every article, for a test that changes a GDR that the
+   * Placeholders of the Bootstrap articles name (COMP, Placeholders).
    */
   pruneArticles(all?: boolean): void;
 } {

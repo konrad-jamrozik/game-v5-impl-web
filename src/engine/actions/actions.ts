@@ -264,7 +264,7 @@ function addAgent(world: CurrentWorldState, gdrs: GdrCatalog): void {
 
 // ---- Player actions ------------------------------------------------------------------------------
 
-/** AGENT, Assigning Agents; ECON, Training cap on assigning Agents. */
+/** AGENT, Assigning Agents; ECON, Caps on assigning Agents. */
 function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
   const agents = resolveAgents(world, args['agents']);
   if (isRejected(agents)) {
@@ -388,7 +388,7 @@ function dismissAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): 
     // AGENT, Service record: Turn terminated is the Turn in which dismissAgents dismissed it, and the Final max health,
     // Final weapon damage, and Final armor are its effective values before it.
     terminateAgent(agent.state, 'Dismissed', world.turn, bonus);
-    // EQUIP, Equipment of departing Agents: a Dismissed Agent's Items go into Storage.
+    // EQUIP, Equipment of new and departing Agents: a Dismissed Agent's Items go into Storage.
     returnItemsOf(world, agent.state, gdrs);
   }
   return null;

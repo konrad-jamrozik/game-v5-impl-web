@@ -20,7 +20,7 @@ import {
 /** VIS, Panels and cards: a Mission site that expires within this many Turns shows them in Accent text. */
 export const SOON_EXPIRING_TURNS = 2;
 
-/** SITP, Leads shown: the most lines the Leads group shows. */
+/** The most lines a Leads group would show; SITP has no Leads group any more, so nothing reads it. */
 export const LEADS_SHOWN_MAX = 4;
 
 export interface ActiveInvestigationRow {

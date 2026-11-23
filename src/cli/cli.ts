@@ -286,7 +286,8 @@ export function createCli(engine: Engine, out: CliOutput) {
         // and Article links, exactly as Player API reports it.
         return print(command, player.queries.getCompendiumArticles());
       case 'term':
-        // COMP, Article term lookup: the article that has the text as an Article term, or none.
+        // COMP, Player-visible information, Article term lookup: the article that has the text as an Article term,
+        // or none.
         return print(command, player.queries.getArticleForTerm(args.join(' ')));
       case 'preview':
         return print(command, player.queries.previewDeployment(first, rest));

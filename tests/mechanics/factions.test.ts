@@ -458,8 +458,9 @@ describe('FACTION: examples', () => {
       [20, 11],
     );
     expect(checkInvariants(forward, catalog)).toEqual([]);
-    // FACTION, Several Factions and Turn report: the Response Mission sites are created, and the Turn report lists
-    // the Factions, in the order of the Factions' Instance IDs, whatever their order in Campaign state.
+    // FACTION, Faction operation occurrence generation and Turn report: the Response Mission sites are created, and
+    // the Turn report lists the Factions, in the order of the Factions' Instance IDs, whatever their order in Campaign
+    // state.
     const shuffled = tweak(state, (world) => {
       world.factions = Object.fromEntries(Object.entries(world.factions).reverse());
     });
@@ -534,14 +535,14 @@ describe('FACTION: examples', () => {
     expectDefective((raw) => raw.get('faint')['operation_level_weights'].$entries.push(['7', 5]));
     expectDefective((raw) => (raw.get('active')['lasts_turns'] = null));
     expectDefective((raw) => (raw.get('faint')['operation_every_turns'] = [0, 25]));
-    // Rule 1: `initial_activity_level` is no longer a property of a FactionArchetype.
+    // FACTION, FactionArchetype: `initial_activity_level` is no longer a property of a FactionArchetype.
     expectDefective((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'dormant'));
-    // Rule 8: weights exactly when the level has operations.
+    // FACTION, FactionActivityLevel: weights exactly when the level has operations.
     expectDefective((raw) => (raw.get('dormant')['operation_every_turns'] = [10, 20]));
     expectDefective((raw) => (raw.get('faint')['operation_every_turns'] = null));
     expectDefective((raw) => raw.get('dormant')['operation_level_weights'].$entries.push(['1', 5]));
-    // Rule 3: `initial_lasts_turns` and `lasts_turns` are pairs with 0 <= lo <= hi; `initial_lasts_turns` is
-    // never `null`.
+    // FACTION, FactionArchetype and FactionActivityLevel: `initial_lasts_turns` and `lasts_turns` are pairs with
+    // 0 <= lo <= hi; `initial_lasts_turns` is never `null`.
     expect(
       catalogWith((raw) => {
         raw.get('red_dawn')['initial_lasts_turns'] = [0, 10];
@@ -553,7 +554,7 @@ describe('FACTION: examples', () => {
     expectDefective((raw) => (raw.get('red_dawn')['initial_lasts_turns'] = [5, 3]));
     expectDefective((raw) => (raw.get('faint')['lasts_turns'] = [-1, 5]));
     expectDefective((raw) => delete raw.get('red_dawn')['initial_lasts_turns']);
-    // Rule 2: exactly one first level, and no `next` enters it.
+    // FACTION, FactionActivityLevel: exactly one first level, and no `next` enters it.
     expectDefective((raw) => (raw.get('total_war')['lasts_turns'] = 'per_faction'));
     expectDefective((raw) => (raw.get('dormant')['lasts_turns'] = [5, 10]));
     expectDefective((raw) =>

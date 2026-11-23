@@ -1,5 +1,5 @@
 /**
- * CONFIG, Changing Campaign configuration during play, with SAVES, Loading, and TIMELINE, Restored World states: a
+ * CONFIG, Changing Campaign configuration during play, with SAVES, Loading, and TIMELINE, Returning to a World state: a
  * load makes the saved Campaign state current whole, so every World state of its Timeline is the one first produced,
  * under the Campaign configuration in force when its Player action was committed, not under the one in force at the
  * save. The Game has no Campaign configuration value adjustable during play yet (CONFIG, TODOs), so a Fixture game,

@@ -1150,7 +1150,8 @@ export function revealedCompendiumView(state: CampaignState, gdrs: GdrCatalog): 
     const terms: Record<string, string> = {};
     for (const article of gdrs.compendiumArticles) {
       for (const term of article.terms) {
-        // COMP, Article term lookup: the first article in Game build order, as `articleForTerm` finds it.
+        // COMP, Player-visible information, Article term lookup: the first article in Game build order, as
+        // `articleForTerm` finds it.
         terms[term.toLowerCase()] ??= article.id;
       }
     }

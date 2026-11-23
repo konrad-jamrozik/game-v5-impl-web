@@ -114,7 +114,7 @@ export function applyAdvanceTurn(
     gdrs.upgrades,
     before.agency.state.acquisitions,
   );
-  // ECON, Weapon damage Upgrade and Max health Upgrade: no Upgrade is purchased in an Advance turn, so the effective
+  // ECON, Upgrade effects: no Upgrade is purchased in an Advance turn, so the effective
   // values of every Serving Agent read one Upgrade bonus throughout.
   const bonus = agentUpgradeBonus(gdrs.upgrades, before.agency.state.acquisitions);
   const valuesOf = (agent: { readonly state: AgentState }): CombatantValues =>
@@ -311,7 +311,7 @@ export function applyAdvanceTurn(
     });
   }
   forcedReturns.push(...sortByAgent(world, investigationReturns));
-  // INVSTG, Independence within the step: the completion effects create their Mission sites in the order of the
+  // INVSTG, Completion: the completion effects create their Mission sites in the order of the
   // completed Investigations' Instance IDs, so that the Instance IDs they take do not depend on the processing order.
   // INVSTG, Turn report: the Turn report lists the Investigations in the same order.
   const investigationReports: TurnReport['investigations'][number][] = [];
@@ -694,8 +694,8 @@ export function applyAdvanceTurn(
       ),
     );
   }
-  // FACTION, Several Factions: the Response Mission sites are created in the order of the initiating Factions'
-  // Instance IDs. FACTION, Turn report: the Turn report lists the Factions in the same order.
+  // FACTION, Faction operation occurrence generation: the Response Mission sites are created in the order of the
+  // initiating Factions' Instance IDs. FACTION, Turn report: the Turn report lists the Factions in the same order.
   const factionActivity: TurnReport['factionActivity'][number][] = [];
   for (const faction of Object.values(world.factions).sort(byInstanceId)) {
     if (!occurrences.has(faction.id)) {

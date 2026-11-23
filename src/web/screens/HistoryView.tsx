@@ -140,7 +140,7 @@ export function HistoryView({
     <DetailView id="history" title="History" aside="Turn by Turn · newest first" onClose={onClose}>
       <div className="table-scroll" data-testid="history">
         <Grid
-          // HVIEW: the Panic column is wide enough for Panic with two decimals, e.g. "24.35%", as on its Artboard.
+          // HVIEW, Turn by Turn table: the Panic column is wide enough for Panic with two decimals, e.g. "24.35%".
           widths={['104px', '120px', '120px', '112px', '92px', '92px', '100px', '84px', '128px', '440px']}
           testId="history-table"
           scroll={false}

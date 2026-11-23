@@ -598,7 +598,7 @@ describe('LEAD: examples', () => {
         (raw) => (raw.get(SAFEHOUSE)['discovered_when'] = cond('lead_completed', SAFEHOUSE)),
       ).leads.find((lead) => lead.id === SAFEHOUSE)?.discoveredWhen,
     ).toEqual({ kind: 'lead_completed', lead: SAFEHOUSE });
-    // MISSION, MissionSiteArchetype validation, rule 9: Existence Condition only for Initiative, and valid.
+    // MISSION, MissionSiteArchetype: Existence Condition only for Initiative, and valid.
     expectDefective((raw) => (raw.get('foil_sabotage')['can_exist_when'] = cond('lead_completed', MEMBER)));
     expectDefective((raw) => (raw.get('raid_hq')['can_exist_when'] = cond('mission_won', 'no_such_site')));
     expectDefective((raw) => (raw.get('raid_hq')['can_exist_when'] = cond('panic_below', 50)));
@@ -611,14 +611,15 @@ describe('LEAD: examples', () => {
     expectDefective((raw) => (raw.get(MEMBER)['required_progress'] = 0));
     expectDefective((raw) => (raw.get(MEMBER)['required_progress'] = { $decimal: '2.5' }));
     expectDefective((raw) => (raw.get(MEMBER)['difficulty'] = 3));
-    // Rule 6, Completion effect is valid: exactly one Effect, of the Effect kind `create_mission_site`, naming a
-    // MissionSiteArchetype of kind initiative, in a valid Effect list (EFFECT, Effect list format).
+    // LEAD, Lead, and MISSION, Mission site Effect kind: the Completion effect is valid: exactly one Effect, of the
+    // Effect kind `create_mission_site`, naming a MissionSiteArchetype of kind initiative, in a valid Effect list
+    // (EFFECT, Effect list format).
     expectDefective((raw) => (raw.get(MEMBER)['on_completion'][0].$entries[0][1] = 'foil_sabotage'));
     expectDefective((raw) => raw.get(MEMBER)['on_completion'].push(effect('money', 1)));
     expectDefective((raw) => raw.get(MEMBER)['on_completion'].push(effect('create_mission_site', 'raid_hq')));
     expectDefective((raw) => (raw.get(MEMBER)['on_completion'][0].$entries[0][0] = 'create_mission'));
     expectDefective((raw) => raw.get(MEMBER)['on_completion'][0].$entries.push(['money', 1]));
-    // Rule 5: an empty or omitted `on_completion` is valid, and such a Lead has `never` by default (rule 6).
+    // LEAD, Lead: an empty or omitted `on_completion` is valid, and such a Lead has `never` by default.
     const empty = catalogWith((raw) => (raw.get(MEMBER)['on_completion'] = []));
     expect(empty.leads.find((lead) => lead.id === MEMBER)).toMatchObject({
       investigateAgain: 'never',
@@ -635,8 +636,8 @@ describe('LEAD: examples', () => {
       unlockContracting: false,
       winCampaign: false,
     });
-    // Rule 5: one Effect of each of `create_mission_site`, `eliminate_faction`, and `win_campaign`; a Lead that creates
-    // a Mission site or eliminates a Faction has `faction`.
+    // LEAD, Lead, and EFFECT, Effect list format: one Effect of each of `create_mission_site`, `eliminate_faction`,
+    // and `win_campaign`; a Lead that creates a Mission site or eliminates a Faction has `faction`.
     expect(
       catalogWith((raw) => {
         const completion = raw.get(MEMBER)['on_completion'];
@@ -654,19 +655,19 @@ describe('LEAD: examples', () => {
       delete raw.get(MEMBER)['faction'];
       raw.get(MEMBER)['on_completion'] = [effect('eliminate_faction', true)];
     });
-    // Rule 2: a Lead without `faction`, and with no Effect that needs one, is valid.
+    // LEAD, Lead: a Lead without `faction`, and with no Effect that needs one, is valid.
     expect(
       catalogWith((raw) => {
         delete raw.get(MEMBER)['faction'];
         raw.get(MEMBER)['on_completion'] = [effect('win_campaign', true)];
       }).leads[0]!.faction,
     ).toBeNull();
-    // Rule 4: the `discovered_when` of a Lead without `faction` uses no `mission_won` Condition.
+    // LEAD, Lead: the `discovered_when` of a Lead without `faction` uses no `mission_won` Condition.
     expectDefective((raw) => {
       delete raw.get(SAFEHOUSE)['faction'];
       raw.get(SAFEHOUSE)['on_completion'] = [];
     });
-    // Rule 6: `until_mission_won` only for a Lead that creates a Mission site.
+    // LEAD, Lead: `until_mission_won` only for a Lead that creates a Mission site.
     expectDefective((raw) => {
       raw.get(MEMBER)['on_completion'] = [];
       raw.get(MEMBER)['investigate_again'] = 'until_mission_won';
@@ -1293,7 +1294,7 @@ describe('INVSTG: examples', () => {
   });
 
   it('Mission sites of several completions follow the Investigations’ Instance IDs', () => {
-    // INVSTG, Independence within the step and Turn report; MISSION, Mission site Effect kind: the Mission sites are
+    // INVSTG, Completion and Turn report; MISSION, Mission site Effect kind: the Mission sites are
     // created, and the Turn report lists the Investigations, in the order of their Instance IDs, whatever their order
     // in Campaign state.
     const catalog = catalogWith((raw) => {

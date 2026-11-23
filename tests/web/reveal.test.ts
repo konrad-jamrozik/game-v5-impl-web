@@ -112,7 +112,7 @@ describe('COMPV: the Compendium View under Reveal hidden content', () => {
     const after = snapshot().articles!.map((article) => article.id);
     expect(after).toEqual(visible);
     expect(snapshot().revealedTerms).toBeNull();
-    // COMPV, No longer Player-visible: the article leaves the Article history.
+    // COMPV, Following links, No longer Player-visible: the article leaves the Article history.
     const pruned = visibleHistory(history, new Set(after), after[0]!);
     expect(pruned.articles).not.toContain(hidden.id);
   });

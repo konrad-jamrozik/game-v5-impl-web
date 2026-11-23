@@ -144,7 +144,9 @@ export function fallbacks(gdrs: GdrCatalog): { weapon: WeaponGdr; armor: ArmorGd
   return { weapon, armor };
 }
 
-/** EQUIP, Equipment of departing Agents: a Dismissed Agent's Items go into Storage; it keeps their references. */
+/**
+ * EQUIP, Equipment of new and departing Agents: a Dismissed Agent's Items go into Storage; it keeps their references.
+ */
 export function returnItemsOf(world: CurrentWorldState, agent: AgentState, gdrs: GdrCatalog): void {
   for (const id of [agent.weapon, agent.armor]) {
     const gdr = equipmentGdr(gdrs, id);

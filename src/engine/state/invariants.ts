@@ -42,7 +42,7 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
     }
   }
 
-  // ECON, Agency properties; ENDING, State invariants; TURN, Turn number.
+  // ECON, Agency properties; ENDING, Panic and Campaign ending state; TURN, Turn number.
   if (world.agency.archetype !== gdrs.agencyArchetype.id) {
     fail('ECON: the Agency has no AgencyArchetype');
   }
@@ -63,7 +63,7 @@ export function checkInvariants(state: CampaignState, gdrs: GdrCatalog): string[
   if (world.turn < 1) {
     fail('TURN: the turn number is below 1');
   }
-  // ENDING, Panic and Campaign ending invariants, rule 1: Panic is a Decimal quantity from 0 to 100, in hundredths.
+  // ENDING, Panic and Campaign ending state: Panic is a Decimal quantity from 0 to 100, in hundredths.
   if (
     !Number.isSafeInteger(world.panicHundredths) ||
     world.panicHundredths < 0 ||

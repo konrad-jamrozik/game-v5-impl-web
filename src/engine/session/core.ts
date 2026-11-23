@@ -127,7 +127,7 @@ interface Engagement {
   actionsThisTurn: number;
   status: 'active' | 'ended';
   result: DisengagementResult | null;
-  /** The Disengagement Autosave, when it could not be written; see SAVES, Edge cases and failure behavior. */
+  /** The Disengagement Autosave, when it could not be written; see SAVES, Autosaves. */
   readonly disengagementFailures: AutosaveFailure[];
   callsInStep: number;
   resolveDone: (result: DisengagementResult) => void;
@@ -983,7 +983,7 @@ export class EngineCore<S extends ShellState> {
 
   /**
    * Writes an Autosave. When it cannot be written, the Autosave it would have replaced is removed and the failure
-   * is reported in the result of the operation that caused it; see SAVES, Edge cases and failure behavior.
+   * is reported in the result of the operation that caused it; see SAVES, Autosaves.
    */
   private async writeAutosave(
     kind:

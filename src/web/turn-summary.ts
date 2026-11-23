@@ -1,6 +1,6 @@
 /**
- * GUI, Turn summary: what an Advance turn did that the Player must know, read from its Turn report and the current
- * World state, in the groups and order GUI lists, each left out when empty. Pure presentation; no gameplay rule.
+ * TSUM, Groups: what an Advance turn did that the Player must know, read from its Turn report and the current
+ * World state, in the groups and order TSUM lists, each left out when empty. Pure presentation; no gameplay rule.
  */
 import type {
   ConsequenceRecord,

@@ -87,8 +87,8 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
   const selected = presetList.find((preset) => preset.isSelected);
   const values = selected === undefined ? null : session.newCampaignSetup.getPreset(selected.preset);
 
-  // VIS, Main menu Artboard: the Campaign saves grouped by Campaign. MENU, Layout: the card of the Campaign of the
-  // most recent Campaign save takes the Accent edge.
+  // MENU, Layout: the Campaign saves grouped into one card per Campaign, and the card of the Campaign of the most
+  // recent Campaign save takes the Accent edge.
   const campaigns = groupByCampaign(saves);
   const likely = campaigns.reduce<CampaignGroup | null>(
     (best, group) => (best === null || group.writtenAt > best.writtenAt ? group : best),
@@ -178,7 +178,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                         kind="danger"
                         testId={`delete-campaign-${group.campaignId}`}
                         onClick={() => {
-                          // GUI, Main menu: deleting cannot be undone, so the Player confirms it first.
+                          // MENU, Campaign saves: deleting cannot be undone, so the Player confirms it first.
                           if (
                             confirmOrGoBack(
                               `Delete Campaign ${group.campaignId.slice(0, 8)} with all its ${group.saves.length} Campaign saves? This cannot be undone.`,
@@ -229,7 +229,7 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
                                     save.autosaveKind === null
                                       ? 'manual save'
                                       : (KIND_NAMES[save.autosaveKind] ?? save.autosaveKind);
-                                  // GUI, Main menu: deleting cannot be undone, so the Player confirms it first.
+                                  // MENU, Campaign saves: deleting cannot be undone, so the Player confirms it first.
                                   if (
                                     confirmOrGoBack(
                                       `Delete the ${kind} of Turn ${save.turn} of Campaign ${save.campaignId.slice(0, 8)}? This removes 1 Campaign save and cannot be undone.`,

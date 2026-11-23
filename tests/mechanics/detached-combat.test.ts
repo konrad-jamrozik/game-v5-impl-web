@@ -307,7 +307,7 @@ describe('COMBAT: Detached Combat', () => {
     const base = { agents: [{ kind: 'agent', id: a1 }], enemies, seed: 'x' };
     expect(rejection(state, base)).toBe('accepted');
     expect(rejection(state, { ...base, agents: [] })).toBe('empty_agents_side');
-    // COMBAT, Combat GDR validation, rule 5, for a rating value given as a GDR value.
+    // COMBAT, CombatParameters, for a rating value given as a GDR value.
     expect(rejection(state, { ...base, gdrValues: { rating_team_size_exponent: 2.5 } })).toBe(
       'invalid_gdr_value',
     );

@@ -1,7 +1,7 @@
 /**
  * Player API, as types. This is everything an Autopilot AI may see of the engine: every
  * value here is Player-visible information, and no Type has a property for a hidden value, e.g. the Campaign seed
- * or a Faction's countdowns; see ENG, Information boundary.
+ * or a Faction's countdowns; see PAPI, Player-visible information.
  */
 import type { ProbabilityPair } from '../kernel/index.ts';
 import type { Result } from './result.ts';
@@ -694,8 +694,8 @@ export interface PlayerApi {
     /** COMP: the Player-visible Compendium articles in their resolved form, in Game build order. */
     getCompendiumArticles(): Result<readonly CompendiumArticleView[]>;
     /**
-     * COMP, Article term lookup: the identifier of the Player-visible article that has an Article term equal to the
-     * text ignoring case, or null when there is none.
+     * COMP, Player-visible information, Article term lookup: the identifier of the Player-visible article that has
+     * an Article term equal to the text ignoring case, or null when there is none.
      */
     getArticleForTerm(text: string): Result<string | null>;
     previewDeployment(missionSite: string | null, agents: readonly string[]): Result<DeploymentPreview>;

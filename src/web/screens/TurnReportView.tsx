@@ -271,7 +271,7 @@ function Sections(props: {
               const combat = report.combatReports.find((item) => item.mission === mission.mission);
               const enemies = combat?.participants.filter((who) => who.side === 'enemy') ?? [];
               const dead = enemies.filter((who) => who.final.condition === 'dead').length;
-              // TRVIEW, Missions: the sum of the Mission experience of the survivors, e.g. "+176 exp".
+              // TRVIEW, Sections, Missions: the sum of the Mission experience of the survivors, e.g. "+176 exp".
               const experience = mission.growth.reduce((sum, item) => sum + item.missionExperience, 0);
               return (
                 <tr key={mission.mission}>

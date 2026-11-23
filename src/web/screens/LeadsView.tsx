@@ -296,8 +296,8 @@ function Team(props: {
   const none = team.length === 0 ? 'Check the Agents to add first.' : null;
   const agentById = (id: string) => state.agents.find((agent) => agent.id === id);
   const levels = exhaustionLevels(snapshot.gameData);
-  // LVIEW, Team progress estimate: the engine's estimate of the team the primary button would make; for Assign, the
-  // Current team together with the checked Agents.
+  // LVIEW, Team, Team progress estimate: the engine's estimate of the team the primary button would make; for Assign,
+  // the Current team together with the checked Agents.
   const estimateTeam = [...(investigation?.currentTeam.map((member) => member.agent) ?? []), ...team];
   const estimate = useMemo(() => {
     if (team.length === 0) {

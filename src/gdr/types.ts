@@ -162,7 +162,7 @@ export interface UpgradeGdr {
   readonly effect: UpgradeEffect;
   /**
    * The Increment in hundredths: a Decimal quantity for a Rate Upgrade, and a whole number, i.e. a multiple of 100,
-   * for every other Upgrade; see ECON, Economy GDR validation, rule 5.
+   * for every other Upgrade; see ECON, Upgrade.
    */
   readonly incrementHundredths: number;
 }

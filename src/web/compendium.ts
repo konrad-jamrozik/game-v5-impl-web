@@ -200,7 +200,10 @@ export interface SheetSources {
   readonly retired: CurrentRetiredWorldStateView;
   /** The Player-visible articles. */
   readonly articles: readonly Article[];
-  /** COMP, Article term lookup: the identifier of the Player-visible article with that Article term, or null. */
+  /**
+   * COMP, Player-visible information, Article term lookup: the identifier of the Player-visible article with that
+   * Article term, or null.
+   */
   readonly articleForTerm: (text: string) => string | null;
 }
 

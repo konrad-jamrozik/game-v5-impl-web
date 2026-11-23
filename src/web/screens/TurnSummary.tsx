@@ -1,5 +1,5 @@
 /**
- * GUI, Turn summary: the dialog shown once after an Advance turn the Player requested through the GUI, when it did
+ * TSUM, Groups: the dialog shown once after an Advance turn the Player requested through the GUI, when it did
  * something listed; styled under VIS, Dialogs. The content comes from `turn-summary.ts`.
  */
 import { useEffect, useRef, type ReactNode } from 'react';

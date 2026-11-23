@@ -49,8 +49,8 @@ function operationInterval(random: Random, factionId: string, level: FactionActi
 /**
  * FACTION, Escalation and Initial Factions: enters `level` with a Level duration outcome and, while that outcome is 0,
  * skips the level and enters its `next`, each with an outcome of its own. Returns the level the Faction stops at and
- * its last outcome, which is at least 1, or `null` for a final level. The loop ends because Faction GDR validation
- * makes every `next` chain reach a final level.
+ * its last outcome, which is at least 1, or `null` for a final level. The loop ends because FACTION,
+ * FactionActivityLevel makes every `next` chain reach a final level.
  */
 function enterLevel(
   random: Random,

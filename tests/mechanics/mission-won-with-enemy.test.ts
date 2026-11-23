@@ -1,6 +1,6 @@
 /**
  * Tests of MISSION, Mission won with Enemy Condition kind: when it holds, how LEAD, Initiative operation level reads
- * it, and how LEAD, Lead GDR validation and MISSION, MissionSiteArchetype validation check it.
+ * it, and how the rules of LEAD, Lead and of MISSION, MissionSiteArchetype check it.
  */
 import { describe, expect, it } from 'vite-plus/test';
 import {

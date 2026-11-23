@@ -41,7 +41,7 @@ export interface AgencyCaps {
 
 /**
  * The Upgrade bonus of an effect whose Increments are whole numbers, i.e. every effect but a Rate Upgrade's, in its
- * units; ECON, Economy GDR validation, rule 5 makes the hundredths a multiple of 100.
+ * units; ECON, Upgrade makes the hundredths a multiple of 100.
  */
 export function wholeBonus(
   effect: UpgradeEffect,
@@ -52,9 +52,8 @@ export function wholeBonus(
 }
 
 /**
- * ECON, Weapon damage Upgrade, Max health Upgrade, and Armor Upgrade: the Upgrade bonus of agent_weapon_damage, of
- * agent_max_health, and of agent_armor, which the effective weapon damage, the effective max health, and the effective
- * armor of every Serving Agent add.
+ * ECON, Upgrade effects: the Upgrade bonus of agent_max_health, which the effective max health of every Serving Agent
+ * adds.
  */
 export function agentUpgradeBonus(
   upgrades: readonly UpgradeGdr[],

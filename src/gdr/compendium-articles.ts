@@ -1,5 +1,5 @@
 /**
- * COMP (Compendium): reads a CompendiumArticle GDR, applies Compendium article GDR validation, and replaces every
+ * COMP (Compendium): reads a CompendiumArticle GDR, checks it as COMP, CompendiumArticle requires, and replaces every
  * Placeholder of its templated texts by the value of the GDR property it names. A Placeholder shows a value of the
  * Game build, never of Campaign state, so it is replaced once, when the catalog is built.
  */
@@ -51,7 +51,7 @@ function entriesOf(value: unknown): [string, unknown][] | null {
 }
 
 /**
- * COMP, Compendium article GDR validation, rules 1 to 3, and the form of `terms` and `see_also` under rules 7 and 8:
+ * COMP, CompendiumArticle: the rules of one article, including the form of `terms` and `see_also`:
  * the article as authored, or the rules it violates.
  */
 export function parseCompendiumArticle(
@@ -59,12 +59,12 @@ export function parseCompendiumArticle(
   parseCondition: (raw: unknown) => Condition | null,
 ): { readonly article: CompendiumArticleGdr } | { readonly problems: readonly string[] } {
   const problems: string[] = [];
-  // Rule 1: Category is valid.
+  // Category is valid.
   const category = CATEGORIES.find((item) => item === raw['category']);
   if (category === undefined) {
     return { problems: ['Category is valid'] };
   }
-  // Rule 2: Exact properties.
+  // Exact properties.
   const extra = Object.keys(raw).filter((key) => !PROPERTIES.includes(key));
   if (extra.length > 0) {
     problems.push(`Exact properties (${extra.join(', ')})`);
@@ -76,7 +76,7 @@ export function parseCompendiumArticle(
     }
     return present && needed;
   };
-  // Rule 3: Text is present.
+  // Text is present.
   const text = (key: string): string => {
     const value = raw[key];
     if (!isText(value)) {
@@ -110,7 +110,7 @@ export function parseCompendiumArticle(
       problems.push('Text is present (formulas)');
     }
   }
-  // Rule 7: Article terms are valid; that no two are equal is checked across the Game build.
+  // Article terms are valid; that no two are equal is checked across the Game build.
   const terms: string[] = [];
   if (raw['terms'] !== undefined) {
     const list: readonly unknown[] | null = Array.isArray(raw['terms']) ? raw['terms'] : null;
@@ -125,7 +125,7 @@ export function parseCompendiumArticle(
       problems.push('Article terms are valid');
     }
   }
-  // Rule 8: See also is valid; what each identifier names is checked across the Game build.
+  // See also is valid; what each identifier names is checked across the Game build.
   const seeAlso: string[] = [];
   if (raw['see_also'] !== undefined) {
     const list: readonly unknown[] | null = Array.isArray(raw['see_also']) ? raw['see_also'] : null;
@@ -140,7 +140,7 @@ export function parseCompendiumArticle(
       problems.push('See also is valid');
     }
   }
-  // Rule 10: Visibility Condition is valid: a valid Condition of the Condition kind `lead_completed` only. That the
+  // Visibility Condition is valid: a valid Condition of the Condition kind `lead_completed` only. That the
   // Lead it names exists is checked across the Game build.
   let visibleWhen: Condition | null = null;
   if (raw['visible_when'] !== undefined) {
@@ -321,7 +321,7 @@ const REFERENCE_PROPERTIES: Readonly<Record<string, Readonly<Record<string, stri
 type RawGdrs = ReadonlyMap<string, readonly RawGdr[]>;
 
 /**
- * COMP, Compendium article GDR validation, rule 9: the text that replaces one Placeholder, or what is wrong with the
+ * COMP, Placeholders: the text that replaces one Placeholder, or what is wrong with the
  * Placeholder.
  */
 function resolvePlaceholder(
@@ -384,10 +384,10 @@ function resolvePlaceholder(
 }
 
 /**
- * COMP, Compendium article GDR validation, rules 4 to 9, across the Game build. Returns each article with its
- * displayed title, the Type of its subject, and every Placeholder replaced. `gdrs` holds every GDR of the Game build
- * as authored. A `subject` or a Placeholder that identifies GDRs of more than one Type identifies no single GDR and
- * is a data defect.
+ * COMP, CompendiumArticle, Displayed title, and Placeholders: the rules that relate articles, across the Game build.
+ * Returns each article with its displayed title, the Type of its subject, and every Placeholder replaced. `gdrs`
+ * holds every GDR of the Game build as authored. A `subject` or a Placeholder that identifies GDRs of more than one
+ * Type identifies no single GDR and is a data defect.
  */
 export function validateCompendiumArticles(
   articles: readonly CompendiumArticleGdr[],
@@ -408,7 +408,7 @@ export function validateCompendiumArticles(
     const report = (message: string) => {
       problems.push(`CompendiumArticle ${article.id}: ${message}`);
     };
-    // Rule 4: Subject exists, is not a CompendiumArticle, and has a `name` that is non-empty text.
+    // Subject exists, is not a CompendiumArticle, and has a `name` that is non-empty text.
     let subject: RawGdr | null = null;
     let title = article.title ?? '';
     if (article.subject !== null) {
@@ -424,40 +424,40 @@ export function validateCompendiumArticles(
         subject = named[0];
         title = name;
       }
-      // Rule 5: One article per subject.
+      // One article per subject.
       if (subjects.has(article.subject)) {
         report(`One article per subject (${article.subject})`);
       }
       subjects.add(article.subject);
     }
-    // Rule 6: Unique displayed titles, ignoring case.
+    // COMP, Displayed title: unique displayed titles, ignoring case.
     if (title !== '') {
       if (titles.has(ignoringCase(title))) {
         report(`Unique displayed titles (${title})`);
       }
       titles.add(ignoringCase(title));
     }
-    // Rule 7: no two Article terms of the Game build are equal ignoring case.
+    // No two Article terms of the Game build are equal ignoring case.
     for (const term of article.terms) {
       if (terms.has(ignoringCase(term))) {
         report(`Article terms are valid (${term} is an Article term twice)`);
       }
       terms.add(ignoringCase(term));
     }
-    // Rule 8: each See also identifier names a CompendiumArticle other than the article itself.
+    // Each See also identifier names a CompendiumArticle other than the article itself.
     for (const target of article.seeAlso) {
       if (target === article.id || !articleIds.has(target)) {
         report(`See also is valid (${target})`);
       }
     }
-    // Rule 10: each Lead a `lead_completed` Condition of `visible_when` names is a Lead of the Game build, as LEAD,
+    // Each Lead a `lead_completed` Condition of `visible_when` names is a Lead of the Game build, as LEAD,
     // Lead completed Condition kind, permits.
     for (const lead of article.visibleWhen === null ? [] : leadsNamed(article.visibleWhen)) {
       if (!(byId.get(lead) ?? []).some((gdr) => gdr['type'] === 'Lead')) {
         report(`Visibility Condition is valid (${lead})`);
       }
     }
-    // Rule 9: Placeholders are valid.
+    // COMP, Placeholders: Placeholders are valid.
     const template = (text: string): ArticleTemplate => {
       const parts = parseTemplate(text);
       if (typeof parts === 'string') {

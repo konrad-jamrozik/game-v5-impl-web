@@ -1,4 +1,7 @@
-/** SITP, GUI Completion estimate and Progress circle, and Turn summary: which groups show, in which order, and when the Turn summary shows. */
+/**
+ * SITP, Groups; GUI, Completion estimate and Progress circle; and TSUM, Groups: which groups show, in which order,
+ * and when the Turn summary shows.
+ */
 import { describe, expect, it } from 'vite-plus/test';
 import type { CampaignState } from '../../src/engine/state/types.ts';
 import {

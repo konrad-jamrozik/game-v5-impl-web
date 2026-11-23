@@ -1,7 +1,8 @@
 /**
- * Browser tests, for what only a browser shows; see TFOCUS, Interface tests for what only an interface shows. Each keeps
- * to one subject: the web interface plays a Campaign as the engine API and the terminal CLI do, a reload continues the
- * Campaign, Global configuration survives a reload, and the Undo and Redo buttons take the step that
+ * Browser tests, for what only a browser shows; see TFOCUS, Where tests pay, Interface tests for what only an
+ * interface shows. Each keeps to one subject: the web interface plays a Campaign as the engine API and the terminal
+ * CLI do, a reload continues the Campaign, Global configuration survives a reload, and the Undo and Redo buttons take
+ * the step that
  * `getAutosaveStatus()` reports. What the screen shows, e.g. sizes, colours, and wording, is checked by looking, and
  * the logic behind each view by the Vitest tests of `tests/web/`.
  */

@@ -594,7 +594,7 @@ describe('ECON: examples', () => {
     expectDefective((raw) => (raw.get('agent_cap')['max_acquisitions'] = 3));
     expectDefective((raw) => (raw.get('training_cap')['price'] = -1));
     expectDefective((raw) => (raw.get('economy')['hire_cost'] = { $decimal: '12.5' }));
-    // ECON, Economy GDR validation: contracting_skill_scale is a whole number of at least 100.
+    // ECON, EconomyParameters: contracting_skill_scale is a whole number of at least 100.
     expectDefective((raw) => (raw.get('economy')['contracting_skill_scale'] = 99));
     expectDefective((raw) => delete raw.get('economy')['contracting_skill_scale']);
     expectDefective((raw) =>

@@ -808,7 +808,7 @@ describe('COMBAT: examples', () => {
       }),
     );
     expect(report.ratings[0]).toMatchObject({ agents: 818, enemies: 29 });
-    // COMBAT, Combat GDR validation, rule 5, and rule 8, under which the removed rating bonuses are no longer allowed.
+    // COMBAT, CombatParameters: each rating base is at least 1, and a removed rating bonus is no property of it.
     expectDefective(
       (raw) => (raw.get('combat_parameters')['rating_bonus_per_armor'] = { $decimal: '0.004' }),
     );
@@ -835,7 +835,7 @@ describe('COMBAT: examples', () => {
       raw.get('agent_parameters')['exhaustion_per_defense'] = 0;
     });
     expectDefective((raw) => (raw.get('combat_pistol')['base_weapon_damage'] = 0));
-    // COMBAT, Combat GDR validation, rules 2, 3, and 8, for Armor.
+    // COMBAT, Armor, EnemyArchetype, and Weapon.
     expectDefective((raw) => (raw.get('basic_clothing')['base_armor'] = -1));
     expectDefective((raw) => (raw.get('basic_clothing')['base_armor'] = 0.5));
     expectDefective((raw) => (raw.get('initiate')['armor'] = 'plate'));

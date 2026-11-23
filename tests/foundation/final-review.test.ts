@@ -133,7 +133,8 @@ describe('DEV and DETERM: hidden values in the interfaces', () => {
 });
 
 describe('GDRS: the GDRs', () => {
-  // TESTVAL, Content checked by structure: the walk checks where each chain leads, never how many GDRs it passes.
+  // TESTVAL, Expected values, Content checked by structure: the walk checks where each chain leads, never how many
+  // GDRs it passes.
   it('supply a Victory path through the Leads of every Faction to Peace on Earth', () => {
     const catalog = bootstrapGdrCatalog();
     const byId = (id: string) => catalog.leads.find((lead) => lead.id === id)!;

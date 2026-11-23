@@ -2,7 +2,7 @@
  * Campaign state: World state, i.e. Current world state and World history, and Campaign configuration; see CSTATE,
  * Campaign state composition. It consists of Authoritative values only, and every stored quantity is a whole
  * number. Every Campaign instance has exactly the four properties Instance ID, Archetype reference, Constants, and
- * State; see CSTATE, Campaign instance structure.
+ * State; see CINST, Campaign instance structure.
  */
 import type { RngState } from '../../kernel/index.ts';
 import type { RandomOverride } from '../random.ts';

@@ -23,8 +23,8 @@ describe('VIS: Agent condition', () => {
     expect(exhaustionTone(70, levels)).toEqual({ tone: 'tone-bad', triangle: true });
   });
 
-  // The colours themselves are checked by looking (TFOCUS, Presentation by looking); the rule is that the colour
-  // follows the share of effective max health alone, and changes smoothly along it.
+  // The colours themselves are checked by looking (TFOCUS, Where tests pay, Presentation by looking); the rule is
+  // that the colour follows the share of effective max health alone, and changes smoothly along it.
   it('colours current health on a smooth scale over its share of effective max health', () => {
     for (const [health, max] of [
       [30, 30],

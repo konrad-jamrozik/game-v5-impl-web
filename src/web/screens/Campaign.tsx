@@ -117,8 +117,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const sidePanelHidden = useSidePanelHidden();
   const [autosaves, setAutosaves] = useState<AutosaveStatus | null>(null);
   /**
-   * GUI, Turn summary: the Turn ended by the Advance turn the Player requested through this screen, until the Player
-   * dismisses its Turn summary. Loading, Timeline navigation, and Autopilot never set it.
+   * TSUM, Showing and dismissing: the Turn ended by the Advance turn the Player requested through this screen, until
+   * the Player dismisses its Turn summary. Loading, Timeline navigation, and Autopilot never set it.
    */
   const [requestedTurn, setRequestedTurn] = useState<number | null>(null);
 

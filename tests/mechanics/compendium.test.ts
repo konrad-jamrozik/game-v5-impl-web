@@ -375,10 +375,10 @@ describe('COMP: Placeholders', () => {
 describe('COMP: Compendium article GDR validation', () => {
   it('rejects an article that breaks a rule', () => {
     const cases: [Record<string, unknown>, RegExp][] = [
-      // Rule 1: Category is valid.
+      // COMP, CompendiumArticle: Category is valid.
       [{ category: 'lore' }, /Category is valid/],
       [{ category: undefined }, /Category is valid/],
-      // Rule 2: Exact properties.
+      // Exact properties.
       [{ image: 'panic.png' }, /Exact properties \(image\)/],
       [{ title: undefined }, /Exact properties \(title\)/],
       [{ body: undefined }, /Exact properties \(body\)/],
@@ -387,7 +387,7 @@ describe('COMP: Compendium article GDR validation', () => {
       [{ category: 'mechanics' }, /Exact properties \(formulas\)/],
       [{ category: 'subject', subject: 'agency' }, /Exact properties \(title\)/],
       [{ category: 'subject', title: undefined }, /Exact properties \(subject\)/],
-      // Rule 3: Text is present.
+      // Text is present.
       [{ body: '' }, /Text is present \(body\)/],
       [{ title: '' }, /Text is present \(title\)/],
       [{ category: 'mechanics', formulas: [] }, /Text is present \(formulas\)/],
@@ -411,7 +411,7 @@ describe('COMP: Compendium article GDR validation', () => {
         },
         /Text is present \(formulas\)/,
       ],
-      // Rule 4: Subject exists, is no CompendiumArticle, and has a name.
+      // Subject exists, is no CompendiumArticle, and has a name.
       [
         { category: 'subject', title: undefined, subject: 'no_such_gdr' },
         /test_article: Subject exists \(no_such_gdr\)/,
@@ -424,15 +424,15 @@ describe('COMP: Compendium article GDR validation', () => {
         { category: 'subject', title: undefined, subject: 'economy' },
         /test_article: Subject exists \(economy has no name\)/,
       ],
-      // Rule 5: One article per subject.
+      // One article per subject.
       [
         { category: 'subject', title: undefined, subject: 'soldier' },
         /test_article: One article per subject \(soldier\)/,
       ],
-      // Rule 6: Unique displayed titles, ignoring case, among titles and names of subjects alike.
+      // COMP, Displayed title: unique displayed titles, ignoring case, among titles and names of subjects alike.
       [{ title: 'PANIC' }, /Unique displayed titles \(PANIC\)/],
       [{ title: 'soldier' }, /Unique displayed titles/],
-      // Rule 7: Article terms are valid.
+      // Article terms are valid.
       [{ terms: 'skill' }, /Article terms are valid/],
       [{ terms: [''] }, /Article terms are valid/],
       [{ terms: [' padded'] }, /Article terms are valid/],
@@ -441,7 +441,7 @@ describe('COMP: Compendium article GDR validation', () => {
       [{ terms: [5] }, /Article terms are valid/],
       [{ terms: ['SKILL'] }, /Article terms are valid \(SKILL is an Article term twice\)/],
       [{ terms: ['Fresh', 'fresh'] }, /Article terms are valid \(fresh is an Article term twice\)/],
-      // Rule 8: See also is valid.
+      // See also is valid.
       [{ see_also: 'guide_panic' }, /See also is valid/],
       [{ see_also: ['no_such_article'] }, /See also is valid \(no_such_article\)/],
       [{ see_also: ['soldier'] }, /See also is valid \(soldier\)/],
@@ -871,7 +871,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
     const profiled = completeLead(state, 'red_dawn_profile');
     expect(visible(profiled)).toContain('red_dawn_article');
     expect(visible(profiled)).toContain('locate_red_dawn_safehouse_article');
-    // COMP, rule 10: only `lead_completed`, naming a Lead of the Game build.
+    // COMP, CompendiumArticle: only `lead_completed`, naming a Lead of the Game build.
     expectDefective(
       (raw) =>
         (raw.get('red_dawn_article')['visible_when'] = { $entries: [['mission_won', 'apprehend_member']] }),
@@ -952,7 +952,8 @@ describe('COMP: Player API', () => {
     expect(ok(engine.player.queries.getArticleForTerm(term))).toBeNull();
 
     // Scripted play: every Agent investigates the first Lead, one Advance turn at a time, until an Advance turn
-    // completes it and so discovers the next Lead (CTEST, Scripted play).
+    // completes it and so discovers the next Lead. It makes its own Player actions, so it is no Campaign test
+    // (CTEST, Limits).
     const has = (id: string) =>
       ok(engine.player.queries.getCompendiumArticles()).some((article) => article.id === id);
     const team = ok(engine.player.queries.getCurrentLiveWorldState()).agents.map((agent) => agent.id);

@@ -211,7 +211,10 @@ class MusicPlayer {
     document.addEventListener('keydown', start, true);
   }
 
-  /** MUSIC, Edge cases: a Track that cannot be played is skipped; when every Track fails, the music stops. */
+  /**
+   * MUSIC, Playback, Unplayable Track: a Track that cannot be played is skipped; when every Track fails, the music
+   * stops.
+   */
   private fail(): void {
     this.consecutiveFailures += 1;
     if (this.consecutiveFailures >= TRACKS.length) {
