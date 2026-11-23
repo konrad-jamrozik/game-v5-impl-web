@@ -174,6 +174,12 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   FactionArchetype loses `initial_activity_level` and starts at `dormant`, from commit `c1a3f94`; and Red Dawn stays at
   `dormant` for 1 Turn, Black Lotus for 20 to 30, and the levels `faint` to `total_war` last and operate sooner, from
   commit `6752004`. The copy is still identical to the specification's `content/` directory outside `content/cut/`.
+- `factions/faction_activity_levels.yaml`, `factions/faction_archetypes.yaml`, and `missions/mission_site_archetypes.yaml`:
+  patched unchanged from specification commit `14638cb571420a8448868747de7de77c48dc12b9` on 2026-11-22. The Enemies of
+  `raid_logistics_hub`, `raid_regional_stronghold`, `raid_hq`, and `defend_against_office_raid` are fewer; Red Dawn's
+  `initial_lasts_turns` is `[0, 0]`, so it starts at `faint`, Exalt's `[5, 15]`, and Black Lotus's `[10, 20]`; and the
+  levels `faint` to `total_war` last longer and operate on new intervals. The copy is still identical to the
+  specification's `content/` directory outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in
