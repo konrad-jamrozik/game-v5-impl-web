@@ -388,6 +388,8 @@ export interface CurrentRetiredWorldStateView {
 export interface CampaignConfigurationView {
   readonly startingMoney: number;
   readonly startingFunding: number;
+  /** TURN, Prologue: 1 when campaign creation played a Prologue, else 0. */
+  readonly prologue: number;
 }
 
 /**

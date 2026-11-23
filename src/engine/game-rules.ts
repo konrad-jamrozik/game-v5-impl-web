@@ -2,17 +2,14 @@
  * The Game rules of the Mechanics family, assembled behind the GameRules seam that the engine subsystems use.
  */
 import { produce } from 'immer';
-import { detach } from '../kernel/values.ts';
 import { GAME_BUILD, type GdrCatalog } from '../gdr/index.ts';
-import { applyGameAction } from './actions/actions.ts';
 import { detachedCombat, detachedCombatBatch } from './mechanics/combat/detached-combat.ts';
-import { seededRandom, type Random } from './random.ts';
-import { reject, type Rejection } from './result.ts';
-import type { ActionRecord, ConfigurationValueDescriptor, GameRules } from './rules.ts';
+import { advanceTurnOf, applyActionTo } from './play.ts';
+import { playPrologue } from './prologue/prologue.ts';
+import type { ConfigurationValueDescriptor, GameRules } from './rules.ts';
 import { createCampaignState } from './state/create.ts';
 import { checkInvariants } from './state/invariants.ts';
 import type { CampaignState } from './state/types.ts';
-import { applyAdvanceTurn, type ProcessingOrder } from './turn/advance.ts';
 import {
   articleForTermView,
   availableActionsView,
@@ -37,7 +34,9 @@ function isWholeAtLeastZero(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
-/** ECON, Campaign configuration values: both are fixed after creation. */
+export { advanceTurnOf, applyActionTo };
+
+/** ECON, Campaign configuration values, and TURN, Prologue: all are fixed after creation. */
 const CONFIGURATION_VALUES: readonly ConfigurationValueDescriptor[] = [
   {
     key: 'startingMoney',
@@ -53,68 +52,14 @@ const CONFIGURATION_VALUES: readonly ConfigurationValueDescriptor[] = [
     permitted: 'A whole number of money of at least 0',
     isPermitted: isWholeAtLeastZero,
   },
+  {
+    key: 'prologue',
+    name: 'Prologue',
+    adjustable: false,
+    permitted: '0 or 1',
+    isPermitted: (value) => value === 0 || value === 1,
+  },
 ];
-
-/**
- * Applies one action other than Advance turn; a rejection discards every change. `random` replaces the random
- * outcomes derived from the Campaign seed; it is for tests.
- */
-export function applyActionTo(
-  state: CampaignState,
-  record: ActionRecord,
-  gdrs: GdrCatalog,
-  random: Random | null = null,
-): CampaignState | Rejection {
-  let rejection: Rejection | null = null;
-  const next = produce(state, (draft) => {
-    rejection = applyGameAction(draft.world.current, record, gdrs, random);
-  });
-  if (rejection !== null) {
-    return rejection;
-  }
-  // An action with no effect is not a Player action, so it adds nothing to the Action record.
-  if (next === state) {
-    return state;
-  }
-  // WHIST, Action record, and ECON, Money in the Action record: every Player action other than Advance turn, including
-  // a Player cheat action, adds its item to the end of the current Turn's Action record.
-  return produce(next, (draft) => {
-    draft.world.history.currentActions.push({
-      operation: record.name,
-      args: detach(record.args),
-      moneyChange: next.world.current.agency.state.money - state.world.current.agency.state.money,
-    });
-  });
-}
-
-/**
- * Applies Advance turn atomically. `random` replaces the random outcomes derived from the Campaign seed, and
- * `order` the order in which Campaign instances are processed within a step; both are for tests.
- */
-export function advanceTurnOf(
-  state: CampaignState,
-  gdrs: GdrCatalog,
-  random: Random | null = null,
-  order?: ProcessingOrder,
-): CampaignState | Rejection {
-  // ENDING, After a Campaign ending.
-  if (state.world.current.ending !== null) {
-    return reject(
-      'campaign_ended',
-      `The Campaign has ended in ${state.world.current.ending}.`,
-      'campaign_ended',
-    );
-  }
-  return produce(state, (draft) => {
-    applyAdvanceTurn(
-      draft,
-      state,
-      gdrs,
-      random ?? seededRandom(draft.world.current.rng, draft.world.current.randomOverrides),
-      order,
-    );
-  });
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -126,20 +71,29 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
     presets: gdrs.campaignConfigurations.map((preset) => ({
       id: preset.id,
       name: preset.name,
-      values: { startingMoney: preset.startingMoney, startingFunding: preset.startingFunding },
+      values: {
+        startingMoney: preset.startingMoney,
+        startingFunding: preset.startingFunding,
+        prologue: preset.prologue,
+      },
     })),
     defaultPresetId: gdrs.configurationParameters.defaultPreset,
     configurationValues: CONFIGURATION_VALUES,
 
-    createCampaign: ({ configuration, seed }) =>
-      createCampaignState(
+    createCampaign: ({ configuration, seed }) => {
+      const prologue = configuration['prologue'] ?? 0;
+      const initial = createCampaignState(
         {
           startingMoney: configuration['startingMoney'] ?? 0,
           startingFunding: configuration['startingFunding'] ?? 0,
+          prologue,
         },
         seed,
         gdrs,
-      ),
+      );
+      // TURN, Prologue: with 1, campaign creation continues from the initial Campaign state.
+      return prologue === 1 ? playPrologue(initial, gdrs) : initial;
+    },
     applyAction: (state, record) => applyActionTo(state, record, gdrs),
     advanceTurn: (state) => advanceTurnOf(state, gdrs),
     checkInvariants: (state) => checkInvariants(state, gdrs),

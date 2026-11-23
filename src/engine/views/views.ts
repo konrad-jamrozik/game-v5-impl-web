@@ -852,6 +852,8 @@ export function campaignConfigurationView(state: CampaignState): CampaignConfigu
   return {
     startingMoney: state.configuration.startingMoney,
     startingFunding: state.configuration.startingFunding,
+    // A Campaign save written before the Prologue existed lacks the value: its Campaign had none.
+    prologue: state.configuration.prologue ?? 0,
   };
 }
 

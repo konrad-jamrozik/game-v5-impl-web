@@ -2,8 +2,10 @@
  * Captures one screenshot of the built web game per screen and state, for the screen specifications of the Spec repo.
  * Usage: npm run screens:capture [-- --out <dir>]
  *
- * It builds and serves the game as `playwright.config.ts` does, plays one fixed scripted Campaign through the user
- * interface in Chromium, and writes one PNG per picture to the output directory, by default
+ * It builds and serves the game as `playwright.config.ts` does, creates one Campaign from the PRESET preset, whose
+ * Prologue (TURN, Prologue) hands it over already under way, takes the pictures of that Turn through the user interface
+ * in Chromium, then deploys Agents and advances one Turn for the pictures of the Turn summary and the Turn report, and
+ * writes one PNG per picture to the output directory, by default
  * `../game-v5/docs/images/screens`, removing the PNG files there that it no longer writes. The pictures are generated:
  * nobody edits them, and where a picture and the game disagree, the game is right.
  *
@@ -14,14 +16,13 @@
  *   off; the globe is drawn with WebGL in software (SwiftShader), the same on every run;
  * - every font and image loaded before each picture is taken.
  *
- * The scenario plays one Campaign of at most 3 + AUTOPILOT_TURNS + 2 × MAX_WAIT_TURNS Turns, within CTEST, Limits. It
- * records no result of play other than the pictures.
+ * No Autopilot AI plays: the scenario advances one Turn by hand. It records no result of play other than the pictures.
  */
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { chromium, expect, type Locator, type Page } from '@playwright/test';
+import { chromium, expect, type Dialog, type Locator, type Page } from '@playwright/test';
 import config from '../playwright.config.ts';
 
 /**
@@ -30,12 +31,12 @@ import config from '../playwright.config.ts';
  */
 const WINDOW = { width: 1440, height: 900 };
 const SEED = 'screens';
-/** The Turns the Autopilot AI plays after the scripted opening, so that the views have ordinary content. */
-const AUTOPILOT_TURNS = 14;
+/** The Campaign configuration preset whose Prologue starts the Campaign with something on every screen. */
+const PRESET = 'showcase';
+/** The most Agents the scenario deploys to a Mission site. */
+const TEAM = 3;
 /** The time the fixed clock shows, e.g. in the save times of the Main menu. */
 const CLOCK = new Date('2026-01-15T12:00:00Z');
-/** The most Turns the scenario advances by hand while it waits for an Active Mission site. */
-const MAX_WAIT_TURNS = 10;
 
 const root = resolve(import.meta.dirname, '..');
 const outArg = process.argv.indexOf('--out');
@@ -231,13 +232,6 @@ async function advance(page: Page): Promise<boolean> {
   return (await id(page, 'turn-summary').count()) > 0;
 }
 
-async function dismissSummary(page: Page): Promise<void> {
-  if ((await id(page, 'turn-summary').count()) > 0) {
-    await id(page, 'turn-summary-continue').click();
-  }
-  await expect(id(page, 'turn-summary')).toHaveCount(0);
-}
-
 /** Selects exactly `agents` in the Agents View. */
 async function selectAgents(page: Page, agents: readonly string[]): Promise<void> {
   for (const row of await page.locator('[data-testid="agents-grid"] tbody tr').all()) {
@@ -255,86 +249,6 @@ async function openDeveloperTools(page: Page): Promise<void> {
   await id(page, 'open-settings').click();
   await id(page, 'open-developer').click();
   await expect(id(page, 'developer-drawer')).toBeVisible();
-}
-
-/** The parts of the full Campaign state of the Developer tools that the scenario reads. */
-interface CampaignState {
-  readonly timeline: {
-    readonly turnStartState: {
-      readonly liveWorldState: {
-        readonly agents: readonly {
-          readonly id: string;
-          readonly state: {
-            readonly healthLostHundredths: number;
-            readonly baseHealth: number;
-            readonly exactExhaustionHundredths: number;
-          };
-        }[];
-        readonly missionSites: readonly {
-          readonly id: string;
-          readonly state: { readonly lifecycle: string; readonly enemies: readonly string[] };
-        }[];
-        readonly enemies: readonly {
-          readonly id: string;
-          readonly state: { readonly skill: number; readonly baseWeaponDamage: number };
-        }[];
-      };
-    };
-  };
-}
-
-/** Reads the full Campaign state; Dev mode must be enabled and the Developer tools open. */
-async function inspect(page: Page): Promise<CampaignState> {
-  await id(page, 'dev-inspect').click();
-  const text = await id(page, 'dev-state').innerText();
-  await id(page, 'dev-inspect').click();
-  return JSON.parse(text) as CampaignState;
-}
-
-async function override(page: Page, outcome: string, value: string): Promise<void> {
-  await id(page, 'dev-outcome').fill(outcome);
-  await id(page, 'dev-value').fill(value);
-  await id(page, 'dev-override').click();
-  await expect(page.locator('.notice-error')).toHaveCount(0);
-}
-
-/**
- * The Random outcome overrides of the first Combat round under which the lone `agent` is Killed rather than
- * Incapacitated: the Agent misses, and in the order the Enemies attack, each hits for its highest damage while the
- * Agent keeps enough health to stay able to fight, until one hit kills; null when no such order of hits exists.
- */
-function killingOverrides(
-  state: CampaignState['timeline']['turnStartState']['liveWorldState'],
-  agent: string,
-  site: string,
-): [string, string][] | null {
-  const fighter = state.agents.find((item) => item.id === agent);
-  const enemyIds = state.missionSites.find((item) => item.id === site)?.state.enemies ?? [];
-  if (fighter === undefined) {
-    return null;
-  }
-  const maxHealth = fighter.state.baseHealth * 100;
-  let health = maxHealth - fighter.state.healthLostHundredths;
-  const enemies = enemyIds
-    .map((enemy) => state.enemies.find((item) => item.id === enemy))
-    .filter((enemy) => enemy !== undefined);
-  // COMBAT: a side attacks in order of effective skill, highest first; an Enemy that is not hurt fights at its skill.
-  const order = [...enemies].sort((a, b) => b.state.skill - a.state.skill);
-  const result: [string, string][] = [[`combat.hit.${agent}`, 'false']];
-  for (const enemy of order) {
-    const damage = Math.floor(enemy.state.baseWeaponDamage * 1.5);
-    if (damage * 100 >= health) {
-      result.push([`combat.hit.${enemy.id}`, 'true'], [`combat.damage.${enemy.id}`, String(damage)]);
-      return result;
-    }
-    if (health - damage * 100 > maxHealth * 0.15) {
-      health -= damage * 100;
-      result.push([`combat.hit.${enemy.id}`, 'true'], [`combat.damage.${enemy.id}`, String(damage)]);
-    } else {
-      result.push([`combat.hit.${enemy.id}`, 'false']);
-    }
-  }
-  return null;
 }
 
 /** The Active Mission sites the Missions View lists, by Instance ID. */
@@ -359,117 +273,61 @@ async function deployable(page: Page): Promise<string[]> {
 }
 
 /**
- * Advances Turns until an Active Mission site appears, deploys one Agent to it alone, and sets the Random outcome
- * overrides under which that Agent is Killed in its Combat, so that the Memorial and the Concluded Mission sites have
- * a Killed Agent. Leaves the Turn summary of that Combat open.
+ * Creates the Campaign from the PRESET preset, whose Prologue hands it over at a later Turn with a Killed Agent, a
+ * Recovering one, Agents at work, Concluded and Active Mission sites, and a bought Upgrade.
  */
-async function loseAnAgent(page: Page): Promise<void> {
-  for (let waited = 0; waited <= MAX_WAIT_TURNS; waited += 1) {
-    const sites = await activeSites(page);
-    for (const site of sites) {
-      await id(page, `site-${site}`).click();
-      const agents = await deployable(page);
-      if (agents.length === 0) {
-        continue;
-      }
-      await openDeveloperTools(page);
-      if (!(await id(page, 'dev-mode').isChecked())) {
-        await id(page, 'dev-mode').click();
-        await expect(id(page, 'dev-mode')).toBeChecked();
-      }
-      const state = (await inspect(page)).timeline.turnStartState.liveWorldState;
-      // The least exhausted Agent, so that the deployment needs no confirmation and exhaustion does not weaken it.
-      const exhaustion = (agent: string) =>
-        state.agents.find((item) => item.id === agent)?.state.exactExhaustionHundredths ?? Infinity;
-      const agent = [...agents]
-        .sort((a, b) => exhaustion(a) - exhaustion(b))
-        .find((item) => killingOverrides(state, item, site) !== null);
-      if (agent === undefined) {
-        await id(page, 'close-developer').click();
-        continue;
-      }
-      for (const [outcome, value] of killingOverrides(state, agent, site) ?? []) {
-        await override(page, outcome, value);
-      }
-      await id(page, 'dev-mode').click();
-      await expect(id(page, 'dev-mode')).not.toBeChecked();
-      await id(page, 'close-developer').click();
-      await id(page, `deploy-pick-${agent}`).check();
-      await id(page, `deploy-${site}`).click();
-      await expect(id(page, `deploy-pick-${agent}`).or(page.locator('.notice-error'))).toHaveCount(0);
-      if (!(await advance(page))) {
-        throw new Error('The Advance turn after the deployment showed no Turn summary');
-      }
-      return;
-    }
-    await advance(page);
-    await dismissSummary(page);
-  }
-  throw new Error(`No Mission site took a lone Agent within ${MAX_WAIT_TURNS} Turns`);
-}
-
-async function play(page: Page): Promise<void> {
+async function create(page: Page): Promise<void> {
   await page.goto(baseURL);
+  await id(page, 'preset-select').selectOption(PRESET);
   await id(page, 'seed-input').fill(SEED);
   await id(page, 'new-campaign').click();
-  await expect(id(page, 'turn')).toHaveText('1');
-
-  // The scripted opening: Training, two Investigations, a hire, and two Turns. A Detail view stays open over the globe
-  // until its picture is taken: the globe, drawn in software, would slow every step.
-  await open(page, 'agents');
-  await selectAgents(page, ['agent-2', 'agent-3']);
-  await id(page, 'order-training').click();
-  await open(page, 'leads');
-  for (const [lead, agent] of [
-    ['contracting_opportunities', 'agent-4'],
-    ['criminal_organizations', 'agent-5'],
-  ] as const) {
-    await id(page, `lead-${lead}`).click();
-    await id(page, `team-pick-${agent}`).check();
-    await id(page, `investigate-${lead}`).click();
+  await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
+  if ((await currentTurn(page)) <= 1) {
+    throw new Error(`The ${PRESET} preset handed over the Campaign at Turn 1, without a Prologue`);
   }
-  await open(page, 'agents');
-  await id(page, 'hire').click();
-  await advance(page);
-  await dismissSummary(page);
-  await advance(page);
-  await dismissSummary(page);
+}
 
-  // The Autopilot AI plays on.
+/** Deploys up to TEAM Agents to the first Active Mission site and advances the Turn, which shows the Turn summary. */
+async function deployAndAdvance(page: Page): Promise<void> {
+  const [site] = await activeSites(page);
+  if (site === undefined) {
+    throw new Error('No Active Mission site is left to deploy to');
+  }
+  await id(page, `site-${site}`).click();
+  const picks = (await deployable(page)).slice(0, TEAM);
+  if (picks.length === 0) {
+    throw new Error(`No Agent can be deployed to ${site}`);
+  }
+  for (const agent of picks) {
+    await id(page, `deploy-pick-${agent}`).check();
+  }
+  // GUI, Warning on deploying tired Agents: the scenario confirms the deployment of a tired Agent.
+  const confirm = (dialog: Dialog) => void dialog.accept();
+  page.on('dialog', confirm);
+  await id(page, `deploy-${site}`).click();
+  await expect(id(page, `deploy-pick-${picks[0]}`).or(page.locator('.notice-error'))).toHaveCount(0);
+  page.off('dialog', confirm);
+  if (!(await advance(page))) {
+    throw new Error('The Advance turn after the deployment showed no Turn summary');
+  }
+}
+
+async function capture(page: Page): Promise<void> {
+  await create(page);
+  // A Detail view stays open over the globe until its picture is taken: the globe, drawn in software, would slow every
+  // step.
+  await open(page, 'upgrades');
+  // The Autopilot controls, which a Global configuration setting of the Developer tools shows. The setting is stored
+  // asynchronously, so the checkbox is checked once Game storage holds it.
   await openDeveloperTools(page);
-  // The setting is stored asynchronously, so the checkbox is checked once Game storage holds it.
   await id(page, 'dev-show-autopilot').click();
   await expect(id(page, 'dev-show-autopilot')).toBeChecked();
   await id(page, 'close-developer').click();
   await id(page, 'autopilot-toggle').click();
-  await id(page, 'autopilot-turns').fill(String(AUTOPILOT_TURNS));
-  await open(page, 'upgrades');
-  const before = await currentTurn(page);
-  await id(page, 'autopilot-many').click();
-  await expect(id(page, 'turn')).toHaveText(String(before + AUTOPILOT_TURNS), { timeout: 600_000 });
-  await expect(id(page, 'autopilot-active')).toHaveCount(0, { timeout: 60_000 });
-}
-
-async function capture(page: Page): Promise<void> {
-  await play(page);
   await shootElement(page, 'autopilot-footer', page.locator('.side-footer'));
 
-  await loseAnAgent(page);
-  await shootElement(page, 'turn-summary', id(page, 'turn-summary'));
-  await id(page, 'turn-summary-report').click();
-  await shootElement(page, 'turn-report-view', view(page, 'report'));
-  await view(page, 'report').locator('[data-testid^="combat-"]').first().click();
-  await id(page, 'combat-log-toggle').click();
-  await expect(id(page, 'combat-log')).toBeVisible();
-  await shootElement(page, 'combat-report', view(page, 'report'));
-
-  // A new Turn with an Active Mission site to deploy to.
-  for (let waited = 0; (await activeSites(page)).length === 0; waited += 1) {
-    if (waited >= MAX_WAIT_TURNS) {
-      throw new Error(`No Active Mission site appeared within ${MAX_WAIT_TURNS} Turns`);
-    }
-    await advance(page);
-    await dismissSummary(page);
+  if ((await activeSites(page)).length === 0) {
+    throw new Error('The Prologue left no Active Mission site');
   }
   await shootElement(page, 'situation-panel', id(page, 'situation'));
 
@@ -489,7 +347,7 @@ async function capture(page: Page): Promise<void> {
 
   await open(page, 'missions');
   const picks = await deployable(page);
-  for (const agent of picks.slice(0, 3)) {
+  for (const agent of picks.slice(0, TEAM)) {
     await id(page, `deploy-pick-${agent}`).check();
   }
   await shootElement(page, 'missions-view', view(page, 'missions'));
@@ -507,7 +365,7 @@ async function capture(page: Page): Promise<void> {
   await open(page, 'charts');
   await shootElement(page, 'charts-view', view(page, 'charts'));
   await open(page, 'history');
-  // The Player actions of the scripted opening.
+  // The Player actions of the first Turn of the Prologue.
   await id(page, 'history-actions-1').click();
   await shootElement(page, 'history-view', view(page, 'history'));
   await open(page, 'compendium');
@@ -515,7 +373,8 @@ async function capture(page: Page): Promise<void> {
   await id(page, 'compendium-articles').getByRole('button', { name: 'Exhaustion', exact: true }).click();
   await shootElement(page, 'compendium-view', view(page, 'compendium'));
   await id(page, 'compendium-category-Enemies').click();
-  await id(page, 'compendium-articles').getByRole('button', { name: 'Soldier', exact: true }).click();
+  // The first Enemy the Agency has met, whichever the Prologue revealed.
+  await id(page, 'compendium-articles').getByRole('button').first().click();
   await shootElement(page, 'compendium-view-subject', view(page, 'compendium'));
 
   await id(page, 'open-settings').click();
@@ -527,6 +386,16 @@ async function capture(page: Page): Promise<void> {
   await id(page, 'save').click();
   await expect(page.locator('.notice')).toHaveCount(1);
   await page.locator('.notice-close').click();
+
+  // One Turn played by hand, for the Turn summary and the Combat of the Turn report.
+  await deployAndAdvance(page);
+  await shootElement(page, 'turn-summary', id(page, 'turn-summary'));
+  await id(page, 'turn-summary-report').click();
+  await shootElement(page, 'turn-report-view', view(page, 'report'));
+  await view(page, 'report').locator('[data-testid^="combat-"]').first().click();
+  await id(page, 'combat-log-toggle').click();
+  await expect(id(page, 'combat-log')).toBeVisible();
+  await shootElement(page, 'combat-report', view(page, 'report'));
 
   // The globe, last: while it is drawn in software, the page barely responds.
   await closeViews(page);

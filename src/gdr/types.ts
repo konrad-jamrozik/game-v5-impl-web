@@ -180,6 +180,8 @@ export interface CampaignConfigurationGdr {
   readonly name: string;
   readonly startingMoney: number;
   readonly startingFunding: number;
+  /** TURN, Prologue: 1 when campaign creation plays a Prologue, else 0. */
+  readonly prologue: number;
 }
 
 export interface ConfigurationParametersGdr {
