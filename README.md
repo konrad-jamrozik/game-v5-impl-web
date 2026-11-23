@@ -121,6 +121,20 @@ Keyboard shortcuts: `N` Advance turn, `U` and `R` undo and redo, `1` to `8` open
 it, `H` hire, `S`, `C`, `T` assign the Agents selected in the Agents view, `A` select every Agent that can be
 assigned, `` ` `` open the Developer drawer, `?` list the shortcuts.
 
+## Screenshots
+
+`npm run screens:capture` builds and serves the game as the browser tests do, plays one fixed scripted Campaign
+through the web UI in Chromium, and writes one PNG per screen and state, e.g. `main-menu.png` or
+`missions-view-concluded.png`, to the Spec repo's `docs/images/screens/`, which the screen specifications show. The
+option `--out <dir>` writes them elsewhere. The script removes the PNG files there that it no longer writes. It takes
+a few minutes, writes outside this repository, and is neither a test nor part of `npm run check`.
+
+The pictures are generated: never edit one by hand, and run the script again whenever the UI changes. When a picture
+and the game disagree, the game is right. The script keeps them deterministic, so two runs write the same files: a
+fixed window of 1440 × 900, a fixed clock and fixed random values in the page, reduced motion, which keeps the globe
+still, no CSS animations or transitions, and every font and image loaded before each picture. Where play alone would
+take long, the scenario uses Dev mode, e.g. Random outcome overrides under which one Agent is Killed for the Memorial.
+
 ## The terminal CLI
 
 One command per line; `help` lists them. The CLI follows Command-Line Interface, and the code settles what that

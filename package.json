@@ -25,7 +25,8 @@
     "web:dev": "vp dev",
     "web:build": "vp build",
     "web:preview": "vp preview",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "screens:capture": "node scripts/capture-screens.ts"
   },
   "dependencies": {
     "@tanstack/react-table": "8.21.3",
