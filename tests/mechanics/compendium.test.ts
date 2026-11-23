@@ -345,7 +345,7 @@ describe('COMP: Placeholders', () => {
     );
     expect(subject('apprehend_member', 'Gone in {subject.expires_in_turns} turns.')).toBeDefined();
     expect(() => subject('apprehend_member', '{subject.kind}')).toThrow(/does not allow/);
-    expect(() => subject('red_dawn', '{subject.initial_activity_level}')).toThrow(/does not allow/);
+    expect(() => subject('red_dawn', '{subject.initial_lasts_turns}')).toThrow(/does not allow/);
     // A renamed or removed GDR property is a data defect of every article that still names it.
     expect(() => catalogWith((raw) => delete raw.get('economy')['hire_cost'])).toThrow(
       /Placeholders are valid \(\{economy\.hire_cost\} names no property/,
@@ -869,6 +869,8 @@ describe('COMP: Article visibility and Player-visible information', () => {
 
   it('A Response Mission site', () => {
     let state = tweak(newCampaign(), (world) => {
+      // Red Dawn starts at `dormant`, which has no operations; `faint` has them.
+      Object.values(world.factions)[0]!.state.activityLevel = 'faint';
       Object.values(world.factions)[0]!.state.turnsUntilNextOperation = 1;
     });
     const operation = responseOperation(state);
@@ -1021,6 +1023,8 @@ describe('COMP: Met subjects', () => {
 
   it('Enemy seen at a Mission site, then the site expires: its article stays Player-visible', () => {
     let state = tweak(newCampaign({ firstLead: false }), (world) => {
+      // Red Dawn starts at `dormant`, which has no operations; `faint` has them.
+      Object.values(world.factions)[0]!.state.activityLevel = 'faint';
       Object.values(world.factions)[0]!.state.turnsUntilNextOperation = 1;
     });
     const operation = responseOperation(state);

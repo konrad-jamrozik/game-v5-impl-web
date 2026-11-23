@@ -550,6 +550,8 @@ describe('MISSION: examples', () => {
 
   it('A Response Mission site from Faction activity; MissionSiteArchetype selection', () => {
     let state = tweak(set(newCampaign(), { turn: 15 }), (world) => {
+      // Red Dawn starts at `dormant`, which has no operations; `faint` has them.
+      Object.values(world.factions)[0]!.state.activityLevel = 'faint';
       Object.values(world.factions)[0]!.state.turnsUntilNextOperation = 1;
     });
     const f = onlyFaction(state).id;
@@ -634,6 +636,8 @@ describe('MISSION: examples', () => {
     const first = addMissionSite(state, 'foil_sabotage', { catalog: several });
     state = tweak(first.state, (world) => {
       world.missionSites[first.site]!.state.lifecycle = 'Expired';
+      // Red Dawn starts at `dormant`, which has no operations; `faint` has them.
+      Object.values(world.factions)[0]!.state.activityLevel = 'faint';
       Object.values(world.factions)[0]!.state.turnsUntilNextOperation = 1;
     });
     expect(previousOperation(f, state.world.current.missionSites)).toBe('foil_sabotage');

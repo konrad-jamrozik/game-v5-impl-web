@@ -70,11 +70,18 @@ export function createCampaignState(
 
   // FACTION, Initial Factions: exactly one Faction for each FactionArchetype, created in the authored order of the
   // FactionArchetypes, which GDR, GDR authoring format preserves, so the first takes the Instance ID `faction-1`.
+  // Every Faction starts by entering the first level, the one FactionActivityLevel whose `lasts_turns` is
+  // `per_faction`, under FACTION, Faction GDR validation.
   const random = seededRandom(world.rng, world.randomOverrides);
+  const firstLevel = must(
+    [...gdrs.factionActivityLevels.values()].find((level) => level.lastsTurns === 'per_faction'),
+    'the first FactionActivityLevel',
+  );
   for (const archetype of gdrs.factionArchetypes) {
     const faction = createFaction(
       newInstanceId(world, 'faction'),
       archetype,
+      firstLevel,
       (id) => must(gdrs.factionActivityLevels.get(id), `FactionActivityLevel ${id}`),
       random,
     );

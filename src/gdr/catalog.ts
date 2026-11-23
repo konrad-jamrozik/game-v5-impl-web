@@ -405,14 +405,12 @@ const schemas = {
       id,
       type: z.literal('FactionArchetype'),
       name,
-      initial_activity_level: id,
-      initial_lasts_turns: range.nullable(),
+      initial_lasts_turns: range,
     })
     .transform((g) => ({
       type: g.type,
       id: g.id,
       name: g.name,
-      initialActivityLevel: g.initial_activity_level,
       initialLastsTurns: g.initial_lasts_turns,
     })),
   FactionActivityLevel: z
@@ -969,18 +967,17 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   }
 
   // FACTION, Faction GDR validation.
+  // Rule 2: exactly one first level, whose `lasts_turns` is `per_faction`.
+  if (
+    [...factionActivityLevels.values()].filter((level) => level.lastsTurns === 'per_faction').length !== 1
+  ) {
+    problems.push('FactionActivityLevel: One first level');
+  }
+  // Rule 3: `initial_lasts_turns` may start at 0, which skips the first level.
   for (const archetype of factionArchetypes) {
-    const initial = factionActivityLevels.get(archetype.initialActivityLevel);
-    if (initial === undefined) {
-      problems.push(`FactionArchetype ${archetype.id}: Initial level resolves`);
-    }
     const pair = archetype.initialLastsTurns;
-    if (pair !== null && !(pair[0] >= 1 && pair[0] <= pair[1])) {
+    if (!(pair[0] >= 0 && pair[0] <= pair[1])) {
       problems.push(`FactionArchetype ${archetype.id}: Ranges are valid`);
-    }
-    // Rule 5: a pair exactly when the initial level lasts per Faction.
-    if (initial !== undefined && (pair !== null) !== (initial.lastsTurns === 'per_faction')) {
-      problems.push(`FactionArchetype ${archetype.id}: Per-Faction durations agree`);
     }
   }
   const operationLevelNumbers = factionOperationLevels.map((level) => level.level);
@@ -988,17 +985,21 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     problems.push('FactionOperationLevel: Operation levels are distinct');
   }
   for (const level of factionActivityLevels.values()) {
-    for (const pair of [level.operationEveryTurns, level.lastsTurns]) {
-      if (pair !== null && pair !== 'per_faction' && !(pair[0] >= 1 && pair[0] <= pair[1])) {
-        problems.push(`FactionActivityLevel ${level.id}: Ranges are valid`);
-      }
+    // Rule 3: an Operation interval is at least 1; a Level duration may be 0, which skips the level.
+    const interval = level.operationEveryTurns;
+    if (interval !== null && !(interval[0] >= 1 && interval[0] <= interval[1])) {
+      problems.push(`FactionActivityLevel ${level.id}: Ranges are valid`);
+    }
+    const lasts = level.lastsTurns;
+    if (lasts !== null && lasts !== 'per_faction' && !(lasts[0] >= 0 && lasts[0] <= lasts[1])) {
+      problems.push(`FactionActivityLevel ${level.id}: Ranges are valid`);
     }
     if ((level.lastsTurns === null) !== (level.next === null)) {
       problems.push(`FactionActivityLevel ${level.id}: Final levels agree`);
     }
-    // Rule 5: no escalation enters a level that lasts per Faction.
+    // Rule 2: no escalation enters the first level.
     if (level.next !== null && factionActivityLevels.get(level.next)?.lastsTurns === 'per_faction') {
-      problems.push(`FactionActivityLevel ${level.id}: Per-Faction durations agree`);
+      problems.push(`FactionActivityLevel ${level.id}: One first level`);
     }
     if (level.next !== null && !factionActivityLevels.has(level.next)) {
       problems.push(`FactionActivityLevel ${level.id}: Next resolves`);

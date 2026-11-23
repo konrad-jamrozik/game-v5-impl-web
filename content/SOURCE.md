@@ -167,6 +167,13 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   commit `2b77aaf741c457839372fd10954ed1ea89ec3f5b` on 2026-11-22, making `dormant`'s `lasts_turns` `per_faction` and
   giving each FactionArchetype its `initial_lasts_turns`. The copy is still identical to the specification's
   `content/` directory outside `content/cut/`.
+- `factions/faction_activity_levels.yaml`, `factions/faction_archetypes.yaml`, `factions/faction_operation_levels.yaml`,
+  and `missions/mission_site_archetypes.yaml`: patched unchanged from specification commit
+  `6752004e376d16199ae40948d76892419c577c54` on 2026-11-22. The funding of every Initiative Mission site's `on_win` and
+  of every Faction operation level is cut, and `apprehend_member` gives no funding, from commit `5859daa`; every
+  FactionArchetype loses `initial_activity_level` and starts at `dormant`, from commit `c1a3f94`; and Red Dawn stays at
+  `dormant` for 1 Turn, Black Lotus for 20 to 30, and the levels `faint` to `total_war` last and operate sooner, from
+  commit `6752004`. The copy is still identical to the specification's `content/` directory outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

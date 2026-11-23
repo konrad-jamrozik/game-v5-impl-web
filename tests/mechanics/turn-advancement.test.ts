@@ -513,8 +513,7 @@ describe('TURN: Values a step uses, as a property', () => {
       id: 'second_faction',
       type: 'FactionArchetype',
       name: 'Second Faction',
-      initial_activity_level: 'active',
-      initial_lasts_turns: null,
+      initial_lasts_turns: [0, 0],
     });
     for (const id of ['lead_b', 'lead_c']) {
       raw.add('leads-and-progression/leads.yaml', {
@@ -533,6 +532,7 @@ describe('TURN: Values a step uses, as a property', () => {
       world.agency.state.acquisitions['transport_cap'] = 4;
       world.panicHundredths = 4000;
       for (const faction of Object.values(world.factions)) {
+        faction.state.activityLevel = 'faint';
         faction.state.turnsUntilNextOperation = 1;
         faction.state.turnsUntilNextLevel = 1;
       }

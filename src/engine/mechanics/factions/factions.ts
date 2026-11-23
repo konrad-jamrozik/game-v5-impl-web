@@ -10,9 +10,10 @@ import type { Faction, FactionState } from '../../state/types.ts';
 type Levels = (id: string) => FactionActivityLevelGdr;
 
 /**
- * FACTION, Level duration: a uniform whole-number outcome over `lasts_turns` of the level entered, or, at creation into
- * a level whose `lasts_turns` is `per_faction`, over the FactionArchetype's `initial_lasts_turns`. Faction GDR
- * validation keeps every move out of such a level, so only creation passes `perFaction`.
+ * FACTION, Level duration: a uniform whole-number outcome over `lasts_turns` of the level entered, or, on entering the
+ * first level, whose `lasts_turns` is `per_faction`, over the FactionArchetype's `initial_lasts_turns`. Faction GDR
+ * validation keeps every move out of the first level, so only creation passes `perFaction`. The value may be 0, which
+ * makes the Faction skip the level.
  */
 function levelDuration(
   random: Random,
@@ -45,21 +46,47 @@ function operationInterval(random: Random, factionId: string, level: FactionActi
   );
 }
 
-/** FACTION, Initial Factions. */
+/**
+ * FACTION, Escalation and Initial Factions: enters `level` with a Level duration outcome and, while that outcome is 0,
+ * skips the level and enters its `next`, each with an outcome of its own. Returns the level the Faction stops at and
+ * its last outcome, which is at least 1, or `null` for a final level. The loop ends because Faction GDR validation
+ * makes every `next` chain reach a final level.
+ */
+function enterLevel(
+  random: Random,
+  factionId: string,
+  first: FactionActivityLevelGdr,
+  levels: Levels,
+  perFaction: readonly [number, number] | null = null,
+): { level: FactionActivityLevelGdr; duration: number | null } {
+  let level = first;
+  let duration = levelDuration(random, factionId, level, perFaction);
+  while (duration === 0) {
+    level = levels(must(level.next, 'next level of a level that has a duration'));
+    duration = levelDuration(random, factionId, level);
+  }
+  return { level, duration };
+}
+
+/**
+ * FACTION, Initial Factions: every Faction enters the first level, over its FactionArchetype's `initial_lasts_turns`,
+ * and skips on while its Level duration outcome is 0.
+ */
 export function createFaction(
   id: string,
   archetype: FactionArchetypeGdr,
+  firstLevel: FactionActivityLevelGdr,
   levels: Levels,
   random: Random,
 ): Faction {
-  const level = levels(archetype.initialActivityLevel);
+  const { level, duration } = enterLevel(random, id, firstLevel, levels, archetype.initialLastsTurns);
   return {
     id,
     archetype: archetype.id,
     constants: {},
     state: {
       activityLevel: level.id,
-      turnsUntilNextLevel: levelDuration(random, id, level, archetype.initialLastsTurns),
+      turnsUntilNextLevel: duration,
       turnsUntilNextOperation: operationInterval(random, id, level),
       eliminated: false,
       eliminatedTurn: null,
@@ -97,11 +124,15 @@ export function applyFactionActivity(
   if (faction.turnsUntilNextLevel !== null) {
     faction.turnsUntilNextLevel -= 1;
     if (faction.turnsUntilNextLevel === 0) {
-      const next = levels(
-        must(levels(faction.activityLevel).next, 'next level of a level that has a duration'),
+      // One move enters one level, or several when it skips levels whose Level duration outcome is 0.
+      const { level: next, duration } = enterLevel(
+        random,
+        factionId,
+        levels(must(levels(faction.activityLevel).next, 'next level of a level that has a duration')),
+        levels,
       );
       faction.activityLevel = next.id;
-      faction.turnsUntilNextLevel = levelDuration(random, factionId, next);
+      faction.turnsUntilNextLevel = duration;
       if (next.operationEveryTurns === null) {
         faction.turnsUntilNextOperation = null;
       } else if (faction.turnsUntilNextOperation === null) {

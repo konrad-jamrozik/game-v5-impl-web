@@ -111,7 +111,8 @@ function setExampleValues(raw: RawGdrs): void {
       ['2', 50],
     ],
   );
-  raw.get('red_dawn')['initial_activity_level'] = 'faint';
+  // A duration of 0 at `dormant`, the first level, starts Red Dawn at `faint`.
+  raw.get('red_dawn')['initial_lasts_turns'] = [0, 0];
   for (const [id, operationLevel] of [
     ['foil_recruitment_push', 1],
     ['foil_sabotage', 2],
@@ -132,9 +133,11 @@ describe('FACTION: examples', () => {
     const created = createFaction(
       'faction-1',
       catalog.factionArchetypes.find((item) => item.id === 'red_dawn')!,
+      levels('dormant'),
       levels,
       injectedRandom({
-        'faction.faction-1.levelDuration': [20],
+        // 0 at `dormant` skips it; 20 at `faint`.
+        'faction.faction-1.levelDuration': [0, 20],
         'faction.faction-1.operationInterval': [10],
       }),
     );
@@ -219,12 +222,12 @@ describe('FACTION: examples', () => {
     const levels = (id: string) => catalog.factionActivityLevels.get(id)!;
     const sleeper = {
       ...catalog.factionArchetypes[0]!,
-      initialActivityLevel: 'dormant',
       initialLastsTurns: [10, 20] as const,
     };
     const created = createFaction(
       'faction-2',
       sleeper,
+      levels('dormant'),
       levels,
       injectedRandom({ 'faction.faction-2.levelDuration': [20] }),
     );
@@ -373,6 +376,48 @@ describe('FACTION: examples', () => {
     ).toBe('Archived');
   });
 
+  it('Skipped levels: a Level duration of 0 skips the level, at creation and in Escalation', () => {
+    // `faint` and `emerging` may last 0 Turns, so a Faction may skip them.
+    const catalog = catalogWith((raw) => {
+      setExampleValues(raw);
+      raw.get('faint')['lasts_turns'] = [0, 20];
+      raw.get('emerging')['lasts_turns'] = [0, 20];
+    });
+    const levels = (id: string) => catalog.factionActivityLevels.get(id)!;
+    const archetype = catalog.factionArchetypes.find((item) => item.id === 'red_dawn')!;
+    // At creation: 0 at `dormant` and 0 at `faint` start the Faction at `emerging`, whose Operation interval is drawn.
+    const created = createFaction(
+      'faction-1',
+      { ...archetype, initialLastsTurns: [0, 5] as const },
+      levels('dormant'),
+      levels,
+      injectedRandom({
+        'faction.faction-1.levelDuration': [0, 0, 17],
+        'faction.faction-1.operationInterval': [12],
+      }),
+    );
+    expect(created.state).toMatchObject({
+      activityLevel: 'emerging',
+      turnsUntilNextLevel: 17,
+      turnsUntilNextOperation: 12,
+    });
+    // In Escalation: leaving `faint` with 0 at `emerging` ends the move at `active`, in one Advance turn, and the
+    // Operation interval is unchanged because both `faint` and `active` have operations.
+    let state = setFaction(newCampaign({ money: 100_000, catalog }), {
+      level: 'faint',
+      untilLevel: 1,
+      untilOperation: 5,
+    });
+    const f = onlyFaction(state).id;
+    state = advance(state, { [`faction.${f}.levelDuration`]: [0, 16] }, catalog);
+    expect(onlyFaction(state).state).toMatchObject({
+      activityLevel: 'active',
+      turnsUntilNextLevel: 16,
+      turnsUntilNextOperation: 4,
+    });
+    expect(checkInvariants(state, catalog)).toEqual([]);
+  });
+
   it('Several Factions', () => {
     const catalog = catalogWith((raw) => {
       setExampleValues(raw);
@@ -380,16 +425,15 @@ describe('FACTION: examples', () => {
         id: 'test_faction',
         type: 'FactionArchetype',
         name: 'Test Faction',
-        initial_activity_level: 'active',
-        initial_lasts_turns: null,
+        initial_lasts_turns: [0, 0],
       });
     });
     let state = createCampaignState({ startingMoney: 500, startingFunding: 20 }, 'two', catalog);
     const [red, test] = Object.values(state.world.current.factions);
     expect([red!.archetype, red!.state.activityLevel]).toEqual(['red_dawn', 'faint']);
-    expect([test!.archetype, test!.state.activityLevel]).toEqual(['test_faction', 'active']);
-    expect(test!.state.turnsUntilNextOperation).toBeGreaterThanOrEqual(8);
-    expect(test!.state.turnsUntilNextOperation).toBeLessThanOrEqual(18);
+    expect([test!.archetype, test!.state.activityLevel]).toEqual(['test_faction', 'faint']);
+    expect(test!.state.turnsUntilNextOperation).toBeGreaterThanOrEqual(10);
+    expect(test!.state.turnsUntilNextOperation).toBeLessThanOrEqual(20);
     state = tweak(state, (world) => {
       for (const faction of Object.values(world.factions)) {
         faction.state.turnsUntilNextOperation = 1;
@@ -446,8 +490,7 @@ describe('FACTION: examples', () => {
         id: 'test_faction',
         type: 'FactionArchetype',
         name: 'Test Faction',
-        initial_activity_level: 'active',
-        initial_lasts_turns: null,
+        initial_lasts_turns: [0, 0],
       });
       raw.files.find((file) => file.path === 'factions/faction_archetypes.yaml')!.gdrs.reverse();
     });
@@ -491,26 +534,28 @@ describe('FACTION: examples', () => {
     expectDefective((raw) => raw.get('faint')['operation_level_weights'].$entries.push(['7', 5]));
     expectDefective((raw) => (raw.get('active')['lasts_turns'] = null));
     expectDefective((raw) => (raw.get('faint')['operation_every_turns'] = [0, 25]));
-    expectDefective((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'missing_level'));
+    // Rule 1: `initial_activity_level` is no longer a property of a FactionArchetype.
+    expectDefective((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'dormant'));
     // Rule 8: weights exactly when the level has operations.
     expectDefective((raw) => (raw.get('dormant')['operation_every_turns'] = [10, 20]));
     expectDefective((raw) => (raw.get('faint')['operation_every_turns'] = null));
     expectDefective((raw) => raw.get('dormant')['operation_level_weights'].$entries.push(['1', 5]));
-    // Rule 5: `initial_lasts_turns` is a pair exactly when the initial level lasts per Faction, and no `next`
-    // enters such a level.
+    // Rule 3: `initial_lasts_turns` and `lasts_turns` are pairs with 0 <= lo <= hi; `initial_lasts_turns` is
+    // never `null`.
     expect(
       catalogWith((raw) => {
-        raw.get('red_dawn')['initial_activity_level'] = 'dormant';
-        raw.get('red_dawn')['initial_lasts_turns'] = [5, 10];
+        raw.get('red_dawn')['initial_lasts_turns'] = [0, 10];
+        raw.get('emerging')['lasts_turns'] = [0, 0];
       }),
     ).toBeDefined();
-    expectDefective((raw) => (raw.get('red_dawn')['initial_activity_level'] = 'dormant'));
-    expectDefective((raw) => (raw.get('red_dawn')['initial_lasts_turns'] = [5, 10]));
-    expectDefective((raw) => {
-      raw.get('red_dawn')['initial_activity_level'] = 'dormant';
-      raw.get('red_dawn')['initial_lasts_turns'] = [0, 10];
-    });
+    expectDefective((raw) => (raw.get('red_dawn')['initial_lasts_turns'] = null));
+    expectDefective((raw) => (raw.get('red_dawn')['initial_lasts_turns'] = [-1, 0]));
+    expectDefective((raw) => (raw.get('red_dawn')['initial_lasts_turns'] = [5, 3]));
+    expectDefective((raw) => (raw.get('faint')['lasts_turns'] = [-1, 5]));
     expectDefective((raw) => delete raw.get('red_dawn')['initial_lasts_turns']);
+    // Rule 2: exactly one first level, and no `next` enters it.
+    expectDefective((raw) => (raw.get('total_war')['lasts_turns'] = 'per_faction'));
+    expectDefective((raw) => (raw.get('dormant')['lasts_turns'] = [5, 10]));
     expectDefective((raw) =>
       raw.add('factions/faction_activity_levels.yaml', {
         id: 'prelude',
