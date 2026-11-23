@@ -7,9 +7,9 @@
  * in Chromium, then deploys Agents and advances one Turn for the pictures of the Turn summary and the Turn report, and
  * writes one PNG per picture to the output directory, by default
  * `../game-v5/docs/images/screens`, removing the PNG files there that it no longer writes. The pictures are generated:
- * nobody edits them, and where a picture and the game disagree, the game is right. It then writes today's date under
- * each picture in the screen specifications next to the output directory, since a picture may lag the game by up to a
- * week.
+ * nobody edits them, and where a picture and the game disagree, the game is right. It then writes the capture time
+ * under each picture whose content changed in the screen specifications next to the output directory, since a picture
+ * may lag the game by up to 72 hours.
  *
  * The pictures are deterministic, so that running the script twice writes byte-identical files:
  * - a fixed window of WINDOW, at one device pixel per CSS pixel, in the game's one dark theme;
@@ -165,9 +165,22 @@ async function settle(page: Page): Promise<void> {
   }
 }
 
+/** The content each picture had before this capture, by file name, so that only changed pictures are dated anew. */
+const before = new Map<string, Buffer>();
+
 function target(name: string): string {
+  const file = join(outDir, `${name}.png`);
+  if (!written.has(`${name}.png`) && existsSync(file)) {
+    before.set(`${name}.png`, readFileSync(file));
+  }
   written.add(`${name}.png`);
-  return join(outDir, `${name}.png`);
+  return file;
+}
+
+/** Whether the picture differs from the one the output directory held before this capture, or is new. */
+function changed(png: string): boolean {
+  const previous = before.get(png);
+  return previous === undefined || !previous.equals(readFileSync(join(outDir, png)));
 }
 
 /** A picture of the whole window; with `fullPage`, of the whole page, e.g. a Main menu longer than the window. */
@@ -416,9 +429,10 @@ async function captureMainMenu(page: Page): Promise<void> {
 }
 
 /**
- * Writes the date of this capture under each picture in the screen specifications next to the output directory, i.e.
- * `docs/specs/design/ui/screens` of the Spec repo, as a "_Captured on YYYY-MM-DD._" paragraph, so that a reader sees
- * how old each picture is. Uses the real date, not the fixed clock of the pictures.
+ * Writes the time of this capture under each picture whose content changed, in the screen specifications next to the
+ * output directory, i.e. `docs/specs/design/ui/screens` of the Spec repo, as a "_Captured on YYYY-MM-DD HH:MM UTC._"
+ * paragraph, so that a reader sees how old each picture is. A picture that came out the same keeps its time. Uses the
+ * real time, not the fixed clock of the pictures.
  */
 function stampCaptureDates(): void {
   const specs = resolve(outDir, '../../specs/design/ui/screens');
@@ -426,9 +440,9 @@ function stampCaptureDates(): void {
     console.log(`No screen specifications at ${specs}; no capture dates written`);
     return;
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const now = `${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`;
   const picture =
-    /^(!\[[^\]]*\]\((?:\.\.\/)+images\/screens\/([\w-]+\.png)\))(?:\n\n_Captured on \d{4}-\d{2}-\d{2}\._)?$/gm;
+    /^(!\[[^\]]*\]\((?:\.\.\/)+images\/screens\/([\w-]+\.png)\))(?:\n\n_Captured on \d{4}-\d{2}-\d{2}(?: \d{2}:\d{2} UTC)?\._)?$/gm;
   for (const file of readdirSync(specs)) {
     if (!file.endsWith('.md')) {
       continue;
@@ -436,7 +450,9 @@ function stampCaptureDates(): void {
     const path = join(specs, file);
     const text = readFileSync(path, 'utf8');
     const stamped = text.replace(picture, (line: string, image: string, png: string) =>
-      written.has(png) ? `${image}\n\n_Captured on ${today}._` : line,
+      written.has(png) && (changed(png) || !line.includes('_Captured on'))
+        ? `${image}\n\n_Captured on ${now}._`
+        : line,
     );
     if (stamped !== text) {
       writeFileSync(path, stamped);
