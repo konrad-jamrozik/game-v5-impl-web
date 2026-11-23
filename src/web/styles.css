@@ -27,6 +27,12 @@
   /* VIS, Colours: Notice, welcome news that asks for no action, and Autopilot, for an Autopilot button. */
   --notice: #8fb8d6;
   --autopilot: #b4a0e5;
+  /* VIS, Colours: Enemy amber and Enemy violet, which with Danger tell the Enemies of the Combat replay apart, and
+     Tracer and Beam, for its shots. */
+  --enemy-amber: #f2b34c;
+  --enemy-violet: #b58cff;
+  --tracer: #ffe9a8;
+  --beam: #7fd8f0;
   /* VIS, Colours: the fills of a Combat log row by its attacker's side. */
   --agent-attack-tint: rgb(183 199 122 / 7%);
   --enemy-attack-tint: rgb(255 127 120 / 7%);
@@ -3071,4 +3077,132 @@ label:has(> input[type='checkbox']:disabled) {
 
 .equipment-detail {
   display: block;
+}
+
+/* CRPLAY: the Battlefield beside its playback controls and the Combat log. */
+.replay {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 348px;
+  gap: 16px;
+  align-items: start;
+}
+
+.replay-field,
+.replay-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* CRPLAY, Playback: the Combat ratings of the two sides, the Agents' share in Positive against the Enemies' in Danger. */
+.replay-balance {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.replay-bar {
+  display: flex;
+  height: 8px;
+  background: var(--danger);
+}
+
+.replay-bar > i {
+  background: var(--positive);
+}
+
+/* CRPLAY, Battlefield layout: a square that fits the height of the window, so that all of it is seen at once. */
+.replay-canvas {
+  position: relative;
+  width: min(100%, calc(100vh - 290px));
+  min-width: 320px;
+  aspect-ratio: 1;
+}
+
+.replay-canvas canvas {
+  display: block;
+  background: var(--surface);
+  outline: 1px solid var(--border);
+}
+
+.replay-tip {
+  position: absolute;
+  z-index: 2;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  background: var(--raised);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.replay-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.replay-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 100px;
+}
+
+.replay-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.replay-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.replay-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.replay-log {
+  position: relative;
+  max-height: 240px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.replay-log-row {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) auto;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.replay-log-row.log-agent {
+  background: var(--agent-attack-tint);
+}
+
+.replay-log-row.log-enemy {
+  background: var(--enemy-attack-tint);
+}
+
+.replay-log-row.current {
+  border-left-color: var(--accent);
+  background: var(--raised);
+}
+
+.replay-log-row.ahead {
+  opacity: 0.45;
 }

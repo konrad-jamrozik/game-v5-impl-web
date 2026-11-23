@@ -1245,6 +1245,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         id: ammo.id,
         name: ammo.name,
         price: ammo.price,
+        shot: ammo.shot,
       })),
       enemyArchetypes: [...gdrs.enemyArchetypes.values()].map((enemy) => ({
         id: enemy.id,

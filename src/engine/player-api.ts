@@ -530,7 +530,13 @@ export interface GameDataView {
     readonly price: number | null;
   }[];
   /** COMBAT, AmmoType: every AmmoType GDR. */
-  readonly ammoTypes: readonly { readonly id: string; readonly name: string; readonly price: number }[];
+  readonly ammoTypes: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly price: number;
+    /** Display content: how firing one round looks, which the Combat replay draws. */
+    readonly shot: 'bullet' | 'burst' | 'beam';
+  }[];
   readonly enemyArchetypes: readonly {
     readonly id: string;
     readonly name: string;

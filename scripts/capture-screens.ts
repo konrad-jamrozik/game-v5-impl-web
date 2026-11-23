@@ -411,6 +411,14 @@ async function capture(page: Page): Promise<void> {
   await id(page, 'combat-log-toggle').click();
   await expect(id(page, 'combat-log')).toBeVisible();
   await shootElement(page, 'combat-report', view(page, 'report'));
+  // The Combat replay of the same Combat, at rest half-way through its Combat log: the slider shows a moment without
+  // playing to it, so the picture does not depend on how long anything took.
+  await id(page, 'visualize-combat').click();
+  await expect(id(page, 'combat-replay')).toBeVisible();
+  const slider = id(page, 'replay-slider');
+  const attacks = Number(await slider.getAttribute('max'));
+  await slider.fill(String(Math.ceil(attacks / 2)));
+  await shootElement(page, 'combat-replay', view(page, 'report'));
 
   // The globe, last: while it is drawn in software, the page barely responds.
   await closeViews(page);

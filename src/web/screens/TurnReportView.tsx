@@ -11,6 +11,7 @@ import type {
   TurnReport,
 } from '../../engine/index.ts';
 import { armorText, combatLogRow, finalCondition } from '../combat-log.ts';
+import { buildReplay } from '../combat-replay.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
 import { hitChanceText, progressGain, progressPoints, wholeText } from '../format.ts';
@@ -20,6 +21,7 @@ import type { Snapshot } from '../store.ts';
 import { turnSummaryHasContent } from '../turn-summary.ts';
 import { backLabel, turnSummaryPlace } from '../view-trail.ts';
 import { Button, Grid } from '../ui.tsx';
+import { CombatReplay } from './CombatReplay.tsx';
 import { DetailView } from './DetailView.tsx';
 
 /**
@@ -60,8 +62,10 @@ export function TurnReportView(props: {
   // place.
   const [combat, setCombat] = usePlaceState<string | null>('combat', null);
   const [logOpen, setLogOpen] = usePlaceState('logOpen', false);
+  // CRPLAY, Visualize button: the Combat replay is shown in place of the content, one step away like the Combat report.
+  const [replayShown, setReplayShown] = usePlaceState('replay', false);
   const shownCombat = report?.combatReports.find((item) => item.mission === combat);
-  usePlaceName(shownCombat === undefined ? null : 'Combat report');
+  usePlaceName(shownCombat === undefined ? null : replayShown ? 'Combat replay' : 'Combat report');
   // TRVIEW, Turn summary button: disabled, not hidden, when there is no Turn report or no group to show. While the
   // Back control returns to the Turn summary, the Back control stands in its place and the button is not shown.
   const backToSummary = place.back?.label === backLabel([turnSummaryPlace(null)]);
@@ -104,23 +108,59 @@ export function TurnReportView(props: {
     const siteName = site?.name ?? mission?.missionSite;
     // GUI, Enemy labels: each Enemy by its Enemy label, each Agent by its Instance ID.
     const labels = enemyLabels(site?.enemies ?? []);
+    const aside = (
+      <>
+        {siteName}
+        {mission === undefined ? null : (
+          <>
+            {' · '}
+            <span className={mission.result === 'Won' ? 'tone-good' : 'tone-bad'}>{mission.result}</span>
+          </>
+        )}
+        {/* TRVIEW, Sections: the Combat outcome only of a Lost Mission, as a Won one's is Won too. */}
+        {`${mission?.result === 'Won' ? '' : ` · ${shownCombat.outcome}`} in ${shownCombat.rounds} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`}
+      </>
+    );
+    if (replayShown) {
+      const gameData = snapshot.gameData;
+      const enemyOf = (id: string) => site?.enemies.find((enemy) => enemy.id === id);
+      const replay = buildReplay(shownCombat, {
+        nameOf: (id) => labels.get(id) ?? id,
+        // GUI, EnemyArchetype order: the authored order of the EnemyArchetypes, which the game data keeps.
+        enemyOrder: (id) =>
+          gameData?.enemyArchetypes.findIndex((archetype) => archetype.id === enemyOf(id)?.archetype) ?? -1,
+        enemyAmmoType: (id) =>
+          gameData?.weapons.find((weapon) => weapon.id === enemyOf(id)?.weapon)?.ammoType ?? null,
+        shotOfAmmoType: (ammoType) => gameData?.ammoTypes.find((item) => item.id === ammoType)?.shot,
+        seed: shownCombat.mission,
+      });
+      return (
+        <DetailView id="report" title="Combat replay" aside={aside} onClose={props.onClose}>
+          <CombatReplay
+            combat={shownCombat}
+            replay={replay}
+            armorScale={Math.max(1, ...(gameData?.armors.map((armor) => armor.armor) ?? []))}
+          />
+        </DetailView>
+      );
+    }
     return (
       <DetailView
         id="report"
         title="Combat report"
-        aside={
-          <>
-            {siteName}
-            {mission === undefined ? null : (
-              <>
-                {' · '}
-                <span className={mission.result === 'Won' ? 'tone-good' : 'tone-bad'}>{mission.result}</span>
-              </>
-            )}
-            {/* TRVIEW, Sections: the Combat outcome only of a Lost Mission, as a Won one's is Won too. */}
-            {`${mission?.result === 'Won' ? '' : ` · ${shownCombat.outcome}`} in ${shownCombat.rounds} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`}
-          </>
+        // CRPLAY, Visualize button: in the title row of a Combat report; the Combat replay opens as a Follow.
+        lead={
+          <Button
+            testId="visualize-combat"
+            onClick={() => {
+              place.follow();
+              setReplayShown(true);
+            }}
+          >
+            Visualize
+          </Button>
         }
+        aside={aside}
         onClose={props.onClose}
       >
         <CombatReportDetails
@@ -165,6 +205,14 @@ export function TurnReportView(props: {
             // TRVIEW, Combat report: it opens one step away as a Follow.
             place.follow();
             setLogOpen(false);
+            setReplayShown(false);
+            setCombat(mission);
+          }}
+          onVisualize={(mission) => {
+            // CRPLAY, Visualize button: the Combat replay opens one step away as a Follow.
+            place.follow();
+            setLogOpen(false);
+            setReplayShown(true);
             setCombat(mission);
           }}
         />
@@ -179,6 +227,7 @@ function Sections(props: {
   state: CurrentLiveWorldStateView;
   onOpen: (target: ReportTarget) => void;
   onCombat: (mission: string) => void;
+  onVisualize: (mission: string) => void;
 }) {
   const { report, snapshot, state, onOpen } = props;
   const sites: readonly MissionSiteView[] = [
@@ -265,7 +314,7 @@ function Sections(props: {
   return (
     <>
       <Section title="Missions" count={report.missions.length} testId="report-missions">
-        <Grid widths={['200px', '200px', '96px', '170px', '208px', '120px', '150px']}>
+        <Grid widths={['200px', '200px', '96px', '170px', '208px', '120px', '262px']}>
           <tbody>
             {report.missions.map((mission) => {
               const combat = report.combatReports.find((item) => item.mission === mission.mission);
@@ -305,16 +354,29 @@ function Sections(props: {
                   </td>
                   <td>
                     {combat === undefined ? null : (
-                      <button
-                        type="button"
-                        className="btn btn-plain"
-                        data-testid={`combat-${mission.mission}`}
-                        onClick={() => {
-                          props.onCombat(mission.mission);
-                        }}
-                      >
-                        Combat report
-                      </button>
+                      <span className="trade-buttons">
+                        <button
+                          type="button"
+                          className="btn btn-plain"
+                          data-testid={`combat-${mission.mission}`}
+                          onClick={() => {
+                            props.onCombat(mission.mission);
+                          }}
+                        >
+                          Combat report
+                        </button>
+                        {/* CRPLAY, Visualize button: beside each Combat report button. */}
+                        <button
+                          type="button"
+                          className="btn btn-plain"
+                          data-testid={`visualize-${mission.mission}`}
+                          onClick={() => {
+                            props.onVisualize(mission.mission);
+                          }}
+                        >
+                          Visualize
+                        </button>
+                      </span>
                     )}
                   </td>
                 </tr>

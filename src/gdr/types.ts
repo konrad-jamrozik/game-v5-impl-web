@@ -59,7 +59,12 @@ export interface AmmoTypeGdr {
   readonly name: string;
   /** The money one round costs: a whole number of at least 1. */
   readonly price: number;
+  /** Display content: how firing one round looks to the Player. */
+  readonly shot: AmmoShot;
 }
+
+/** COMBAT, AmmoType: the values of `shot`. */
+export type AmmoShot = 'bullet' | 'burst' | 'beam';
 
 /** EQUIP, EquipmentParameters. */
 export interface EquipmentParametersGdr {

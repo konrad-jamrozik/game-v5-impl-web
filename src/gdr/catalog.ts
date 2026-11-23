@@ -319,7 +319,13 @@ const schemas = {
       price: g.price ?? null,
       unlockedBy: g.unlocked_by ?? null,
     })),
-  AmmoType: z.strictObject({ id, type: z.literal('AmmoType'), name, price: whole(1) }),
+  AmmoType: z.strictObject({
+    id,
+    type: z.literal('AmmoType'),
+    name,
+    price: whole(1),
+    shot: z.enum(['bullet', 'burst', 'beam']),
+  }),
   EquipmentParameters: z
     .strictObject({
       id,

@@ -41,6 +41,8 @@ export function TurnSummary(props: {
   onOpenReport: () => void;
   /** TSUM, Mission cards: the Combat report button opens that Mission's Combat report in the Turn Report View. */
   onOpenCombat: (mission: string) => void;
+  /** CRPLAY, Visualize button: opens that Mission's Combat replay in the Turn Report View. */
+  onOpenReplay: (mission: string) => void;
   /** TSUM, Mission site links: a new or Expired Mission site item opens the Missions View with it selected. */
   onOpenSite: (missionSite: string) => void;
   /** TSUM, Groups: the line of an Investigation that unlocked Contracting opens the Agents View. */
@@ -116,16 +118,28 @@ export function TurnSummary(props: {
                   </dl>
                   <div className="sit-line">
                     <Consequences consequence={mission.consequence} label="Consequences" className="small" />
-                    <button
-                      type="button"
-                      className="btn btn-plain"
-                      data-testid={`summary-combat-${mission.mission}`}
-                      onClick={() => {
-                        props.onOpenCombat(mission.mission);
-                      }}
-                    >
-                      Combat report
-                    </button>
+                    <span className="trade-buttons">
+                      <button
+                        type="button"
+                        className="btn btn-plain"
+                        data-testid={`summary-combat-${mission.mission}`}
+                        onClick={() => {
+                          props.onOpenCombat(mission.mission);
+                        }}
+                      >
+                        Combat report
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-plain"
+                        data-testid={`summary-visualize-${mission.mission}`}
+                        onClick={() => {
+                          props.onOpenReplay(mission.mission);
+                        }}
+                      >
+                        Visualize
+                      </button>
+                    </span>
                   </div>
                 </article>
               ))}
