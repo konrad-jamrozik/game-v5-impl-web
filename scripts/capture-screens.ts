@@ -7,7 +7,9 @@
  * in Chromium, then deploys Agents and advances one Turn for the pictures of the Turn summary and the Turn report, and
  * writes one PNG per picture to the output directory, by default
  * `../game-v5/docs/images/screens`, removing the PNG files there that it no longer writes. The pictures are generated:
- * nobody edits them, and where a picture and the game disagree, the game is right.
+ * nobody edits them, and where a picture and the game disagree, the game is right. It then writes today's date under
+ * each picture in the screen specifications next to the output directory, since a picture may lag the game by up to a
+ * week.
  *
  * The pictures are deterministic, so that running the script twice writes byte-identical files:
  * - a fixed window of WINDOW, at one device pixel per CSS pixel, in the game's one dark theme;
@@ -19,7 +21,7 @@
  * No Autopilot AI plays: the scenario advances one Turn by hand. It records no result of play other than the pictures.
  */
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
-import { mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium, expect, type Dialog, type Locator, type Page } from '@playwright/test';
@@ -413,6 +415,36 @@ async function captureMainMenu(page: Page): Promise<void> {
   await shootWindow(page, 'main-menu', true);
 }
 
+/**
+ * Writes the date of this capture under each picture in the screen specifications next to the output directory, i.e.
+ * `docs/specs/design/ui/screens` of the Spec repo, as a "_Captured on YYYY-MM-DD._" paragraph, so that a reader sees
+ * how old each picture is. Uses the real date, not the fixed clock of the pictures.
+ */
+function stampCaptureDates(): void {
+  const specs = resolve(outDir, '../../specs/design/ui/screens');
+  if (!existsSync(specs)) {
+    console.log(`No screen specifications at ${specs}; no capture dates written`);
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const picture =
+    /^(!\[[^\]]*\]\((?:\.\.\/)+images\/screens\/([\w-]+\.png)\))(?:\n\n_Captured on \d{4}-\d{2}-\d{2}\._)?$/gm;
+  for (const file of readdirSync(specs)) {
+    if (!file.endsWith('.md')) {
+      continue;
+    }
+    const path = join(specs, file);
+    const text = readFileSync(path, 'utf8');
+    const stamped = text.replace(picture, (line: string, image: string, png: string) =>
+      written.has(png) ? `${image}\n\n_Captured on ${today}._` : line,
+    );
+    if (stamped !== text) {
+      writeFileSync(path, stamped);
+      console.log(`dated the pictures in ${file}`);
+    }
+  }
+}
+
 mkdirSync(outDir, { recursive: true });
 const child = await startServer();
 // The globe is drawn with WebGL in software, the same on every run; the colour profile is fixed, and the page is
@@ -457,6 +489,7 @@ try {
     }
   }
   console.log(`${written.size} pictures in ${outDir}`);
+  stampCaptureDates();
 } finally {
   await browser.close();
   stopServer(child);
