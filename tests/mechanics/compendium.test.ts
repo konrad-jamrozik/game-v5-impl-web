@@ -142,13 +142,13 @@ describe('COMP: the Bootstrap CompendiumArticle GDRs', () => {
     }
     const subjects = all.filter((article) => article.category === 'subject');
     expect(subjects.length).toBeGreaterThan(0);
-    // GDRS, Compendium GDRs: every Armor but `no_armor` has a Subject article.
+    // GDRS, Compendium GDRs: every Armor has a Subject article.
     expect(
       subjects
         .filter((article) => article.subjectType === 'Armor')
         .map((article) => article.subject)
         .sort(),
-    ).toEqual([...bootstrap.armors.keys()].filter((id) => id !== 'no_armor').sort());
+    ).toEqual([...bootstrap.armors.keys()].sort());
     for (const article of subjects) {
       expect(article.id).toBe(`${article.subject}_article`);
     }
@@ -732,7 +732,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
     }
     // Every Guide article and Mechanics article, and every Agent and Upgrade article, in Game build order, with the
     // articles about the Met subjects: the Enemies of Apprehend member, which the discovered first Lead creates, their
-    // Weapons and Armors, and the Agents' Service weapon and Service armor.
+    // Weapons and Armors, and the Agents' Combat pistol and Standard uniform.
     const all = gdrs.compendiumArticles;
     // The Contracting article waits for its `visible_when`, the completion of `contracting_opportunities`.
     const always = all.filter(
@@ -960,7 +960,7 @@ describe('COMP: Met subjects', () => {
       world.discoveredLeads.push(lead);
     });
 
-  it('GDRS: the first World state shows, of the Subject articles, only field_agent, service_weapon, service_armor, the Upgrades, contracting_opportunities, and criminal_organizations', () => {
+  it('GDRS: the first World state shows, of the Subject articles, only field_agent, combat_pistol, standard_uniform, the Upgrades, contracting_opportunities, and criminal_organizations', () => {
     const catalog = bootstrapGdrCatalog();
     const state = newCampaign({ catalog, firstLead: false });
     const subjects = visibleArticles(state.world.current, catalog)
@@ -986,10 +986,11 @@ describe('COMP: Met subjects', () => {
     let state = newCampaign({ firstLead: false });
     expect(visible(state)).not.toContain('initiate_article');
     expect(visible(state)).not.toContain('basic_pistol_article');
-    expect(visible(state)).not.toContain('combat_pistol_article');
-    expect(visible(state)).toContain('service_weapon_article');
+    expect(visible(state)).not.toContain('basic_clothing_article');
+    // COMP, Met subjects: the combat pistol is met from the start, because every Agent carries one.
+    expect(visible(state)).toContain('combat_pistol_article');
     // COMP, Article visibility: an Armor's article needs no Met subject.
-    expect(visible(state)).toContain('service_armor_article');
+    expect(visible(state)).toContain('standard_uniform_article');
 
     // Discovering the Lead that creates Apprehend member, before any Mission site exists.
     state = discover(state, 'locate_red_dawn_member');
@@ -1001,6 +1002,7 @@ describe('COMP: Met subjects', () => {
     expect(met.has('soldier')).toBe(false);
     expect(visible(state)).toContain('initiate_article');
     expect(visible(state)).toContain('basic_pistol_article');
+    expect(visible(state)).toContain('basic_clothing_article');
 
     // Every Weapon a met Enemy carries is met, and no other.
     const raid = gdrs.missionSiteArchetypes.find((item) => item.id === 'raid_safehouse')!;

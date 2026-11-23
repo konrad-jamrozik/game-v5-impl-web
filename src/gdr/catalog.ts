@@ -111,9 +111,10 @@ function effectsOf<S extends Record<string, z.ZodType>>(effects: ReadonlyMap<str
 }
 /**
  * COND, Condition format: a map with exactly one key, `all`, `any`, `not`, or the name of a Condition kind, whose
- * value is a list of Conditions, one Condition, or the value of the Condition kind. Every Condition property permits
- * exactly the Condition kinds `mission_won` and `lead_completed`, each with a GDR identifier, whose references are
- * resolved under `conditionReferences`. Returns null for a Condition that violates the format.
+ * value is a list of Conditions, one Condition, or the value of the Condition kind. The Condition kinds are
+ * `mission_won`, `initiative_won_with_enemy`, and `lead_completed`, each with a GDR identifier, whose references are
+ * resolved under `conditionReferences`; which of them a Condition property permits is checked by its own validation.
+ * Returns null for a Condition that violates the format.
  */
 function parseCondition(raw: unknown): Condition | null {
   const map = z.strictObject({ $entries: z.array(z.tuple([z.string(), z.unknown()])) }).safeParse(raw);
@@ -142,6 +143,10 @@ function parseCondition(raw: unknown): Condition | null {
       return id.safeParse(value).success
         ? { kind: 'mission_won', missionSiteArchetype: value as string }
         : null;
+    case 'initiative_won_with_enemy':
+      return id.safeParse(value).success
+        ? { kind: 'initiative_won_with_enemy', enemyArchetype: value as string }
+        : null;
     case 'lead_completed':
       return id.safeParse(value).success ? { kind: 'lead_completed', lead: value as string } : null;
     default:
@@ -158,22 +163,29 @@ const condition = z.unknown().transform((raw, context) => {
   return parsed;
 });
 /** The GDR identifiers the simple Conditions of a Condition name, by Condition kind, at any depth. */
-function conditionReferences(item: Condition): { missionSiteArchetypes: string[]; leads: string[] } {
+function conditionReferences(item: Condition): {
+  missionSiteArchetypes: string[];
+  enemyArchetypes: string[];
+  leads: string[];
+} {
   switch (item.kind) {
     case 'all':
     case 'any': {
       const parts = item.conditions.map(conditionReferences);
       return {
         missionSiteArchetypes: parts.flatMap((part) => part.missionSiteArchetypes),
+        enemyArchetypes: parts.flatMap((part) => part.enemyArchetypes),
         leads: parts.flatMap((part) => part.leads),
       };
     }
     case 'not':
       return conditionReferences(item.condition);
     case 'mission_won':
-      return { missionSiteArchetypes: [item.missionSiteArchetype], leads: [] };
+      return { missionSiteArchetypes: [item.missionSiteArchetype], enemyArchetypes: [], leads: [] };
+    case 'initiative_won_with_enemy':
+      return { missionSiteArchetypes: [], enemyArchetypes: [item.enemyArchetype], leads: [] };
     case 'lead_completed':
-      return { missionSiteArchetypes: [], leads: [item.lead] };
+      return { missionSiteArchetypes: [], enemyArchetypes: [], leads: [item.lead] };
   }
 }
 const range = z.tuple([z.int(), z.int()]);
@@ -504,11 +516,14 @@ const schemas = {
         context.addIssue({ code: 'custom', message: 'Completion effect is valid (it needs a faction)' });
         return z.NEVER;
       }
-      // LEAD, Lead GDR validation, rule 4: a Lead without `faction` has no `mission_won` Condition.
+      // LEAD, Lead GDR validation, rule 4: a Lead without `faction` has no `mission_won` and no
+      // `initiative_won_with_enemy` Condition, because both need the Faction of the Lead as their supplied input.
+      const discoveryReferences =
+        g.discovered_when === undefined ? null : conditionReferences(g.discovered_when);
       if (
         g.faction === undefined &&
-        g.discovered_when !== undefined &&
-        conditionReferences(g.discovered_when).missionSiteArchetypes.length > 0
+        discoveryReferences !== null &&
+        discoveryReferences.missionSiteArchetypes.length + discoveryReferences.enemyArchetypes.length > 0
       ) {
         context.addIssue({ code: 'custom', message: 'Discovery Condition is valid' });
         return z.NEVER;
@@ -1032,14 +1047,17 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     }
   }
 
-  // MISSION, Mission won Condition kind, and LEAD, Lead completed Condition kind: the value of each names a
-  // MissionSiteArchetype, of either kind, or a Lead that the Game build supplies.
+  // MISSION, Mission won and Initiative won with Enemy Condition kinds, and LEAD, Lead completed Condition kind: the
+  // value of each names a MissionSiteArchetype, of either kind, an EnemyArchetype, or a Lead that the Game build
+  // supplies.
   const conditionResolves = (item: Condition): boolean => {
     const references = conditionReferences(item);
     return (
       references.missionSiteArchetypes.every((site) =>
         missionSiteArchetypes.some((each) => each.id === site),
-      ) && references.leads.every((lead) => leads.some((each) => each.id === lead))
+      ) &&
+      references.enemyArchetypes.every((enemy) => enemyArchetypes.has(enemy)) &&
+      references.leads.every((lead) => leads.some((each) => each.id === lead))
     );
   };
 
@@ -1052,8 +1070,13 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     if (site.operationLevel !== null && !operationLevelNumbers.includes(site.operationLevel)) {
       problems.push(`MissionSiteArchetype ${site.id}: Operation level only for Response`);
     }
-    // MISSION, MissionSiteArchetype validation, rule 9: each Condition kind with a value its Condition kind permits.
-    if (site.canExistWhen !== null && !conditionResolves(site.canExistWhen)) {
+    // MISSION, MissionSiteArchetype validation, rule 9: only the Condition kinds `mission_won` and `lead_completed`,
+    // each with a value its Condition kind permits.
+    if (
+      site.canExistWhen !== null &&
+      (!conditionResolves(site.canExistWhen) ||
+        conditionReferences(site.canExistWhen).enemyArchetypes.length > 0)
+    ) {
       problems.push(`MissionSiteArchetype ${site.id}: Existence Condition only for Initiative`);
     }
   }

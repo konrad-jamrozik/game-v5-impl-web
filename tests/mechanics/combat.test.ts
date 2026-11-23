@@ -836,12 +836,12 @@ describe('COMBAT: examples', () => {
     });
     expectDefective((raw) => (raw.get('combat_pistol')['base_weapon_damage'] = 0));
     // COMBAT, Combat GDR validation, rules 2, 3, and 8, for Armor.
-    expectDefective((raw) => (raw.get('no_armor')['base_armor'] = -1));
-    expectDefective((raw) => (raw.get('no_armor')['base_armor'] = 0.5));
+    expectDefective((raw) => (raw.get('basic_clothing')['base_armor'] = -1));
+    expectDefective((raw) => (raw.get('basic_clothing')['base_armor'] = 0.5));
     expectDefective((raw) => (raw.get('initiate')['armor'] = 'plate'));
     expectDefective((raw) => delete raw.get('initiate')['armor']);
     expectDefective((raw) => (raw.get('field_agent')['armor'] = 'plate'));
-    expectDefective((raw) => (raw.get('service_armor')['weight'] = 1));
+    expectDefective((raw) => (raw.get('standard_uniform')['weight'] = 1));
     expectDefective((raw) => (raw.get('combat_parameters')['weapon_damage_range'] = { $decimal: '1.5' }));
     expectDefective((raw) => (raw.get('combat_pistol')['range'] = 3));
     expectDefective((raw) => (raw.get('cult_leader')['weapon'] = 'laser'));

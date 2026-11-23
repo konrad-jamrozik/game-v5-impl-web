@@ -180,6 +180,14 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `initial_lasts_turns` is `[0, 0]`, so it starts at `faint`, Exalt's `[5, 15]`, and Black Lotus's `[10, 20]`; and the
   levels `faint` to `total_war` last longer and operate on new intervals. The copy is still identical to the
   specification's `content/` directory outside `content/cut/`.
+- `agents/agent_archetypes.yaml`, `combat/armors.yaml`, `combat/enemy_archetypes.yaml`, `combat/weapons.yaml`,
+  `leads-and-progression/leads.yaml`, and the changed files of `compendium/compendium_articles/`: patched unchanged from
+  specification commit `0e0a30c94662b47c8dddb1decf52dedd5d9c3ec3` on 2026-11-22. The Weapons and Armors are renamed,
+  e.g. `heavy_rifle` to `laser_pistol` and `service_armor` to `standard_uniform`; `service_weapon` merges into
+  `combat_pistol`, the Agents' Weapon now; `basic_clothing`, formerly `no_armor`, gains a Subject article; and
+  `interrogate_<faction>_soldier` becomes `interrogate_<faction>_lieutenant`, discovered by an
+  `initiative_won_with_enemy` Condition. The copy is still identical to the specification's `content/` directory outside
+  `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

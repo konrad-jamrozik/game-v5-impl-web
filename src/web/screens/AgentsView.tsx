@@ -941,7 +941,7 @@ function AgentDetails(props: {
         <dd>
           {agent.weaponName} <span className="figure secondary">· damage {agent.effectiveWeaponDamage}</span>
         </dd>
-        {/* AVIEW, Agent details: the Armor with its effective armor, e.g. "Service armor · armor 2"; a Terminated
+        {/* AVIEW, Agent details: the Armor with its effective armor, e.g. "Standard uniform · armor 2"; a Terminated
             Agent's is its Final armor, which the view reports as its effective armor. */}
         <dt>Armor</dt>
         <dd data-testid="details-armor">

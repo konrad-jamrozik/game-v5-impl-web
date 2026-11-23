@@ -144,15 +144,24 @@ describe('GDRS: the GDRs', () => {
     const first = discoveredAtStart.filter((lead) => !lead.onCompletion.unlockContracting);
     expect(first).toHaveLength(1);
     // Follow each Faction's chain from its first Lead: a Lead that creates a Mission site discovers the next Lead by a
-    // Won Mission there, and one that creates none discovers the next one by its completion, up to the Terminate Lead.
-    const next = (lead: string, site: string | null) =>
+    // Won Mission there, through `mission_won` naming it or `initiative_won_with_enemy` naming one of its Enemies, and
+    // one that creates none discovers the next one by its completion, up to the Terminate Lead. A Lead that an earlier
+    // Mission site of the chain already discovered is not discovered again.
+    const enemiesAt = (site: string) =>
+      catalog.missionSiteArchetypes.find((item) => item.id === site)!.enemies.map(([enemy]) => enemy);
+    const next = (lead: string, site: string | null, passed: readonly string[] = []) =>
       catalog.leads.filter((item) => {
         const condition = item.discoveredWhen;
-        return site === null
-          ? condition?.kind === 'lead_completed' && condition.lead === lead
-          : condition?.kind === 'mission_won' &&
-              condition.missionSiteArchetype === site &&
-              item.faction === byId(lead).faction;
+        if (site === null) {
+          return condition?.kind === 'lead_completed' && condition.lead === lead;
+        }
+        return (
+          item.faction === byId(lead).faction &&
+          ((condition?.kind === 'mission_won' && condition.missionSiteArchetype === site) ||
+            (condition?.kind === 'initiative_won_with_enemy' &&
+              enemiesAt(site).includes(condition.enemyArchetype) &&
+              !passed.includes(item.id)))
+        );
       });
     const terminates: string[] = [];
     for (const faction of catalog.factionArchetypes) {
@@ -161,7 +170,7 @@ describe('GDRS: the GDRs', () => {
       let lead = starts[0]!;
       const path: string[] = [lead.id];
       while (!lead.onCompletion.eliminateFaction) {
-        const following = next(lead.id, lead.onCompletion.createMissionSite);
+        const following = next(lead.id, lead.onCompletion.createMissionSite, path);
         expect(following, `after ${lead.id}`).toHaveLength(1);
         lead = following[0]!;
         // A chain that came back to a Lead it passed would never reach its Terminate Lead.

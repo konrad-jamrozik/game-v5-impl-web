@@ -2,7 +2,7 @@
  * LEAD (Leads and Progression): Lead discovery, Lead availability, Lead status, and the Initiative operation level.
  */
 import type { Condition, LeadGdr, MissionSiteArchetypeGdr } from '../../../gdr/index.ts';
-import type { Faction, Investigation, Mission, MissionSite } from '../../state/types.ts';
+import type { Enemy, Faction, Investigation, Mission, MissionSite } from '../../state/types.ts';
 import { conditionHolds, wonMissionIndex } from '../conditions/conditions.ts';
 import { missionSiteCanExist } from '../missions/missions.ts';
 import { contractingCap } from '../economy/economy.ts';
@@ -13,6 +13,8 @@ export interface LeadWorld {
   readonly missionSites: Readonly<Record<string, MissionSite>>;
   readonly missions: Readonly<Record<string, Mission>>;
   readonly investigations: Readonly<Record<string, Investigation>>;
+  /** The Enemies, which an `initiative_won_with_enemy` Condition reads through each Mission site's Enemies list. */
+  readonly enemies: Readonly<Record<string, Enemy>>;
   readonly factions: Readonly<Record<string, Faction>>;
   /** LEAD, Lead discovery: the set of discovered Leads, by GDR identifier, in the order they were discovered. */
   readonly discoveredLeads: readonly string[];
@@ -232,6 +234,17 @@ export function initiativeOperationLevels(gdrs: {
         return kinds.get(condition.missionSiteArchetype) === 'response'
           ? 0
           : archetypeLevel(condition.missionSiteArchetype, { of: lead.faction });
+      case 'initiative_won_with_enemy':
+        // The lowest level among the MissionSiteArchetypes of kind initiative whose `enemies` has the EnemyArchetype,
+        // as a `mission_won` naming each would have; a Won Response Mission never makes it hold.
+        return lowest(
+          gdrs.missionSiteArchetypes
+            .filter(
+              (item) =>
+                item.kind === 'initiative' && item.enemies.some(([key]) => key === condition.enemyArchetype),
+            )
+            .map((item) => archetypeLevel(item.id, { of: lead.faction })),
+        );
       case 'all': {
         const values = condition.conditions.map((item) => requiredOf(item, lead));
         return values.includes(null) ? null : Math.max(0, ...(values as number[]));

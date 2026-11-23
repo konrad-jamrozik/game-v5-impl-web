@@ -145,7 +145,7 @@ export function parseCompendiumArticle(
   let visibleWhen: Condition | null = null;
   if (raw['visible_when'] !== undefined) {
     visibleWhen = parseCondition(raw['visible_when']);
-    if (visibleWhen === null || usesMissionWon(visibleWhen)) {
+    if (visibleWhen === null || usesFactionCondition(visibleWhen)) {
       problems.push('Visibility Condition is valid');
     }
   }
@@ -168,15 +168,16 @@ export function parseCompendiumArticle(
   };
 }
 
-/** Whether a Condition uses the Condition kind `mission_won` at any depth. */
-function usesMissionWon(condition: Condition): boolean {
+/** Whether a Condition uses a Condition kind other than `lead_completed` at any depth. */
+function usesFactionCondition(condition: Condition): boolean {
   switch (condition.kind) {
     case 'all':
     case 'any':
-      return condition.conditions.some(usesMissionWon);
+      return condition.conditions.some(usesFactionCondition);
     case 'not':
-      return usesMissionWon(condition.condition);
+      return usesFactionCondition(condition.condition);
     case 'mission_won':
+    case 'initiative_won_with_enemy':
       return true;
     case 'lead_completed':
       return false;
@@ -192,6 +193,7 @@ export function leadsNamed(condition: Condition): string[] {
     case 'not':
       return leadsNamed(condition.condition);
     case 'mission_won':
+    case 'initiative_won_with_enemy':
       return [];
     case 'lead_completed':
       return [condition.lead];

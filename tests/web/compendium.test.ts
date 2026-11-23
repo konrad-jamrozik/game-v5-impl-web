@@ -141,7 +141,7 @@ describe('COMPV: Panes', () => {
     expect(categoryOf(subject('agency', 'The Agency', 'AgencyArchetype'))).toBe('Other');
     expect(categoryOf(subject('field_agent', 'Field agent', 'AgentArchetype'))).toBe('Agents');
     expect(categoryOf(subject('agent_cap', 'Agent cap', 'Upgrade'))).toBe('Upgrades');
-    expect(categoryOf(subject('service_armor', 'Service armor', 'Armor'))).toBe('Armor');
+    expect(categoryOf(subject('standard_uniform', 'Standard uniform', 'Armor'))).toBe('Armor');
     expect(categoryOf(subject('lead', 'A lead', 'Lead'))).toBe('Leads');
   });
 
@@ -253,7 +253,7 @@ describe('COMPV: Subject data sheets', () => {
       Skill: String(agent.skill),
       Health: String(agent.baseHealth),
       Weapon: `[${weapon.name}] · damage ${weapon.damage}`,
-      // E.g. "Service armor · armor 0", linked to the Subject article about the Armor.
+      // E.g. "Standard uniform · armor 0", linked to the Subject article about the Armor.
       Armor: `[${armor.name}] · armor ${armor.armor}`,
     });
     // Labels: a label is an Article link to the article that the Article term lookup reports for its text.

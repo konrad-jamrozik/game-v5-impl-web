@@ -161,6 +161,7 @@
 - src/gdr/catalog.ts
 - src/gdr/types.ts
 - tests/mechanics/leads-investigations.test.ts
+- tests/mechanics/initiative-won-with-enemy.test.ts
 
 ## CONFIG: Configuration
 
@@ -516,6 +517,7 @@ No files.
 - tests/foundation/final-review.test.ts
 - tests/mechanics/initiative-operation-level.test.ts
 - src/cli/cli.ts
+- tests/mechanics/initiative-won-with-enemy.test.ts
 
 ## LICENSE: Implementation License
 
@@ -580,6 +582,7 @@ No files.
 - tests/web/situation-and-summary.test.ts
 - tests/mechanics/combat-strength-values.test.ts
 - src/engine/state/summary.ts
+- tests/mechanics/initiative-won-with-enemy.test.ts
 
 ## MUSIC: Music
 

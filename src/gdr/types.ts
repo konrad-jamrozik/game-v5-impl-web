@@ -228,13 +228,14 @@ export type InvestigateAgain = 'never' | 'until_mission_won' | 'always';
 
 /**
  * COND, Condition format: a Condition of one Condition kind with its value, or `all`, `any`, or `not` of Conditions.
- * The Condition kinds are `mission_won` (MISSION) and `lead_completed` (LEAD).
+ * The Condition kinds are `mission_won` and `initiative_won_with_enemy` (MISSION) and `lead_completed` (LEAD).
  */
 export type Condition =
   | { readonly kind: 'all'; readonly conditions: readonly Condition[] }
   | { readonly kind: 'any'; readonly conditions: readonly Condition[] }
   | { readonly kind: 'not'; readonly condition: Condition }
   | { readonly kind: 'mission_won'; readonly missionSiteArchetype: string }
+  | { readonly kind: 'initiative_won_with_enemy'; readonly enemyArchetype: string }
   | { readonly kind: 'lead_completed'; readonly lead: string };
 
 export interface InvestigationArchetypeGdr {

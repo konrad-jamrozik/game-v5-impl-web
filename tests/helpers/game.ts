@@ -179,7 +179,7 @@ export const LEGACY_FILES: readonly RawGdrFile[] = (() => {
       delete gdr['visible_when'];
     }
   }
-  // `initiate` carries `combat_pistol`, whose base weapon damage equals that of the Agents' Service weapon.
+  // `initiate` carries `combat_pistol`, the Weapon of the Agents too.
   byId('/enemy_archetypes.yaml', 'initiate')['weapon'] = 'combat_pistol';
   // Compendium articles about, or naming, a GDR left out are left out.
   const kept = new Set(files.flatMap((file) => file.gdrs.map((gdr) => gdr['id'])));
@@ -282,7 +282,7 @@ export const EXAMPLE_VALUES: Readonly<Record<string, Readonly<Record<string, unk
     required_progress_max_pct: 150,
     assessment_threshold_pct: 25,
   },
-  field_agent: { base_skill: 100, base_health: 30, weapon: 'service_weapon', armor: 'service_armor' },
+  field_agent: { base_skill: 100, base_health: 30, weapon: 'combat_pistol', armor: 'standard_uniform' },
   agent_cap: { price: 2000, effect: 'agent_cap', increment: 20 },
   transport_cap: { price: 1500, effect: 'transport_cap', increment: 8 },
   training_cap: { price: 1000, effect: 'training_cap', increment: 10 },
@@ -291,18 +291,17 @@ export const EXAMPLE_VALUES: Readonly<Record<string, Readonly<Record<string, unk
   training_skill_gain: { price: 1000, effect: 'training_skill_gain', increment: { $decimal: '0.5' } },
   exhaustion_recovery: { price: 1000, effect: 'exhaustion_recovery', increment: 1 },
   health_recovery: { price: 1000, effect: 'health_recovery', increment: 1 },
-  service_weapon: { base_weapon_damage: 10 },
   basic_pistol: { base_weapon_damage: 8 },
   combat_pistol: { base_weapon_damage: 10 },
   rifle: { base_weapon_damage: 14 },
-  heavy_rifle: { base_weapon_damage: 22 },
-  service_armor: { base_armor: 0 },
-  no_armor: { base_armor: 0 },
+  laser_pistol: { base_weapon_damage: 22 },
+  standard_uniform: { base_armor: 0 },
+  basic_clothing: { base_armor: 0 },
   ballistic_vest: { base_armor: 20 },
-  heavy_armor: { base_armor: 50 },
-  initiate: { base_skill: 40, base_health: 20, weapon: 'basic_pistol', armor: 'no_armor' },
+  battle_suit: { base_armor: 50 },
+  initiate: { base_skill: 40, base_health: 20, weapon: 'basic_pistol', armor: 'basic_clothing' },
   soldier: { base_skill: 120, base_health: 30, weapon: 'rifle', armor: 'ballistic_vest' },
-  commander: { base_skill: 300, base_health: 40, weapon: 'heavy_rifle', armor: 'heavy_armor' },
+  commander: { base_skill: 300, base_health: 40, weapon: 'laser_pistol', armor: 'battle_suit' },
   faint: {
     operation_every_turns: [10, 20],
     operation_level_weights: {
