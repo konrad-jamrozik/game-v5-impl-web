@@ -4,6 +4,7 @@
  */
 import { useState, type ReactNode } from 'react';
 import type { CurrentLiveWorldStateView, EquipmentItemView, EquipmentView } from '../../engine/index.ts';
+import { stepOf, steppedCount } from '../stepper.ts';
 import { act, theEngine } from '../store.ts';
 import { Button, Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -36,13 +37,26 @@ function sumText(
   return Number.isInteger(exact) ? exact.toLocaleString('en-US') : exact.toFixed(2);
 }
 
-/** STVIEW, Storage table, Stats: a Weapon's damage and AmmoType, an Armor's armor, an AmmoType's rounds against need. */
+/** STVIEW, Storage header: what a value is, the share of the price `sale_price_fraction` gives, e.g. "half the price". */
+function valueNote(view: EquipmentView): string {
+  const { numerator, denominator } = view.salePriceFraction;
+  if (numerator * 2 === denominator) {
+    return 'Value is half the price';
+  }
+  const percent = (numerator * 100) / denominator;
+  return `Value is ${Number.isInteger(percent) ? percent : percent.toFixed(1)}% of the price`;
+}
+
+/**
+ * STVIEW, Storage table, Stats: a Weapon's damage and AmmoType, an Armor's armor, an AmmoType's rounds against need.
+ * The number sits right-aligned in a fixed width, so the icons and names after it line up from row to row.
+ */
 function Stats(props: { item: EquipmentItemView; ammoName: (id: string) => string; withNeed: boolean }) {
   const { item } = props;
   if (item.kind === 'weapon') {
     return (
       <span>
-        <span className="figure">{item.stat}</span>
+        <span className="figure stat-figure">{item.stat}</span>
         <SwordIcon />{' '}
         <span className="muted">{item.ammoType === null ? '' : props.ammoName(item.ammoType)}</span>
       </span>
@@ -51,7 +65,7 @@ function Stats(props: { item: EquipmentItemView; ammoName: (id: string) => strin
   if (item.kind === 'armor') {
     return (
       <span>
-        <span className="figure">{item.stat}</span>
+        <span className="figure stat-figure">{item.stat}</span>
         <ArmorIcon />
       </span>
     );
@@ -69,7 +83,7 @@ function Stats(props: { item: EquipmentItemView; ammoName: (id: string) => strin
   );
 }
 
-/** A stepper with a number field, from 0 to `max`, and extra buttons after it. */
+/** VIS, Steppers: a stepper with a number field, from 0 to `max`, and extra buttons after it. */
 function Stepper(props: {
   label: string;
   value: number;
@@ -82,7 +96,17 @@ function Stepper(props: {
   };
   return (
     <span className="stepper">
-      <button type="button" aria-label={`One fewer ${props.label}`} onClick={() => set(props.value - 1)}>
+      <button
+        type="button"
+        aria-label={`One fewer ${props.label}`}
+        title="Shift: 10 · Ctrl: 100"
+        onMouseDown={(event) => {
+          if (event.shiftKey) {
+            event.preventDefault();
+          }
+        }}
+        onClick={(event) => set(steppedCount(props.value, -stepOf(event), props.max))}
+      >
         −
       </button>
       <input
@@ -94,7 +118,17 @@ function Stepper(props: {
         value={props.value}
         onChange={(event) => set(Number(event.target.value))}
       />
-      <button type="button" aria-label={`One more ${props.label}`} onClick={() => set(props.value + 1)}>
+      <button
+        type="button"
+        aria-label={`One more ${props.label}`}
+        title="Shift: 10 · Ctrl: 100"
+        onMouseDown={(event) => {
+          if (event.shiftKey) {
+            event.preventDefault();
+          }
+        }}
+        onClick={(event) => set(steppedCount(props.value, stepOf(event), props.max))}
+      >
         +
       </button>
       {props.extra}
@@ -102,17 +136,33 @@ function Stepper(props: {
   );
 }
 
-/** "2 Rifles · 1 Ballistic vest · 50 Pistol ammo": each chosen entry by count and name. */
-function chosenText(items: readonly EquipmentItemView[], counts: Readonly<Record<string, number>>): string {
+/** "2 Rifles", "1 Ballistic vest", "50 Pistol ammo": each chosen entry by count and name, one per line. */
+function chosenLines(
+  items: readonly EquipmentItemView[],
+  count: (item: EquipmentItemView) => number,
+): string[] {
   return items
-    .filter((item) => (counts[item.id] ?? 0) > 0)
+    .filter((item) => count(item) > 0)
     .map((item) => {
-      const count = counts[item.id] ?? 0;
+      const n = count(item);
       const plural =
-        item.kind !== 'ammo' && count !== 1 && !item.name.endsWith('s') ? `${item.name}s` : item.name;
-      return `${count} ${plural}`;
-    })
-    .join(' · ');
+        item.kind !== 'ammo' && n !== 1 && !item.name.endsWith('s') ? `${item.name}s` : item.name;
+      return `${n} ${plural}`;
+    });
+}
+
+/** ACQVIEW, Buying, and STVIEW, Selling, item 1: the label, then each chosen entry on a line of its own. */
+function Chosen(props: { label: string; lines: readonly string[] }) {
+  return (
+    <div className="trade-chosen">
+      <span className="label">{props.label}</span>
+      {props.lines.length === 0 ? (
+        <span className="muted">nothing</span>
+      ) : (
+        props.lines.map((line) => <span key={line}>{line}</span>)
+      )}
+    </div>
+  );
 }
 
 /** STVIEW: the Storage View. */
@@ -141,7 +191,15 @@ export function StorageView(props: {
     <DetailView
       id="storage"
       title="Storage"
-      aside={`Money ${money.toLocaleString('en-US')}`}
+      aside={
+        <>
+          Money {money.toLocaleString('en-US')}
+          <span className="muted" data-testid="storage-value-note">
+            {' '}
+            · {valueNote(view)}
+          </span>
+        </>
+      }
       onClose={props.onClose}
     >
       <Grid
@@ -186,7 +244,7 @@ export function StorageView(props: {
         </tbody>
       </Grid>
       <Grid
-        widths={['190px', '260px', '70px', '56px', '64px', '64px', '96px', '96px', '210px']}
+        widths={['170px', '300px', '64px', '70px', '64px', '60px', '96px', '100px', '190px', '84px']}
         className="equipment-table"
         testId="storage-table"
       >
@@ -195,12 +253,13 @@ export function StorageView(props: {
             <th>Item</th>
             <th>Stats</th>
             <th className="num">Owned</th>
-            <th className="num">Eq.</th>
+            <th className="num">Equip.</th>
             <th className="num">Avail.</th>
             <th className="num">Unit</th>
-            <th className="num">Owned v.</th>
-            <th className="num">Avail. v.</th>
+            <th className="num">Owned val.</th>
+            <th className="num">Avail. val.</th>
             <th>Sell</th>
+            <th className="num">Earns</th>
           </tr>
         </thead>
         {GROUPS.map((group) => {
@@ -219,10 +278,11 @@ export function StorageView(props: {
                 <td className="num">{sumText(view, all, (item) => item.owned)}</td>
                 <td className="num">{sumText(view, all, (item) => item.available)}</td>
                 <td />
+                <td />
               </tr>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="muted">
+                  <td colSpan={10} className="muted">
                     Nothing in Storage
                   </td>
                 </tr>
@@ -258,6 +318,9 @@ export function StorageView(props: {
                         }
                       />
                     </td>
+                    <td className="num tone-good" data-testid={`storage-earns-${item.id}`}>
+                      {count(item) > 0 ? `+${unitText(view, item.price, count(item))}` : ''}
+                    </td>
                   </tr>
                 ))
               )}
@@ -266,13 +329,8 @@ export function StorageView(props: {
         })}
       </Grid>
       <div className="trade-bar" data-testid="sell-bar">
+        <Chosen label="Selling" lines={chosenLines(chosen, count)} />
         <div className="trade-line">
-          <span>
-            <span className="label">Selling</span>{' '}
-            {chosen.length === 0
-              ? 'nothing'
-              : chosenText(chosen, Object.fromEntries(chosen.map((item) => [item.id, count(item)])))}
-          </span>
           <span className="figure">
             Earns <span className="tone-good">+{earns.toLocaleString('en-US')}</span> · Money after{' '}
             {(money + earns).toLocaleString('en-US')}
@@ -378,7 +436,7 @@ export function AcquisitionsView(props: {
       onClose={props.onClose}
     >
       <Grid
-        widths={['230px', '250px', '70px', '70px', '56px', '64px', '230px']}
+        widths={['170px', '200px', '70px', '70px', '76px', '70px', '210px', '90px']}
         className="equipment-table"
         testId="acquisitions-table"
       >
@@ -388,9 +446,10 @@ export function AcquisitionsView(props: {
             <th>Stats</th>
             <th className="num">Price</th>
             <th className="num">Owned</th>
-            <th className="num">Eq.</th>
+            <th className="num">Equip.</th>
             <th className="num">Avail.</th>
             <th>Buy</th>
+            <th className="num">Cost</th>
           </tr>
         </thead>
         {GROUPS.map((group) => {
@@ -398,11 +457,11 @@ export function AcquisitionsView(props: {
           return (
             <tbody key={group.kind} data-testid={`acquisitions-group-${group.kind}`}>
               <tr className="group-row">
-                <td colSpan={7}>▾ {group.name}</td>
+                <td colSpan={8}>▾ {group.name}</td>
               </tr>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="muted">
+                  <td colSpan={8} className="muted">
                     Nothing to buy yet
                   </td>
                 </tr>
@@ -437,6 +496,9 @@ export function AcquisitionsView(props: {
                         }
                       />
                     </td>
+                    <td className="num" data-testid={`acquisitions-cost-${item.id}`}>
+                      {count(item) > 0 ? (item.price * count(item)).toLocaleString('en-US') : ''}
+                    </td>
                   </tr>
                 ))
               )}
@@ -445,11 +507,8 @@ export function AcquisitionsView(props: {
         })}
       </Grid>
       <div className="trade-bar" data-testid="buy-bar">
+        <Chosen label="Buying" lines={chosenLines(chosen, count)} />
         <div className="trade-line">
-          <span>
-            <span className="label">Buying</span>{' '}
-            {chosen.length === 0 ? 'nothing' : chosenText(chosen, counts)}
-          </span>
           <span className="figure">
             Costs <span className={missing > 0 ? 'tone-bad' : undefined}>{cost.toLocaleString('en-US')}</span>{' '}
             · Money after {(money - cost).toLocaleString('en-US')}
@@ -458,7 +517,7 @@ export function AcquisitionsView(props: {
             ) : null}
           </span>
         </div>
-        <div className="trade-line trade-end">
+        <div className="trade-line">
           <span className="trade-buttons">
             <Button
               disabledReason={chosen.length === 0 ? 'Nothing is chosen.' : null}

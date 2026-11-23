@@ -3,7 +3,8 @@
  * then every Item of that kind with at least one in Storage, from the highest number down, and last the Fallback
  * Weapon or Fallback Armor. Choosing another row equips the Agent with it in one Player action, without confirmation.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import type { AgentView, CurrentLiveWorldStateView, EquipmentItemView } from '../../engine/index.ts';
 import { act, theEngine } from '../store.ts';
 import { AmmoWarning, ArmorIcon, SwordIcon } from './equipment-icons.tsx';
@@ -79,21 +80,45 @@ export function EquipmentPicker(props: {
   testId?: string;
 }) {
   const { player } = theEngine();
-  const [open, setOpen] = useState(false);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  const open = anchor !== null;
   const root = useRef<HTMLSpanElement>(null);
+  const list = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (!open) {
       return undefined;
     }
     const close = (event: MouseEvent) => {
-      if (root.current !== null && !root.current.contains(event.target as Node)) {
-        setOpen(false);
+      const target = event.target as Node;
+      if (root.current?.contains(target) !== true && list.current?.contains(target) !== true) {
+        setAnchor(null);
+      }
+    };
+    // The list is fixed to the window, so it closes when what it hangs from moves.
+    const dismiss = (event: Event) => {
+      if (list.current?.contains(event.target as Node) !== true) {
+        setAnchor(null);
       }
     };
     document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
+    window.addEventListener('scroll', dismiss, true);
+    window.addEventListener('resize', dismiss);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', dismiss, true);
+      window.removeEventListener('resize', dismiss);
+    };
   }, [open]);
   const options = open ? optionsOf(props.agent, props.kind, props.state) : [];
+  // The list hangs in a layer over the whole window, so that a table's scroll box, e.g. the Agents table's, never clips
+  // it. It opens below the cell, or above it when there is more room there.
+  const below = anchor === null || window.innerHeight - anchor.bottom >= Math.min(anchor.top, 260);
+  const placement: CSSProperties =
+    anchor === null
+      ? {}
+      : below
+        ? { position: 'fixed', top: anchor.bottom + 4, left: anchor.left }
+        : { position: 'fixed', bottom: window.innerHeight - anchor.top + 4, left: anchor.left, top: 'auto' };
   return (
     <span className="equipment-picker" ref={root}>
       <button
@@ -106,7 +131,7 @@ export function EquipmentPicker(props: {
         data-testid={props.testId}
         onClick={(event) => {
           event.stopPropagation();
-          setOpen(!open);
+          setAnchor(open ? null : event.currentTarget.getBoundingClientRect());
         }}
       >
         <EquipmentText agent={props.agent} kind={props.kind} />
@@ -114,48 +139,55 @@ export function EquipmentPicker(props: {
           ▾
         </span>
       </button>
-      {open ? (
-        <span
-          className="equipment-options"
-          role="listbox"
-          aria-label={`${props.kind === 'weapon' ? 'Weapon' : 'Armor'} for ${props.agent.id}`}
-        >
-          {options.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="option"
-              aria-selected={option.worn}
-              className={option.worn ? 'worn' : undefined}
-              data-testid={`equip-${props.agent.id}-${option.id}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                setOpen(false);
-                if (!option.worn) {
-                  act(() => player.actions.equipAgent(props.agent.id, option.id));
-                }
-              }}
+      {open
+        ? createPortal(
+            <span
+              ref={list}
+              className="equipment-options"
+              style={placement}
+              role="listbox"
+              aria-label={`${props.kind === 'weapon' ? 'Weapon' : 'Armor'} for ${props.agent.id}`}
             >
-              <span>{option.name}</span>
-              <span className="figure">
-                {option.stat}
-                {props.kind === 'weapon' ? <SwordIcon /> : <ArmorIcon />}
-              </span>
-              <span className="secondary">
-                {props.kind === 'weapon'
-                  ? option.ammo === null
-                    ? 'no ammo'
-                    : `${option.ammo.name} ${option.ammo.available}`
-                  : ''}
-                {option.ammo?.ammoShort === true ? <AmmoWarning title={`${option.ammo.name} short`} /> : null}
-              </span>
-              <span className="muted small">
-                {option.worn ? 'worn' : option.available === null ? '' : `${option.available} in store`}
-              </span>
-            </button>
-          ))}
-        </span>
-      ) : null}
+              {options.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="option"
+                  aria-selected={option.worn}
+                  className={option.worn ? 'worn' : undefined}
+                  data-testid={`equip-${props.agent.id}-${option.id}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setAnchor(null);
+                    if (!option.worn) {
+                      act(() => player.actions.equipAgent(props.agent.id, option.id));
+                    }
+                  }}
+                >
+                  <span>{option.name}</span>
+                  <span className="figure">
+                    {option.stat}
+                    {props.kind === 'weapon' ? <SwordIcon /> : <ArmorIcon />}
+                  </span>
+                  <span className="secondary">
+                    {props.kind === 'weapon'
+                      ? option.ammo === null
+                        ? 'no ammo'
+                        : `${option.ammo.name} ${option.ammo.available}`
+                      : ''}
+                    {option.ammo?.ammoShort === true ? (
+                      <AmmoWarning title={`${option.ammo.name} short`} />
+                    ) : null}
+                  </span>
+                  <span className="muted small">
+                    {option.worn ? 'worn' : option.available === null ? '' : `${option.available} in store`}
+                  </span>
+                </button>
+              ))}
+            </span>,
+            document.body,
+          )
+        : null}
     </span>
   );
 }

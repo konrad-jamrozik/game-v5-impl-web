@@ -33,9 +33,9 @@ export const DETAIL_VIEW_GROUPS: readonly {
       { id: 'missions', name: 'Missions' },
       { id: 'leads', name: 'Leads' },
       { id: 'agents', name: 'Agents' },
-      { id: 'storage', name: 'Storage' },
       { id: 'acquisitions', name: 'Acquisitions' },
       { id: 'upgrades', name: 'Upgrades' },
+      { id: 'storage', name: 'Storage' },
     ],
   },
   {

@@ -3032,15 +3032,30 @@ label:has(> input[type='checkbox']:disabled) {
   gap: 8px;
 }
 
+/* ACQVIEW, Buying, and STVIEW, Selling: every part starts at the bar's left edge, so a wide window keeps it near the table. */
 .trade-line {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 16px;
 }
 
-.trade-end {
-  justify-content: flex-end;
+.trade-chosen {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* STVIEW, Storage table, Stats: long Ammo Stats wrap rather than being cut short. */
+.equipment-table tr:not(.group-row) > td:nth-child(2) {
+  white-space: normal;
+}
+
+/* STVIEW, Storage table, Stats: the number right-aligned in a fixed width, so the icons after it line up. */
+.stat-figure {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: right;
 }
 
 .trade-buttons {
