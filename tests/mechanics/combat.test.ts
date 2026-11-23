@@ -371,18 +371,18 @@ describe('COMBAT: examples', () => {
     );
     expect(report.log.map((attack) => attack.attacker)).toEqual(['a2', 'a1', 'a3']);
     expect(report.agents).toEqual(['a1', 'a2', 'a3']);
-    expect([report.outcome, report.rounds]).toEqual(['Prevailed', 1]);
+    expect([report.outcome, report.rounds]).toEqual(['Won', 1]);
   });
 
   it('A Combat ends at once when a side has no Combatant able to fight', () => {
-    // a1 kills the only Enemy: the Combat is Prevailed after one attack, a2 takes no Combat turn and no Enemies'
+    // a1 kills the only Enemy: the Combat is Won after one attack, a2 takes no Combat turn and no Enemies'
     // phase follows.
     const a2 = combatAgent('a2');
     const report = fight([combatAgent('a1', { weaponDamage: 20 }), a2], [initiate('e1')], {
       'combat.hit.a1': [true],
       'combat.damage.a1': [20],
     });
-    expect([report.outcome, report.rounds, report.log.length]).toEqual(['Prevailed', 1, 1]);
+    expect([report.outcome, report.rounds, report.log.length]).toEqual(['Won', 1, 1]);
     expect(report.ratings).toEqual([
       // COMBAT, Combat rating: a1 rates 100 × (20 / 10 + 30 / 30) / 2 = 150 for its weapon damage 20, a2 100, and the
       // side ⌊250 × 2 ^ 0.2⌋; the initiate rates ⌊40 × (8 / 10 + 20 / 30) / 2⌋ = ⌊40 × 11/15⌋.
@@ -406,7 +406,7 @@ describe('COMBAT: examples', () => {
       'combat.hit.e2': [true, false],
       'combat.damage.e2': [7],
     });
-    expect(report.outcome).toBe('Prevailed');
+    expect(report.outcome).toBe('Won');
     expect(report.rounds).toBe(3);
     expect(report.agents).toEqual(['a1', 'a2']);
     expect(report.enemies).toEqual(['e1', 'e2']);
@@ -528,7 +528,7 @@ describe('COMBAT: examples', () => {
     });
     expect(report.log[2]).toMatchObject({ attacker: 'e1', defender: 'a2' });
     expect(report.ratings[1]!.agents).toBe(100);
-    expect(report.outcome).toBe('Prevailed');
+    expect(report.outcome).toBe('Won');
     expect(report.rounds).toBe(2);
     expect(participant(report, 'a1').final).toMatchObject({
       currentHealthHundredths: 3000,
@@ -540,7 +540,7 @@ describe('COMBAT: examples', () => {
     expect(Object.keys(a1.state)).not.toContain('incapacitated');
   });
 
-  it('Prevailed when neither side can fight on', () => {
+  it('Won when neither side can fight on', () => {
     const report = fight([combatAgent('a1', { exhaustion: 97 })], [initiate('e1')], {
       'combat.hit.a1': [true, true],
       'combat.damage.a1': [15, 5],
@@ -551,14 +551,14 @@ describe('COMBAT: examples', () => {
       [10, 32],
       [31, 10],
     ]);
-    expect(report.outcome).toBe('Prevailed');
+    expect(report.outcome).toBe('Won');
     expect(report.rounds).toBe(2);
     expect(participant(report, 'a1').final.condition).toBe('incapacitated');
   });
 
   it('Combats that end at their start', () => {
     const empty = fight([combatAgent('a1')], [], {});
-    expect([empty.outcome, empty.rounds, empty.log.length]).toEqual(['Prevailed', 0, 0]);
+    expect([empty.outcome, empty.rounds, empty.log.length]).toEqual(['Won', 0, 0]);
     const zeroSkill = {
       id: 'e1',
       state: {
@@ -571,7 +571,7 @@ describe('COMBAT: examples', () => {
       },
     };
     const incapacitatedEnemy = fight([combatAgent('a1')], [zeroSkill], {});
-    expect([incapacitatedEnemy.outcome, incapacitatedEnemy.rounds]).toEqual(['Prevailed', 0]);
+    expect([incapacitatedEnemy.outcome, incapacitatedEnemy.rounds]).toEqual(['Won', 0]);
     const tired = combatAgent('a1', { exhaustion: 100 });
     const wiped = fight([tired], [initiate('e1')], {});
     expect([wiped.outcome, wiped.rounds]).toEqual(['Wiped', 0]);
@@ -598,7 +598,7 @@ describe('COMBAT: examples', () => {
       'combat.hit.a1': misses(200),
       'combat.hit.e1': misses(200),
     });
-    expect(againstInitiate.outcome).toBe('Prevailed');
+    expect(againstInitiate.outcome).toBe('Won');
     expect(againstInitiate.rounds).toBe(50);
     expect(againstInitiate.log).toHaveLength(100);
     expect(participant(againstInitiate, 'e1').final).toMatchObject({

@@ -4,7 +4,8 @@ import { wholeText } from './format.ts';
 
 export { exhaustionLevels, exhaustionTone, healthColor, type ExhaustionLevels } from './condition-scale.ts';
 
-function Triangle() {
+/** VIS, Agent condition: the warning-triangle icon, also used under SITP, Mission site urgency. */
+export function WarningTriangle() {
   return (
     <svg className="warn-triangle" width="12" height="12" viewBox="0 0 16 16" role="img" aria-label="Warning">
       <path
@@ -24,7 +25,7 @@ export function Exhaustion(props: { value: number; levels: ExhaustionLevels }) {
   const { tone, triangle } = exhaustionTone(props.value, props.levels);
   return (
     <span className={`condition ${tone}`}>
-      {triangle ? <Triangle /> : null}
+      {triangle ? <WarningTriangle /> : null}
       {props.value}
     </span>
   );

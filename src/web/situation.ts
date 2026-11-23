@@ -4,9 +4,11 @@
  */
 import type {
   CurrentLiveWorldStateView,
+  CurrentRetiredWorldStateView,
   InvestigationView,
   LeadView,
   MissionSiteView,
+  TurnReport,
 } from '../engine/index.ts';
 import {
   completionEstimate,
@@ -28,8 +30,24 @@ export interface ActiveInvestigationRow {
   readonly estimate: CompletionEstimate;
 }
 
+/**
+ * SITP, Mission site urgency: how a Mission site line stands out. `next` is an Active Mission site that Expires in the
+ * next Advance turn; `lost` one that became Expired or Cancelled in the most recent Advance turn.
+ */
+export type MissionSiteUrgency = 'next' | 'lost' | 'other';
+
+export interface MissionSiteRow {
+  readonly site: MissionSiteView;
+  readonly urgency: MissionSiteUrgency;
+}
+
 export type SituationGroup =
-  | { readonly id: 'missionSites'; readonly count: number; readonly rows: readonly MissionSiteView[] }
+  | {
+      readonly id: 'missionSites';
+      /** SITP, Groups: the number of Active Mission sites; a lost one waits for no decision. */
+      readonly count: number;
+      readonly rows: readonly MissionSiteRow[];
+    }
   | {
       readonly id: 'investigations';
       readonly count: number;
@@ -45,7 +63,7 @@ export type SituationGroup =
 
 export const GROUP_TITLES: Record<SituationGroup['id'], string> = {
   agents: 'Agents',
-  missionSites: 'Active Mission sites',
+  missionSites: 'Mission sites',
   investigations: 'Active Investigations',
 };
 
@@ -83,6 +101,8 @@ export function leadsToInvestigate(state: CurrentLiveWorldStateView, leads: read
 export function situationGroups(
   state: CurrentLiveWorldStateView,
   leads: readonly LeadView[],
+  /** SITP, Groups: the Mission sites that became Expired or Cancelled in the most recent Advance turn, in order. */
+  lost: readonly MissionSiteView[] = [],
 ): SituationGroup[] {
   const groups: SituationGroup[] = [];
 
@@ -92,9 +112,19 @@ export function situationGroups(
     groups.push({ id: 'agents', count: state.agency.servingAgents, standby, trainingFree });
   }
 
-  const sites = state.missionSites.filter((site) => site.lifecycle === 'Active');
-  if (sites.length > 0) {
-    groups.push({ id: 'missionSites', count: sites.length, rows: sites });
+  // SITP, Groups: the Active Mission sites soonest to expire first, then those lost in the most recent Advance turn.
+  const sites = state.missionSites
+    .filter((site) => site.lifecycle === 'Active')
+    .sort((a, b) => a.turnsUntilExpiration - b.turnsUntilExpiration);
+  const rows: MissionSiteRow[] = [
+    ...sites.map((site): MissionSiteRow => ({
+      site,
+      urgency: site.turnsUntilExpiration === 1 ? 'next' : 'other',
+    })),
+    ...lost.map((site): MissionSiteRow => ({ site, urgency: 'lost' })),
+  ];
+  if (rows.length > 0) {
+    groups.push({ id: 'missionSites', count: sites.length, rows });
   }
 
   const investigations = activeInvestigationRows(state, leads);
@@ -103,6 +133,28 @@ export function situationGroups(
   }
 
   return groups;
+}
+
+/**
+ * SITP, Groups: the Mission sites that became Expired or Cancelled in the Advance turn of `report`, read from the
+ * Retired world state, where a Mission site in a final state is kept.
+ */
+export function lostMissionSites(
+  report: TurnReport | null,
+  retired: CurrentRetiredWorldStateView | null,
+): MissionSiteView[] {
+  if (report === null) {
+    return [];
+  }
+  const byId = new Map((retired?.missionSites ?? []).map((site) => [site.id, site]));
+  const ids = [
+    ...report.expiredMissionSites.map((item) => item.missionSite),
+    ...report.cancelledMissionSites,
+  ];
+  return ids.flatMap((id) => {
+    const site = byId.get(id);
+    return site === undefined ? [] : [site];
+  });
 }
 
 /** The Required progress range of a Lead as the GUI writes it, e.g. "3–4", or null while it is unknown. */

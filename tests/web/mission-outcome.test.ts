@@ -66,7 +66,7 @@ function participant(
 
 describe('MVIEW, Final state', () => {
   it('shows Won for a Won Mission and the Combat outcome of a Lost one, never Concluded', () => {
-    expect(finalState('Concluded', mission('s', 'Won', 'Prevailed'))).toEqual({ text: 'Won', tone: 'good' });
+    expect(finalState('Concluded', mission('s', 'Won', 'Won'))).toEqual({ text: 'Won', tone: 'good' });
     expect(finalState('Concluded', mission('s', 'Lost', 'Retreated'))).toEqual({
       text: 'Retreated',
       tone: 'bad',
@@ -79,7 +79,7 @@ describe('MVIEW, Final state', () => {
 });
 
 describe('MVIEW, Selected Mission site: Consequences that applied', () => {
-  const won = mission('mission-site-3', 'Won', 'Prevailed');
+  const won = mission('mission-site-3', 'Won', 'Won');
   const expiredPanic = { ...none, panicIncreaseHundredths: 300 };
   const entries = [
     entry([won], []),

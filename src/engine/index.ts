@@ -200,8 +200,8 @@ export interface Engine {
       /**
        * COMBAT, Batch of Detached Combats: fights `count` Detached Combats on one setup, Combat `i` with the Detached
        * seed `<seed>#<i>`, each with the Combat report turned off, and returns each Combat's summary in order and the
-       * totals over the batch. `fightCombat` with the Detached seed `<seed>#<i>` shows Combat `i` in full. With `stop`, the batch ends after the Combat at which the number Prevailed reaches `stop.prevailed` or
-       * the number not Prevailed reaches `stop.notPrevailed`. It changes no Campaign state.
+       * totals over the batch. `fightCombat` with the Detached seed `<seed>#<i>` shows Combat `i` in full. With `stop`, the batch ends after the Combat at which the number Won reaches `stop.won` or
+       * the number not Won reaches `stop.notWon`. It changes no Campaign state.
        */
       fightCombatBatch(
         setup: DetachedCombatSetup,

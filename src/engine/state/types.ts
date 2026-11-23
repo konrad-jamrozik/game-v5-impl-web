@@ -212,7 +212,7 @@ export type Enemy = Instance<EnemyConstants, EnemyState>;
 
 // ---- Combat report (COMBAT) ----------------------------------------------------------------------
 
-export type CombatOutcome = 'Prevailed' | 'Wiped' | 'Retreated';
+export type CombatOutcome = 'Won' | 'Wiped' | 'Retreated';
 export type CombatantCondition = 'ableToFight' | 'incapacitated' | 'dead';
 
 export interface CombatParticipantReport {

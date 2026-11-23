@@ -3,9 +3,40 @@
  * it opens the Detail view that details it, with that item selected.
  */
 import type { ReactNode } from 'react';
-import type { CurrentLiveWorldStateView, LeadView } from '../../engine/index.ts';
-import { GROUP_TITLES, SOON_EXPIRING_TURNS, situationGroups, type SituationGroup } from '../situation.ts';
+import type { CurrentLiveWorldStateView, LeadView, MissionSiteView } from '../../engine/index.ts';
+import { WarningTriangle } from '../condition.tsx';
+import { GROUP_TITLES, situationGroups, type MissionSiteRow, type SituationGroup } from '../situation.ts';
 import { ProgressCircle } from './ProgressCircle.tsx';
+
+/** SITP, Mission site urgency: the prohibition icon, a circle crossed by a diagonal, outlined in Danger. */
+function ProhibitionIcon() {
+  return (
+    <svg className="prohibition-icon" width="14" height="14" viewBox="0 0 18 18" role="img" aria-label="Lost">
+      <circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.7 3.7 14.3 14.3" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+/** SITP, Mission site urgency: the line of one Mission site, by how it stands out. */
+function missionSiteLine({ site, urgency }: MissionSiteRow): {
+  rowClass: string;
+  glyph: ReactNode;
+  value: string;
+} {
+  switch (urgency) {
+    case 'next':
+      return {
+        rowClass: ' sit-row-next',
+        glyph: <WarningTriangle />,
+        value: `${site.turnsUntilExpiration} T left`,
+      };
+    case 'lost':
+      return { rowClass: ' sit-row-lost', glyph: <ProhibitionIcon />, value: site.lifecycle };
+    case 'other':
+      return { rowClass: '', glyph: null, value: `${site.turnsUntilExpiration} T left` };
+  }
+}
 
 /** The Detail view a selected item opens, and the item it selects there. */
 export type SituationTarget =
@@ -18,10 +49,12 @@ const TONES = { next: ' tone-accent', plain: '', muted: ' muted' } as const;
 export function SituationPanel(props: {
   state: CurrentLiveWorldStateView;
   leads: readonly LeadView[];
+  /** SITP, Groups: the Mission sites that became Expired or Cancelled in the most recent Advance turn. */
+  lost: readonly MissionSiteView[];
   onShow: (target: SituationTarget) => void;
 }) {
   const { state } = props;
-  const groups = situationGroups(state, props.leads);
+  const groups = situationGroups(state, props.leads, props.lost);
   return (
     <section className="situation" data-testid="situation" aria-label="Situation">
       <header className="section-head">
@@ -53,12 +86,13 @@ function Row(props: {
   glyph?: ReactNode;
   value?: ReactNode;
   valueClass?: string;
+  rowClass?: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      className="sit-row"
+      className={`sit-row${props.rowClass ?? ''}`}
       data-testid={props.testId}
       title={props.name}
       onClick={props.onClick}
@@ -74,18 +108,23 @@ function GroupRows(props: { group: SituationGroup; onShow: (target: SituationTar
   const { group, onShow } = props;
   switch (group.id) {
     case 'missionSites':
-      return group.rows.map((site) => (
-        <Row
-          key={site.id}
-          testId={`situation-row-${site.id}`}
-          name={site.name}
-          value={`${site.turnsUntilExpiration} T left`}
-          valueClass={site.turnsUntilExpiration <= SOON_EXPIRING_TURNS ? ' tone-accent' : ''}
-          onClick={() => {
-            onShow({ kind: 'missionSite', missionSite: site.id });
-          }}
-        />
-      ));
+      return group.rows.map((row) => {
+        const line = missionSiteLine(row);
+        return (
+          <Row
+            key={row.site.id}
+            testId={`situation-row-${row.site.id}`}
+            name={row.site.name}
+            glyph={line.glyph}
+            value={line.value}
+            rowClass={line.rowClass}
+            onClick={() => {
+              // SITP: a lost Mission site opens the Missions View with its toggle on Concluded (MVIEW).
+              onShow({ kind: 'missionSite', missionSite: row.site.id });
+            }}
+          />
+        );
+      });
     case 'investigations':
       return group.rows.map(({ investigation, circle, estimate }) => (
         <Row

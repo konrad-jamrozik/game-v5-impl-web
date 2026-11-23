@@ -53,10 +53,16 @@ export function DetailView(props: {
   /** Text after the title in the Figure style, e.g. counts against caps. */
   aside?: ReactNode;
   /**
-   * Controls right after the title and its aside, beside what they switch or reopen, e.g. the Finished toggle of the
+   * Controls right after the title and its aside, beside what they switch or reopen, e.g. the Concluded toggle of the
    * Missions View (MVIEW) or the Turn summary button of the Turn Report View (TRVIEW).
    */
   lead?: ReactNode;
+  /**
+   * VIS, Detail views and navigation: the one exception to the Back control's place. The Back control stands after
+   * the title, in the place of the button of the same name it replaces, e.g. "‹ Turn summary" in place of the Turn
+   * summary button (TRVIEW, Turn summary button).
+   */
+  backInLead?: boolean;
   actions?: ReactNode;
   onClose: () => void;
   children: ReactNode;
@@ -74,6 +80,13 @@ export function DetailView(props: {
     }
     mounted.current = true;
   }, [titleKey, place.restoredScrollTop]);
+  const backControl =
+    place.back === null ? null : (
+      <Button testId="view-back" sound={place.back.toSummary ? 'main' : 'back'} onClick={place.back.go}>
+        {place.back.label}
+      </Button>
+    );
+  const backInLead = backControl !== null && props.backInLead === true;
   return (
     <section
       className={artwork === null ? 'detail-view' : 'detail-view with-artwork'}
@@ -96,18 +109,16 @@ export function DetailView(props: {
             {props.title}
             {props.aside === undefined ? null : <span className="detail-aside">{props.aside}</span>}
           </h2>
-          {props.lead === undefined ? null : <div className="detail-lead">{props.lead}</div>}
+          {backInLead ? (
+            <div className="detail-lead">{backControl}</div>
+          ) : props.lead === undefined ? null : (
+            <div className="detail-lead">{props.lead}</div>
+          )}
         </div>
         {props.actions === undefined ? null : <div className="detail-actions">{props.actions}</div>}
         {/* VIS, Detail views and navigation: the Back control is the last button of the row, 8 px before the close
             control, and both always sit on the title's line. */}
-        {place.back === null ? null : (
-          <div className="detail-back">
-            <Button testId="view-back" sound={place.back.toSummary ? 'main' : 'back'} onClick={place.back.go}>
-              {place.back.label}
-            </Button>
-          </div>
-        )}
+        {backControl === null || backInLead ? null : <div className="detail-back">{backControl}</div>}
         <CloseControl
           testId="close-view"
           sound={place.closeShowsSummary ? 'main' : 'back'}

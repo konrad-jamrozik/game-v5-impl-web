@@ -53,13 +53,12 @@ export interface SummarySite {
   readonly turnsUntilExpiration: number;
 }
 
-export interface SummaryEndedSite {
+/** TSUM, Groups, Expired Mission sites: a Cancelled Mission site is left out, as it changed nothing. */
+export interface SummaryExpiredSite {
   readonly missionSite: string;
   readonly name: string;
   readonly kind: string;
-  readonly lifecycle: 'Expired' | 'Cancelled';
-  /** The Consequences of an Expired one. */
-  readonly consequence: ConsequenceRecord | null;
+  readonly consequence: ConsequenceRecord;
 }
 
 export interface TurnSummaryModel {
@@ -68,36 +67,43 @@ export interface TurnSummaryModel {
   readonly missions: readonly SummaryMission[];
   readonly investigations: readonly SummaryInvestigation[];
   readonly newSites: readonly SummarySite[];
-  readonly endedSites: readonly SummaryEndedSite[];
+  readonly expiredSites: readonly SummaryExpiredSite[];
   readonly leads: readonly LeadView[];
   /** TSUM, Groups: the Investigations interrupted, each with its Lead's name. */
   readonly interrupted: readonly { readonly investigation: string; readonly leadName: string }[];
 }
 
-/** Whether the Turn report lists at least one thing the Turn summary shows. */
-export function turnSummaryHasContent(report: TurnReport): boolean {
+/**
+ * Whether the Turn report lists at least one thing the Turn summary shows other than an Expired Mission site, which
+ * alone never shows it after the Advance turn (TSUM, Groups): the Situation panel shows it instead.
+ */
+function hasNewsBesidesExpiry(report: TurnReport): boolean {
   return (
     report.combatReports.length > 0 ||
     report.investigationsCompleted.length > 0 ||
     report.createdMissionSites.length > 0 ||
-    report.expiredMissionSites.length > 0 ||
-    report.cancelledMissionSites.length > 0 ||
     report.discoveredLeads.length > 0 ||
     report.investigationsInterrupted.length > 0
   );
 }
 
 /**
+ * Whether the Turn summary of this Turn report would have at least one group, so that it can be reopened (TRVIEW,
+ * Turn summary button), including when its only group is Expired Mission sites.
+ */
+export function turnSummaryHasContent(report: TurnReport): boolean {
+  return hasNewsBesidesExpiry(report) || report.expiredMissionSites.length > 0;
+}
+
+/**
  * Whether the GUI shows the Turn summary now: only for the Advance turn the Player requested through the GUI, the
- * one ending `requestedTurn`, once its Turn report is the current one, and only when it lists something. Every other
- * way to reach a Turn report, e.g. loading, Timeline navigation, or Autopilot, leaves `requestedTurn` null.
+ * one ending `requestedTurn`, once its Turn report is the current one, and only when it lists something other than an
+ * Expired Mission site. Every other way to reach a Turn report, e.g. loading, Timeline navigation, or Autopilot,
+ * leaves `requestedTurn` null.
  */
 export function showsTurnSummary(requestedTurn: number | null, report: TurnReport | null): boolean {
   return (
-    requestedTurn !== null &&
-    report !== null &&
-    report.turn === requestedTurn &&
-    turnSummaryHasContent(report)
+    requestedTurn !== null && report !== null && report.turn === requestedTurn && hasNewsBesidesExpiry(report)
   );
 }
 
@@ -183,29 +189,19 @@ export function turnSummary(
     };
   });
 
-  const endedSites: SummaryEndedSite[] = [
-    ...report.expiredMissionSites.map((item): SummaryEndedSite => ({
-      missionSite: item.missionSite,
-      name: siteName(item.missionSite, item.missionSiteArchetype),
-      kind: item.kind,
-      lifecycle: 'Expired',
-      consequence: item.consequence,
-    })),
-    ...report.cancelledMissionSites.map((id): SummaryEndedSite => ({
-      missionSite: id,
-      name: siteName(id),
-      kind: sites.get(id)?.kind ?? '',
-      lifecycle: 'Cancelled',
-      consequence: null,
-    })),
-  ];
+  const expiredSites = report.expiredMissionSites.map((item): SummaryExpiredSite => ({
+    missionSite: item.missionSite,
+    name: siteName(item.missionSite, item.missionSiteArchetype),
+    kind: item.kind,
+    consequence: item.consequence,
+  }));
 
   return {
     turn: report.turn,
     missions: summaryMissions,
     investigations: summaryInvestigations,
     newSites,
-    endedSites,
+    expiredSites,
     leads: report.discoveredLeads.flatMap((id) => {
       const lead = leads.get(id);
       return lead === undefined ? [] : [lead];

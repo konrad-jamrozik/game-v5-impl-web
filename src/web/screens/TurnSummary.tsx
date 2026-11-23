@@ -41,6 +41,8 @@ export function TurnSummary(props: {
   onOpenReport: () => void;
   /** TSUM, Mission cards: the Combat report button opens that Mission's Combat report in the Turn Report View. */
   onOpenCombat: (mission: string) => void;
+  /** TSUM, Mission site links: a new or Expired Mission site item opens the Missions View with it selected. */
+  onOpenSite: (missionSite: string) => void;
 }) {
   const { model } = props;
   const dismiss = useRef<HTMLButtonElement>(null);
@@ -82,7 +84,8 @@ export function TurnSummary(props: {
                       </span>
                     </span>
                     <span className={`label ${mission.result === 'Won' ? 'tone-good' : 'tone-bad'}`}>
-                      {mission.result} · {mission.combatOutcome}
+                      {/* TSUM, Groups: a Won Mission says "Won" alone, as its Combat outcome is Won too. */}
+                      {mission.result === 'Won' ? 'Won' : `Lost · ${mission.combatOutcome}`}
                     </span>
                   </div>
                   <dl className="summary-facts">
@@ -173,9 +176,17 @@ export function TurnSummary(props: {
           {model.newSites.length === 0 ? null : (
             <Group title="New Mission sites" count={model.newSites.length} testId="summary-new-sites">
               {model.newSites.map((site) => (
-                <div key={site.missionSite} className="dialog-row">
+                <button
+                  key={site.missionSite}
+                  type="button"
+                  className="dialog-row link-row summary-site-link"
+                  data-testid={`summary-site-${site.missionSite}`}
+                  onClick={() => {
+                    props.onOpenSite(site.missionSite);
+                  }}
+                >
                   <div className="sit-line">
-                    <span>{site.name}</span>
+                    <span className="link-name">{site.name}</span>
                     <span
                       className={`figure${site.turnsUntilExpiration <= SOON_EXPIRING_TURNS ? ' tone-accent' : ''}`}
                     >
@@ -185,24 +196,32 @@ export function TurnSummary(props: {
                   <span className="sit-sub">
                     {site.kind} · {site.origin} · {site.enemies} {site.enemies === 1 ? 'Enemy' : 'Enemies'}
                   </span>
-                </div>
+                </button>
               ))}
             </Group>
           )}
-          {model.endedSites.length === 0 ? null : (
-            <Group title="Mission sites ended" count={model.endedSites.length} testId="summary-ended-sites">
-              {model.endedSites.map((site) => (
-                <div key={site.missionSite} className="dialog-row">
+          {model.expiredSites.length === 0 ? null : (
+            <Group
+              title="Expired Mission sites"
+              count={model.expiredSites.length}
+              testId="summary-expired-sites"
+            >
+              {model.expiredSites.map((site) => (
+                <button
+                  key={site.missionSite}
+                  type="button"
+                  className="dialog-row link-row summary-site-link"
+                  data-testid={`summary-site-${site.missionSite}`}
+                  onClick={() => {
+                    props.onOpenSite(site.missionSite);
+                  }}
+                >
                   <div className="sit-line">
-                    <span>{site.name}</span>
-                    {site.consequence === null ? null : (
-                      <Consequences consequence={site.consequence} label="Consequences" className="small" />
-                    )}
+                    <span className="link-name">{site.name}</span>
+                    <Consequences consequence={site.consequence} label="Consequences" className="small" />
                   </div>
-                  <span className="sit-sub">
-                    {site.kind} · {site.lifecycle}
-                  </span>
-                </div>
+                  <span className="sit-sub">{site.kind}</span>
+                </button>
               ))}
             </Group>
           )}

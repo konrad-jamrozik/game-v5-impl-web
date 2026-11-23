@@ -187,6 +187,103 @@ describe('GUI: Turn summary', () => {
     expect(model.newSites).toHaveLength(1);
     expect(model.newSites[0]).toMatchObject({ name: siteName('apprehend_member'), kind: 'Initiative' });
     expect(model.newSites[0]!.origin).toContain('from');
-    expect(model.endedSites).toEqual([]);
+    expect(model.expiredSites).toEqual([]);
+  });
+
+  const NO_CONSEQUENCE = {
+    money: 0,
+    fundingChange: -1,
+    panicIncreaseHundredths: 100,
+    panicReductionHundredths: 0,
+    eliminatedFaction: null,
+    defeat: false,
+  };
+
+  it('is not shown after an Advance turn whose only news is an Expired Mission site, yet can be reopened', () => {
+    const quietReport = turnReportView(quiet)!;
+    const expiredOnly = {
+      ...quietReport,
+      expiredMissionSites: [
+        {
+          missionSite: 'mission-site-9',
+          missionSiteArchetype: 'apprehend_member',
+          kind: 'Response' as const,
+          consequence: NO_CONSEQUENCE,
+        },
+      ],
+    };
+    // TSUM, Groups: an Expired Mission site alone never shows the Turn summary; the Situation panel shows it.
+    expect(showsTurnSummary(quietReport.turn, expiredOnly)).toBe(false);
+    // TRVIEW, Turn summary button: enabled when the only group is Expired Mission sites.
+    expect(turnSummaryHasContent(expiredOnly)).toBe(true);
+    // TSUM, Groups: a Cancelled Mission site alone gives the Turn summary no group.
+    expect(turnSummaryHasContent({ ...quietReport, cancelledMissionSites: ['mission-site-9'] })).toBe(false);
+  });
+
+  it('lists the Expired Mission sites, and leaves the Cancelled ones out', () => {
+    const quietReport = turnReportView(quiet)!;
+    const model = turnSummary(
+      {
+        ...quietReport,
+        cancelledMissionSites: ['mission-site-8'],
+        expiredMissionSites: [
+          {
+            missionSite: 'mission-site-9',
+            missionSiteArchetype: 'apprehend_member',
+            kind: 'Response' as const,
+            consequence: NO_CONSEQUENCE,
+          },
+        ],
+      },
+      currentLiveWorldStateView(quiet, gdrs),
+      currentRetiredWorldStateView(quiet, gdrs),
+      siteName,
+    );
+    expect(model.expiredSites).toEqual([
+      {
+        missionSite: 'mission-site-9',
+        name: siteName('apprehend_member'),
+        kind: 'Response',
+        consequence: NO_CONSEQUENCE,
+      },
+    ]);
+  });
+});
+
+describe('GUI: Situation panel Mission sites', () => {
+  const state = withAgents(newCampaign(), 2);
+  const view = currentLiveWorldStateView(state, gdrs);
+  const site = (id: string, turnsUntilExpiration: number, lifecycle = 'Active') =>
+    ({
+      ...view.missionSites[0]!,
+      id,
+      name: id,
+      turnsUntilExpiration,
+      lifecycle,
+    }) as (typeof view.missionSites)[number];
+
+  it('lists the Active ones soonest first, marks the one that Expires next, then the ones just lost', () => {
+    const groups = situationGroups(
+      { ...view, missionSites: [site('later', 3), site('next', 1)] },
+      [],
+      [site('gone', 0, 'Expired')],
+    );
+    const sites = groups.find((group) => group.id === 'missionSites');
+    expect(sites).toBeDefined();
+    if (sites?.id !== 'missionSites') {
+      return;
+    }
+    // SITP, Groups: the count is the number of Active Mission sites; a lost one waits for no decision.
+    expect(sites.count).toBe(2);
+    expect(sites.rows.map((row) => [row.site.id, row.urgency])).toEqual([
+      ['next', 'next'],
+      ['later', 'other'],
+      ['gone', 'lost'],
+    ]);
+  });
+
+  it('shows the group for a Mission site just lost even when none is Active', () => {
+    const groups = situationGroups({ ...view, missionSites: [] }, [], [site('gone', 0, 'Cancelled')]);
+    expect(groups.find((group) => group.id === 'missionSites')).toMatchObject({ count: 0 });
   });
 });

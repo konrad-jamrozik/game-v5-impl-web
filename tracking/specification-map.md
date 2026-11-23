@@ -736,6 +736,7 @@ No files.
 - src/web/situation.ts
 - src/web/completion.ts
 - tests/web/situation-and-summary.test.ts
+- src/web/condition.tsx
 - e2e/web.spec.ts
 - src/web/screens/Campaign.tsx
 

@@ -208,7 +208,7 @@ describe('COMBAT: gaps', () => {
     const dead = initiate('e1');
     dead.state.currentHealthHundredths = 0;
     const report = fight([combatAgent('a1')], [dead], {});
-    expect(report).toMatchObject({ outcome: 'Prevailed', rounds: 0 });
+    expect(report).toMatchObject({ outcome: 'Won', rounds: 0 });
     expect(report.participants[1]).toMatchObject({
       start: { incapacitated: false },
       final: { condition: 'dead' },

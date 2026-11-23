@@ -80,7 +80,13 @@ export function TurnReportView(props: {
   );
   if (report === null) {
     return (
-      <DetailView id="report" title="Turn report" lead={summaryButton} onClose={props.onClose}>
+      <DetailView
+        id="report"
+        title="Turn report"
+        lead={summaryButton}
+        backInLead={backToSummary}
+        onClose={props.onClose}
+      >
         <p className="muted" data-testid="turn-report">
           There is no Turn report yet. Advance the turn to get the first one.
         </p>
@@ -109,7 +115,8 @@ export function TurnReportView(props: {
                 <span className={mission.result === 'Won' ? 'tone-good' : 'tone-bad'}>{mission.result}</span>
               </>
             )}
-            {` · ${shownCombat.outcome} in ${shownCombat.rounds} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`}
+            {/* TRVIEW, Sections: the Combat outcome only of a Lost Mission, as a Won one's is Won too. */}
+            {`${mission?.result === 'Won' ? '' : ` · ${shownCombat.outcome}`} in ${shownCombat.rounds} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`}
           </>
         }
         onClose={props.onClose}
@@ -130,8 +137,9 @@ export function TurnReportView(props: {
       id="report"
       title="Turn report"
       aside={heading}
-      // TRVIEW, Turn summary button: right after the Turn the report covers.
+      // TRVIEW, Turn summary button: right after the Turn the report covers; "‹ Turn summary" stands in its place.
       lead={summaryButton}
+      backInLead={backToSummary}
       onClose={props.onClose}
     >
       <div className="stack" data-testid="turn-report">
@@ -238,7 +246,10 @@ function Sections(props: {
                   </td>
                   <td className={mission.result === 'Won' ? 'tone-good' : 'tone-bad'}>
                     {mission.result}
-                    {combat === undefined ? '' : ` · ${combat.outcome} in ${combat.rounds} rounds`}
+                    {/* TRVIEW, Sections: the Combat outcome only of a Lost Mission, e.g. "Lost · Wiped". */}
+                    {combat === undefined
+                      ? ''
+                      : `${mission.result === 'Won' ? '' : ` · ${combat.outcome}`} in ${combat.rounds} rounds`}
                   </td>
                   <td className="num">{combat?.agents.length ?? '-'} Agents</td>
                   <td className={mission.killed.length > 0 ? 'tone-bad' : 'muted'}>

@@ -1631,7 +1631,7 @@
   Shared implementation.
 - **Description:** `fightCombatBatch(setup, count)` takes the setup of `fightCombat` and `count`, and returns
   `{ combats, totals }`: `combats` holds one `{ outcome, agentsDead }` for each Combat in order of `i`, and `totals`
-  holds `prevailed`, `retreated`, `wiped`, and `agentsDead`. A `count` that is not a whole number from 1 to 10,000 is
+  holds `won`, `retreated`, `wiped`, and `agentsDead`. A `count` that is not a whole number from 1 to 10,000 is
   rejected with the reason `invalid_count`, and a last Detached seed `<seed>#<count>` that is too long with
   `invalid_seed`. `fightCombat` also returns the Combat summary, as `summary`, beside the Combat report. The engine
   passes the two arguments to the rules' `developerTool` as one object `{ setup, count }`. The CLI command
@@ -1653,7 +1653,7 @@
 - **Category:** Asked by the specifications
 - **Affected specifications:** COMBAT, Batch of Detached Combats.
 - **Description:** `fightCombatBatch(setup, count, stop)` takes `stop` as an optional object
-  `{ prevailed?, notPrevailed? }`; an empty object, `null`, or no `stop` fights every Combat, and any other key or a
+  `{ won?, notWon? }`; an empty object, `null`, or no `stop` fights every Combat, and any other key or a
   value that is not a whole number of at least 1 is rejected with the reason `invalid_stop`. The totals gain `fought`,
   the number of Combats fought, which is fewer than `count` when `stop` ended the batch early. The CLI command
   `fightbatch <count> <setup JSON>` takes a stop as `fightbatch <count> [<setup JSON>, <stop JSON>]`, so that the rest
@@ -1801,10 +1801,10 @@
 ## DEC-087: The Detail view title row holds a lead slot after the title, and a text aside centres its figures on the title's capitals
 
 - **Category:** Gap resolution
-- **Affected specifications:** VIS, Detail views and navigation; MVIEW, Mission site list: the Finished toggle after
+- **Affected specifications:** VIS, Detail views and navigation; MVIEW, Mission site list: the Concluded toggle after
   the number of Active Mission sites, "centred on the title's line"; TRVIEW, Turn summary button; AVIEW, Header.
 - **Description:** The Detail view frame takes, besides its aside, a lead slot of controls right after the title and
-  the aside, which holds the Finished toggle of the Missions View and the Turn summary button of the Turn Report View.
+  the aside, which holds the Concluded toggle of the Missions View and the Turn summary button of the Turn Report View.
   A text aside, e.g. "2 Active", shares the title's baseline and is raised 3 px from it, half the difference between
   the height of its 14 px figures and of the title's 22 px capitals, so that the middle of its figures sits at the
   middle of the capitals; the cap figures of the Agents View stand 40 px after the title and 40 px apart, centred on

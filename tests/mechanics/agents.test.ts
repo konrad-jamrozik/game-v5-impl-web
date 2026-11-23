@@ -636,7 +636,7 @@ describe('AGENT: examples', () => {
     const report = turnReportView(state)!;
     const combat = report.combatReports[0]!;
     const gainOf = (id: string) => combat.participants.find((p) => p.id === id)!.combatExperience;
-    expect(combat.outcome).toBe('Prevailed');
+    expect(combat.outcome).toBe('Won');
     expect(agent(state, a2).state.status).toBe('Killed');
     // a1: three hits and a miss for its attacks, a miss and a hit for those it took, e.g. 4 + 2 + 4 + 4 + 2 + 1 = 17
     // with the values of the example; a2: its hit, and the hit that made it dead, e.g. 4 + 1 = 5.

@@ -92,10 +92,10 @@ export function MissionsView(props: {
   const { player } = theEngine();
   const { snapshot, state, locked } = props;
   // MVIEW, Mission site list: a Mission site selected from another view that is in a final state opens the View with
-  // the toggle on Finished, so that the selected Mission site is in the list. CSCR, View trail: both are part of the
+  // the toggle on Concluded, so that the selected Mission site is in the list. CSCR, View trail: both are part of the
   // place, so that Go back shows the selected Mission site again after following one of its Agents.
-  const [showFinished, setShowFinished] = usePlaceState(
-    'showFinished',
+  const [showConcluded, setShowConcluded] = usePlaceState(
+    'showConcluded',
     props.initial !== null &&
       (snapshot.retired?.missionSites.some((site) => site.id === props.initial) ?? false),
   );
@@ -122,8 +122,8 @@ export function MissionsView(props: {
             },
           ];
     });
-  // MVIEW, Mission site list: each finished Mission site with its target Faction and the final state it reached.
-  const finished: ListItem[] = [...(retired?.missionSites ?? [])].reverse().map((site) => {
+  // MVIEW, Mission site list: each concluded Mission site with its target Faction and the final state it reached.
+  const concluded: ListItem[] = [...(retired?.missionSites ?? [])].reverse().map((site) => {
     const reached = finalState(site.lifecycle, historyMission(entries, site.id));
     return {
       site,
@@ -140,7 +140,7 @@ export function MissionsView(props: {
 
   const everySite = [...state.missionSites, ...(retired?.missionSites ?? [])];
   const selected =
-    everySite.find((site) => site.id === picked) ?? (showFinished ? finished[0]?.site : active[0]) ?? null;
+    everySite.find((site) => site.id === picked) ?? (showConcluded ? concluded[0]?.site : active[0]) ?? null;
 
   const list = (title: string, items: readonly ListItem[], testId: string) =>
     items.length === 0 ? null : (
@@ -177,30 +177,30 @@ export function MissionsView(props: {
       id="missions"
       title="Missions"
       aside={`${active.length} Active`}
-      // MVIEW, Mission site list: the Finished toggle follows the number of Active Mission sites in the title row.
+      // MVIEW, Mission site list: the Concluded toggle follows the number of Active Mission sites in the title row.
       lead={
         <button
           type="button"
-          className={showFinished ? 'chip chip-on' : 'chip'}
-          data-testid="missions-finished"
+          className={showConcluded ? 'chip chip-on' : 'chip'}
+          data-testid="missions-concluded"
           data-sound="select"
           onClick={() => {
-            setShowFinished(!showFinished);
+            setShowConcluded(!showConcluded);
             setPicked(null);
           }}
         >
-          Finished {retired?.missionSites.length ?? 0}
+          Concluded {retired?.missionSites.length ?? 0}
         </button>
       }
       onClose={props.onClose}
     >
       <div className={selected?.lifecycle === 'Active' ? 'panes' : 'panes panes-two'}>
         <div className="pane pane-list">
-          {showFinished ? (
-            finished.length === 0 ? (
+          {showConcluded ? (
+            concluded.length === 0 ? (
               <p className="muted">No Mission site has reached a final state yet.</p>
             ) : (
-              list('Finished', finished, 'missions-finished-list')
+              list('Concluded', concluded, 'missions-concluded-list')
             )
           ) : active.length === 0 && deployed.length === 0 ? (
             <p className="muted">

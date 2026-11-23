@@ -2160,6 +2160,34 @@ label:has(> input[type='checkbox']:disabled) {
   color: var(--text-muted);
 }
 
+/* SITP, Mission site urgency: a Mission site that Expires next is in Warning with the warning triangle. */
+.sit-row-next,
+.sit-row-next .sit-value {
+  color: var(--warning);
+}
+
+/* SITP, Mission site urgency: one lost in the most recent Advance turn is struck through in Danger deep, with the
+   prohibition icon outlined in Danger. */
+.sit-row-lost .sit-name,
+.sit-row-lost .sit-value {
+  color: var(--danger-deep);
+  text-decoration: line-through;
+}
+
+.sit-row-lost .sit-glyph {
+  color: var(--danger);
+}
+
+/* TSUM, Mission site links: a Mission site item is a button that reads as the row it is. */
+.summary-site-link {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
 .strong {
   color: var(--text);
 }
@@ -2312,7 +2340,7 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 /* VIS, Detail views and navigation: the title, what the view says of what it shows, and the controls beside it, all
-   centred on the title's 36 px line. MVIEW and TRVIEW: the Finished toggle and the Turn summary button follow it. */
+   centred on the title's 36 px line. MVIEW and TRVIEW: the Concluded toggle and the Turn summary button follow it. */
 .detail-title {
   align-self: flex-start;
   display: flex;

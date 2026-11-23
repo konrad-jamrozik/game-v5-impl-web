@@ -21,7 +21,7 @@ import { SOUND } from '../sounds.ts';
 import { autopilotSettings } from '../autopilot-controls.ts';
 import { setSidePanelHidden, useSidePanelHidden } from '../side-panel.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
-import { activeInvestigationRows, leadsToInvestigate } from '../situation.ts';
+import { activeInvestigationRows, leadsToInvestigate, lostMissionSites } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
 import { Button, CloseControl, Fact, Meter, typingIn } from '../ui.tsx';
@@ -235,12 +235,17 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     }
   };
   /**
-   * CSCR, View trail, From the Turn summary: the Turn summary closes, the Turn Report View opens, showing `restored`,
-   * and the View trail holds the Turn summary, over the place it was shown over, as its only place.
+   * CSCR, View trail, From the Turn summary: the Turn summary closes, the Detail view opens, by default the Turn
+   * Report View showing `restored`, and the View trail holds the Turn summary, over the place it was shown over, as its
+   * only place.
    */
-  const openFromSummary = (restored: Readonly<Record<string, unknown>>) => {
+  const openFromSummary = (
+    restored: Readonly<Record<string, unknown>>,
+    id: DetailViewId = 'report',
+    item: string | null = null,
+  ) => {
     setTrail(fromTurnSummary<DetailViewId>(shownPlace()));
-    openPlace('report', null, restored);
+    openPlace(id, item, restored);
     dismissSummary();
   };
 
@@ -688,7 +693,12 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
               ))}
             </nav>
 
-            <SituationPanel state={state} leads={leads} onShow={show} />
+            <SituationPanel
+              state={state}
+              leads={leads}
+              lost={lostMissionSites(snapshot.report, snapshot.retired)}
+              onShow={show}
+            />
 
             <footer className="side-footer">
               {/* CSCR, Autopilot settings: while Autopilot controls shown is off, the footer holds only its bottom row. */}
@@ -789,6 +799,10 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           onOpenCombat={(mission) => {
             // TSUM, Mission cards: the Turn Report View opens with that Mission's Combat report one step away.
             openFromSummary({ combat: mission, logOpen: false });
+          }}
+          onOpenSite={(missionSite) => {
+            // TSUM, Mission site links: the Missions View opens with that Mission site selected.
+            openFromSummary(NOTHING_RESTORED, 'missions', missionSite);
           }}
         />
       ) : null}

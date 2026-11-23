@@ -97,7 +97,7 @@ export interface DetachedCombatBatchResult {
   readonly totals: {
     /** The number of Combats fought, fewer than `count` when `stop` ended the batch early. */
     readonly fought: number;
-    readonly prevailed: number;
+    readonly won: number;
     readonly retreated: number;
     readonly wiped: number;
     readonly agentsDead: number;
@@ -105,12 +105,12 @@ export interface DetachedCombatBatchResult {
 }
 
 /**
- * COMBAT, Batch of Detached Combats, Stop: the batch ends after the Combat at which the number Prevailed reaches
- * `prevailed`, or the number Retreated or Wiped reaches `notPrevailed`.
+ * COMBAT, Batch of Detached Combats, Stop: the batch ends after the Combat at which the number Won reaches
+ * `won`, or the number Retreated or Wiped reaches `notWon`.
  */
 export interface DetachedCombatBatchStop {
-  readonly prevailed?: number;
-  readonly notPrevailed?: number;
+  readonly won?: number;
+  readonly notWon?: number;
 }
 
 /** COMBAT, Batch of Detached Combats: the largest `count` of one batch. */
@@ -406,7 +406,7 @@ export function detachedCombatBatch(
       'invalid_input',
     );
   }
-  let stopAt = { prevailed: Infinity, notPrevailed: Infinity };
+  let stopAt = { won: Infinity, notWon: Infinity };
   if (stop !== undefined && stop !== null) {
     const isLimit = (value: unknown): value is number =>
       typeof value === 'number' && Number.isInteger(value) && value >= 1;
@@ -414,18 +414,18 @@ export function detachedCombatBatch(
     const given = (stop ?? {}) as Record<string, unknown>;
     if (
       keys === null ||
-      keys.some((key) => key !== 'prevailed' && key !== 'notPrevailed') ||
+      keys.some((key) => key !== 'won' && key !== 'notWon') ||
       keys.some((key) => !isLimit(given[key]))
     ) {
       return reject(
         'invalid_stop',
-        'stop may hold only prevailed and notPrevailed, each a whole number of at least 1.',
+        'stop may hold only won and notWon, each a whole number of at least 1.',
         'invalid_input',
       );
     }
     stopAt = {
-      prevailed: isLimit(given['prevailed']) ? given['prevailed'] : Infinity,
-      notPrevailed: isLimit(given['notPrevailed']) ? given['notPrevailed'] : Infinity,
+      won: isLimit(given['won']) ? given['won'] : Infinity,
+      notWon: isLimit(given['notWon']) ? given['notWon'] : Infinity,
     };
   }
   if (!isPermittedSeed(`${combat.seed}#${count}`)) {
@@ -435,20 +435,20 @@ export function detachedCombatBatch(
     );
   }
   const combats: CombatSummary[] = [];
-  const totals = { prevailed: 0, retreated: 0, wiped: 0, agentsDead: 0 };
+  const totals = { won: 0, retreated: 0, wiped: 0, agentsDead: 0 };
   for (let i = 1; i <= count; i += 1) {
     const summary = fightCombatSummary(combat.inputs, detachedRandom(`${combat.seed}#${i}`));
     combats.push(summary);
     totals.agentsDead += summary.agentsDead;
-    if (summary.outcome === 'Prevailed') {
-      totals.prevailed += 1;
+    if (summary.outcome === 'Won') {
+      totals.won += 1;
     } else if (summary.outcome === 'Retreated') {
       totals.retreated += 1;
     } else {
       totals.wiped += 1;
     }
     // COMBAT, Batch of Detached Combats, Stop.
-    if (totals.prevailed >= stopAt.prevailed || totals.retreated + totals.wiped >= stopAt.notPrevailed) {
+    if (totals.won >= stopAt.won || totals.retreated + totals.wiped >= stopAt.notWon) {
       break;
     }
   }

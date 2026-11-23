@@ -442,7 +442,7 @@ export function applyAdvanceTurn(
         deadAgent.state.killedBy = { enemy: attack.attacker, missionSite: site.id };
       }
     }
-    const result = report.outcome === 'Prevailed' ? 'Won' : 'Lost';
+    const result = report.outcome === 'Won' ? 'Won' : 'Lost';
     mission.state.lifecycle = result;
     // MISSION, Mission site lifecycle: Deployed to Concluded when its Mission becomes Won or Lost.
     site.state.lifecycle = 'Concluded';

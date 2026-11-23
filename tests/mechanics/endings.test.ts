@@ -255,7 +255,7 @@ describe('ENDING: examples', () => {
     });
   });
 
-  it('Completing the Lead that wins the Campaign is Victory, and Victory prevails over Defeat', () => {
+  it('Completing the Lead that wins the Campaign is Victory, and Victory takes precedence over Defeat', () => {
     const catalog = example;
     let state = set(peaceDiscovered(newCampaign({ catalog }), catalog), {
       panicHundredths: 9995,

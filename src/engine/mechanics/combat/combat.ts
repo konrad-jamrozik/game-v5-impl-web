@@ -580,8 +580,7 @@ function fight(
   const anyAble = (side: readonly Fighter[]): boolean => side.some(able);
 
   /** COMBAT, Combat end checks 1 and 2, made at Combat start and after every attack. */
-  const sideOut = (): CombatOutcome | null =>
-    !anyAble(enemies) ? 'Prevailed' : !anyAble(agents) ? 'Wiped' : null;
+  const sideOut = (): CombatOutcome | null => (!anyAble(enemies) ? 'Won' : !anyAble(agents) ? 'Wiped' : null);
 
   /**
    * One phase: the side's Combatants take their Combat turns in Phase order, i.e. from the highest to the lowest

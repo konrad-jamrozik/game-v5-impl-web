@@ -165,7 +165,7 @@ describe('MISSION: examples', () => {
     const report = state.world.history.turnReport!;
     expect(report.income.moneyAfter).toBe(420);
     expect(report.upkeep.moneyAfter).toBe(380);
-    expect(report.combatReports[0]).toMatchObject({ mission: m1, outcome: 'Prevailed', rounds: 2 });
+    expect(report.combatReports[0]).toMatchObject({ mission: m1, outcome: 'Won', rounds: 2 });
     expect(report.combatReports[0]!.log).toHaveLength(8);
     // COMBAT, Combat report and MISSION, Turn report: the History entry keeps each participant's current health and
     // effective skill at Combat start and at Combat end, its final condition, each side's Combat rating at Combat
@@ -354,7 +354,7 @@ describe('MISSION: examples', () => {
     expect([lost.world.current.panicHundredths, funding(lost), money(lost)]).toEqual([1800, 19, 300]);
     expect(site(lost, s2).state).toMatchObject({ lifecycle: 'Concluded', turnsUntilExpiration: 4 });
 
-    // Won: four Agents prevail in three Combat rounds.
+    // Won: four Agents win in three Combat rounds.
     let won = act(created.state, 'deployAgents', { missionSite: s2, agents: [a1, a2, a3, a4] });
     // Without their armor, two hits of 15 kill each soldier in the first Combat round, as the script below assumes.
     won = tweak(won, (world) => {
@@ -379,7 +379,7 @@ describe('MISSION: examples', () => {
       ...Object.fromEntries([e1, e2, e3, e4].map((id) => [`combat.hit.${id}`, [false, false]])),
     });
     const wonReport = won.world.history.turnReport!;
-    expect(wonReport.combatReports[0]).toMatchObject({ outcome: 'Prevailed', rounds: 3 });
+    expect(wonReport.combatReports[0]).toMatchObject({ outcome: 'Won', rounds: 3 });
     const round2Enemies = wonReport.combatReports[0]!.log.filter(
       (x) => x.round === 2 && x.attacker.startsWith('enemy'),
     );
