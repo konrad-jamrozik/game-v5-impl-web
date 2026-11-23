@@ -160,6 +160,9 @@ by the implementer, as Implementation Placement requires under "Game data in an 
   `b94e4552765d4f9b9fa18609ecacc770d8a4753c` on 2026-11-22, raising the money and funding of every Won Faction
   operation, giving level 1 funding 10, and making levels 2 to 4 cost 35, 70, and 140 funding when Expired or Lost. The
   copy is still identical to the specification's `content/` directory outside `content/cut/`.
+- `configuration/campaign_configurations.yaml`: patched unchanged from specification commit
+  `1524e1656bc4b866890de2e2818dbb8d697a2a93` on 2026-11-22, raising the preset `standard`'s `starting_funding` from 20
+  to 100. The copy is still identical to the specification's `content/` directory outside `content/cut/`.
 
 No script of this implementation reads the specification repository. Refreshing this copy is a deliberate manual step:
 copy the files again, update the commit above, run `npm run check`, and record what changed in

@@ -797,4 +797,6 @@
   tests in Defeat by money below zero around Turn 8. The specifications do not say whether this pressure is intended,
   and an Implementation cannot settle it without changing a GDR value or a BASICAI rule.
 - **Links:** DEC-091
-- **Resolution:** Open
+- **Resolution:** Resolved in 1524e1656bc4b866890de2e2818dbb8d697a2a93, which the Implementation follows since this
+  update: the preset `standard` starts with `starting_funding` 100, which covers the upkeep of the 8 Agents of the
+  initial roster before Contracting is unlocked.
