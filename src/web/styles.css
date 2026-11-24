@@ -1545,15 +1545,12 @@ summary {
 }
 
 /* VIS, Charts */
+/* VIS, Charts: at most two charts side by side, so that the title row of each keeps one line in the Reference
+   window. */
 .charts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-}
-
-/* CVIEW, Faction charts: three side by side to a row, however many Factions there are. */
-.charts-three {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .chart {
@@ -2520,7 +2517,12 @@ label:has(> input[type='checkbox']:disabled) {
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
   margin: 0 auto 0 0;
+}
+
+.detail-title > .detail-lead {
+  flex: none;
 }
 
 /* VIS, Detail views and navigation; MVIEW: a text aside, e.g. "2 Active", is centred on the title's line, i.e. the
@@ -2532,8 +2534,18 @@ label:has(> input[type='checkbox']:disabled) {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  min-width: 0;
   margin: 0;
   line-height: 36px;
+  white-space: nowrap;
+}
+
+/* VIS, Reference window: the title row keeps one line. A text aside too long for it, e.g. the Mission of a Combat
+   report, ends in "…", and the pointer resting on it shows it in full. */
+.detail-head h2 > .detail-aside:not(:has(.cap-figures)) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .detail-head h2 > .detail-aside {
@@ -3034,11 +3046,59 @@ label:has(> input[type='checkbox']:disabled) {
   grid-template-columns: minmax(260px, 1.1fr) minmax(0, 2.5fr);
 }
 
-/* MVIEW, Mission site list: the Instance ID under the name, in Text muted. */
+/* MVIEW, Mission site list: the Instance ID after the name, in Text muted, never broken in two. */
 .list-name > .list-id {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin-left: 2px;
+  white-space: nowrap;
+}
+
+/* MVIEW and LVIEW: an item of the list pane is two lines, its name and then what the Player must know of it, so that
+   neither wraps mid-phrase in a narrow pane. */
+.pane-list .list-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.pane-list .list-value {
+  max-width: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-align: left;
+}
+
+/* TRVIEW, Sections, Missions: an item of two lines. The first holds the Mission site title, the outcome, and, at its
+   right end, the Combat report and Visualize buttons; the second the facts of the Combat. */
+.report-mission {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0 8px 12px;
+  border-bottom: 1px solid var(--raised);
+}
+
+.report-mission:last-child {
+  border-bottom: 0;
+}
+
+.report-mission-line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.report-mission-buttons {
+  margin-left: auto;
+}
+
+.report-mission-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 24px;
+  font-size: 14px;
+  color: var(--text-secondary);
 }
 
 /* AVIEW, STVIEW, ACQVIEW: the sword, shield, and Ammo short icons after a number. */
@@ -3402,7 +3462,7 @@ label:has(> input[type='checkbox']:disabled) {
   position: relative;
   /* CRPLAY, Battlefield layout: centred in the width it is given. */
   margin: 0 auto;
-  width: min(100%, calc(100vh - var(--replay-chrome, 290px)));
+  width: min(100%, calc(100vh - var(--replay-chrome, 316px)));
   min-width: 320px;
   aspect-ratio: 1;
 }
@@ -3449,6 +3509,15 @@ label:has(> input[type='checkbox']:disabled) {
   gap: 4px;
 }
 
+/* CRPLAY, Playback, Options: the options are hidden until the Options button shows them. */
+.replay-settings[hidden] {
+  display: none;
+}
+
+.replay-options-toggle {
+  align-self: flex-start;
+}
+
 .replay-slider {
   display: flex;
   flex-direction: column;
@@ -3457,7 +3526,7 @@ label:has(> input[type='checkbox']:disabled) {
 
 .replay-log {
   position: relative;
-  max-height: 240px;
+  max-height: 200px;
   overflow-y: auto;
   border-top: 1px solid var(--border);
 }

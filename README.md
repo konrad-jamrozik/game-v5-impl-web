@@ -73,6 +73,8 @@ the Timeline entries, the Timeline pointer, and the Campaign configuration in fo
 - `tests/cli` and `tests/web` cover the two storage layouts and the CLI.
 - `e2e/web.spec.ts` plays the same Campaign through the engine API, the CLI, and the web UI in a browser, and
   requires the full Campaign state to be equal.
+- `e2e/layout.spec.ts` walks every screen in the Reference window of Visual Design, 1408 × 784, and fails when any
+  region scrolls sideways or a heading, label, or button wraps onto a second line.
 
 ## The web UI
 
@@ -92,14 +94,18 @@ Google Fonts, in a dark theme only.
   rotation, show its clouds in full, at half opacity, or not at all, and set the day and night speed to 1×, 2×, 4×, or
   stopped. It loads on first show, stops drawing while a Detail view covers it, and shows a message in its place
   without WebGL 2. Imagery: NASA Blue Marble and Earth at Night, in the public domain.
-- **Side panel.** On the right, 400 px wide: a button for each Detail view, the compact Situation panel, in which
-  each item takes one line, e.g. an Active Investigation with its Progress circle and Completion estimate, and opens
-  its Detail view, and a footer with the Autopilot controls, collapsed to one row until expanded.
+- **Side panel.** On the right, 272 px wide: the navigation, a row of tabs, one for each group of Detail views, over
+  the buttons of the chosen group; the compact Situation panel, in which each item is one line, or two when its name
+  is long, e.g. an Active Investigation with its Progress circle and Completion estimate, and opens its Detail view;
+  and a footer with the Autopilot controls, collapsed to one row until expanded, and the Music control, which
+  collapses to its Track title.
 - **Detail views.** One at a time, opened and closed from the Side panel or with `Esc`:
   - Operations: Missions (Mission sites, their Enemies and Consequences, and deploying a team), Leads (the Discovered
     Leads in groups, the selected Lead with its Progress bar, and its Investigation's team), Agents (a sortable table
     of the Serving Agents built with TanStack Table, with Hire, the Assignment buttons, Dismiss, and each Agent's
-    details), and Upgrades (one card per Upgrade with what one more purchase changes).
+    details), and Armory (the same Agents with their Combat rating, Weapon, and Armor, and the Equipment picker).
+  - Base: Storage (the Items and Ammo the agency owns, and selling them), Upgrades (one card per Upgrade with what one
+    more purchase changes), and Acquisitions (buying Items and Ammo).
   - Records: Turn report (what the last Advance turn did, with each Combat report and its Combat log), History (the
     Turn by Turn table, whose Missions link to their Mission sites), Charts (Panic, money, Serving Agents, and
     funding), and Compendium (the Player-visible Guide, Mechanics, and Subject articles by category, with a search
@@ -117,7 +123,8 @@ the same World state.
 
 After a reload the web UI continues the Campaign from its Current Autosave, including its Undone actions.
 
-Keyboard shortcuts: `N` Advance turn, `U` and `R` undo and redo, `1` to `8` open or close a Detail view, `Esc` close
+Keyboard shortcuts: `N` Advance turn, `U` and `R` undo and redo, `1` to `9` and then `0` open or close a Detail view
+in the order of the navigation, `Esc` close
 it, `H` hire, `S`, `C`, `T` assign the Agents selected in the Agents view, `A` select every Agent that can be
 assigned, `` ` `` open the Developer drawer, `?` list the shortcuts.
 
@@ -131,7 +138,7 @@ a few minutes, writes outside this repository, and is neither a test nor part of
 
 The pictures are generated: never edit one by hand, and run the script again whenever the UI changes. When a picture
 and the game disagree, the game is right. The script keeps them deterministic, so two runs write the same files: a
-fixed window of 1440 × 900, a fixed clock and fixed random values in the page, reduced motion, which keeps the globe
+fixed window of 1408 × 784, the Reference window of Visual Design, a fixed clock and fixed random values in the page, reduced motion, which keeps the globe
 still, no CSS animations or transitions, and every font and image loaded before each picture. Where play alone would
 take long, the scenario uses Dev mode, e.g. Random outcome overrides under which one Agent is Killed for the Memorial.
 

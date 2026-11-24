@@ -6,32 +6,7 @@
  * - CSCR, Navigation: the chosen tab of the navigation, by the name of its group; Operations when a Session starts.
  * - MUSIC, Music control in the Side panel: whether the Music control is collapsed; expanded when a Session starts.
  */
-import { useSyncExternalStore } from 'react';
-
-/** One value kept for the Session, with the components that show it. */
-function sessionValue<T>(start: T) {
-  let value = start;
-  const listeners = new Set<() => void>();
-  const subscribe = (listener: () => void): (() => void) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  };
-  return {
-    get: (): T => value,
-    set: (next: T): void => {
-      value = next;
-      for (const listener of listeners) {
-        listener();
-      }
-    },
-    use: (): T =>
-      useSyncExternalStore(
-        subscribe,
-        () => value,
-        () => start,
-      ),
-  };
-}
+import { sessionValue } from './session-value.ts';
 
 const hidden = sessionValue(false);
 const navigationTab = sessionValue('Operations');

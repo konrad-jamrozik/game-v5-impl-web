@@ -152,6 +152,13 @@ export function TurnReportView(props: {
         {`${mission?.result === 'Won' ? '' : ` · ${shownCombat.outcome}`} in ${shownCombat.rounds} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`}
       </>
     );
+    // The same line as text, which the pointer resting on a line cut short shows in full.
+    const asideText = [
+      siteName ?? '',
+      mission === undefined ? '' : ` · ${mission.result}`,
+      mission?.result === 'Won' ? '' : ` · ${shownCombat.outcome}`,
+      ` in ${shownCombat.rounds} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`,
+    ].join('');
     if (replayShown) {
       const gameData = snapshot.gameData;
       const enemyOf = (id: string) => site?.enemies.find((enemy) => enemy.id === id);
@@ -166,7 +173,13 @@ export function TurnReportView(props: {
         seed: shownCombat.mission,
       });
       return (
-        <DetailView id="report" title="Combat replay" aside={aside} onClose={props.onClose}>
+        <DetailView
+          id="report"
+          title="Combat replay"
+          aside={aside}
+          asideText={asideText}
+          onClose={props.onClose}
+        >
           <CombatReplay
             combat={shownCombat}
             replay={replay}
@@ -192,6 +205,7 @@ export function TurnReportView(props: {
           </Button>
         }
         aside={aside}
+        asideText={asideText}
         onClose={props.onClose}
       >
         <CombatReportDetails
@@ -401,76 +415,80 @@ function Sections(props: {
   return (
     <>
       <Section title="Missions" count={report.missions.length} testId="report-missions">
-        <Grid widths={['340px', '200px', '96px', '170px', '208px', '120px', '262px']}>
-          <tbody>
-            {report.missions.map((mission) => {
-              const combat = report.combatReports.find((item) => item.mission === mission.mission);
-              const enemies = combat?.participants.filter((who) => who.side === 'enemy') ?? [];
-              const dead = enemies.filter((who) => who.final.condition === 'dead').length;
-              // TRVIEW, Sections, Missions: the sum of the Mission experience of the survivors, e.g. "+176 exp".
-              const experience = mission.growth.reduce((sum, item) => sum + item.missionExperience, 0);
-              return (
-                <tr key={mission.mission}>
-                  <td>
+        {/* TRVIEW, Sections, Missions: one item of two lines for each Combat report, because its facts are too many
+            for one line of a table that fits its view. */}
+        {report.missions.map((mission) => {
+          const combat = report.combatReports.find((item) => item.mission === mission.mission);
+          const enemies = combat?.participants.filter((who) => who.side === 'enemy') ?? [];
+          const dead = enemies.filter((who) => who.final.condition === 'dead').length;
+          // TRVIEW, Sections, Missions: the sum of the Mission experience of the survivors, e.g. "+176 exp".
+          const experience = mission.growth.reduce((sum, item) => sum + item.missionExperience, 0);
+          return (
+            <div
+              key={mission.mission}
+              className="report-mission"
+              data-testid={`report-mission-${mission.mission}`}
+            >
+              {/* The first line: the Mission site title, the outcome with the Combat rounds, and the two buttons. */}
+              <div className="report-mission-line">
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => {
+                    onOpen({ kind: 'missionSite', missionSite: mission.missionSite });
+                  }}
+                >
+                  <MissionSiteTitleView title={missionTitle(mission)} />
+                </button>
+                <span className={mission.result === 'Won' ? 'tone-good' : 'tone-bad'}>
+                  {mission.result}
+                  {/* TRVIEW, Sections: the Combat outcome only of a Lost Mission, e.g. "Lost · Wiped". */}
+                  {combat === undefined
+                    ? ''
+                    : `${mission.result === 'Won' ? '' : ` · ${combat.outcome}`} in ${combat.rounds} rounds`}
+                </span>
+                {combat === undefined ? null : (
+                  <span className="trade-buttons report-mission-buttons">
                     <button
                       type="button"
-                      className="link"
+                      className="btn btn-plain"
+                      data-testid={`combat-${mission.mission}`}
                       onClick={() => {
-                        onOpen({ kind: 'missionSite', missionSite: mission.missionSite });
+                        props.onCombat(mission.mission);
                       }}
                     >
-                      <MissionSiteTitleView title={missionTitle(mission)} />
+                      Combat report
                     </button>
-                  </td>
-                  <td className={mission.result === 'Won' ? 'tone-good' : 'tone-bad'}>
-                    {mission.result}
-                    {/* TRVIEW, Sections: the Combat outcome only of a Lost Mission, e.g. "Lost · Wiped". */}
-                    {combat === undefined
-                      ? ''
-                      : `${mission.result === 'Won' ? '' : ` · ${combat.outcome}`} in ${combat.rounds} rounds`}
-                  </td>
-                  <td className="num">{combat?.agents.length ?? '-'} Agents</td>
-                  <td className={mission.killed.length > 0 ? 'tone-bad' : 'muted'}>
-                    {mission.killed.length === 0 ? 'none killed' : `Killed ${mission.killed.join(', ')}`}
-                  </td>
-                  <td className="num">
-                    Enemies dead {dead} / {enemies.length}
-                  </td>
-                  <td className="num" data-testid={`exp-${mission.mission}`}>
-                    +{experience} exp
-                  </td>
-                  <td>
-                    {combat === undefined ? null : (
-                      <span className="trade-buttons">
-                        <button
-                          type="button"
-                          className="btn btn-plain"
-                          data-testid={`combat-${mission.mission}`}
-                          onClick={() => {
-                            props.onCombat(mission.mission);
-                          }}
-                        >
-                          Combat report
-                        </button>
-                        {/* CRPLAY, Visualize button: beside each Combat report button. */}
-                        <button
-                          type="button"
-                          className="btn btn-plain"
-                          data-testid={`visualize-${mission.mission}`}
-                          onClick={() => {
-                            props.onVisualize(mission.mission);
-                          }}
-                        >
-                          Visualize
-                        </button>
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Grid>
+                    {/* CRPLAY, Visualize button: beside each Combat report button. */}
+                    <button
+                      type="button"
+                      className="btn btn-plain"
+                      data-testid={`visualize-${mission.mission}`}
+                      onClick={() => {
+                        props.onVisualize(mission.mission);
+                      }}
+                    >
+                      Visualize
+                    </button>
+                  </span>
+                )}
+              </div>
+              {/* The second line: the Agents on its side, the Agents Killed, the Enemies dead, and the experience. */}
+              <div className="report-mission-facts">
+                <span className="figure">{combat?.agents.length ?? '-'} Agents</span>
+                <span className={mission.killed.length > 0 ? 'tone-bad' : 'muted'}>
+                  {mission.killed.length === 0 ? 'none killed' : `Killed ${mission.killed.join(', ')}`}
+                </span>
+                <span className="figure">
+                  Enemies dead {dead} / {enemies.length}
+                </span>
+                <span className="figure" data-testid={`exp-${mission.mission}`}>
+                  +{experience} exp
+                </span>
+              </div>
+            </div>
+          );
+        })}
       </Section>
 
       {/* TRVIEW, Sections: Benefits, Setbacks, Equipment, and Leads discovered name each source Mission as a heading,
@@ -610,12 +628,13 @@ function Sections(props: {
 
 /**
  * VIS, Tables: the fixed widths of the participants table, the Combat log, and the Combat ratings table, each column
- * wide enough for the widest value of its quantity, e.g. "1234 → 1234" in Eff. skill, "123 → 123/123" in Health,
- * "123 → 123" in Armor, and "99.9% (1234 vs 1234)" in Hit chance.
+ * wide enough for the widest value of its quantity, e.g. "1234 → 1234" in Eff., "123 → 123/123" in Health,
+ * "123 → 123" in Armor, and "99.9% (1234 vs 1234)" in Hit chance. The participants table is 1020 px in all, so that
+ * it fits its pane in the Reference window.
  */
 const PARTICIPANT_WIDTHS = [
   '112px',
-  '92px',
+  '64px',
   '120px',
   '140px',
   '104px',
@@ -623,8 +642,8 @@ const PARTICIPANT_WIDTHS = [
   '72px',
   '64px',
   '64px',
-  '72px',
-  '128px',
+  '60px',
+  '116px',
 ];
 const LOG_WIDTHS = ['72px', '120px', '120px', '184px', '300px'];
 
@@ -676,11 +695,18 @@ function CombatReportDetails(props: {
           <thead>
             <tr>
               <th>Participant</th>
-              <th className="num">Base skill</th>
-              <th className="num">Eff. skill</th>
+              {/* VIS, Tables: a header is worded to fit the values under it, as in the Agent table of AVIEW. */}
+              <th className="num" title="Base skill">
+                Skill
+              </th>
+              <th className="num" title="Effective skill">
+                Eff.
+              </th>
               <th className="num">Health</th>
               <th className="num">Armor</th>
-              <th className="num">Exhaustion</th>
+              <th className="num" title="Exhaustion">
+                Exh.
+              </th>
               <th className="num">Damage</th>
               <th className="num">Dealt</th>
               <th className="num">Taken</th>

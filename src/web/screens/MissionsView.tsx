@@ -161,10 +161,10 @@ export function MissionsView(props: {
               setChecked([]);
             }}
           >
-            {/* MVIEW, Mission site list: the Instance ID after the name, in Text muted. */}
+            {/* MVIEW, Mission site list: the Instance ID after the name, in Text muted; in a narrow pane it moves
+                onto a line of its own as a whole. */}
             <span className="list-name">
-              {item.site.name}
-              <span className="list-id figure muted small">{item.site.id}</span>
+              {item.site.name} <span className="list-id figure muted small">{item.site.id}</span>
             </span>
             <span className={`list-value ${item.tone ?? ''}`}>{item.detail}</span>
           </button>

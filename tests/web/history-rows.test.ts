@@ -22,7 +22,6 @@ describe('HVIEW: the current Turn row', () => {
       turn: 1,
       now: true,
       moneyStart: start.agency.money,
-      moneyEnd: start.agency.money,
       income: start.agency.projectedIncome,
       upkeep: start.agency.projectedUpkeep,
       panic: start.panicHundredths,
@@ -36,7 +35,6 @@ describe('HVIEW: the current Turn row', () => {
     rows = rowsOf(engine);
     expect(rows[0]).toMatchObject({
       now: true,
-      moneyEnd: hired.agency.money,
       upkeep: hired.agency.projectedUpkeep,
       agents: start.agency.servingAgents + 1,
     });
@@ -53,7 +51,7 @@ describe('HVIEW: the current Turn row', () => {
       [2, true],
       [1, false],
     ]);
-    expect(rows[1]).toMatchObject({ moneyEnd: hired.agency.money, agents: start.agency.servingAgents + 1 });
+    expect(rows[1]).toMatchObject({ agents: start.agency.servingAgents + 1 });
     expect(rows[1]!.actions).toHaveLength(1);
     expect(rows[0]!.actions).toEqual([]);
   });

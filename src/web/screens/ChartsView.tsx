@@ -143,8 +143,8 @@ export function ChartsView({ snapshot, onClose }: { snapshot: Snapshot; onClose:
           />
         </div>
         <AgencyCharts snapshot={snapshot} />
-        {/* CVIEW, Faction charts: three side by side to a row, in the order of the Factions in Campaign state. */}
-        <div className="charts charts-three">
+        {/* CVIEW, Faction charts: in the order of the Factions in Campaign state. VIS, Charts: two to a row. */}
+        <div className="charts">
           {(state?.factions ?? []).map((faction) => (
             <LineChart
               key={faction.id}

@@ -8,7 +8,6 @@ export interface HistoryRow {
   /** HVIEW: the current Turn's row, from the Open History entry, marked "now". */
   readonly now: boolean;
   readonly moneyStart: number;
-  readonly moneyEnd: number;
   readonly income: number;
   readonly upkeep: number;
   /** Panic, in hundredths. */
@@ -30,7 +29,6 @@ export function historyRows(snapshot: Pick<Snapshot, 'history' | 'state'>): Hist
     turn: entry.turn,
     now: false,
     moneyStart: entry.turnStart.money,
-    moneyEnd: entry.turnEnd.money,
     income: entry.report.income,
     upkeep: entry.report.upkeep,
     panic: entry.report.panicAfterHundredths,
@@ -45,7 +43,6 @@ export function historyRows(snapshot: Pick<Snapshot, 'history' | 'state'>): Hist
       turn: open.turn,
       now: true,
       moneyStart: open.turnStart.money,
-      moneyEnd: open.turnEnd.money,
       // ECON, Projected income and upkeep: what the Advance turn ending the Turn would add and charge exactly.
       income: state.agency.projectedIncome,
       upkeep: state.agency.projectedUpkeep,

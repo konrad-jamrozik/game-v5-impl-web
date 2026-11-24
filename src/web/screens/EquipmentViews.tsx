@@ -198,53 +198,20 @@ export function StorageView(props: {
             {' '}
             · {valueNote(view)}
           </span>
+          {/* STVIEW, Totals: what all the gear is worth, at the end of the header. */}
+          <span data-testid="storage-totals">
+            {' '}
+            · Owned worth {sumText(view, view.items, (item) => item.owned)} · Available worth{' '}
+            {sumText(view, view.items, (item) => item.available)}
+          </span>
         </>
       }
       onClose={props.onClose}
     >
       <Grid
-        widths={['110px', '80px', '80px', '80px', '110px', '120px']}
-        className="equipment-totals"
-        testId="storage-totals"
-      >
-        <thead>
-          <tr>
-            <th />
-            <th className="num">Owned</th>
-            <th className="num">Equipped</th>
-            <th className="num">Available</th>
-            <th className="num">Owned value</th>
-            <th className="num">Available value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {GROUPS.map((group) => {
-            const items = view.items.filter((item) => item.kind === group.kind);
-            const sum = (f: (item: EquipmentItemView) => number) =>
-              items.reduce((total, item) => total + f(item), 0);
-            return (
-              <tr key={group.kind}>
-                <td>{group.name}</td>
-                <td className="num">{sum((item) => item.owned).toLocaleString('en-US')}</td>
-                <td className="num">{group.kind === 'ammo' ? '–' : sum((item) => item.equipped)}</td>
-                <td className="num">{sum((item) => item.available).toLocaleString('en-US')}</td>
-                <td className="num">{sumText(view, items, (item) => item.owned)}</td>
-                <td className="num">{sumText(view, items, (item) => item.available)}</td>
-              </tr>
-            );
-          })}
-          <tr className="equipment-total">
-            <td>Total</td>
-            <td />
-            <td />
-            <td />
-            <td className="num">{sumText(view, view.items, (item) => item.owned)}</td>
-            <td className="num">{sumText(view, view.items, (item) => item.available)}</td>
-          </tr>
-        </tbody>
-      </Grid>
-      <Grid
-        widths={['170px', '300px', '64px', '70px', '64px', '60px', '96px', '100px', '190px', '84px']}
+        // VIS, Tables: 1042 px in all, so that the table fits its view in the Reference window with its Sell column.
+        // Stats holds the longest Ammo Stats on one line, e.g. "950 / 1300 recommended (13 Agents)".
+        widths={['170px', '340px', '64px', '70px', '64px', '60px', '190px', '84px']}
         className="equipment-table"
         testId="storage-table"
       >
@@ -255,9 +222,9 @@ export function StorageView(props: {
             <th className="num">Owned</th>
             <th className="num">Equip.</th>
             <th className="num">Avail.</th>
-            <th className="num">Unit</th>
-            <th className="num">Owned val.</th>
-            <th className="num">Avail. val.</th>
+            <th className="num" title="Sale value of one">
+              Unit
+            </th>
             <th>Sell</th>
             <th className="num">Earns</th>
           </tr>
@@ -275,14 +242,12 @@ export function StorageView(props: {
                 <td className="num">{group.kind === 'ammo' ? '–' : sum((item) => item.equipped)}</td>
                 <td className="num">{sum((item) => item.available).toLocaleString('en-US')}</td>
                 <td />
-                <td className="num">{sumText(view, all, (item) => item.owned)}</td>
-                <td className="num">{sumText(view, all, (item) => item.available)}</td>
                 <td />
                 <td />
               </tr>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="muted">
+                  <td colSpan={8} className="muted">
                     Nothing in Storage
                   </td>
                 </tr>
@@ -297,8 +262,6 @@ export function StorageView(props: {
                     <td className="num">{item.kind === 'ammo' ? '–' : item.equipped}</td>
                     <td className="num">{item.available.toLocaleString('en-US')}</td>
                     <td className="num">{unitText(view, item.price)}</td>
-                    <td className="num">{unitText(view, item.price, item.owned)}</td>
-                    <td className="num">{unitText(view, item.price, item.available)}</td>
                     <td>
                       <Stepper
                         label={item.name}
@@ -436,7 +399,8 @@ export function AcquisitionsView(props: {
       onClose={props.onClose}
     >
       <Grid
-        widths={['170px', '200px', '70px', '70px', '76px', '70px', '210px', '90px']}
+        // VIS, Tables: 1016 px in all. Stats holds the longest Ammo Stats on one line, e.g. "95 / 130 recommended".
+        widths={['170px', '260px', '70px', '70px', '76px', '70px', '210px', '90px']}
         className="equipment-table"
         testId="acquisitions-table"
       >

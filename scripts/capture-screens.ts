@@ -28,10 +28,10 @@ import { chromium, expect, type Dialog, type Locator, type Page } from '@playwri
 import config from '../playwright.config.ts';
 
 /**
- * The window every picture is taken in; whole-screen pictures have this size, except the Main menu, which is shown
- * whole when it is longer.
+ * VIS, Reference window: the window every picture is taken in; whole-screen pictures have this size, except the Main
+ * menu, which is shown whole when it is longer.
  */
-const WINDOW = { width: 1440, height: 900 };
+const WINDOW = { width: 1408, height: 784 };
 const SEED = 'screens';
 /** The Campaign configuration preset whose Prologue starts the Campaign with something on every screen. */
 const PRESET = 'showcase';
@@ -369,6 +369,9 @@ async function capture(page: Page): Promise<void> {
   // The Killed Agent, whose Participation history holds its Missions.
   await id(page, 'memorial-grid').locator('[data-testid^="agent-details-"]').first().click();
   await shootElement(page, 'agent-details', view(page, 'agents'));
+
+  await open(page, 'armory');
+  await shootElement(page, 'armory-view', view(page, 'armory'));
 
   await open(page, 'missions');
   const picks = await deployable(page);

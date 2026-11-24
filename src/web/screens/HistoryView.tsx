@@ -13,7 +13,7 @@ import type { Snapshot } from '../store.ts';
 import { Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
-const COLUMNS = 10;
+const COLUMNS = 9;
 
 function count(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
@@ -140,22 +140,29 @@ export function HistoryView({
     <DetailView id="history" title="History" aside="Turn by Turn · newest first" onClose={onClose}>
       <div className="table-scroll" data-testid="history">
         <Grid
-          // HVIEW, Turn by Turn table: the Panic column is wide enough for Panic with two decimals, e.g. "24.35%".
-          widths={['104px', '120px', '120px', '112px', '92px', '92px', '100px', '84px', '128px', '440px']}
+          // VIS, Tables: 1068 px in all, so that the table fits its view in the Reference window. HVIEW, Turn by Turn
+          // table: the Panic column is wide enough for Panic with two decimals, e.g. "24.35%", and Events, the
+          // table's one column of free text, takes the width the others leave.
+          widths={['80px', '76px', '76px', '76px', '76px', '88px', '72px', '84px', '440px']}
           testId="history-table"
           scroll={false}
         >
           <thead>
             <tr>
               <th className="num">Turn</th>
-              <th className="num">Money start</th>
-              <th className="num">Expenditures</th>
-              <th className="num">Money end</th>
+              <th className="num" title="Money at the start of the Turn">
+                Money
+              </th>
+              <th className="num" title="Money spent by the Player actions of the Turn">
+                Spent
+              </th>
               <th className="num">Income</th>
               <th className="num">Upkeep</th>
               <th className="num">Panic</th>
               <th className="num">Agents</th>
-              <th className="num">Player actions</th>
+              <th className="num" title="Player actions of the Turn">
+                Actions
+              </th>
               <th>Events</th>
             </tr>
           </thead>
@@ -174,7 +181,6 @@ export function HistoryView({
                     <td className={spent > 0 ? 'num tone-bad' : 'num muted'}>
                       {spent > 0 ? `−${spent}` : '0'}
                     </td>
-                    <td className="num">{row.moneyEnd}</td>
                     <td className="num tone-good">+{row.income}</td>
                     <td className="num tone-bad">−{row.upkeep}</td>
                     <td className="num">{panicText(row.panic)}</td>

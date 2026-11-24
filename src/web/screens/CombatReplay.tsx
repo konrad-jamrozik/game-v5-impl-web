@@ -24,6 +24,7 @@ import {
 } from '../combat-replay.ts';
 import { drawReplay, figureAt, readPalette, type ReplayPalette } from '../combat-replay-draw.ts';
 import { hitChanceText, wholeText } from '../format.ts';
+import { replayOptionsShown } from '../session-value.ts';
 import { sliderFill } from '../slider.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
@@ -61,6 +62,8 @@ export function CombatReplay(props: {
   const [overlap, setOverlap] = useState(false);
   const [instant, setInstant] = useState(false);
   const [aimLines, setAimLines] = useState(true);
+  // CRPLAY, Playback, Options: hidden when a Session starts, and as the Player last left them for the rest of it.
+  const optionsShown = replayOptionsShown.use();
   const [takenStep, setTakenStep] = useState<TakenStep | null>(null);
   const [size, setSize] = useState(0);
   const [hovered, setHovered] = useState<{ index: number; x: number; y: number } | null>(null);
@@ -499,7 +502,21 @@ export function CombatReplay(props: {
           </Button>
         </div>
 
-        <div className="replay-settings">
+        {/* CRPLAY, Playback, Options: the Speed, Instant, Overlap with its Delay, and Aim lines sit behind the Options
+            button, so that the Battlefield, the buttons, the slider, and the Combat log share one screen. */}
+        <button
+          type="button"
+          className="btn btn-plain replay-options-toggle"
+          aria-expanded={optionsShown}
+          data-testid="replay-options"
+          data-sound="select"
+          onClick={() => {
+            replayOptionsShown.set(!optionsShown);
+          }}
+        >
+          Options {optionsShown ? '▾' : '▸'}
+        </button>
+        <div className="replay-settings" hidden={!optionsShown}>
           <label className="label" htmlFor="replay-speed">
             Speed: one attack takes
           </label>

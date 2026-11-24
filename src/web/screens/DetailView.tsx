@@ -96,6 +96,11 @@ export function DetailView(props: {
   /** Text after the title in the Figure style, e.g. counts against caps. */
   aside?: ReactNode;
   /**
+   * The text of `aside` when it is not a string: an aside too long for the title's row ends in "…", and the pointer
+   * resting on it shows this in full.
+   */
+  asideText?: string;
+  /**
    * Controls right after the title and its aside, beside what they switch or reopen, e.g. the Concluded toggle of the
    * Missions View (MVIEW) or the Turn summary button of the Turn Report View (TRVIEW).
    */
@@ -150,7 +155,14 @@ export function DetailView(props: {
         <div className="detail-title">
           <h2>
             {props.title}
-            {props.aside === undefined ? null : <span className="detail-aside">{props.aside}</span>}
+            {props.aside === undefined ? null : (
+              <span
+                className="detail-aside"
+                title={typeof props.aside === 'string' ? props.aside : props.asideText}
+              >
+                {props.aside}
+              </span>
+            )}
           </h2>
           {backInLead ? (
             <div className="detail-lead">{backControl}</div>
