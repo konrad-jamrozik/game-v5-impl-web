@@ -47,7 +47,7 @@ import {
   progressGain,
   reachesActualRequiredProgress,
 } from '../mechanics/investigations/investigations.ts';
-import { discoverLeads, factionOfLead, leadAvailability } from '../mechanics/leads/leads.ts';
+import { discoverLeads, factionOfLead, leadAvailability, leadCreditedTo } from '../mechanics/leads/leads.ts';
 import {
   consequencesOf,
   createMissionSite,
@@ -564,6 +564,8 @@ export function applyAdvanceTurn(
       growth,
       consequence: toRecord(amounts, eliminatedFaction),
       equipment,
+      // LEAD, Turn report: filled in once the Leads of the Advance turn are discovered, in Turn close.
+      discoveredLeads: [],
     });
   }
   world.agency.state.funding = fundingAfter(fundingAtStep5, missionFunding);
@@ -819,7 +821,25 @@ export function applyAdvanceTurn(
     investigationsCompleted: investigationReports
       .filter((item) => item.completed)
       .map((item) => ({ investigation: item.investigation, gain: item.progressGain })),
-    missions: missionReports,
+    // LEAD, Turn report: each Won Mission with the Leads discovered in this Advance turn credited to it.
+    missions: missionReports.map((item) => {
+      const site = must(world.missionSites[item.missionSite], 'Mission site');
+      return item.result !== 'Won'
+        ? item
+        : {
+            ...item,
+            discoveredLeads: discoveredLeads.filter((id) =>
+              leadCreditedTo(
+                must(
+                  gdrs.leads.find((lead) => lead.id === id),
+                  'Lead',
+                ),
+                site,
+                world,
+              ),
+            ),
+          };
+    }),
     combatReports: missionReports.map((item) => must(combatReports.get(item.mission), 'Combat report')),
     discoveredLeads,
     unlockedEquipment: unlockedEquipmentNow,

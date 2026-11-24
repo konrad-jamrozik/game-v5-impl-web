@@ -9,7 +9,7 @@ import { completedProgressBar } from '../progress-bar.ts';
 import { SOON_EXPIRING_TURNS } from '../situation.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
-import type { TurnSummaryModel } from '../turn-summary.ts';
+import { leadsDiscoveredText, type TurnSummaryModel } from '../turn-summary.ts';
 import { ProgressBar } from './ProgressBar.tsx';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -117,7 +117,23 @@ export function TurnSummary(props: {
                     </div>
                   </dl>
                   <div className="sit-line">
-                    <Consequences consequence={mission.consequence} label="Consequences" className="small" />
+                    <span>
+                      <Consequences
+                        consequence={mission.consequence}
+                        label="Consequences"
+                        className="small"
+                      />
+                      {/* TSUM, Groups: after the Consequences, the number of Leads credited to the Mission, in
+                          Positive, so that the Player connects each new Lead to the win it came from. */}
+                      {mission.leadsDiscovered > 0 ? (
+                        <span className="muted small">
+                          {', '}
+                          <span className="tone-good" data-testid={`summary-leads-${mission.mission}`}>
+                            {leadsDiscoveredText(mission.leadsDiscovered)}
+                          </span>
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="trade-buttons">
                       <button
                         type="button"

@@ -461,6 +461,36 @@ describe('LEAD: examples', () => {
     expect(leads(elsewhere, catalog)['test_lead']).toBeDefined();
   });
 
+  it('Turn report: a Lead discovered by a Won Mission is credited to it, and one under not is not', () => {
+    const catalog = catalogWith((raw) => {
+      raw.add('leads-and-progression/leads.yaml', {
+        ...raw.get(SAFEHOUSE),
+        id: 'test_credited',
+        discovered_when: cond('any', [cond('mission_won', 'foil_sabotage'), cond('lead_completed', MEMBER)]),
+      });
+      raw.add('leads-and-progression/leads.yaml', {
+        ...raw.get(SAFEHOUSE),
+        id: 'test_not_credited',
+        discovered_when: cond('not', cond('mission_won', 'raid_hq')),
+      });
+    });
+    let state = withAgents(newCampaign({ catalog }), 4);
+    const site = addMissionSite(state, 'foil_sabotage', { catalog });
+    state = act(
+      site.state,
+      'deployAgents',
+      { missionSite: site.site, agents: agentIds(site.state).slice(0, 4) },
+      'player',
+      catalog,
+    );
+    state = advance(state, winning(state, site.site), catalog);
+    const report = state.world.history.turnReport!;
+    expect(report.discoveredLeads).toContain('test_credited');
+    // LEAD, Turn report: credited through `mission_won` inside `any`; a Lead discovered through `not` is credited to
+    // no Mission.
+    expect(report.missions.map((mission) => mission.discoveredLeads)).toEqual([['test_credited']]);
+  });
+
   it('lead_completed with all, any, and not: discovery from the World state an Advance turn produces', () => {
     const catalog = catalogWith((raw) => {
       raw.add('leads-and-progression/leads.yaml', {

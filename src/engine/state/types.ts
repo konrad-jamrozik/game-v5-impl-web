@@ -382,6 +382,11 @@ export interface MissionResultRecord {
   readonly consequence: ConsequenceRecord;
   /** EQUIP, Turn report: the Items lost and returned to Storage, and the spoils of war, as counts. */
   readonly equipment: MissionEquipmentRecord;
+  /**
+   * LEAD, Turn report: the Leads discovered in this Advance turn that are credited to this Mission, in the order of
+   * the Leads discovered; empty for a Lost Mission.
+   */
+  readonly discoveredLeads: readonly string[];
 }
 
 /** EQUIP, Turn report: what one resolved Mission did to its team's equipment and to Storage, as counts by identifier. */

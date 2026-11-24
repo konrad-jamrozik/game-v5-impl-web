@@ -152,6 +152,38 @@ export function discoverLeads(
   return added;
 }
 
+/**
+ * LEAD, Turn report: whether a discovered Lead is credited to a Won Mission at `site`: the Mission site's target
+ * Faction is the Faction of the Lead, and the Lead's `discovered_when` holds, outside any `not`, a `mission_won` naming
+ * the Mission site's MissionSiteArchetype or a `mission_won_with_enemy` naming the EnemyArchetype of one of its
+ * Enemies.
+ */
+export function leadCreditedTo(
+  lead: LeadGdr,
+  site: MissionSite,
+  world: Pick<LeadWorld, 'enemies' | 'factions'>,
+): boolean {
+  if (lead.discoveredWhen === null || factionOfLead(lead, world)?.id !== site.constants.targetFaction) {
+    return false;
+  }
+  const enemies = new Set(site.state.enemies.flatMap((id) => world.enemies[id]?.archetype ?? []));
+  const names = (condition: Condition): boolean => {
+    switch (condition.kind) {
+      case 'all':
+      case 'any':
+        return condition.conditions.some(names);
+      case 'not':
+      case 'lead_completed':
+        return false;
+      case 'mission_won':
+        return condition.missionSiteArchetype === site.archetype;
+      case 'mission_won_with_enemy':
+        return enemies.has(condition.enemyArchetype);
+    }
+  };
+  return names(lead.discoveredWhen);
+}
+
 export type LeadStatus = 'Available' | 'Inactive' | 'Archived';
 
 /**

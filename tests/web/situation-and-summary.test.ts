@@ -11,7 +11,12 @@ import {
 } from '../../src/engine/views/views.ts';
 import { completionEstimate, progressCircle } from '../../src/web/completion.ts';
 import { situationGroups } from '../../src/web/situation.ts';
-import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/web/turn-summary.ts';
+import {
+  leadsDiscoveredText,
+  showsTurnSummary,
+  turnSummary,
+  turnSummaryHasContent,
+} from '../../src/web/turn-summary.ts';
 import {
   act,
   advance,
@@ -164,6 +169,11 @@ describe('GUI: Completion estimate and Progress circle', () => {
 });
 
 describe('GUI: Turn summary', () => {
+  it('counts the Leads credited to a Mission, in the singular for one', () => {
+    expect(leadsDiscoveredText(1)).toBe('1 new Lead discovered');
+    expect(leadsDiscoveredText(2)).toBe('2 new Leads discovered');
+  });
+
   let state = withAgents(newCampaign(), 4);
   const [a1] = agentIds(state) as [string];
   state = startMember(state, a1, REQUIRED);

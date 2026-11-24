@@ -28,6 +28,13 @@ export interface SummaryMission {
   readonly enemiesDead: number;
   readonly enemiesPresent: number;
   readonly consequence: ConsequenceRecord;
+  /** TSUM, Groups: the number of Leads discovered in the Advance turn that are credited to the Mission. */
+  readonly leadsDiscovered: number;
+}
+
+/** TSUM, Groups: e.g. "1 new Lead discovered" or "2 new Leads discovered". */
+export function leadsDiscoveredText(count: number): string {
+  return `${count} new ${count === 1 ? 'Lead' : 'Leads'} discovered`;
 }
 
 export interface SummaryInvestigation {
@@ -149,6 +156,7 @@ export function turnSummary(
       enemiesDead: enemies.filter((who) => who.final.condition === 'dead').length,
       enemiesPresent: enemies.length,
       consequence: mission.consequence,
+      leadsDiscovered: mission.discoveredLeads.length,
     };
   });
 
