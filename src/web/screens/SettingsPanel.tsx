@@ -19,8 +19,11 @@ import { MusicControl, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
  */
 const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume']);
 
-/** GUI, Settings panel: the Autopilot settings have no row; the Player sets them where they are used. */
-const SET_ELSEWHERE = new Set(['autopilotControlsShown', 'autopilotTurns']);
+/**
+ * GUI, Settings panel: the Autopilot settings have no row; the Player sets them where they are used. Nor has Combat
+ * simulator shown, which the developer tools set (CSIM, Opening the Combat simulator).
+ */
+const SET_ELSEWHERE = new Set(['autopilotControlsShown', 'autopilotTurns', 'combatSimulatorShown']);
 
 /** GUI, Changed settings: one line per setting whose stored value overrides its Game build default, with Reset. */
 function ChangedSettingsRow({ snapshot }: { snapshot: Snapshot }) {

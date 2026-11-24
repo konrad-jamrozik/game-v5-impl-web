@@ -45,6 +45,7 @@ describe('GUI: Changed settings', () => {
       'soundsVolume',
       'autopilotControlsShown',
       'autopilotTurns',
+      'combatSimulatorShown',
     ]);
   });
 });

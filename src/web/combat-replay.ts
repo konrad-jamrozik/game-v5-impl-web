@@ -80,6 +80,11 @@ export interface ReplaySource {
   readonly enemyOrder: (id: string) => number;
   /** The AmmoType of an Enemy's Weapon, or null when the Weapon has no `ammo_type`. */
   readonly enemyAmmoType: (id: string) => string | null;
+  /**
+   * The AmmoType of an Agent's Weapon, or null when it has none, for a Combat report whose Agents spend no round, i.e.
+   * that of a Detached Combat on explicit values; absent for a Combat of a Campaign, whose Combat log says it.
+   */
+  readonly agentAmmoType?: (id: string) => string | null;
   /** The `shot` of an AmmoType. */
   readonly shotOfAmmoType: (ammoType: string) => Exclude<ShotKind, 'blade'> | undefined;
   /** What the positions are derived from, so that one Combat always looks the same: the Mission's Instance ID. */
@@ -92,7 +97,12 @@ export interface ReplaySource {
  * is a blade. An Enemy spends no round, so its shot follows the AmmoType of its Weapon.
  */
 export function shotOfAttack(attack: AttackRecord, side: 'agent' | 'enemy', source: ReplaySource): ShotKind {
-  const ammoType = side === 'agent' ? attack.ammoSpent : source.enemyAmmoType(attack.attacker);
+  const ammoType =
+    side === 'enemy'
+      ? source.enemyAmmoType(attack.attacker)
+      : source.agentAmmoType === undefined
+        ? attack.ammoSpent
+        : source.agentAmmoType(attack.attacker);
   return ammoType === null ? 'blade' : (source.shotOfAmmoType(ammoType) ?? 'bullet');
 }
 
@@ -158,27 +168,57 @@ function seeded(seed: string): () => number {
   };
 }
 
-/** The columns of the Battlefield each side stands in: room is left outside them for names and between them for shots. */
-const SIDE_COLUMNS = { agent: { first: 5, count: 5 }, enemy: { first: 19, count: 5 } } as const;
+/**
+ * The columns of the Battlefield each side stands in, from its front column, the one nearest the other side, away from
+ * it: room is left outside them for names and between them for shots.
+ */
+const SIDE_COLUMNS = { agent: { front: 9, away: -1 }, enemy: { front: 19, away: 1 } } as const;
+/** How many columns deep a side stands, and the most it may take when it has more Combatants than those hold. */
+const SIDE_DEPTH = 5;
+const SIDE_DEPTH_MAX = 9;
+/** How far chance moves a figure from the depth its Combat rating alone gives it, as a share of the side's depth. */
+const DEPTH_CHANCE = 0.5;
+
+/**
+ * CRPLAY, Battlefield layout: where among the Combat ratings of its side each one stands, from 0 for the lowest to 1
+ * for the highest; equal ones share the middle of their places, and a side of one stands in the middle.
+ */
+export function ratingRanks(ratings: readonly number[]): number[] {
+  const sorted = [...ratings].sort((a, b) => a - b);
+  return ratings.map((rating) =>
+    ratings.length < 2
+      ? 0.5
+      : (sorted.indexOf(rating) + sorted.lastIndexOf(rating)) / 2 / (ratings.length - 1),
+  );
+}
 
 /**
  * CRPLAY, Battlefield layout: the cell of each Combatant of one side, spread from top to bottom in the side's fixed
- * order, in a column that varies so that the side does not stand in one line.
+ * order. Its column follows its Combat rating at Combat start, given in that order: the lower, the nearer the other
+ * side, and chance moves it a little, so that a side of equal Combatants does not stand in one line.
  */
-function sideCells(side: 'agent' | 'enemy', count: number, random: () => number): { x: number; y: number }[] {
+function sideCells(
+  side: 'agent' | 'enemy',
+  ratings: readonly number[],
+  random: () => number,
+): { x: number; y: number }[] {
+  const count = ratings.length;
   const columns = SIDE_COLUMNS[side];
+  const depth = Math.min(SIDE_DEPTH_MAX, Math.max(SIDE_DEPTH, Math.ceil(count / BATTLEFIELD_CELLS)));
+  const ranks = ratingRanks(ratings);
   const slot = BATTLEFIELD_CELLS / Math.max(1, count);
   const cells: { x: number; y: number }[] = [];
   for (let k = 0; k < count; k += 1) {
     const jitter = slot > 2 ? Math.floor((random() - 0.5) * Math.min(slot - 1, 3)) : 0;
     const y = Math.min(BATTLEFIELD_CELLS - 1, Math.max(0, Math.floor((k + 0.5) * slot) + jitter));
+    const place = (ranks[k] ?? 0.5) + (random() - 0.5) * DEPTH_CHANCE;
+    let back = Math.min(depth - 1, Math.max(0, Math.floor(place * depth)));
     // A side with more Combatants than rows shares rows, so a column of its own keeps each cell to one figure.
     const shared = cells.filter((cell) => cell.y === y).map((cell) => cell.x);
-    let x = columns.first + Math.floor(random() * columns.count);
-    for (let tries = 0; shared.includes(x) && tries < columns.count; tries += 1) {
-      x = columns.first + ((x - columns.first + 1) % columns.count);
+    for (let tries = 0; shared.includes(columns.front + columns.away * back) && tries < depth; tries += 1) {
+      back = (back + 1) % depth;
     }
-    cells.push({ x, y });
+    cells.push({ x: columns.front + columns.away * back, y });
   }
   return cells;
 }
@@ -196,7 +236,12 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
     ['agent', report.agents],
     ['enemy', report.enemies],
   ] as const) {
-    const cells = sideCells(side, ids.length, random);
+    // A Combat report written before it held the Combat rating of each participant falls back on effective skill.
+    const ratings = ids.map((id) => {
+      const start = byId.get(id)?.start;
+      return start?.combatRating ?? start?.effectiveSkill ?? 0;
+    });
+    const cells = sideCells(side, ratings, random);
     ids.forEach((id, k) => {
       const who = byId.get(id);
       const cell = cells[k];

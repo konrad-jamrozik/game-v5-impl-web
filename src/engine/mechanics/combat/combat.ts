@@ -422,6 +422,11 @@ function fight(
           weaponDamage: combatant.state.weaponDamage,
           armor: combatant.state.armor,
           effectiveSkill: effective,
+          // COMBAT, Combat report, Starting values: the Combat rating of the Combatant alone, 0 when not able to fight.
+          combatRating:
+            combatant.state.currentHealthHundredths > 0 && !incapacitated
+              ? rateSide([{ effectiveSkill: effective, state: combatant.state }], combat)
+              : 0,
           incapacitated,
         },
         final: {

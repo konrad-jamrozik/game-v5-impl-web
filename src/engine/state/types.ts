@@ -237,6 +237,11 @@ export interface CombatParticipantReport {
     /** The effective armor, which is also the current armor at Combat start. */
     readonly armor: number;
     readonly effectiveSkill: number;
+    /**
+     * COMBAT, Combat report, Starting values: its Combat rating, 0 when it was not able to fight. A Combat report
+     * written before the Combat report held it has none.
+     */
+    readonly combatRating?: number;
     readonly incapacitated: boolean;
   };
   readonly final: {

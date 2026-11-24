@@ -381,6 +381,26 @@ export interface BackgroundArtworkGdr {
   readonly opacityPct: number;
 }
 
+/** COMBAT, DetachedCombatTeam: a ready-made team of Agents for a Detached Combat; Display content, read by no rule. */
+export interface DetachedCombatTeamGdr {
+  readonly type: 'DetachedCombatTeam';
+  readonly id: string;
+  readonly name: string;
+  /** One or more groups of equal Agents, in the fixed order of the Agents' side. */
+  readonly agents: readonly {
+    /** A whole number of at least 1. */
+    readonly count: number;
+    /** A whole number of at least 0. */
+    readonly baseSkill: number;
+    /** The effective max health, a whole number of at least 1; each Agent starts at full current health. */
+    readonly maxHealth: number;
+    /** A whole number of at least 0; 0 when the group leaves it out. */
+    readonly exhaustion: number;
+    readonly weapon: string;
+    readonly armor: string;
+  }[];
+}
+
 export type AnyGdr =
   | AgentArchetypeGdr
   | AgentParametersGdr
@@ -407,6 +427,7 @@ export type AnyGdr =
   | EndingParametersGdr
   | CompendiumArticleGdr
   | BackgroundArtworkGdr
+  | DetachedCombatTeamGdr
   | MusicParametersGdr;
 
 /**
@@ -463,6 +484,8 @@ export interface GdrCatalog {
   readonly compendiumArticles: readonly CatalogCompendiumArticle[];
   /** VIS, Background artwork: every BackgroundArtwork, in Game build order. */
   readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
+  /** COMBAT, DetachedCombatTeam: every DetachedCombatTeam, in Game build order. */
+  readonly detachedCombatTeams: readonly DetachedCombatTeamGdr[];
   /** MUSIC, Soundtrack: the GDR `music`. */
   readonly music: MusicParametersGdr;
 }

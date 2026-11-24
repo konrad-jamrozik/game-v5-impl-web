@@ -437,6 +437,23 @@ async function captureMainMenu(page: Page): Promise<void> {
 }
 
 /**
+ * The Combat simulator, in a new page opened at the address that shows it at once: a team against a Mission site with
+ * every kind of shot, at rest half-way through the Combat log.
+ */
+async function captureCombatSimulator(page: Page): Promise<void> {
+  await page.goto(`${baseURL}/?combat-simulator`);
+  await expect(id(page, 'combat-simulator')).toBeVisible();
+  await id(page, 'sim-team').selectOption('level_4_team');
+  await id(page, 'sim-site').selectOption('foil_infrastructure_attack');
+  await id(page, 'sim-fight').click();
+  await expect(id(page, 'combat-replay')).toBeVisible();
+  const slider = id(page, 'replay-slider');
+  const attacks = Number(await slider.getAttribute('max'));
+  await slider.fill(String(Math.ceil(attacks / 2)));
+  await shootWindow(page, 'combat-simulator');
+}
+
+/**
  * Writes the time of this capture under each picture whose content changed, in the screen specifications next to the
  * output directory, i.e. `docs/specs/design/ui/screens` of the Spec repo, as a "_Captured on YYYY-MM-DD HH:MM UTC._"
  * paragraph, so that a reader sees how old each picture is. A picture that came out the same keeps its time. Uses the
@@ -494,7 +511,7 @@ try {
   context.setDefaultTimeout(30_000);
   await context.addInitScript(fixRandomness);
   await context.clock.setFixedTime(CLOCK);
-  for (const step of [capture, captureMainMenu]) {
+  for (const step of [capture, captureMainMenu, captureCombatSimulator]) {
     const page = await context.newPage();
     try {
       await step(page);

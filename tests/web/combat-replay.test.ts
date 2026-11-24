@@ -12,6 +12,7 @@ import {
   phaseStart,
   playTo,
   rankInsignia,
+  ratingRanks,
   ratingsAt,
   roundEnd,
   settledIndex,
@@ -210,6 +211,59 @@ describe('CRPLAY: Battlefield layout', () => {
     expect(second).toEqual(first);
     expect(new Set(first).size).toBe(first.length);
   });
+
+  it('ranks the Combat ratings of a side from 0 to 1, equal ones sharing the middle of their places', () => {
+    expect(ratingRanks([30, 10, 20])).toEqual([1, 0, 0.5]);
+    expect(ratingRanks([5, 5, 5])).toEqual([0.5, 0.5, 0.5]);
+    expect(ratingRanks([7])).toEqual([0.5]);
+    expect(ratingRanks([1, 9, 9])).toEqual([0, 0.75, 0.75]);
+  });
+
+  it('stands the Combatants of a lower Combat rating nearer the other side, and the elite behind them', () => {
+    const rated = (id: string, side: 'agent' | 'enemy', combatRating: number): Participant => {
+      const who = participant(id, side, 100);
+      return { ...who, start: { ...who.start, combatRating } };
+    };
+    // Every second Combatant of each side is weak, so that strength does not follow the order of the side.
+    const ratingOf = (k: number) => (k % 2 === 0 ? 50 : 900);
+    const mixed: CombatReport = {
+      ...report(),
+      agents: Array.from({ length: 12 }, (_, k) => `agent-${k}`),
+      enemies: Array.from({ length: 12 }, (_, k) => `enemy-${k}`),
+      participants: [
+        ...Array.from({ length: 12 }, (_, k) => rated(`agent-${k}`, 'agent', ratingOf(k))),
+        ...Array.from({ length: 12 }, (_, k) => rated(`enemy-${k}`, 'enemy', ratingOf(k))),
+      ],
+      log: [],
+    };
+    const { figures } = buildReplay(mixed, source);
+    const columns = (side: 'agent' | 'enemy', weak: boolean) =>
+      figures
+        .filter((figure, index) => figure.side === side && (index % 2 === 0) === weak)
+        .map((figure) => figure.x);
+    const mean = (values: readonly number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    // The Agents face right, so their front line is their highest column; the Enemies face left. Chance moves a
+    // figure a little, so the weak and the elite may meet in one column, and never pass each other.
+    expect(Math.min(...columns('agent', true))).toBeGreaterThanOrEqual(Math.max(...columns('agent', false)));
+    expect(mean(columns('agent', true))).toBeGreaterThan(mean(columns('agent', false)) + 1);
+    expect(Math.max(...columns('enemy', true))).toBeLessThanOrEqual(Math.min(...columns('enemy', false)));
+    expect(mean(columns('enemy', true))).toBeLessThan(mean(columns('enemy', false)) - 1);
+  });
+
+  it('gives a side with more Combatants than its columns hold further columns, one figure to a cell', () => {
+    const horde: CombatReport = {
+      ...report(),
+      agents: ['agent-0'],
+      enemies: Array.from({ length: 220 }, (_, k) => `enemy-${k}`),
+      participants: [
+        participant('agent-0', 'agent', 100),
+        ...Array.from({ length: 220 }, (_, k) => participant(`enemy-${k}`, 'enemy', 40 + (k % 9) * 50)),
+      ],
+      log: [],
+    };
+    const cells = buildReplay(horde, source).figures.map((figure) => `${figure.x},${figure.y}`);
+    expect(new Set(cells).size).toBe(cells.length);
+  });
 });
 
 describe('CRPLAY: Shots', () => {
@@ -224,6 +278,14 @@ describe('CRPLAY: Shots', () => {
     // agent-2 had run out of Ammo and fought with the Fallback Weapon; enemy-2's Weapon has no ammo_type.
     expect(attacks[1]?.shot).toBe('blade');
     expect(attacks[3]?.shot).toBe('blade');
+  });
+
+  it("follows the AmmoType of an Agent's Weapon when the source names it, e.g. for a Detached Combat", () => {
+    const { attacks } = buildReplay(report(), {
+      ...source,
+      agentAmmoType: (id) => (id === 'agent-2' ? 'cells' : null),
+    });
+    expect(attacks.map((item) => item.shot)).toEqual(['blade', 'beam', 'beam', 'blade', 'blade']);
   });
 });
 

@@ -27,7 +27,10 @@ import { hitChanceText, wholeText } from '../format.ts';
 import { sliderFill } from '../slider.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
-import { Button } from '../ui.tsx';
+import { Button, typingIn } from '../ui.tsx';
+
+/** CRPLAY, Playback, Steps: the three steps, which Repeat does again. */
+type StepKind = 'turn' | 'phase' | 'round';
 
 /** CRPLAY, Playback: a Speed or a Delay as the Player reads it, e.g. "1.5 s". */
 const seconds = (ms: number) => `${ms / 1000} s`;
@@ -40,6 +43,8 @@ export function CombatReplay(props: {
   replay: Replay;
   /** The largest armor of any Armor of the Game build, which gets the thickest rim. */
   armorScale: number;
+  /** A value that changes when another Combat is shown, which returns the playback to Combat start. */
+  combatKey?: string | number;
 }) {
   const { combat, replay } = props;
   const total = replay.attacks.length;
@@ -47,6 +52,8 @@ export function CombatReplay(props: {
   const [delayMs, setDelayMs] = useState<number>(250);
   const [overlap, setOverlap] = useState(false);
   const [instant, setInstant] = useState(false);
+  const [aimLines, setAimLines] = useState(true);
+  const [lastStep, setLastStep] = useState<StepKind | null>(null);
   const [size, setSize] = useState(0);
   const [hovered, setHovered] = useState<{ index: number; x: number; y: number } | null>(null);
   const [, setVersion] = useState(0);
@@ -54,10 +61,15 @@ export function CombatReplay(props: {
   const playbackRef = useRef<Playback | null>(null);
   playbackRef.current ??= newPlayback();
   const playback = playbackRef.current;
+  const shownCombatKey = useRef(props.combatKey);
+  if (shownCombatKey.current !== props.combatKey) {
+    shownCombatKey.current = props.combatKey;
+    jumpTo(playback, replay, 0);
+  }
   const settings: PlaybackSettings = { speedMs, delayMs, overlap, instant };
   // What the drawing loop reads: it outlives the render that started it, so it reads the newest values from here.
-  const live = useRef({ replay, settings, size, armorScale: props.armorScale });
-  live.current = { replay, settings, size, armorScale: props.armorScale };
+  const live = useRef({ replay, settings, size, aimLines, armorScale: props.armorScale });
+  live.current = { replay, settings, size, aimLines, armorScale: props.armorScale };
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,6 +100,7 @@ export function CombatReplay(props: {
           size: now.size,
           palette: paletteRef.current,
           instant: now.settings.instant,
+          aimLines: now.aimLines,
           armorScale: now.armorScale,
           reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
         });
@@ -161,6 +174,55 @@ export function CombatReplay(props: {
     }
     log.scrollTop = row instanceof HTMLElement ? row.offsetTop - log.clientHeight / 2 + 12 : 0;
   }, [to]);
+
+  /** CRPLAY, Playback, Steps: why a step cannot be taken now, or null. */
+  const stepOff = (kind: StepKind): string | null =>
+    playback.index >= total
+      ? 'Every attack has been played.'
+      : kind === 'turn' && instant
+        ? 'With Instant on, a step is a phase.'
+        : null;
+  const step = (kind: StepKind) => {
+    const target =
+      kind === 'turn'
+        ? playback.index + 1
+        : kind === 'phase'
+          ? phaseEnd(replay, playback.index)
+          : roundEnd(replay, playback.index);
+    playTo(playback, replay, target, true);
+    setLastStep(kind);
+    refresh();
+  };
+  const repeatOff = lastStep === null ? 'No step has been taken yet.' : stepOff(lastStep);
+  // CRPLAY, Playback, Repeat: the R key presses it, and while the Combat replay is shown no other listener hears the
+  // key, e.g. not the Redo button of the Campaign screen.
+  const onRepeatKey = useRef<() => void>(() => undefined);
+  onRepeatKey.current = () => {
+    if (lastStep !== null && repeatOff === null) {
+      playSound(SOUND.select);
+      step(lastStep);
+    }
+  };
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== 'r' ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        typingIn(event.target)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      onRepeatKey.current();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, []);
 
   const shownAttack = to > from ? combat.log[to - 1] : undefined;
   const shownSide = shownAttack === undefined ? null : sideOf(shownAttack.attacker);
@@ -329,16 +391,9 @@ export function CombatReplay(props: {
           <Button
             testId="replay-turn"
             sound="select"
-            disabledReason={
-              playback.index >= total
-                ? 'Every attack has been played.'
-                : instant
-                  ? 'With Instant on, a step is a phase.'
-                  : null
-            }
+            disabledReason={stepOff('turn')}
             onClick={() => {
-              playTo(playback, replay, playback.index + 1, true);
-              refresh();
+              step('turn');
             }}
           >
             Combat turn ▸
@@ -346,10 +401,9 @@ export function CombatReplay(props: {
           <Button
             testId="replay-phase"
             sound="select"
-            disabledReason={playback.index >= total ? 'Every attack has been played.' : null}
+            disabledReason={stepOff('phase')}
             onClick={() => {
-              playTo(playback, replay, phaseEnd(replay, playback.index), true);
-              refresh();
+              step('phase');
             }}
           >
             Phase ▸▸
@@ -357,13 +411,30 @@ export function CombatReplay(props: {
           <Button
             testId="replay-round"
             sound="select"
-            disabledReason={playback.index >= total ? 'Every attack has been played.' : null}
+            disabledReason={stepOff('round')}
             onClick={() => {
-              playTo(playback, replay, roundEnd(replay, playback.index), true);
-              refresh();
+              step('round');
             }}
           >
             Combat round ▸▸▸
+          </Button>
+          <Button
+            testId="replay-repeat"
+            sound="select"
+            shortcut="R"
+            tooltip={
+              lastStep === null
+                ? undefined
+                : `Again: ${lastStep === 'turn' ? 'Combat turn' : lastStep === 'phase' ? 'Phase' : 'Combat round'}`
+            }
+            disabledReason={repeatOff}
+            onClick={() => {
+              if (lastStep !== null) {
+                step(lastStep);
+              }
+            }}
+          >
+            ↻ Repeat
           </Button>
         </div>
         <div className="replay-buttons">
@@ -442,6 +513,18 @@ export function CombatReplay(props: {
               }}
             />
             Instant: a whole phase attacks at once
+          </label>
+          <label className="check-label">
+            <input
+              type="checkbox"
+              data-testid="replay-aim-lines"
+              checked={aimLines}
+              onChange={() => {
+                playSound(SOUND.select);
+                setAimLines(!aimLines);
+              }}
+            />
+            Aim lines from attacker to defender
           </label>
         </div>
 

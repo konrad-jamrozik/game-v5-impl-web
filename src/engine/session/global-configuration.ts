@@ -80,6 +80,14 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     isPermitted: (value): value is SettingValue =>
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 1,
   },
+  // CSIM, Opening the Combat simulator: whether the Main menu shows the Combat simulator button.
+  {
+    setting: 'combatSimulatorShown',
+    name: 'Combat simulator shown',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
 ];
 
 export interface SettingReport {

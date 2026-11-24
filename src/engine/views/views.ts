@@ -24,6 +24,7 @@ import {
   isAbleToFight,
   type CombatantState,
 } from '../mechanics/combat/combat.ts';
+import { missionSiteEnemyArchetypes } from '../mechanics/combat/detached-combat.ts';
 import {
   agencyCaps,
   agentUpgradeBonus,
@@ -89,6 +90,7 @@ import type {
   EnemyView,
   FactionView,
   GameDataView,
+  CombatSimulatorContent,
   HistoryView,
   InvestigationView,
   LeadView,
@@ -1288,6 +1290,28 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
     gameDataCache.set(gdrs, view);
   }
   return view;
+}
+
+/** `session.combatSimulator.getContent()`: COMBAT, Detached Combat without a Current campaign. */
+export function combatSimulatorContentView(gdrs: GdrCatalog): CombatSimulatorContent {
+  const data = gameDataView(gdrs);
+  return deepFreeze<CombatSimulatorContent>({
+    agentArchetype: data.agentArchetype,
+    weapons: data.weapons,
+    armors: data.armors,
+    ammoTypes: data.ammoTypes,
+    enemyArchetypes: data.enemyArchetypes,
+    missionSiteArchetypes: gdrs.missionSiteArchetypes.map((archetype) => ({
+      id: archetype.id,
+      name: archetype.name,
+      enemies: missionSiteEnemyArchetypes(gdrs, archetype),
+    })),
+    teams: gdrs.detachedCombatTeams.map((team) => ({
+      id: team.id,
+      name: team.name,
+      agents: team.agents.map((group) => ({ ...group })),
+    })),
+  });
 }
 
 /** One World state, i.e. its Live world state and its Retired world state; see CSTATE, Campaign state composition. */

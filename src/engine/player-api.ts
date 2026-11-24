@@ -492,6 +492,37 @@ export interface AvailableActionsView {
   };
 }
 
+/**
+ * COMBAT, Detached Combat without a Current campaign: what `session.combatSimulator.getContent()` returns, i.e. what
+ * a setup is built from.
+ */
+export interface CombatSimulatorContent {
+  readonly agentArchetype: GameDataView['agentArchetype'];
+  readonly weapons: GameDataView['weapons'];
+  readonly armors: GameDataView['armors'];
+  readonly ammoTypes: GameDataView['ammoTypes'];
+  readonly enemyArchetypes: GameDataView['enemyArchetypes'];
+  /** Every MissionSiteArchetype, with the EnemyArchetype of each Enemy a new Mission site of it would have, in creation order. */
+  readonly missionSiteArchetypes: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly enemies: readonly string[];
+  }[];
+  /** COMBAT, DetachedCombatTeam: every one, in its authored order. */
+  readonly teams: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly agents: readonly {
+      readonly count: number;
+      readonly baseSkill: number;
+      readonly maxHealth: number;
+      readonly exhaustion: number;
+      readonly weapon: string;
+      readonly armor: string;
+    }[];
+  }[];
+}
+
 /** The properties of the GDRs that are Player-visible; decimal numbers are given as written. */
 export interface GameDataView {
   readonly gameBuild: string;

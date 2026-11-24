@@ -58,6 +58,8 @@ export interface DrawInput {
   readonly size: number;
   readonly palette: ReplayPalette;
   readonly instant: boolean;
+  /** CRPLAY, Playback, Aim lines: whether a faint dashed line joins each attacker to its defender. */
+  readonly aimLines: boolean;
   /** The current armor that gets the thickest rim: the largest armor of any Armor of the Game build. */
   readonly armorScale: number;
   /** Under reduced motion a hit does not shake its defender. */
@@ -239,6 +241,7 @@ function drawFigure(
   figure: ReplayFigure,
   shown: Shown,
   offset: Point,
+  named: boolean,
 ): void {
   const { palette } = input;
   const cell = input.size / BATTLEFIELD_CELLS;
@@ -307,11 +310,13 @@ function drawFigure(
     drawInsignia(ctx, figure.rank, homeX + outward * (reach + mark / 2), homeY, cell);
     reach += mark + cell * 0.18;
   }
-  ctx.fillStyle = shown.condition === 'ableToFight' ? palette.muted : palette.border;
-  ctx.font = `${Math.max(9, cell * 0.42)}px ${palette.figureFont}`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = figure.side === 'agent' ? 'right' : 'left';
-  ctx.fillText(figure.name, homeX + outward * reach, homeY);
+  if (named) {
+    ctx.fillStyle = shown.condition === 'ableToFight' ? palette.muted : palette.border;
+    ctx.font = `${Math.max(9, cell * 0.42)}px ${palette.figureFont}`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = figure.side === 'agent' ? 'right' : 'left';
+    ctx.fillText(figure.name, homeX + outward * reach, homeY);
+  }
   ctx.restore();
 }
 
@@ -601,6 +606,14 @@ export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): voi
   }
   ctx.stroke();
 
+  // CRPLAY, Figures, Name: a side with more Combatants than the Battlefield has rows shows no names, which would
+  // lie over one another.
+  const sideCount = (side: 'agent' | 'enemy') =>
+    replay.figures.filter((figure) => figure.side === side).length;
+  const crowded = {
+    agent: sideCount('agent') > BATTLEFIELD_CELLS,
+    enemy: sideCount('enemy') > BATTLEFIELD_CELLS,
+  };
   const settled = settledIndex(playback);
   const base = replay.frames[settled] ?? [];
   const playing = playback.active.length > 0;
@@ -612,7 +625,7 @@ export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): voi
   ctx.setLineDash([2, 5]);
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (const attack of replay.attacks.slice(from, to)) {
+  for (const attack of input.aimLines ? replay.attacks.slice(from, to) : []) {
     const attacker = replay.figures[attack.attacker];
     const defender = replay.figures[attack.defender];
     if (attacker !== undefined && defender !== undefined) {
@@ -682,7 +695,7 @@ export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): voi
         condition = after.condition;
       }
     }
-    drawFigure(ctx, input, figure, { health, armor, condition }, offset);
+    drawFigure(ctx, input, figure, { health, armor, condition }, offset, !crowded[figure.side]);
   });
 
   for (const step of playback.active) {

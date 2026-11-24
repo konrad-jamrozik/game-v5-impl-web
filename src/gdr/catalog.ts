@@ -10,6 +10,7 @@ import type {
   AgentParametersGdr,
   AnyGdr,
   BackgroundArtworkGdr,
+  DetachedCombatTeamGdr,
   CombatParametersGdr,
   CompendiumArticleGdr,
   Condition,
@@ -702,6 +703,43 @@ const schemas = {
       }
       return parsed.article;
     }),
+  // COMBAT, DetachedCombatTeam: the exhaustive properties of a DetachedCombatTeam and of each group of its Agents.
+  DetachedCombatTeam: z
+    .strictObject({
+      id,
+      type: z.literal('DetachedCombatTeam'),
+      name: z.string().min(1),
+      agents: z
+        .array(
+          // A nested mapping arrives as its entries in authored order; a group's properties are read by name.
+          entries(z.unknown())
+            .transform((group) => Object.fromEntries(group))
+            .pipe(
+              z.strictObject({
+                count: z.int().min(1),
+                base_skill: z.int().min(0),
+                max_health: z.int().min(1),
+                exhaustion: z.int().min(0).optional(),
+                weapon: z.string().regex(ID_PATTERN),
+                armor: z.string().regex(ID_PATTERN),
+              }),
+            ),
+        )
+        .min(1),
+    })
+    .transform((g) => ({
+      type: g.type,
+      id: g.id,
+      name: g.name,
+      agents: g.agents.map((group) => ({
+        count: group.count,
+        baseSkill: group.base_skill,
+        maxHealth: group.max_health,
+        exhaustion: group.exhaustion ?? 0,
+        weapon: group.weapon,
+        armor: group.armor,
+      })),
+    })),
   // VIS, Background artwork: the exhaustive properties of a BackgroundArtwork.
   BackgroundArtwork: z
     .strictObject({
@@ -985,6 +1023,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const missionSiteArchetypes = all<MissionSiteArchetypeGdr>('MissionSiteArchetype');
   const articles = all<CompendiumArticleGdr>('CompendiumArticle');
   const backgroundArtworks = all<BackgroundArtworkGdr>('BackgroundArtwork');
+  const detachedCombatTeams = all<DetachedCombatTeamGdr>('DetachedCombatTeam');
 
   // VIS, Background artwork: each names a Detail view, and no two name one Detail view.
   const shownIn = new Set<string>();
@@ -1026,6 +1065,17 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     for (const lead of item.unlockedBy ?? []) {
       if (!leadIds.has(lead)) {
         problems.push(`${item.type} ${item.id}: unlocked_by ${lead} is not a Lead`);
+      }
+    }
+  }
+  // COMBAT, DetachedCombatTeam: each group names a Weapon and an Armor of the Game build.
+  for (const team of detachedCombatTeams) {
+    for (const group of team.agents) {
+      if (!weapons.has(group.weapon)) {
+        problems.push(`DetachedCombatTeam ${team.id}: weapon ${group.weapon} is not a Weapon`);
+      }
+      if (!armors.has(group.armor)) {
+        problems.push(`DetachedCombatTeam ${team.id}: armor ${group.armor} is not an Armor`);
       }
     }
   }
@@ -1248,6 +1298,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     missionSiteArchetypes,
     compendiumArticles,
     backgroundArtworks,
+    detachedCombatTeams,
     music,
   };
 }

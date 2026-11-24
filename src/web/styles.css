@@ -629,6 +629,13 @@ input::placeholder {
   border-bottom: 1px solid var(--divider);
 }
 
+.menu-head-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
 .menu-head .secondary {
   max-width: 640px;
   margin-top: 12px;
@@ -3112,10 +3119,132 @@ label:has(> input[type='checkbox']:disabled) {
   background: var(--positive);
 }
 
+/* CSIM, Layout: the Combat simulator gives its whole width to the Teams pane and the Combat replay to its right. */
+.simulator {
+  --close-inset-top: 24px;
+  --close-inset-right: 24px;
+  /* The height the Combat simulator takes above and below the Battlefield, which fits the rest of the window. */
+  --replay-chrome: 200px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.simulator-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 24px;
+  /* Room for the close control. */
+  padding-right: 56px;
+}
+
+.simulator-head h1 {
+  font-size: 32px;
+}
+
+.simulator-columns {
+  display: grid;
+  grid-template-columns: 548px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.simulator-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.simulator-fight {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.simulator-fight .field {
+  flex: 1;
+  margin: 0;
+}
+
+.simulator-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.simulator-side-head {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+/* CSIM, Teams: each side scrolls on its own, so that both stay in sight with many Combatants. */
+.simulator-rows {
+  max-height: calc(50vh - 190px);
+  min-height: 120px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
+
+.simulator-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.simulator-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 4px 3px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.simulator-table td {
+  padding: 2px 3px;
+}
+
+.simulator-table select,
+.simulator-table input {
+  width: 100%;
+  height: 28px;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+.simulator-table .simulator-number {
+  width: 46px;
+  padding: 0 2px;
+  text-align: right;
+  appearance: textfield;
+}
+
+.simulator-table .simulator-number::-webkit-inner-spin-button,
+.simulator-table .simulator-number::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.simulator-remove {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
 /* CRPLAY, Battlefield layout: a square that fits the height of the window, so that all of it is seen at once. */
 .replay-canvas {
   position: relative;
-  width: min(100%, calc(100vh - 290px));
+  /* CRPLAY, Battlefield layout: centred in the width it is given. */
+  margin: 0 auto;
+  width: min(100%, calc(100vh - var(--replay-chrome, 290px)));
   min-width: 320px;
   aspect-ratio: 1;
 }

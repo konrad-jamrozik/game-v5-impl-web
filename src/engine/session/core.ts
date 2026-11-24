@@ -1477,6 +1477,26 @@ export class EngineCore<S extends ShellState> {
    * Developer API, reads the Current world state, and changes no Campaign state: no Timeline entry, no autosave, and
    * no random outcome of the Current campaign.
    */
+  /**
+   * COMBAT, Detached Combat without a Current campaign: a `session.combatSimulator` operation, available to the
+   * Session controller with or without a Current campaign and whatever the Dev mode setting is.
+   */
+  combatSimulatorTool(principal: Principal, tool: string, args: unknown): Result<unknown> {
+    const denied = this.checkSession(principal, { needsCampaign: false, duringAutopilot: true });
+    if (denied) {
+      return denied;
+    }
+    if (this.rules.combatSimulatorTool === undefined) {
+      return fail('invalid_input', 'There is no such operation.');
+    }
+    try {
+      const value = this.rules.combatSimulatorTool(tool, detach(args));
+      return isRejection(value) ? fail(value.code, value.message, value.reason) : ok(value);
+    } catch (error) {
+      return this.defectResult(error);
+    }
+  }
+
   developerTool(principal: Principal, tool: string, args: unknown): Result<unknown> {
     const denied = this.checkDeveloper(principal);
     if (denied) {

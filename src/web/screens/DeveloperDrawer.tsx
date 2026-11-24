@@ -171,6 +171,21 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
         />
         Show Autopilot controls
       </label>
+      {/* CSIM, Opening the Combat simulator: Dev mode does not gate it. */}
+      <label className="inline">
+        <input
+          type="checkbox"
+          data-testid="dev-show-simulator"
+          checked={
+            snapshot.configuration.settings.find((setting) => setting.setting === 'combatSimulatorShown')
+              ?.effectiveValue === true
+          }
+          onChange={(event) => {
+            act(() => session.globalConfiguration.set('combatSimulatorShown', event.target.checked));
+          }}
+        />
+        Show Combat simulator on the Main menu
+      </label>
 
       <Section title="Cheats">
         <label className="inline">

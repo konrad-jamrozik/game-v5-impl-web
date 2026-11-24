@@ -11,6 +11,7 @@ import { seededRandom, type Random } from '../../random.ts';
 import { reject, type Rejection } from '../../result.ts';
 import { isServing, type CurrentWorldState } from '../../state/types.ts';
 import { agentUpgradeBonus } from '../economy/economy.ts';
+import type { MissionSiteArchetypeGdr } from '../../../gdr/index.ts';
 import { createEnemy, createMissionSite } from '../missions/missions.ts';
 import {
   agentCombatantState,
@@ -203,11 +204,34 @@ function explicitState(entry: Record<string, unknown>, side: 'agent' | 'enemy'):
 }
 
 /**
+ * MISSION, Mission site creation and Enemy creation: the EnemyArchetype of each Enemy a new Mission site of the
+ * MissionSiteArchetype would have, in their creation order.
+ */
+export function missionSiteEnemyArchetypes(gdrs: GdrCatalog, archetype: MissionSiteArchetypeGdr): string[] {
+  let sequence = 0;
+  const { enemies } = createMissionSite({
+    newId: (type) => `${type}-${(sequence += 1)}`,
+    archetype,
+    origin: { kind: 'Investigation', investigation: '' },
+    targetFaction: '',
+    // The Turn of creation decides only when the Mission site expires, which no Enemy reads.
+    turn: 1,
+    enemyArchetypes: gdrs.enemyArchetypes,
+    weapons: gdrs.weapons,
+    armors: gdrs.armors,
+    combat: gdrs.combatParameters,
+    agentParameters: gdrs.agentParameters,
+  });
+  return enemies.map((enemy) => enemy.archetype);
+}
+
+/**
  * COMBAT, Detached Combat: builds the inputs of a Detached Combat from its setup, reading the Current world state and
- * the Game build only for what the setup names, or rejects the setup by its first fault.
+ * the Game build only for what the setup names, or rejects the setup by its first fault. `world` is null for a
+ * Detached Combat without a Current campaign, which rejects an entry that names an Agent or an Enemy by Instance ID.
  */
 export function buildDetachedCombat(
-  world: CurrentWorldState,
+  world: CurrentWorldState | null,
   gdrs: GdrCatalog,
   setup: unknown,
 ): DetachedCombat | Rejection {
@@ -233,25 +257,17 @@ export function buildDetachedCombat(
       return reject('unknown_mission_site_archetype', `There is no MissionSiteArchetype ${archetypeId}.`);
     }
     // MISSION, Mission site creation and Enemy creation: the Enemies a new Mission site of it would have.
-    let sequence = 0;
-    const { enemies } = createMissionSite({
-      newId: (type) => `${type}-${(sequence += 1)}`,
-      archetype,
-      origin: { kind: 'Investigation', investigation: '' },
-      targetFaction: '',
-      turn: world.turn,
-      enemyArchetypes: gdrs.enemyArchetypes,
-      weapons: gdrs.weapons,
-      armors: gdrs.armors,
-      combat: gdrs.combatParameters,
-      agentParameters: gdrs.agentParameters,
-    });
-    enemyEntries = enemies.map((enemy) => ({ kind: 'enemyArchetype', id: enemy.archetype }));
+    enemyEntries = missionSiteEnemyArchetypes(gdrs, archetype).map((id) => ({ kind: 'enemyArchetype', id }));
   } else {
     return malformed('enemies must be a list of entries or an object with missionSiteArchetype.');
   }
 
-  const bonus = agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
+  const bonus = world === null ? null : agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
+  const noCampaign = (where: string, what: string) =>
+    reject(
+      'no_current_campaign',
+      `${where}: ${what} is named by Instance ID, which a Detached Combat without a Current campaign does not take.`,
+    );
   const named = new Set<string>();
   const participants: DetachedCombat['participants'][number][] = [];
   const agents: CombatInputs['agents'][number][] = [];
@@ -281,6 +297,9 @@ export function buildDetachedCombat(
       } else if (typeof entry['id'] !== 'string') {
         return malformed(`${where} must name an id.`);
       } else if (side === 'agent' && kind === 'agent') {
+        if (world === null || bonus === null) {
+          return noCampaign(where, 'an Agent');
+        }
         const agent = world.agents[entry['id']];
         if (agent === undefined) {
           return reject('unknown_agent', `${where}: there is no Agent ${entry['id']}.`);
@@ -292,6 +311,9 @@ export function buildDetachedCombat(
         ammoType = gdrs.weapons.get(agent.state.weapon)?.ammoType ?? null;
         entryName = { kind: 'agent', id: agent.id };
       } else if (side === 'enemy' && kind === 'enemy') {
+        if (world === null) {
+          return noCampaign(where, 'an Enemy');
+        }
         const enemy = world.enemies[entry['id']];
         if (enemy === undefined) {
           return reject('unknown_enemy', `${where}: there is no Enemy ${entry['id']}.`);
@@ -399,7 +421,7 @@ export function fightDetachedCombat(combat: DetachedCombat, random: Random): Det
 
 /** `developer.tools.fightCombat(setup)`: a Detached Combat on the Current world state, or the rejection of its setup. */
 export function detachedCombat(
-  world: CurrentWorldState,
+  world: CurrentWorldState | null,
   gdrs: GdrCatalog,
   setup: unknown,
 ): DetachedCombatResult | Rejection {

@@ -63,7 +63,11 @@ function resume(group: CampaignGroup): void {
   }
 }
 
-export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
+export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; onOpenSimulator: () => void }) {
+  // CSIM, Opening the Combat simulator: its button is shown while the Combat simulator shown setting is on.
+  const simulatorShown =
+    snapshot.configuration.settings.find((setting) => setting.setting === 'combatSimulatorShown')
+      ?.effectiveValue === true;
   const { session } = theEngine();
   const [saves, setSaves] = useState<SaveListEntry[]>([]);
   const [seed, setSeed] = useState('');
@@ -134,7 +138,14 @@ export function MainMenu({ snapshot }: { snapshot: Snapshot }) {
             before Panic reaches its limit.
           </p>
         </div>
-        <p className="figure muted small">build {GAME_BUILD}</p>
+        <div className="menu-head-side">
+          {simulatorShown ? (
+            <Button testId="open-combat-simulator" onClick={onOpenSimulator}>
+              Combat simulator
+            </Button>
+          ) : null}
+          <p className="figure muted small">build {GAME_BUILD}</p>
+        </div>
       </header>
 
       <div className="menu-columns">

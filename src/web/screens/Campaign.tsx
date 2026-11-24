@@ -66,6 +66,7 @@ const SHORTCUTS: readonly {
     keys: ['U', 'R'],
     what: 'Undo or redo one action, or, when no action of this Turn is left to undo or redo, a whole Turn or Autopilot engagement',
   },
+  { keys: ['R'], what: 'While the Combat replay is shown: repeat the last step, in place of redo' },
   {
     keys: ['Esc'],
     what: 'Close the topmost open view, or go back to the place a Detail view was reached from',

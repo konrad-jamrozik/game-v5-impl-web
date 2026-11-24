@@ -19,6 +19,7 @@ import {
   currentRetiredWorldStateView,
   estimateTeamProgressGain,
   gameDataView,
+  combatSimulatorContentView,
   historyView,
   initiativeOperationLevelsView,
   inspectCampaignState,
@@ -184,6 +185,15 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
         return detachedCombatBatch(state.world.current, gdrs, setup, count, stop);
       }
       throw new Error(`There is no developer tool ${tool}`);
+    },
+    combatSimulatorTool(tool, args) {
+      if (tool === 'getContent') {
+        return combatSimulatorContentView(gdrs);
+      }
+      if (tool === 'fightCombat') {
+        return detachedCombat(null, gdrs, args);
+      }
+      throw new Error(`There is no Combat simulator operation ${tool}`);
     },
   };
 }

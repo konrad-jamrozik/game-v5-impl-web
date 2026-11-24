@@ -113,4 +113,9 @@ export interface GameRules<S extends ShellState> {
    * reads the World state only for what its arguments name, changes nothing, and returns its result or a rejection.
    */
   developerTool?(state: S, tool: string, args: unknown): unknown;
+  /**
+   * COMBAT, Detached Combat without a Current campaign: a `session.combatSimulator` operation, by name. It reads only
+   * the Game build, changes nothing, and returns its result or a rejection.
+   */
+  combatSimulatorTool?(tool: string, args: unknown): unknown;
 }

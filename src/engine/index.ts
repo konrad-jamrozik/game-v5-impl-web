@@ -14,6 +14,7 @@ import type {
   CurrentRetiredWorldStateView,
   DeploymentPreview,
   GameDataView,
+  CombatSimulatorContent,
   HistoryView,
   LeadView,
   PlayerApi,
@@ -155,6 +156,11 @@ export interface Engine {
       disengage(engagementId: string): Promise<Result<DisengagementResult>>;
       /** Resolves when the Autopilot engagement has ended. */
       whenDisengaged(engagementId: string): Promise<Result<DisengagementResult>>;
+    };
+    /** COMBAT, Detached Combat without a Current campaign: what the Combat simulator (CSIM) reads and fights. */
+    readonly combatSimulator: {
+      getContent(): Result<CombatSimulatorContent>;
+      fightCombat(setup: DetachedCombatSetup): Result<DetachedCombatResult>;
     };
   };
   /** Player API, as the Session controller holds it. */
@@ -346,6 +352,12 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
         getStatus: (engagementId) => core.getAutopilotStatus(CONTROLLER, engagementId),
         disengage: (engagementId) => core.disengage(CONTROLLER, engagementId),
         whenDisengaged: (engagementId) => core.whenDisengaged(CONTROLLER, engagementId),
+      },
+      combatSimulator: {
+        getContent: () =>
+          core.combatSimulatorTool(CONTROLLER, 'getContent', null) as Result<CombatSimulatorContent>,
+        fightCombat: (setup) =>
+          core.combatSimulatorTool(CONTROLLER, 'fightCombat', setup) as Result<DetachedCombatResult>,
       },
     },
     player: playerApi(core, CONTROLLER),
