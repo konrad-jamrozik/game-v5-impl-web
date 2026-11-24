@@ -29,8 +29,16 @@ import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { Button, typingIn } from '../ui.tsx';
 
-/** CRPLAY, Playback, Steps: the three steps, which Repeat does again. */
+/** CRPLAY, Playback, Steps: the three steps, which Repeat plays again. */
 type StepKind = 'turn' | 'phase' | 'round';
+
+/** CRPLAY, Playback, Repeat: a step the Player took: the attacks it played, and the Combat it was taken in. */
+interface TakenStep {
+  kind: StepKind;
+  from: number;
+  to: number;
+  combatKey: string | number | undefined;
+}
 
 /** CRPLAY, Playback: a Speed or a Delay as the Player reads it, e.g. "1.5 s". */
 const seconds = (ms: number) => `${ms / 1000} s`;
@@ -53,7 +61,7 @@ export function CombatReplay(props: {
   const [overlap, setOverlap] = useState(false);
   const [instant, setInstant] = useState(false);
   const [aimLines, setAimLines] = useState(true);
-  const [lastStep, setLastStep] = useState<StepKind | null>(null);
+  const [takenStep, setTakenStep] = useState<TakenStep | null>(null);
   const [size, setSize] = useState(0);
   const [hovered, setHovered] = useState<{ index: number; x: number; y: number } | null>(null);
   const [, setVersion] = useState(0);
@@ -189,18 +197,32 @@ export function CombatReplay(props: {
         : kind === 'phase'
           ? phaseEnd(replay, playback.index)
           : roundEnd(replay, playback.index);
+    setTakenStep({
+      kind,
+      from: playback.index,
+      to: Math.min(total, target),
+      combatKey: props.combatKey,
+    });
     playTo(playback, replay, target, true);
-    setLastStep(kind);
     refresh();
   };
-  const repeatOff = lastStep === null ? 'No step has been taken yet.' : stepOff(lastStep);
-  // CRPLAY, Playback, Repeat: the R key presses it, and while the Combat replay is shown no other listener hears the
-  // key, e.g. not the Redo button of the Campaign screen.
+  // CRPLAY, Playback, Repeat: the last step taken in the Combat shown, which Repeat plays again from where it began.
+  const lastStep = takenStep !== null && takenStep.combatKey === props.combatKey ? takenStep : null;
+  const repeatOff = lastStep === null ? 'No step has been taken yet.' : null;
+  const repeat = () => {
+    if (lastStep !== null) {
+      jumpTo(playback, replay, lastStep.from);
+      playTo(playback, replay, lastStep.to, true);
+      refresh();
+    }
+  };
+  // The R key presses Repeat, and while the Combat replay is shown no other listener hears the key, e.g. not the Redo
+  // button of the Campaign screen.
   const onRepeatKey = useRef<() => void>(() => undefined);
   onRepeatKey.current = () => {
-    if (lastStep !== null && repeatOff === null) {
+    if (lastStep !== null) {
       playSound(SOUND.select);
-      step(lastStep);
+      repeat();
     }
   };
   useEffect(() => {
@@ -425,14 +447,10 @@ export function CombatReplay(props: {
             tooltip={
               lastStep === null
                 ? undefined
-                : `Again: ${lastStep === 'turn' ? 'Combat turn' : lastStep === 'phase' ? 'Phase' : 'Combat round'}`
+                : `Play again: ${lastStep.kind === 'turn' ? 'Combat turn' : lastStep.kind === 'phase' ? 'Phase' : 'Combat round'}, attacks ${lastStep.from + 1} to ${lastStep.to}`
             }
             disabledReason={repeatOff}
-            onClick={() => {
-              if (lastStep !== null) {
-                step(lastStep);
-              }
-            }}
+            onClick={repeat}
           >
             ↻ Repeat
           </Button>
