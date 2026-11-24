@@ -22,7 +22,10 @@ export type DetailViewId =
   | 'charts'
   | 'compendium';
 
-/** CSCR, Detail views: the two groups, in this order; the list is exhaustive. */
+/**
+ * CSCR, Detail views: the groups, in this order; the list is exhaustive. CSCR, Navigation: each group is one tab of
+ * the Side panel's navigation.
+ */
 export const DETAIL_VIEW_GROUPS: readonly {
   readonly name: string;
   readonly views: readonly { readonly id: DetailViewId; readonly name: string }[];
@@ -33,6 +36,11 @@ export const DETAIL_VIEW_GROUPS: readonly {
       { id: 'missions', name: 'Missions' },
       { id: 'leads', name: 'Leads' },
       { id: 'agents', name: 'Agents' },
+    ],
+  },
+  {
+    name: 'Base',
+    views: [
       { id: 'storage', name: 'Storage' },
       { id: 'upgrades', name: 'Upgrades' },
       { id: 'acquisitions', name: 'Acquisitions' },
@@ -50,6 +58,35 @@ export const DETAIL_VIEW_GROUPS: readonly {
 ];
 
 export const DETAIL_VIEWS = DETAIL_VIEW_GROUPS.flatMap((group) => group.views);
+
+/** CSCR, Navigation: the name of the group whose tab holds the button of a Detail view. */
+export function groupOfDetailView(id: DetailViewId): string {
+  return DETAIL_VIEW_GROUPS.find((group) => group.views.some((view) => view.id === id))?.name ?? '';
+}
+
+/** CSCR, Navigation: the views of the group whose tab is chosen; of no group when no tab has that name. */
+export function viewsOfGroup(name: string): (typeof DETAIL_VIEW_GROUPS)[number]['views'] {
+  return DETAIL_VIEW_GROUPS.find((group) => group.name === name)?.views ?? [];
+}
+
+/** VIS, Navigation buttons: the rows of buttons, two to a row, that the largest group takes. */
+export const NAVIGATION_ROWS = Math.max(
+  ...DETAIL_VIEW_GROUPS.map((group) => Math.ceil(group.views.length / 2)),
+);
+
+/**
+ * CSCR, Keyboard shortcuts: the number key that opens or closes a Detail view, by its place in the order of the
+ * navigation: 1 to 9, then 0 for the tenth; null for a later one.
+ */
+export function numberKeyOf(id: DetailViewId): string | null {
+  const index = DETAIL_VIEWS.findIndex((view) => view.id === id);
+  return index < 0 || index > 9 ? null : String((index + 1) % 10);
+}
+
+/** The Detail view a number key opens or closes, or undefined when the key is none of theirs. */
+export function detailViewOfKey(key: string): DetailViewId | undefined {
+  return DETAIL_VIEWS.find((view) => numberKeyOf(view.id) === key)?.id;
+}
 
 export function DetailView(props: {
   id: DetailViewId;

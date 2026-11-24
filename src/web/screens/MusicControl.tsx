@@ -5,6 +5,7 @@
  */
 import { useState, useSyncExternalStore } from 'react';
 import { music } from '../music-player.ts';
+import { setMusicCollapsed, useMusicCollapsed } from '../side-panel.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { VolumeSlider } from '../ui.tsx';
 
@@ -39,15 +40,28 @@ export function Speaker({ off }: { off: boolean }) {
   );
 }
 
-export function MusicControl({ snapshot }: { snapshot: Snapshot }) {
+/**
+ * `inSidePanel`: MUSIC, Music control in the Side panel: the Track title on a line of its own, ending in the Collapse
+ * button, with the Music toggle and the Skip button in a row under it, which is hidden while collapsed.
+ */
+export function MusicControl({ snapshot, inSidePanel }: { snapshot: Snapshot; inSidePanel?: boolean }) {
   const { session } = theEngine();
   const { on } = musicSettings(snapshot);
   const status = useSyncExternalStore(music.subscribe, music.getStatus);
+  const collapsed = useMusicCollapsed();
 
   const title = on ? (status.title === null ? '' : `♪ ${status.title}`) : 'Music off';
-
-  return (
-    <div className="music-control" data-testid="music-control">
+  const titleLine = (
+    <span
+      className={`music-title${on ? '' : ' muted'}`}
+      title={on && status.title !== null ? status.title : undefined}
+      data-testid="music-title"
+    >
+      {title}
+    </span>
+  );
+  const buttons = (
+    <>
       {/* SOUNDS, Main click: the Music toggle changes a setting of Global configuration, whichever way it turns. */}
       <button
         type="button"
@@ -75,13 +89,39 @@ export function MusicControl({ snapshot }: { snapshot: Snapshot }) {
       >
         ⏭
       </button>
-      <span
-        className={`music-title${on ? '' : ' muted'}`}
-        title={on && status.title !== null ? status.title : undefined}
-        data-testid="music-title"
-      >
-        {title}
-      </span>
+    </>
+  );
+
+  if (inSidePanel === true) {
+    const collapseName = collapsed ? 'Expand the Music control' : 'Collapse the Music control';
+    return (
+      <div className="music-control music-control-panel" data-testid="music-control">
+        <div className="music-title-line">
+          {titleLine}
+          <button
+            type="button"
+            className="btn btn-plain music-collapse"
+            aria-label={collapseName}
+            aria-expanded={!collapsed}
+            title={collapseName}
+            data-testid="music-collapse"
+            data-sound="select"
+            onClick={() => {
+              setMusicCollapsed(!collapsed);
+            }}
+          >
+            {collapsed ? '▴' : '▾'}
+          </button>
+        </div>
+        {collapsed ? null : <div className="music-buttons">{buttons}</div>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="music-control" data-testid="music-control">
+      {buttons}
+      {titleLine}
     </div>
   );
 }

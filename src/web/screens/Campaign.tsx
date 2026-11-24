@@ -3,7 +3,7 @@
  * Detail view, the compact Situation panel, and the Autopilot footer; the Globe stage fills the rest, and the open
  * Detail view covers it. The globe, a decoration, is drawn in the Globe stage behind every Detail view.
  */
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { AutosaveStatus, CurrentLiveWorldStateView } from '../../engine/index.ts';
 import { PLACE_NAME_KEY, PlaceContext, type PlaceContextValue } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
@@ -19,7 +19,7 @@ import {
 } from '../view-trail.ts';
 import { SOUND } from '../sounds.ts';
 import { autopilotSettings } from '../autopilot-controls.ts';
-import { setSidePanelHidden, useSidePanelHidden } from '../side-panel.ts';
+import { setNavigationTab, setSidePanelHidden, useNavigationTab, useSidePanelHidden } from '../side-panel.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate, lostMissionSites } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
@@ -31,7 +31,16 @@ import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
 import { ChartsView } from './ChartsView.tsx';
 import { CompendiumView } from './CompendiumView.tsx';
-import { DETAIL_VIEW_GROUPS, DETAIL_VIEWS, type DetailViewId } from './DetailView.tsx';
+import {
+  DETAIL_VIEW_GROUPS,
+  DETAIL_VIEWS,
+  detailViewOfKey,
+  groupOfDetailView,
+  NAVIGATION_ROWS,
+  numberKeyOf,
+  viewsOfGroup,
+  type DetailViewId,
+} from './DetailView.tsx';
 import { DeveloperDrawer } from './DeveloperDrawer.tsx';
 import { MusicControl } from './MusicControl.tsx';
 import { Globe } from './Globe.tsx';
@@ -72,7 +81,11 @@ const SHORTCUTS: readonly {
     what: 'Close the topmost open view, or go back to the place a Detail view was reached from',
   },
   { keys: ['V'], what: 'Hide or show the Side panel' },
-  { keys: ['1', '8'], between: 'to', what: 'Open or close a Detail view' },
+  {
+    keys: ['1', '0'],
+    between: 'to',
+    what: 'Open or close a Detail view, in the order of the navigation: 1 to 9, then 0',
+  },
   { keys: ['H'], what: 'Hire an Agent' },
   { keys: ['S', 'C', 'T'], what: 'Assign the selected Agents to Standby, Contracting, or Training' },
   { keys: ['A'], what: 'Select every Agent that can be assigned' },
@@ -116,6 +129,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const [settings, setSettings] = useState(false);
   // CSCR, Hiding the Side panel.
   const sidePanelHidden = useSidePanelHidden();
+  // CSCR, Navigation: the group whose tab is chosen.
+  const navigationTab = useNavigationTab();
   const [autosaves, setAutosaves] = useState<AutosaveStatus | null>(null);
   /**
    * TSUM, Showing and dismissing: the Turn ended by the Advance turn the Player requested through this screen, until
@@ -185,6 +200,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     scrollTop = 0,
   ) => {
     live.current = {};
+    // CSCR, Navigation: however a Detail view opens, the tab of its group is chosen.
+    setNavigationTab(groupOfDetailView(id));
     setOpen((current) => ({ id, item, serial: (current?.serial ?? 0) + 1, restored, scrollTop }));
   };
 
@@ -355,10 +372,10 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         }
         return;
       }
-      const numbered = DETAIL_VIEWS[Number(key) - 1];
+      const numbered = detailViewOfKey(key);
       if (numbered !== undefined) {
-        toggled(open?.id === numbered.id);
-        toggleView(numbered.id);
+        toggled(open?.id === numbered);
+        toggleView(numbered);
       } else if (key === '`') {
         toggled(drawer);
         setDrawer((on) => !on);
@@ -509,14 +526,18 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
               />
             </span>
           </div>
-          {/* CSCR, Status bar values, 6: its label may wrap onto two lines, so the controls keep one row. */}
-          <div className="fact fact-wrapping">
-            <span className="fact-label">Turns since last enemy activity</span>
-            <span className="fact-value" data-testid="turns-since-faction-activity">
-              {turnsSinceLastFactionActivity(state.turn, [
-                ...state.missionSites,
-                ...(snapshot.retired?.missionSites ?? []),
-              ])}
+          {/* CSCR, Status bar values, 6: Enemy quiet, written with "T", with its full name as its tooltip. VIS,
+              Status bar: a unit follows its value in the 13 px Figure style and Text muted. */}
+          <div className="fact" title="Turns since last enemy activity">
+            <span className="fact-label">Enemy quiet</span>
+            <span className="fact-value">
+              <span data-testid="turns-since-faction-activity">
+                {turnsSinceLastFactionActivity(state.turn, [
+                  ...state.missionSites,
+                  ...(snapshot.retired?.missionSites ?? []),
+                ])}
+              </span>
+              <span className="fact-unit">T</span>
             </span>
           </div>
         </div>
@@ -573,6 +594,19 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           >
             Main menu
           </Button>
+          {/* CSCR, Status bar controls: Settings, which stays enabled while an Autopilot engagement is active. */}
+          <button
+            type="button"
+            className="btn btn-plain settings-button"
+            aria-label="Settings"
+            title="Settings"
+            data-testid="open-settings"
+            onClick={() => {
+              setSettings(true);
+            }}
+          >
+            <Cogwheel />
+          </button>
           <Button
             kind="primary"
             main
@@ -649,52 +683,66 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         ) : (
           <aside className="side-panel" aria-label="Side panel">
             <nav className="side-nav">
-              {DETAIL_VIEW_GROUPS.map((group, groupIndex) => (
-                <div key={group.name} className="nav-group">
-                  <div className="nav-group-head">
-                    <span className="label">{group.name}</span>
-                    {/* CSCR, Hiding the Side panel: the » button at the right end of the Operations line. */}
-                    {groupIndex === 0 ? (
-                      <button
-                        type="button"
-                        className="btn side-toggle"
-                        aria-label="Hide the Side panel"
-                        title="Hide the Side panel (V)"
-                        data-testid="hide-side-panel"
-                        data-sound="select"
-                        onClick={() => {
-                          setSidePanelHidden(true);
-                        }}
-                      >
-                        »
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="nav-buttons">
-                    {group.views.map((view) => {
-                      const count = counts[view.id];
-                      const index = DETAIL_VIEWS.findIndex((item) => item.id === view.id) + 1;
-                      return (
-                        <button
-                          key={view.id}
-                          type="button"
-                          className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
-                          aria-pressed={open?.id === view.id}
-                          data-sound={open?.id === view.id ? 'back' : 'main'}
-                          title={`Shortcut: ${index}`}
-                          data-testid={`nav-${view.id}`}
-                          onClick={() => {
-                            toggleView(view.id);
-                          }}
-                        >
-                          <span>{view.name}</span>
-                          {count === undefined || count === 0 ? null : <span className="count">{count}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
+              {/* CSCR, Navigation: one row of tabs, one for each group, ending in the » button of CSCR, Hiding the
+                  Side panel. */}
+              <div className="nav-tabs">
+                <div className="nav-tablist" role="tablist" aria-label="Groups of Detail views">
+                  {DETAIL_VIEW_GROUPS.map((group) => (
+                    <button
+                      key={group.name}
+                      type="button"
+                      role="tab"
+                      className={`nav-tab${group.name === navigationTab ? ' nav-tab-chosen' : ''}`}
+                      aria-selected={group.name === navigationTab}
+                      data-sound="select"
+                      data-testid={`nav-tab-${group.name.toLowerCase()}`}
+                      onClick={() => {
+                        setNavigationTab(group.name);
+                      }}
+                    >
+                      {group.name}
+                    </button>
+                  ))}
                 </div>
-              ))}
+                <button
+                  type="button"
+                  className="btn side-toggle"
+                  aria-label="Hide the Side panel"
+                  title="Hide the Side panel (V)"
+                  data-testid="hide-side-panel"
+                  data-sound="select"
+                  onClick={() => {
+                    setSidePanelHidden(true);
+                  }}
+                >
+                  »
+                </button>
+              </div>
+              {/* VIS, Navigation buttons: the buttons of the chosen group, two to a row, in the rows that the largest
+                  group takes, so that choosing a tab moves nothing below them. */}
+              <div className="nav-buttons" style={{ '--nav-rows': NAVIGATION_ROWS } as CSSProperties}>
+                {viewsOfGroup(navigationTab).map((view) => {
+                  const count = counts[view.id];
+                  const numberKey = numberKeyOf(view.id);
+                  return (
+                    <button
+                      key={view.id}
+                      type="button"
+                      className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
+                      aria-pressed={open?.id === view.id}
+                      data-sound={open?.id === view.id ? 'back' : 'main'}
+                      title={numberKey === null ? undefined : `Shortcut: ${numberKey}`}
+                      data-testid={`nav-${view.id}`}
+                      onClick={() => {
+                        toggleView(view.id);
+                      }}
+                    >
+                      <span>{view.name}</span>
+                      {count === undefined || count === 0 ? null : <span className="count">{count}</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </nav>
 
             <SituationPanel
@@ -709,22 +757,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
               {autopilotSettings(snapshot.configuration.settings).shown ? (
                 <AutopilotBar snapshot={snapshot} />
               ) : null}
-              {/* CSCR, Side panel: the bottom row holds the Music control and, at its right end, the Settings button. */}
-              <div className="side-footer-row">
-                <MusicControl snapshot={snapshot} />
-                <button
-                  type="button"
-                  className="btn btn-plain settings-button"
-                  aria-label="Settings"
-                  title="Settings"
-                  data-testid="open-settings"
-                  onClick={() => {
-                    setSettings(true);
-                  }}
-                >
-                  <Cogwheel />
-                </button>
-              </div>
+              {/* CSCR, Side panel: the footer always holds the Music control. */}
+              <MusicControl snapshot={snapshot} inSidePanel />
             </footer>
           </aside>
         )}

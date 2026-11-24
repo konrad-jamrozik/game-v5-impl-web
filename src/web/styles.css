@@ -912,14 +912,15 @@ input::placeholder {
   height: 100vh;
 }
 
-/* VIS, Status bar; VIS, Alignment, Controls stay still: the facts wrap within their own column, so a growing value,
-   e.g. Money gaining a digit, never moves the buttons, which keep the top right of the bar. */
+/* VIS, Status bar: the values and the controls share one row, and none wraps onto a second line. VIS, Alignment,
+   Controls stay still: the values keep their own column, so a growing value, e.g. Money gaining a digit, never moves
+   the buttons, which keep the right end of the bar. */
 .statusbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 14px 24px;
-  padding: 16px 24px;
+  padding: 8px 20px;
   background: var(--surface);
   border-bottom: 2px solid var(--accent);
 }
@@ -932,12 +933,17 @@ input::placeholder {
   gap: 10px 28px;
 }
 
+.status-facts {
+  flex-wrap: nowrap;
+  column-gap: 24px;
+  overflow: hidden;
+}
+
 .status-actions {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
 }
 
 .fact {
@@ -968,13 +974,16 @@ input::placeholder {
   font-size: 13px;
 }
 
-/* CSCR, Status bar values: a long label wraps onto two lines over its value. */
-.fact-wrapping {
-  max-width: 140px;
+.fact-label {
+  white-space: nowrap;
 }
 
-.fact-wrapping .fact-label {
-  line-height: 1.2;
+/* VIS, Status bar: a unit follows its value in the 13 px Figure style and Text muted, e.g. the "T" of Enemy quiet. */
+.fact-unit {
+  margin-left: 6px;
+  font-family: var(--font-figure);
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .meter-figure {
@@ -1984,7 +1993,7 @@ label:has(> input[type='checkbox']:disabled) {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-columns: minmax(0, 1fr) 272px;
 }
 
 .globe-stage {
@@ -2005,28 +2014,61 @@ label:has(> input[type='checkbox']:disabled) {
 .side-nav {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: 8px;
+  padding: 12px 16px 16px;
   border-bottom: 1px solid var(--divider);
 }
 
-.nav-group {
+/* VIS, Navigation tabs: the tabs in one row, with the » button of CSCR, Hiding the Side panel, at its right end. */
+.nav-tabs {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 6px;
 }
 
-/* CSCR, Hiding the Side panel: the group name with, on the Operations line, the » button at its right end. */
-.nav-group-head {
+.nav-tablist {
+  flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 28px;
+  min-width: 0;
+}
+
+/* VIS, Navigation tabs: the group's name in the Label style over a 2 px line along its bottom edge, Accent and
+   Text-coloured text for the chosen tab, Divider for the others. */
+.nav-tab {
+  flex: 1 1 auto;
+  height: 28px;
+  padding: 0 5px;
+  border: 0;
+  border-bottom: 2px solid var(--divider);
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nav-tab:hover {
+  color: var(--text);
+}
+
+.nav-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.nav-tab-chosen {
+  border-bottom-color: var(--accent);
+  color: var(--text);
 }
 
 .side-toggle {
-  width: 28px;
-  height: 28px;
+  flex: none;
+  width: 24px;
+  height: 24px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -2048,10 +2090,15 @@ label:has(> input[type='checkbox']:disabled) {
   border-left: 1px solid var(--divider);
 }
 
+/* VIS, Navigation buttons: two to a row with 8 px between them, in the rows that the largest group takes, --nav-rows,
+   so that choosing a tab moves nothing below them. */
 .nav-buttons {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 36px;
+  align-content: start;
   gap: 8px;
+  min-height: calc(var(--nav-rows, 1) * 44px - 8px);
 }
 
 .nav-button {
@@ -2059,7 +2106,7 @@ label:has(> input[type='checkbox']:disabled) {
   justify-content: space-between;
   align-items: center;
   height: 36px;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--raised);
@@ -2089,21 +2136,46 @@ label:has(> input[type='checkbox']:disabled) {
   border-top: 1px solid var(--divider);
 }
 
-/* CSCR, Side panel: the bottom row of the footer, the Music control and then the Settings button at its right end. */
-.side-footer-row {
+/* MUSIC, Music control in the Side panel: the Track title on a line of its own, ending in the Collapse button, and
+   the Music toggle and the Skip button in a row under it. */
+.music-control-panel {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.music-title-line {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 24px;
 }
 
-.side-footer-row .music-control {
-  flex: 1;
+.music-collapse {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  letter-spacing: 0;
 }
 
+.music-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* CSCR, Status bar controls: the square Settings button. */
 .settings-button {
   width: 36px;
   padding: 0;
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .autopilot-toggle {
@@ -2151,14 +2223,16 @@ label:has(> input[type='checkbox']:disabled) {
   margin-bottom: 2px;
 }
 
+/* SITP, Groups: the value is as wide as itself and no wider, and a name too long for the rest of the line wraps onto
+   a second line. VIS, Panels and cards: a row at least 28 px tall, its value and Progress circle centred on it. */
 .sit-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 18px 84px;
+  grid-template-columns: minmax(0, 1fr) 18px auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  height: 28px;
-  padding: 0;
+  min-height: 28px;
+  padding: 3px 0;
   border: 0;
   border-bottom: 1px solid var(--raised);
   background: none;
@@ -2183,9 +2257,8 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 .sit-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .sit-glyph {

@@ -220,10 +220,20 @@ async function shootElement(page: Page, name: string, element: Locator): Promise
 
 const view = (page: Page, viewId: string) => id(page, `view-${viewId}`);
 
-/** Opens a Detail view from the Side panel unless it is open. */
+/**
+ * Opens a Detail view from the Side panel unless it is open. CSCR, Navigation: its button shows only while the tab of
+ * its group is chosen, so the tabs are tried in turn until it does.
+ */
 async function open(page: Page, viewId: string): Promise<void> {
   if ((await view(page, viewId).count()) === 0) {
-    await id(page, `nav-${viewId}`).click();
+    const button = id(page, `nav-${viewId}`);
+    for (const tab of await page.getByRole('tab').all()) {
+      if ((await button.count()) > 0) {
+        break;
+      }
+      await tab.click();
+    }
+    await button.click();
   }
   await expect(view(page, viewId)).toBeVisible();
 }
