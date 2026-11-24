@@ -2669,8 +2669,13 @@ label:has(> input[type='checkbox']:disabled) {
   background: var(--background);
 }
 
+/* VIS, Reference window: no heading wraps, so a name too long for its pane ends in "…", whatever the width of the
+   letters in the browser at hand, and the pointer resting on it shows the name in full. */
 .pane-title {
   margin: 0 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* VIS, Typography, Group heading: the heading of a group of items in a panel or a dialog, e.g. the Situation panel,

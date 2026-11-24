@@ -278,7 +278,7 @@ function SiteDetails(props: {
   const applied = reached === null ? null : appliedConsequence(entries, site.id, record);
   return (
     <div className="pane" data-testid={`site-details-${site.id}`}>
-      <h4 className="pane-title">
+      <h4 className="pane-title" title={`${site.name} ${site.id}`}>
         {site.name} <span className="figure muted small">{site.id}</span>
       </h4>
       <dl className="pairs">

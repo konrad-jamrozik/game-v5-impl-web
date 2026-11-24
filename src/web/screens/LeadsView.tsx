@@ -191,7 +191,9 @@ function LeadDetails(props: {
   const onCompletion = onCompletionLines(lead, snapshot.gameData, state);
   return (
     <div className="pane" data-testid={`lead-details-${lead.id}`}>
-      <h4 className="pane-title">{lead.name}</h4>
+      <h4 className="pane-title" title={lead.name}>
+        {lead.name}
+      </h4>
       <p className="secondary small">{lead.description}</p>
       <dl className="pairs">
         {/* LVIEW, Selected Lead: its Faction only when it has one. */}
