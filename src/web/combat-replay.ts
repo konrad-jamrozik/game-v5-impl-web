@@ -178,8 +178,11 @@ const SIDE_DEPTH = 7;
 const SIDE_DEPTH_MAX = 9;
 /** How far chance moves a figure from the depth its Combat rating alone gives it, as a share of the side's depth. */
 const DEPTH_CHANCE = 0.3;
-/** How far chance moves a Combatant among the places of its side from the middle row outwards, as a share of them. */
-const ROW_CHANCE = 0.3;
+/**
+ * The most rows apart two neighbours of one column stand, when the column has room to spare. Columns that stand so
+ * are staggered, each one row below the column before it, so that a name beside a figure has that many cells free.
+ */
+const ROW_GAP_MAX = 4;
 
 /**
  * CRPLAY, Battlefield layout: where among the Combat ratings of its side each one stands, from 0 for the lowest to 1
@@ -196,9 +199,9 @@ export function ratingRanks(ratings: readonly number[]): number[] {
 
 /**
  * CRPLAY, Battlefield layout: the cell of each Combatant of one side, by its Combat rating at Combat start, given in
- * the side's fixed order. The side is spread from top to bottom; the higher a Combat rating, the nearer the middle row
- * and the farther from the other side its Combatant stands. Chance moves it a little both ways, so that a side of
- * equal Combatants does not stand in one line.
+ * the side's fixed order. Its column follows its Combat rating: the lower, the nearer the other side, and chance moves
+ * it a little, so that a side of equal Combatants does not stand in one line. The Combatants of one column stand
+ * evenly spaced around the middle row, in the side's fixed order from top to bottom.
  */
 function sideCells(
   side: 'agent' | 'enemy',
@@ -209,33 +212,32 @@ function sideCells(
   const columns = SIDE_COLUMNS[side];
   const depth = Math.min(SIDE_DEPTH_MAX, Math.max(SIDE_DEPTH, Math.ceil(count / BATTLEFIELD_CELLS)));
   const ranks = ratingRanks(ratings);
-  const slot = BATTLEFIELD_CELLS / Math.max(1, count);
-  // The places from top to bottom, the middle one first, and the Combatants, the highest Combat rating first.
-  const places = Array.from({ length: count }, (_, place) => place).sort(
-    (a, b) => Math.abs(a - (count - 1) / 2) - Math.abs(b - (count - 1) / 2) || a - b,
-  );
-  const inward = ranks
-    .map((rank, k) => ({ k, key: rank + (random() - 0.5) * ROW_CHANCE }))
-    .sort((a, b) => b.key - a.key || a.k - b.k);
-  const placeOf = new Map(inward.map((who, order) => [who.k, places[order] ?? 0]));
-  const cells: { x: number; y: number }[] = [];
+  // Who stands in each column, from the front one. A column that is full sends a Combatant to the nearest with room.
+  const members: number[][] = Array.from({ length: depth }, () => []);
   for (let k = 0; k < count; k += 1) {
-    const jitter = slot > 2 ? Math.floor((random() - 0.5) * Math.min(slot - 1, 3)) : 0;
-    const y = Math.min(
-      BATTLEFIELD_CELLS - 1,
-      Math.max(0, Math.floor(((placeOf.get(k) ?? k) + 0.5) * slot) + jitter),
-    );
     const place = (ranks[k] ?? 0.5) + (random() - 0.5) * DEPTH_CHANCE;
     const wanted = Math.min(depth - 1, Math.max(0, Math.floor(place * depth)));
-    // A side with more Combatants than rows shares rows, so a column of its own keeps each cell to one figure: the
-    // free one nearest the column it would have stood in.
-    const shared = cells.filter((cell) => cell.y === y).map((cell) => cell.x);
-    const free = Array.from({ length: depth }, (_, column) => column)
-      .filter((column) => !shared.includes(columns.front + columns.away * column))
+    const roomy = members
+      .map((_, column) => column)
+      .filter((column) => (members[column]?.length ?? 0) < BATTLEFIELD_CELLS)
       .sort((a, b) => Math.abs(a - wanted) - Math.abs(b - wanted) || b - a);
-    const back = free[0] ?? wanted;
-    cells.push({ x: columns.front + columns.away * back, y });
+    members[roomy[0] ?? wanted]?.push(k);
   }
+  const cells: { x: number; y: number }[] = Array.from({ length: count }, () => ({ x: 0, y: 0 }));
+  members.forEach((column, back) => {
+    const gap = Math.min(ROW_GAP_MAX, BATTLEFIELD_CELLS / Math.max(1, column.length));
+    const middle = BATTLEFIELD_CELLS / 2 - ((column.length - 1) / 2) * gap;
+    const stagger = back % ROW_GAP_MAX;
+    const top =
+      gap === ROW_GAP_MAX ? stagger + ROW_GAP_MAX * Math.round((middle - stagger) / ROW_GAP_MAX) : middle;
+    column.forEach((k, place) => {
+      const y = Math.floor(top + place * gap);
+      cells[k] = {
+        x: columns.front + columns.away * back,
+        y: Math.min(BATTLEFIELD_CELLS - 1, Math.max(0, y)),
+      };
+    });
+  });
   return cells;
 }
 

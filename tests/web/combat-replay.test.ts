@@ -243,13 +243,15 @@ describe('CRPLAY: Battlefield layout', () => {
     expect(mean(columns('agent', true))).toBeGreaterThan(mean(columns('agent', false)) + 1);
     expect(Math.max(...columns('enemy', true))).toBeLessThanOrEqual(Math.min(...columns('enemy', false)));
     expect(mean(columns('enemy', true))).toBeLessThan(mean(columns('enemy', false)) - 1);
-    // The elite stand nearer the middle row than the weak, who stand above and below them.
-    const fromMiddle = (side: 'agent' | 'enemy', weak: boolean) =>
-      figures
-        .filter((figure, index) => figure.side === side && (index % 2 === 0) === weak)
-        .map((figure) => Math.abs(figure.y - (BATTLEFIELD_CELLS - 1) / 2));
-    for (const side of ['agent', 'enemy'] as const) {
-      expect(mean(fromMiddle(side, false))).toBeLessThan(mean(fromMiddle(side, true)) - 3);
+    // The figures of one column stand evenly spaced around the middle row, weak and elite columns alike.
+    for (const x of new Set(figures.map((figure) => figure.x))) {
+      const rows = figures
+        .filter((figure) => figure.x === x)
+        .map((figure) => figure.y)
+        .sort((a, b) => a - b);
+      const gaps = rows.slice(1).map((y, at) => y - (rows[at] ?? 0));
+      expect(new Set(gaps).size).toBeLessThanOrEqual(1);
+      expect(Math.abs(mean(rows) - BATTLEFIELD_CELLS / 2)).toBeLessThanOrEqual(2);
     }
   });
 
