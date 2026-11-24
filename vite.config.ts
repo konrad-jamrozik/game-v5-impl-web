@@ -1,5 +1,20 @@
+import { execFileSync } from 'node:child_process';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite-plus';
+import { buildInfo, type BuildInfo } from './src/web/build-label.ts';
+
+/**
+ * The commit the build is made from, for the build label on the Main menu: its SHA and the committer dates of its
+ * history, newest first. Null when git is unavailable, e.g. outside a clone.
+ */
+function readBuildInfo(): BuildInfo | null {
+  try {
+    const git = (args: string[]) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+    return buildInfo(git(['rev-parse', 'HEAD']), git(['log', '--format=%cI', 'HEAD']).split('\n'));
+  } catch {
+    return null;
+  }
+}
 
 /** Rules of ESLint's recommended set, as Oxlint names them. */
 const recommended = [
@@ -177,6 +192,7 @@ export default defineConfig(() => ({
   // Relative asset URLs, so the build works under the GitHub Pages project path /game-v5-impl-web/.
   base: './',
   plugins: [react()],
+  define: { __BUILD_INFO__: JSON.stringify(readBuildInfo()) },
   server: { port: 5175, strictPort: true },
   preview: { port: 5176, strictPort: true },
   build: { outDir: 'dist', target: 'es2023' },

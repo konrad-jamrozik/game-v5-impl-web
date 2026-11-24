@@ -1,7 +1,11 @@
 /** The Main menu: new-Campaign setup, Campaign saves, and the Global configuration. */
 import { useEffect, useState } from 'react';
 import { GAME_BUILD, type SaveListEntry } from '../../engine/index.ts';
+import { buildCommitUrl, buildLabel } from '../build-label.ts';
 import { orderSaveRows } from '../save-rows.ts';
+
+/** The page of the commit the build was made from; null when the build knew no commit. */
+const buildUrl = buildCommitUrl(__BUILD_INFO__);
 import { confirmOrGoBack, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
@@ -144,7 +148,23 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
               Combat simulator
             </Button>
           ) : null}
-          <p className="figure muted small">build {GAME_BUILD}</p>
+          {/* The build label: the PST date of its commit, its number that day, and its short SHA, linking to the
+              commit; the tooltip keeps the Game build, which Campaign saves are checked against. */}
+          <p className="figure muted small" title={`Game build ${GAME_BUILD}`}>
+            {buildUrl === null ? (
+              buildLabel(__BUILD_INFO__)
+            ) : (
+              <a
+                href={buildUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="build-link"
+                data-testid="build-label"
+              >
+                {buildLabel(__BUILD_INFO__)}
+              </a>
+            )}
+          </p>
         </div>
       </header>
 
