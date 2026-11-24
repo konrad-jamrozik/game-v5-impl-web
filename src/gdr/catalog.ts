@@ -639,6 +639,7 @@ const schemas = {
       type: z.literal('MissionSiteArchetype'),
       name,
       kind: z.enum(['initiative', 'response']),
+      first_win_phrase: name.optional(),
       expires_in_turns: whole(1),
       enemies: entries(whole(1)),
       on_win: effectList.optional(),
@@ -656,6 +657,11 @@ const schemas = {
       });
       if (!onWin.success || (g.kind === 'response' && g.on_win !== undefined)) {
         context.addIssue({ code: 'custom', message: 'Rewards only for Initiative' });
+        return z.NEVER;
+      }
+      // MISSION, MissionSiteArchetype: `first_win_phrase` is required for Initiative and absent for Response.
+      if ((g.kind === 'initiative') !== (g.first_win_phrase !== undefined)) {
+        context.addIssue({ code: 'custom', message: 'First win phrase only and always for Initiative' });
         return z.NEVER;
       }
       if ((g.kind === 'response') !== (g.operation_level !== undefined)) {
@@ -676,6 +682,7 @@ const schemas = {
         id: g.id,
         name: g.name,
         kind: g.kind,
+        firstWinPhrase: g.first_win_phrase ?? null,
         expiresInTurns: g.expires_in_turns,
         enemies: g.enemies,
         onWin: {

@@ -9,7 +9,8 @@ import { completedProgressBar } from '../progress-bar.ts';
 import { SOON_EXPIRING_TURNS } from '../situation.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
-import { contractingCapRiseText, leadsDiscoveredText, type TurnSummaryModel } from '../turn-summary.ts';
+import { MissionSiteTitleView } from '../mission-site-title.tsx';
+import type { SourcedLine, TurnSummaryModel } from '../turn-summary.ts';
 import { ProgressBar } from './ProgressBar.tsx';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -23,6 +24,27 @@ function Group(props: { title: string; count: number; testId: string; children: 
       </div>
       {props.children}
     </section>
+  );
+}
+
+/**
+ * TSUM, Sources: one line per gain or loss, in Positive or Danger, with the Mission site title of its Mission aligned
+ * to the right in its own colours.
+ */
+function SourcedGroup(props: { title: string; lines: readonly SourcedLine[]; testId: string }) {
+  return props.lines.length === 0 ? null : (
+    <Group title={props.title} count={props.lines.length} testId={props.testId}>
+      {props.lines.map((line) => (
+        <div
+          key={line.key}
+          className="dialog-row sit-line summary-sourced"
+          data-testid={`${props.testId}-${line.key}`}
+        >
+          <span className={line.tone === 'good' ? 'tone-good' : 'tone-bad'}>{line.text}</span>
+          <MissionSiteTitleView title={line.source} className="summary-source" />
+        </div>
+      ))}
+    </Group>
   );
 }
 
@@ -80,13 +102,7 @@ export function TurnSummary(props: {
               {model.missions.map((mission) => (
                 <article key={mission.mission} className="dialog-card">
                   <div className="sit-line">
-                    <span>
-                      {mission.name}{' '}
-                      <span className="muted small">
-                        · {mission.kind}
-                        {mission.factionName === '' ? '' : ` · ${mission.factionName}`}
-                      </span>
-                    </span>
+                    <MissionSiteTitleView title={mission.title} />
                     <span className={`label ${mission.result === 'Won' ? 'tone-good' : 'tone-bad'}`}>
                       {/* TSUM, Groups: a Won Mission says "Won" alone, as its Combat outcome is Won too. */}
                       {mission.result === 'Won' ? 'Won' : `Lost · ${mission.combatOutcome}`}
@@ -116,42 +132,8 @@ export function TurnSummary(props: {
                       </dd>
                     </div>
                   </dl>
-                  <div className="sit-line">
-                    <span>
-                      <Consequences
-                        consequence={mission.consequence}
-                        label="Consequences"
-                        className="small"
-                      />
-                      {/* TSUM, Groups: after the Consequences, the number of Leads credited to the Mission, in
-                          Positive, so that the Player connects each new Lead to the win it came from. */}
-                      {mission.leadsDiscovered > 0 ? (
-                        <span className="muted small">
-                          {', '}
-                          <span className="tone-good" data-testid={`summary-leads-${mission.mission}`}>
-                            {leadsDiscoveredText(mission.leadsDiscovered)}
-                          </span>
-                        </span>
-                      ) : null}
-                      {/* TSUM, Groups: then the rise in the Contracting cap the Mission brings, in Positive. */}
-                      {mission.contractingCapRise > 0 ? (
-                        <span className="muted small">
-                          {', '}
-                          <span className="tone-good" data-testid={`summary-contracting-${mission.mission}`}>
-                            {contractingCapRiseText(mission.contractingCapRise)}
-                          </span>
-                        </span>
-                      ) : null}
-                      {/* TSUM, Groups: then "Equipment recovered" when it brought Spoils of war, in Positive. */}
-                      {mission.equipmentRecovered ? (
-                        <span className="muted small">
-                          {', '}
-                          <span className="tone-good" data-testid={`summary-equipment-${mission.mission}`}>
-                            Equipment recovered
-                          </span>
-                        </span>
-                      ) : null}
-                    </span>
+                  {/* TSUM, Groups: the card lists no Consequence; Benefits and Setbacks below list them. */}
+                  <div className="sit-line summary-card-actions">
                     <span className="trade-buttons">
                       <button
                         type="button"
@@ -179,13 +161,23 @@ export function TurnSummary(props: {
               ))}
             </Group>
           )}
-          {model.spoils.length === 0 ? null : (
-            <Group title="Spoils of war" count={model.spoils.length} testId="summary-spoils">
-              {/* TSUM, Groups, Spoils of war: each Weapon and AmmoType with its count, naming no Mission. */}
-              {model.spoils.map((spoil) => (
-                <div key={spoil.id} className="dialog-row sit-line" data-testid={`summary-spoil-${spoil.id}`}>
-                  <span>{spoil.name}</span>
-                  <span className="figure tone-good">{spoil.count}</span>
+          <SourcedGroup title="Benefits" lines={model.benefits} testId="summary-benefits" />
+          <SourcedGroup title="Setbacks" lines={model.setbacks} testId="summary-setbacks" />
+          <SourcedGroup
+            title="Equipment recovered"
+            lines={model.equipmentRecovered}
+            testId="summary-equipment"
+          />
+          {model.leads.length === 0 ? null : (
+            <Group title="Leads discovered" count={model.leads.length} testId="summary-leads">
+              {/* TSUM, Groups: a discovered Lead is never an Assessed Lead yet, so only its name is shown, and,
+                  under TSUM, Sources, the first Mission it is credited to. */}
+              {model.leads.map(({ lead, source }) => (
+                <div key={lead.id} className="dialog-row sit-line summary-sourced">
+                  <span>{lead.name}</span>
+                  {source === null ? null : (
+                    <MissionSiteTitleView title={source} className="summary-source" />
+                  )}
                 </div>
               ))}
             </Group>
@@ -294,16 +286,6 @@ export function TurnSummary(props: {
                   </div>
                   <span className="sit-sub">{site.kind}</span>
                 </button>
-              ))}
-            </Group>
-          )}
-          {model.leads.length === 0 ? null : (
-            <Group title="Leads discovered" count={model.leads.length} testId="summary-leads">
-              {/* TSUM, Groups: a discovered Lead is never an Assessed Lead yet, so only its name is shown. */}
-              {model.leads.map((lead) => (
-                <div key={lead.id} className="dialog-row sit-line">
-                  <span>{lead.name}</span>
-                </div>
               ))}
             </Group>
           )}

@@ -16,6 +16,18 @@ import { Consequences } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
 import { hitChanceText, progressGain, progressPoints, wholeText } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
+import {
+  benefitLines,
+  missionEquipment,
+  missionSiteTitle,
+  missionSiteTitleText,
+  setbackLines,
+  type EquipmentCatalog,
+  type EquipmentList,
+  type GainLine,
+  type MissionSiteTitle,
+} from '../mission-gains.ts';
+import { MissionSiteTitleView } from '../mission-site-title.tsx';
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
 import { turnSummaryHasContent } from '../turn-summary.ts';
@@ -107,7 +119,24 @@ export function TurnReportView(props: {
     const site = [...state.missionSites, ...(snapshot.retired?.missionSites ?? [])].find(
       (item) => item.id === mission?.missionSite,
     );
-    const siteName = site?.name ?? mission?.missionSite;
+    // GUI, Mission site titles: the Combat report names its Mission site by its title.
+    const siteName =
+      mission === undefined
+        ? undefined
+        : missionSiteTitleText(
+            missionSiteTitle(
+              mission.missionSite,
+              site,
+              {
+                name:
+                  snapshot.gameData?.missionSiteArchetypes.find(
+                    (item) => item.id === mission.missionSiteArchetype,
+                  )?.name ?? mission.missionSiteArchetype,
+                kind: mission.kind,
+              },
+              (faction) => state.factions.find((item) => item.id === faction)?.name ?? faction,
+            ),
+          );
     // GUI, Enemy labels: each Enemy by its Enemy label, each Agent by its Instance ID.
     const labels = enemyLabels(site?.enemies ?? []);
     const aside = (
@@ -223,6 +252,16 @@ export function TurnReportView(props: {
   );
 }
 
+/** TRVIEW, Sections: a source Mission's title indented under the section's title, and its items indented under it. */
+function SourceBlock(props: { title: MissionSiteTitle; testId?: string; children: ReactNode }) {
+  return (
+    <div className="report-source" data-testid={props.testId}>
+      <MissionSiteTitleView title={props.title} className="report-source-title" />
+      <div className="report-source-items">{props.children}</div>
+    </div>
+  );
+}
+
 function Sections(props: {
   report: TurnReport;
   snapshot: Snapshot;
@@ -237,12 +276,18 @@ function Sections(props: {
     ...(snapshot.retired?.missionSites ?? []),
   ];
   const site = (id: string) => sites.find((item) => item.id === id);
-  const archetypeName = (archetype: string) =>
-    snapshot.gameData?.missionSiteArchetypes.find((item) => item.id === archetype)?.name ?? archetype;
+  const gameData = snapshot.gameData;
+  const archetype = (id: string) => gameData?.missionSiteArchetypes.find((item) => item.id === id);
   const leadName = (lead: string) => snapshot.retired?.leads.find((item) => item.id === lead)?.name ?? lead;
   const factionName = (faction: string) =>
     state.factions.find((item) => item.id === faction)?.name ?? faction;
-  const siteRow = (id: string, what: ReactNode) => (
+  // GUI, Mission site titles: e.g. "Apprehend member · Red Dawn · Initiative · #3".
+  const titleOf = (id: string, archetypeId?: string, kind?: string) => {
+    const found = site(id);
+    const name = archetypeId === undefined ? id : (archetype(archetypeId)?.name ?? archetypeId);
+    return missionSiteTitle(id, found, { name, kind: found?.kind ?? kind ?? '' }, factionName);
+  };
+  const siteRow = (id: string, what: ReactNode, archetypeId?: string) => (
     <button
       key={id}
       type="button"
@@ -251,47 +296,87 @@ function Sections(props: {
         onOpen({ kind: 'missionSite', missionSite: id });
       }}
     >
-      {/* TRVIEW, Sections, Mission sites: the name, the Instance ID in Text muted, and the target Faction. */}
-      <span className="list-name">
-        {site(id)?.name ?? id} <span className="figure muted small">{id}</span>{' '}
-        <span className="secondary small">· {factionName(site(id)?.targetFaction ?? '')}</span>
-      </span>
+      {/* TRVIEW, Sections, Mission sites: each by its Mission site title. */}
+      <MissionSiteTitleView title={titleOf(id, archetypeId)} className="list-name" />
       <span className="list-value">{what}</span>
     </button>
   );
   const itemName = (id: string) =>
-    snapshot.gameData?.weapons.find((item) => item.id === id)?.name ??
-    snapshot.gameData?.armors.find((item) => item.id === id)?.name ??
-    snapshot.gameData?.ammoTypes.find((item) => item.id === id)?.name ??
+    gameData?.weapons.find((item) => item.id === id)?.name ??
+    gameData?.armors.find((item) => item.id === id)?.name ??
+    gameData?.ammoTypes.find((item) => item.id === id)?.name ??
     id;
-  const counted = (counts: Readonly<Record<string, number>>) =>
-    Object.entries(counts)
-      .map(([id, n]) => `${n} ${itemName(id)}`)
-      .join(', ');
-  // TRVIEW, Sections, Equipment: one row per Mission resolved that spent rounds or changed equipment.
-  const equipmentRows = report.missions.flatMap((mission, index) => {
-    const combat = report.combatReports[index];
-    const spent = (combat?.ammo ?? []).filter((item) => item.start > item.end);
-    const parts: { text: string; tone: string | undefined }[] = [];
-    if (spent.length > 0) {
-      parts.push({
-        text: `spent ${spent.map((item) => `${item.start - item.end} ${itemName(item.ammoType)}`).join(', ')}`,
-        tone: undefined,
-      });
-    }
-    if (Object.keys(mission.equipment.spoils).length > 0) {
-      parts.push({ text: `Spoils of war: ${counted(mission.equipment.spoils)}`, tone: 'tone-good' });
-    }
-    if (Object.keys(mission.equipment.returned).length > 0) {
-      parts.push({ text: `Recovered: ${counted(mission.equipment.returned)}`, tone: undefined });
-    }
-    if (Object.keys(mission.equipment.lost).length > 0) {
-      parts.push({ text: `Lost: ${counted(mission.equipment.lost)}`, tone: 'tone-bad' });
-    }
-    return parts.length === 0
-      ? []
-      : [{ mission: mission.mission, name: archetypeName(mission.missionSiteArchetype), parts }];
+  const catalog: EquipmentCatalog | null =
+    gameData === null
+      ? null
+      : {
+          weapons: gameData.weapons,
+          armors: gameData.armors,
+          ammoTypes: gameData.ammoTypes,
+          salePriceFraction: state.agency.equipment.salePriceFraction,
+        };
+  const missionTitle = (mission: (typeof report.missions)[number]) =>
+    titleOf(mission.missionSite, mission.missionSiteArchetype, mission.kind);
+  const combatOf = (mission: string) => report.combatReports.find((item) => item.mission === mission);
+  // TRVIEW, Sections, Benefits and Setbacks: the lines of the Turn summary's groups, under the Mission each came from.
+  const benefits = report.missions.flatMap((mission) => {
+    const lines = benefitLines(
+      mission,
+      archetype(mission.missionSiteArchetype)?.firstWinPhrase ?? null,
+      factionName,
+    );
+    return lines.length === 0 ? [] : [{ mission, lines }];
   });
+  const setbacks = report.missions.flatMap((mission) => {
+    const lines = setbackLines(mission, factionName);
+    return lines.length === 0 ? [] : [{ mission, lines }];
+  });
+  // TRVIEW, Sections, Equipment: Recovered and Spent for each Mission resolved, each left out when empty.
+  const equipment = report.missions.flatMap((mission) => {
+    const lists = missionEquipment(mission, combatOf(mission.mission), catalog);
+    return lists.recovered.entries.length + lists.spent.entries.length === 0 ? [] : [{ mission, lists }];
+  });
+  // TRVIEW, Sections, Leads discovered: under each Mission it is credited to, then those credited to none.
+  const credited = report.missions.flatMap((mission) => {
+    const leads = report.discoveredLeads.filter((lead) => mission.discoveredLeads.includes(lead));
+    return leads.length === 0 ? [] : [{ mission, leads }];
+  });
+  const uncredited = report.discoveredLeads.filter(
+    (lead) => !report.missions.some((mission) => mission.discoveredLeads.includes(lead)),
+  );
+  const leadRow = (lead: string) => (
+    <button
+      key={lead}
+      type="button"
+      className="list-row report-item"
+      onClick={() => {
+        onOpen({ kind: 'lead', lead });
+      }}
+    >
+      <span className="list-name">{leadName(lead)}</span>
+    </button>
+  );
+  const gainRows = (lines: readonly GainLine[]) =>
+    lines.map((line, index) => (
+      <div key={index} className={`report-item ${line.tone === 'good' ? 'tone-good' : 'tone-bad'}`}>
+        {line.text}
+      </div>
+    ));
+  const equipmentList = (label: string, list: EquipmentList, tone: string) =>
+    list.entries.length === 0 ? null : (
+      <div className="report-item" data-testid={`equipment-${label.toLowerCase()}`}>
+        <div className="report-equipment-head">
+          {label} <span className="muted small">· worth {list.value.toLocaleString('en-US')}</span>
+        </div>
+        <ul className={`report-equipment-entries ${tone}`}>
+          {list.entries.map((entry) => (
+            <li key={entry.id}>
+              <span className="figure">{entry.count}</span> {entry.name}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   const siteCount =
     report.createdMissionSites.length +
     report.expiredMissionSites.length +
@@ -316,7 +401,7 @@ function Sections(props: {
   return (
     <>
       <Section title="Missions" count={report.missions.length} testId="report-missions">
-        <Grid widths={['200px', '200px', '96px', '170px', '208px', '120px', '262px']}>
+        <Grid widths={['340px', '200px', '96px', '170px', '208px', '120px', '262px']}>
           <tbody>
             {report.missions.map((mission) => {
               const combat = report.combatReports.find((item) => item.mission === mission.mission);
@@ -334,7 +419,7 @@ function Sections(props: {
                         onOpen({ kind: 'missionSite', missionSite: mission.missionSite });
                       }}
                     >
-                      {archetypeName(mission.missionSiteArchetype)}
+                      <MissionSiteTitleView title={missionTitle(mission)} />
                     </button>
                   </td>
                   <td className={mission.result === 'Won' ? 'tone-good' : 'tone-bad'}>
@@ -388,6 +473,56 @@ function Sections(props: {
         </Grid>
       </Section>
 
+      {/* TRVIEW, Sections: Benefits, Setbacks, Equipment, and Leads discovered name each source Mission as a heading,
+          its items indented under it. */}
+      <Section
+        title="Benefits"
+        count={benefits.reduce((sum, item) => sum + item.lines.length, 0)}
+        testId="report-benefits"
+      >
+        {benefits.map(({ mission, lines }) => (
+          <SourceBlock key={mission.mission} title={missionTitle(mission)}>
+            {gainRows(lines)}
+          </SourceBlock>
+        ))}
+      </Section>
+
+      <Section
+        title="Setbacks"
+        count={setbacks.reduce((sum, item) => sum + item.lines.length, 0)}
+        testId="report-setbacks"
+      >
+        {setbacks.map(({ mission, lines }) => (
+          <SourceBlock key={mission.mission} title={missionTitle(mission)}>
+            {gainRows(lines)}
+          </SourceBlock>
+        ))}
+      </Section>
+
+      <Section title="Equipment" count={equipment.length} testId="report-equipment">
+        {equipment.map(({ mission, lists }) => (
+          <SourceBlock
+            key={mission.mission}
+            title={missionTitle(mission)}
+            testId={`equipment-${mission.mission}`}
+          >
+            {equipmentList('Recovered', lists.recovered, 'tone-good')}
+            {equipmentList('Spent', lists.spent, 'tone-bad')}
+          </SourceBlock>
+        ))}
+      </Section>
+
+      <Section title="Leads discovered" count={report.discoveredLeads.length} testId="discovered-leads">
+        {credited.map(({ mission, leads }) => (
+          <SourceBlock key={mission.mission} title={missionTitle(mission)}>
+            {leads.map(leadRow)}
+          </SourceBlock>
+        ))}
+        {uncredited.length === 0 ? null : (
+          <SourceBlock title={{ name: 'Other', details: '' }}>{uncredited.map(leadRow)}</SourceBlock>
+        )}
+      </Section>
+
       <Section
         title="Investigations completed"
         count={report.investigationsCompleted.length}
@@ -428,43 +563,10 @@ function Sections(props: {
             <span>
               <span className="tone-accent">Expired</span> <Consequences consequence={item.consequence} />
             </span>,
+            item.missionSiteArchetype,
           ),
         )}
         {report.cancelledMissionSites.map((id) => siteRow(id, <span className="muted">Cancelled</span>))}
-      </Section>
-
-      <Section title="Leads discovered" count={report.discoveredLeads.length} testId="discovered-leads">
-        {report.discoveredLeads.map((lead) => (
-          <button
-            key={lead}
-            type="button"
-            className="list-row"
-            onClick={() => {
-              onOpen({ kind: 'lead', lead });
-            }}
-          >
-            <span className="list-name">{leadName(lead)}</span>
-          </button>
-        ))}
-      </Section>
-
-      {/* TRVIEW, Sections, Equipment: per Mission, the rounds spent, the Items lost, and the spoils of war. */}
-      <Section title="Equipment" count={equipmentRows.length} testId="report-equipment">
-        {equipmentRows.map((row) => (
-          <div key={row.mission} className="list-row" data-testid={`equipment-${row.mission}`}>
-            <span className="list-name">
-              {row.name}
-              <span className="secondary small equipment-detail">
-                {row.parts.map((part, index) => (
-                  <span key={index} className={part.tone}>
-                    {index === 0 ? '' : ' · '}
-                    {part.text}
-                  </span>
-                ))}
-              </span>
-            </span>
-          </div>
-        ))}
       </Section>
 
       {/* TRVIEW, Sections, New acquisitions: what an interrogation unlocked; it opens the Acquisitions View. */}

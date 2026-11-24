@@ -41,6 +41,7 @@ function archetype(id: string, kind: 'initiative' | 'response'): MissionSiteArch
     id,
     name: id,
     kind,
+    firstWinPhrase: kind === 'initiative' ? `first ${id}` : null,
     expiresInTurns: 3,
     enemies: [],
     onWin: { money: 0, funding: 0, panicReductionHundredths: 0, eliminateTargetFaction: false },

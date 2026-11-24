@@ -580,6 +580,8 @@ export interface GameDataView {
     readonly id: string;
     readonly name: string;
     readonly kind: string;
+    /** MISSION, MissionSiteArchetype: only for the `initiative` kind, e.g. "first apprehension". */
+    readonly firstWinPhrase: string | null;
     readonly expiresInTurns: number;
     readonly enemies: readonly { readonly enemyArchetype: string; readonly count: number }[];
     readonly enemiesCombatRating: number;

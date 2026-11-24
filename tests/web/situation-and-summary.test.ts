@@ -12,14 +12,15 @@ import {
 import { completionEstimate, progressCircle } from '../../src/web/completion.ts';
 import { situationGroups } from '../../src/web/situation.ts';
 import {
-  contractingCapRiseText,
-  leadsDiscoveredText,
-  showsTurnSummary,
-  summedSpoils,
-  turnSummary,
-  turnSummaryHasContent,
-} from '../../src/web/turn-summary.ts';
-import type { TurnReport } from '../../src/engine/index.ts';
+  benefitLines,
+  missionEquipment,
+  missionSiteTitle,
+  missionSiteTitleText,
+  recoveredText,
+  setbackLines,
+} from '../../src/web/mission-gains.ts';
+import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/web/turn-summary.ts';
+import type { CombatReport, TurnReport } from '../../src/engine/index.ts';
 import {
   act,
   advance,
@@ -172,35 +173,95 @@ describe('GUI: Completion estimate and Progress circle', () => {
 });
 
 describe('GUI: Turn summary', () => {
-  it('counts the Leads credited to a Mission, in the singular for one', () => {
-    expect(leadsDiscoveredText(1)).toBe('1 new Lead discovered');
-    expect(leadsDiscoveredText(2)).toBe('2 new Leads discovered');
+  const NONE = {
+    money: 0,
+    fundingChange: 0,
+    panicIncreaseHundredths: 0,
+    panicReductionHundredths: 0,
+    eliminatedFaction: null,
+    defeat: false,
+  };
+  type MissionResult = TurnReport['missions'][number];
+  const result = (overrides: Partial<MissionResult>) =>
+    ({
+      mission: 'mission-1',
+      missionSite: 'mission-site-3',
+      missionSiteArchetype: 'apprehend_member',
+      kind: 'Initiative',
+      result: 'Won',
+      consequence: NONE,
+      equipment: { lost: {}, returned: {}, spoils: {} },
+      discoveredLeads: [],
+      contractingCapRise: 0,
+      ...overrides,
+    }) as unknown as MissionResult;
+  const factionName = (id: string) => (id === 'red_dawn' ? 'Red Dawn' : id);
+
+  it('titles a Mission site with its name, Faction, kind, and the number ending its Instance ID', () => {
+    const site = { name: 'Apprehend member', kind: 'Initiative', targetFaction: 'red_dawn' };
+    const title = missionSiteTitle(
+      'mission-site-3',
+      site as Parameters<typeof missionSiteTitle>[1],
+      { name: 'unused', kind: 'unused' },
+      factionName,
+    );
+    expect(missionSiteTitleText(title)).toBe('Apprehend member · Red Dawn · Initiative · #3');
   });
 
-  it('sums the Spoils of war over the Missions, Weapons before AmmoTypes, in authored order', () => {
-    const mission = (spoils: Record<string, number>) => ({ equipment: { lost: {}, returned: {}, spoils } });
-    const report = {
-      missions: [mission({ rifle_ammo: 5, rifle: 2 }), mission({ pistol: 1, rifle: 2, rifle_ammo: 6 })],
-    } as unknown as TurnReport;
+  it('lists a Won Mission gains as Benefits, with the first win phrase on the Contracting cap rise', () => {
+    const won = result({
+      consequence: { ...NONE, money: 50, fundingChange: 10, panicReductionHundredths: 100 },
+      contractingCapRise: 4,
+    });
+    expect(benefitLines(won, 'first apprehension', factionName).map((line) => line.text)).toEqual([
+      '+50 money',
+      '+10 funding',
+      'Panic −1.00',
+      'Reputation increased for first apprehension: our Contracting network expands by 4',
+    ]);
+    expect(setbackLines(won, factionName)).toEqual([]);
+  });
+
+  it('lists a Lost Mission Consequences as Setbacks and gives it no Benefits', () => {
+    const lost = result({
+      result: 'Lost',
+      consequence: { ...NONE, fundingChange: -30, panicIncreaseHundredths: 500 },
+    });
+    expect(setbackLines(lost, factionName)).toEqual([
+      { text: '−30 funding', tone: 'bad' },
+      { text: 'Panic +5.00', tone: 'bad' },
+    ]);
+    expect(benefitLines(lost, null, factionName)).toEqual([]);
+  });
+
+  it('splits equipment into Recovered and Spent, each in authored order with its Sale value', () => {
     const catalog = {
       weapons: [
-        { id: 'pistol', name: 'Pistol' },
-        { id: 'rifle', name: 'Rifle' },
+        { id: 'pistol', name: 'Pistol', price: 100 },
+        { id: 'rifle', name: 'Rifle', price: 300 },
       ],
-      ammoTypes: [{ id: 'rifle_ammo', name: 'Rifle ammo' }],
+      armors: [{ id: 'vest', name: 'Vest', price: 200 }],
+      ammoTypes: [{ id: 'rifle_ammo', name: 'Rifle ammo', price: 1 }],
+      salePriceFraction: { numerator: 1, denominator: 2 },
     };
-    expect(summedSpoils(report, catalog)).toEqual([
-      { id: 'pistol', name: 'Pistol', count: 1 },
-      { id: 'rifle', name: 'Rifle', count: 4 },
-      { id: 'rifle_ammo', name: 'Rifle ammo', count: 11 },
+    const mission = result({
+      equipment: { lost: { vest: 1 }, returned: { pistol: 1 }, spoils: { rifle_ammo: 11, rifle: 2 } },
+    });
+    const combat = { ammo: [{ ammoType: 'rifle_ammo', start: 100, end: 91 }] } as unknown as CombatReport;
+    const { recovered, spent } = missionEquipment(mission, combat, catalog);
+    expect(recovered.entries.map((entry) => [entry.name, entry.count])).toEqual([
+      ['Pistol', 1],
+      ['Rifle', 2],
+      ['Rifle ammo', 11],
     ]);
-  });
-
-  it('names the rise in the Contracting cap a Mission brings', () => {
-    expect(contractingCapRiseText(4)).toBe(
-      'Reputation increased: 4 more Contracting opportunities available',
-    );
-    expect(contractingCapRiseText(1)).toBe('Reputation increased: 1 more Contracting opportunity available');
+    // EQUIP, Sale value: round down(0.5 × (100 + 600 + 11)), rounded once.
+    expect(recovered.value).toBe(355);
+    expect(recoveredText(recovered)).toBe('3 Items, 11 rounds · worth 355');
+    expect(spent.entries.map((entry) => [entry.name, entry.count])).toEqual([
+      ['Vest', 1],
+      ['Rifle ammo', 9],
+    ]);
+    expect(spent.value).toBe(104);
   });
 
   let state = withAgents(newCampaign(), 4);

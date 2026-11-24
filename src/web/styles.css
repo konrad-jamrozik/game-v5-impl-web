@@ -1241,6 +1241,43 @@ input::placeholder {
   margin: 2px 0 0;
 }
 
+/* TSUM, Mission cards: with no Consequences beside them, the Combat report and Visualize buttons sit at the right. */
+.summary-card-actions {
+  justify-content: flex-end;
+}
+
+/* TSUM, Sources: the Mission site title at the right of a line may shrink and wrap, so the line keeps its text. */
+.sit-line.summary-sourced > .summary-source:last-child {
+  flex: 0 1 auto;
+}
+
+/* TRVIEW, Sections: each source Mission indented under the section's title, and its items indented under it. */
+.report-source {
+  padding: 4px 0 4px 12px;
+}
+
+.report-source-items {
+  padding-left: 16px;
+}
+
+.report-item {
+  padding: 2px 0;
+}
+
+.report-source-items > .list-row {
+  min-height: 24px;
+}
+
+/* TRVIEW, Sections, Equipment: one entry per Item or AmmoType, laid out in columns so the list stays short. */
+.report-equipment-entries {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0 16px;
+  margin: 2px 0 0;
+  padding: 0 0 0 16px;
+  list-style: none;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;

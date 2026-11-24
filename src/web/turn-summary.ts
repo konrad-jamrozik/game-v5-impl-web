@@ -11,13 +11,22 @@ import type {
   MissionSiteView,
   TurnReport,
 } from '../engine/index.ts';
+import {
+  benefitLines,
+  missionEquipment,
+  missionSiteTitle,
+  recoveredText,
+  setbackLines,
+  type EquipmentCatalog,
+  type GainLine,
+  type MissionSiteTitle,
+} from './mission-gains.ts';
 
 export interface SummaryMission {
   readonly mission: string;
   readonly missionSite: string;
-  readonly name: string;
-  readonly kind: string;
-  readonly factionName: string;
+  /** GUI, Mission site titles. */
+  readonly title: MissionSiteTitle;
   readonly result: 'Won' | 'Lost';
   readonly combatOutcome: string;
   readonly teamSent: number;
@@ -27,58 +36,27 @@ export interface SummaryMission {
   readonly toRecovery: number;
   readonly enemiesDead: number;
   readonly enemiesPresent: number;
-  readonly consequence: ConsequenceRecord;
-  /** TSUM, Groups: the number of Leads discovered in the Advance turn that are credited to the Mission. */
-  readonly leadsDiscovered: number;
-  /** TSUM, Groups: the rise in the Contracting cap the Mission brings; 0 for none. */
-  readonly contractingCapRise: number;
-  /** TSUM, Groups: whether the Mission brought Spoils of war, which its card marks "Equipment recovered". */
-  readonly equipmentRecovered: boolean;
 }
 
-/** TSUM, Groups, Spoils of war: one Weapon or AmmoType with its count summed over the Missions resolved. */
-export interface SummarySpoil {
-  readonly id: string;
-  readonly name: string;
-  readonly count: number;
+/** TSUM, Sources: one line of Benefits, Setbacks, or Equipment recovered, with the Mission it came from. */
+export interface SourcedLine extends GainLine {
+  readonly key: string;
+  readonly mission: string;
+  readonly source: MissionSiteTitle;
 }
 
-/** The Weapons and AmmoTypes of the Game build, in authored order, which name and order the Spoils of war. */
-export interface SpoilsCatalog {
-  readonly weapons: readonly { readonly id: string; readonly name: string }[];
-  readonly ammoTypes: readonly { readonly id: string; readonly name: string }[];
+/** TSUM, Groups, Leads discovered: a Lead with the first Mission it is credited to, if any. */
+export interface SummaryLead {
+  readonly lead: LeadView;
+  readonly source: MissionSiteTitle | null;
 }
 
-/**
- * TSUM, Groups, Spoils of war: the Spoils of war of every Mission resolved, summed per Weapon or AmmoType, Weapons
- * before AmmoTypes, each in authored order; an identifier the catalog lacks follows them, named by itself.
- */
-export function summedSpoils(report: TurnReport, catalog: SpoilsCatalog | null): SummarySpoil[] {
-  const counts = new Map<string, number>();
-  for (const mission of report.missions) {
-    for (const [id, count] of Object.entries(mission.equipment.spoils)) {
-      counts.set(id, (counts.get(id) ?? 0) + count);
-    }
-  }
-  const known = [...(catalog?.weapons ?? []), ...(catalog?.ammoTypes ?? [])];
-  const ordered = known.flatMap((item) => {
-    const count = counts.get(item.id) ?? 0;
-    return count > 0 ? [{ id: item.id, name: item.name, count }] : [];
-  });
-  const rest = [...counts.entries()]
-    .filter(([id, count]) => count > 0 && !known.some((item) => item.id === id))
-    .map(([id, count]) => ({ id, name: id, count }));
-  return [...ordered, ...rest];
-}
-
-/** TSUM, Groups: e.g. "1 new Lead discovered" or "2 new Leads discovered". */
-export function leadsDiscoveredText(count: number): string {
-  return `${count} new ${count === 1 ? 'Lead' : 'Leads'} discovered`;
-}
-
-/** TSUM, Groups: e.g. "Reputation increased: 4 more Contracting opportunities available". */
-export function contractingCapRiseText(rise: number): string {
-  return `Reputation increased: ${rise} more Contracting ${rise === 1 ? 'opportunity' : 'opportunities'} available`;
+/** What the Turn summary reads of the Game build: the Items, AmmoTypes, and MissionSiteArchetypes. */
+export interface SummaryGameData {
+  readonly weapons: EquipmentCatalog['weapons'];
+  readonly armors: EquipmentCatalog['armors'];
+  readonly ammoTypes: EquipmentCatalog['ammoTypes'];
+  readonly missionSiteArchetypes: readonly { readonly id: string; readonly firstWinPhrase: string | null }[];
 }
 
 export interface SummaryInvestigation {
@@ -118,12 +96,14 @@ export interface TurnSummaryModel {
   /** The Turn the Advance turn ended. */
   readonly turn: number;
   readonly missions: readonly SummaryMission[];
-  /** TSUM, Groups, Spoils of war: summed over the Missions resolved, naming no Mission. */
-  readonly spoils: readonly SummarySpoil[];
+  readonly benefits: readonly SourcedLine[];
+  readonly setbacks: readonly SourcedLine[];
+  /** TSUM, Groups, Equipment recovered: one line per Mission, e.g. "3 Items, 11 rounds · worth 165". */
+  readonly equipmentRecovered: readonly SourcedLine[];
+  readonly leads: readonly SummaryLead[];
   readonly investigations: readonly SummaryInvestigation[];
   readonly newSites: readonly SummarySite[];
   readonly expiredSites: readonly SummaryExpiredSite[];
-  readonly leads: readonly LeadView[];
   /** TSUM, Groups: the Investigations interrupted, each with its Lead's name. */
   readonly interrupted: readonly { readonly investigation: string; readonly leadName: string }[];
 }
@@ -167,7 +147,7 @@ export function turnSummary(
   state: CurrentLiveWorldStateView,
   retired: CurrentRetiredWorldStateView | null,
   siteArchetypeName: (archetype: string) => string,
-  spoilsCatalog: SpoilsCatalog | null = null,
+  gameData: SummaryGameData | null = null,
 ): TurnSummaryModel {
   const sites = new Map<string, MissionSiteView>();
   for (const site of [...(retired?.missionSites ?? []), ...state.missionSites]) {
@@ -185,16 +165,27 @@ export function turnSummary(
     return site?.name ?? (archetype === undefined ? id : siteArchetypeName(archetype));
   };
 
-  const summaryMissions = report.missions.map((mission, index): SummaryMission => {
-    const combat = report.combatReports[index];
-    const site = sites.get(mission.missionSite);
+  const titles = new Map(
+    report.missions.map((mission) => [
+      mission.mission,
+      missionSiteTitle(
+        mission.missionSite,
+        sites.get(mission.missionSite),
+        { name: siteArchetypeName(mission.missionSiteArchetype), kind: mission.kind },
+        factionName,
+      ),
+    ]),
+  );
+  const titleOf = (mission: string) => titles.get(mission) ?? { name: mission, details: '' };
+  const combatOf = (mission: string) => report.combatReports.find((item) => item.mission === mission);
+
+  const summaryMissions = report.missions.map((mission): SummaryMission => {
+    const combat = combatOf(mission.mission);
     const enemies = combat?.participants.filter((who) => who.side === 'enemy') ?? [];
     return {
       mission: mission.mission,
       missionSite: mission.missionSite,
-      name: siteName(mission.missionSite, mission.missionSiteArchetype),
-      kind: mission.kind,
-      factionName: site === undefined ? '' : factionName(site.targetFaction),
+      title: titleOf(mission.mission),
       result: mission.result,
       combatOutcome: combat?.outcome ?? '',
       teamSent: missions.get(mission.mission)?.teamSent.length ?? combat?.agents.length ?? 0,
@@ -202,12 +193,43 @@ export function turnSummary(
       toRecovery: mission.toRecovery.length,
       enemiesDead: enemies.filter((who) => who.final.condition === 'dead').length,
       enemiesPresent: enemies.length,
-      consequence: mission.consequence,
-      leadsDiscovered: mission.discoveredLeads.length,
-      contractingCapRise: mission.contractingCapRise,
-      equipmentRecovered: Object.values(mission.equipment.spoils).some((count) => count > 0),
     };
   });
+
+  // TSUM, Sources: each line ends with the Mission site title of its Mission, in the order of the Combat reports.
+  const sourced = (mission: string, lines: readonly GainLine[]): SourcedLine[] =>
+    lines.map((line, index) => ({ ...line, key: `${mission}-${index}`, mission, source: titleOf(mission) }));
+  const firstWinPhrase = (archetype: string) =>
+    gameData?.missionSiteArchetypes.find((item) => item.id === archetype)?.firstWinPhrase ?? null;
+  const catalog: EquipmentCatalog | null =
+    gameData === null
+      ? null
+      : {
+          weapons: gameData.weapons,
+          armors: gameData.armors,
+          ammoTypes: gameData.ammoTypes,
+          salePriceFraction: state.agency.equipment.salePriceFraction,
+        };
+  const benefits = report.missions.flatMap((mission) =>
+    sourced(
+      mission.mission,
+      benefitLines(mission, firstWinPhrase(mission.missionSiteArchetype), factionName),
+    ),
+  );
+  const setbacks = report.missions.flatMap((mission) =>
+    sourced(mission.mission, setbackLines(mission, factionName)),
+  );
+  const equipmentRecovered = report.missions.flatMap((mission) => {
+    const { recovered } = missionEquipment(mission, combatOf(mission.mission), catalog);
+    return recovered.entries.length === 0
+      ? []
+      : sourced(mission.mission, [{ text: recoveredText(recovered), tone: 'good' }]);
+  });
+  // TSUM, Sources: a Lead names the first Mission it is credited to, in the order of the Combat reports.
+  const leadSource = (lead: string) => {
+    const credited = report.missions.find((mission) => mission.discoveredLeads.includes(lead));
+    return credited === undefined ? null : titleOf(credited.mission);
+  };
 
   const summaryInvestigations = report.investigationsCompleted.map((item): SummaryInvestigation => {
     const investigation = investigations.get(item.investigation);
@@ -259,14 +281,16 @@ export function turnSummary(
   return {
     turn: report.turn,
     missions: summaryMissions,
-    spoils: summedSpoils(report, spoilsCatalog),
+    benefits,
+    setbacks,
+    equipmentRecovered,
+    leads: report.discoveredLeads.flatMap((id) => {
+      const lead = leads.get(id);
+      return lead === undefined ? [] : [{ lead, source: leadSource(id) }];
+    }),
     investigations: summaryInvestigations,
     newSites,
     expiredSites,
-    leads: report.discoveredLeads.flatMap((id) => {
-      const lead = leads.get(id);
-      return lead === undefined ? [] : [lead];
-    }),
     interrupted: report.investigationsInterrupted.map((item) => ({
       investigation: item.investigation,
       leadName: leads.get(item.lead)?.name ?? item.lead,

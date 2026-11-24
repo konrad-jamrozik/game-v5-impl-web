@@ -1261,6 +1261,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         id: archetype.id,
         name: archetype.name,
         kind: archetype.kind,
+        firstWinPhrase: archetype.firstWinPhrase,
         expiresInTurns: archetype.expiresInTurns,
         enemies: archetype.enemies.map(([enemyArchetype, count]) => ({ enemyArchetype, count })),
         enemiesCombatRating: archetypeRating(archetype, gdrs),

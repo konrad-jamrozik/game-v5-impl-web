@@ -300,6 +300,8 @@ export interface MissionSiteArchetypeGdr {
   readonly id: string;
   readonly name: string;
   readonly kind: 'initiative' | 'response';
+  /** Only for the `initiative` kind: the words naming its first Won Mission, e.g. "first apprehension". */
+  readonly firstWinPhrase: string | null;
   readonly expiresInTurns: number;
   /** The identifier of an EnemyArchetype and its count, in the authored order. */
   readonly enemies: readonly (readonly [string, number])[];
