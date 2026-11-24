@@ -24,6 +24,7 @@ const WORDING: Readonly<Record<string, { readonly name: string; readonly words: 
     name: 'Combat simulator',
     words: (value) => (value === true ? 'shown' : 'hidden'),
   },
+  screenLimit: { name: 'Screen limit', words: onOff },
 };
 
 /** The line of one changed setting, e.g. "Autopilot Turns: 100 (default 10)" or "Music volume: 30% (default 50%)". */

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { Campaign } from './screens/Campaign.tsx';
 import { CombatSimulator } from './screens/CombatSimulator.tsx';
 import { MainMenu } from './screens/MainMenu.tsx';
 import { musicSettings } from './screens/MusicControl.tsx';
 import { music } from './music-player.ts';
+import { applyScreenLimit, screenLimitOn } from './screen-limit.ts';
 import { configureSounds, installButtonSounds } from './sound-player.ts';
 import { soundSettings } from './sounds.ts';
 import { dismissNotice, useSnapshot } from './store.ts';
@@ -28,6 +29,12 @@ export function App() {
     configureSounds(soundsOn, soundsVolume);
   }, [soundsOn, soundsVolume]);
   useEffect(() => installButtonSounds(document), []);
+
+  // VIS, Screen limit: one area for every screen, set before the screen is painted.
+  const limited = screenLimitOn(snapshot.configuration.settings);
+  useLayoutEffect(() => {
+    applyScreenLimit(limited);
+  }, [limited]);
 
   useEffect(() => {
     const newest = snapshot.notices.at(-1);

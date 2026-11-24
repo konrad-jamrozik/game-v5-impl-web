@@ -81,17 +81,10 @@ async function expectFits(page: Page, screen: string): Promise<void> {
   expect(await page.evaluate(layoutProblems), `the layout of ${screen} in the Reference window`).toEqual([]);
 }
 
-/** Opens a Detail view from the Side panel unless it is open, choosing the tab of its group first. */
+/** Opens a Detail view from the Side panel unless it is open. */
 async function open(page: Page, viewId: string): Promise<void> {
   if ((await view(page, viewId).count()) === 0) {
-    const button = id(page, `nav-${viewId}`);
-    for (const tab of await page.getByRole('tab').all()) {
-      if ((await button.count()) > 0) {
-        break;
-      }
-      await tab.click();
-    }
-    await button.click();
+    await id(page, `nav-${viewId}`).click();
   }
   await expect(view(page, viewId)).toBeVisible();
 }
@@ -185,4 +178,69 @@ test('the Main menu and the Combat simulator fit the Reference window', async ({
   await id(page, 'sim-fight').click();
   await expect(id(page, 'combat-replay')).toBeVisible();
   await expectFits(page, 'the Combat simulator');
+});
+
+/** The box of an element, in whole px of the window. */
+async function boxOf(page: Page, selector: string) {
+  const box = await page.locator(selector).first().boundingBox();
+  return box === null
+    ? null
+    : {
+        x: Math.round(box.x),
+        y: Math.round(box.y),
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      };
+}
+
+test('the Screen limit draws every screen at the size of the Reference window, centred in a larger window', async ({
+  page,
+}) => {
+  // VIS, Screen limit: in a window of 1920 × 1080 the area starts 256 px from the left and 148 px from the top.
+  const area = { x: 256, y: 148, width: 1408, height: 784 };
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('/');
+  await expect(id(page, 'new-campaign')).toBeVisible();
+  expect((await boxOf(page, '#root'))?.width, 'without the Screen limit a screen fills the window').toBe(
+    1920,
+  );
+
+  // The store applies a setting after the click returns, so the checkbox is clicked and then waited for.
+  await id(page, 'setting-screenLimit').click();
+  await expect(id(page, 'setting-screenLimit')).toBeChecked();
+  expect(await boxOf(page, '#root'), 'the area of the Main menu').toEqual(area);
+  await expect(id(page, 'changed-settings')).toContainText('Screen limit: on (default off)');
+  await expectFits(page, 'the Main menu under the Screen limit');
+
+  await id(page, 'preset-select').selectOption('showcase');
+  await id(page, 'seed-input').fill('layout');
+  await id(page, 'new-campaign').click();
+  await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
+  expect(await boxOf(page, '.campaign'), 'the area of the Campaign screen').toEqual(area);
+  for (const viewId of ['agents', 'armory', 'missions', 'history']) {
+    await open(page, viewId);
+    await expectFits(page, `the Detail view ${viewId} under the Screen limit`);
+  }
+
+  // Everything shown over a screen stays in the area, e.g. the Settings panel.
+  await id(page, 'open-settings').click();
+  const dialog = await boxOf(page, '[data-testid="settings"]');
+  expect(dialog, 'the Settings panel').not.toBeNull();
+  if (dialog !== null) {
+    expect(dialog.y).toBeGreaterThanOrEqual(area.y);
+    expect(dialog.y + dialog.height).toBeLessThanOrEqual(area.y + area.height);
+    expect(dialog.x).toBeGreaterThanOrEqual(area.x);
+    expect(dialog.x + dialog.width).toBeLessThanOrEqual(area.x + area.width);
+  }
+
+  // Off again, the screen fills the window.
+  await id(page, 'setting-screenLimit').click();
+  await expect(id(page, 'setting-screenLimit')).not.toBeChecked();
+  await id(page, 'close-settings').click();
+  expect(await boxOf(page, '.campaign'), 'the Campaign screen without the Screen limit').toEqual({
+    x: 0,
+    y: 0,
+    width: 1920,
+    height: 1080,
+  });
 });

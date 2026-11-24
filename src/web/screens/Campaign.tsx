@@ -3,7 +3,7 @@
  * Detail view, the compact Situation panel, and the Autopilot footer; the Globe stage fills the rest, and the open
  * Detail view covers it. The globe, a decoration, is drawn in the Globe stage behind every Detail view.
  */
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { AutosaveStatus, CurrentLiveWorldStateView } from '../../engine/index.ts';
 import { PLACE_NAME_KEY, PlaceContext, type PlaceContextValue } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
@@ -19,7 +19,7 @@ import {
 } from '../view-trail.ts';
 import { SOUND } from '../sounds.ts';
 import { autopilotSettings } from '../autopilot-controls.ts';
-import { setNavigationTab, setSidePanelHidden, useNavigationTab, useSidePanelHidden } from '../side-panel.ts';
+import { setSidePanelHidden, useSidePanelHidden } from '../side-panel.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate, lostMissionSites } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
@@ -36,10 +36,7 @@ import {
   DETAIL_VIEW_GROUPS,
   DETAIL_VIEWS,
   detailViewOfKey,
-  groupOfDetailView,
-  NAVIGATION_ROWS,
   numberKeyOf,
-  viewsOfGroup,
   type DetailViewId,
 } from './DetailView.tsx';
 import { DeveloperDrawer } from './DeveloperDrawer.tsx';
@@ -130,8 +127,6 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const [settings, setSettings] = useState(false);
   // CSCR, Hiding the Side panel.
   const sidePanelHidden = useSidePanelHidden();
-  // CSCR, Navigation: the group whose tab is chosen.
-  const navigationTab = useNavigationTab();
   const [autosaves, setAutosaves] = useState<AutosaveStatus | null>(null);
   /**
    * TSUM, Showing and dismissing: the Turn ended by the Advance turn the Player requested through this screen, until
@@ -201,8 +196,6 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     scrollTop = 0,
   ) => {
     live.current = {};
-    // CSCR, Navigation: however a Detail view opens, the tab of its group is chosen.
-    setNavigationTab(groupOfDetailView(id));
     setOpen((current) => ({ id, item, serial: (current?.serial ?? 0) + 1, restored, scrollTop }));
   };
 
@@ -684,66 +677,54 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         ) : (
           <aside className="side-panel" aria-label="Side panel">
             <nav className="side-nav">
-              {/* CSCR, Navigation: one row of tabs, one for each group, ending in the » button of CSCR, Hiding the
-                  Side panel. */}
-              <div className="nav-tabs">
-                <div className="nav-tablist" role="tablist" aria-label="Groups of Detail views">
-                  {DETAIL_VIEW_GROUPS.map((group) => (
-                    <button
-                      key={group.name}
-                      type="button"
-                      role="tab"
-                      className={`nav-tab${group.name === navigationTab ? ' nav-tab-chosen' : ''}`}
-                      aria-selected={group.name === navigationTab}
-                      data-sound="select"
-                      data-testid={`nav-tab-${group.name.toLowerCase()}`}
-                      onClick={() => {
-                        setNavigationTab(group.name);
-                      }}
-                    >
-                      {group.name}
-                    </button>
-                  ))}
+              {/* CSCR, Navigation: a button for every Detail view, in view at all times. VIS, Navigation groups: the
+                  groups one under another, each its name over its buttons. */}
+              {DETAIL_VIEW_GROUPS.map((group, groupIndex) => (
+                <div key={group.name} className="nav-group">
+                  <div className="nav-group-head">
+                    <span className="label">{group.name}</span>
+                    {/* CSCR, Hiding the Side panel: the » button at the right end of the first group's line. */}
+                    {groupIndex === 0 ? (
+                      <button
+                        type="button"
+                        className="btn side-toggle"
+                        aria-label="Hide the Side panel"
+                        title="Hide the Side panel (V)"
+                        data-testid="hide-side-panel"
+                        data-sound="select"
+                        onClick={() => {
+                          setSidePanelHidden(true);
+                        }}
+                      >
+                        »
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="nav-buttons">
+                    {group.views.map((view) => {
+                      const count = counts[view.id];
+                      const numberKey = numberKeyOf(view.id);
+                      return (
+                        <button
+                          key={view.id}
+                          type="button"
+                          className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
+                          aria-pressed={open?.id === view.id}
+                          data-sound={open?.id === view.id ? 'back' : 'main'}
+                          title={numberKey === null ? undefined : `Shortcut: ${numberKey}`}
+                          data-testid={`nav-${view.id}`}
+                          onClick={() => {
+                            toggleView(view.id);
+                          }}
+                        >
+                          <span>{view.name}</span>
+                          {count === undefined || count === 0 ? null : <span className="count">{count}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  className="btn side-toggle"
-                  aria-label="Hide the Side panel"
-                  title="Hide the Side panel (V)"
-                  data-testid="hide-side-panel"
-                  data-sound="select"
-                  onClick={() => {
-                    setSidePanelHidden(true);
-                  }}
-                >
-                  »
-                </button>
-              </div>
-              {/* VIS, Navigation buttons: the buttons of the chosen group, two to a row, in the rows that the largest
-                  group takes, so that choosing a tab moves nothing below them. */}
-              <div className="nav-buttons" style={{ '--nav-rows': NAVIGATION_ROWS } as CSSProperties}>
-                {viewsOfGroup(navigationTab).map((view) => {
-                  const count = counts[view.id];
-                  const numberKey = numberKeyOf(view.id);
-                  return (
-                    <button
-                      key={view.id}
-                      type="button"
-                      className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
-                      aria-pressed={open?.id === view.id}
-                      data-sound={open?.id === view.id ? 'back' : 'main'}
-                      title={numberKey === null ? undefined : `Shortcut: ${numberKey}`}
-                      data-testid={`nav-${view.id}`}
-                      onClick={() => {
-                        toggleView(view.id);
-                      }}
-                    >
-                      <span>{view.name}</span>
-                      {count === undefined || count === 0 ? null : <span className="count">{count}</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              ))}
             </nav>
 
             <SituationPanel

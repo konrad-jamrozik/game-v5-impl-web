@@ -60,6 +60,36 @@ body {
   color: var(--text);
 }
 
+/* VIS, Screen limit: the area every screen is drawn in, as --screen-w by --screen-h starting at --screen-x and
+   --screen-y of the window: the whole window, or, while the Screen limit is on, an area the size of the Reference
+   window, centred, and no larger than the window. The rest of the window is the Background fill of the page, with no
+   line where the area ends. Whatever is fixed to the window, e.g. a dialog, is laid out from these four. */
+:root {
+  --screen-w: 100vw;
+  --screen-h: 100vh;
+  --screen-x: 0px;
+  --screen-y: 0px;
+}
+
+html.screen-limited {
+  --screen-w: min(100vw, 1408px);
+  --screen-h: min(100vh, 784px);
+  --screen-x: max(0px, calc((100vw - 1408px) / 2));
+  --screen-y: max(0px, calc((100vh - 784px) / 2));
+}
+
+/* A screen taller than the area scrolls inside it, e.g. the Main menu, and the window itself never scrolls. */
+html.screen-limited body {
+  overflow: hidden;
+}
+
+html.screen-limited #root {
+  width: var(--screen-w);
+  height: var(--screen-h);
+  margin: var(--screen-y) 0 0 var(--screen-x);
+  overflow: auto;
+}
+
 h1,
 h2,
 h3,
@@ -932,7 +962,7 @@ input::placeholder {
 .campaign {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: var(--screen-h);
 }
 
 /* VIS, Status bar: the values and the controls share one row, and none wraps onto a second line. VIS, Alignment,
@@ -1165,7 +1195,8 @@ input::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  /* VIS, Screen limit: the Scrim dims the whole window, and the dialog stays inside the area of the screen. */
+  padding: calc(var(--screen-y) + 24px) calc(var(--screen-x) + 24px);
   background: var(--scrim);
 }
 
@@ -1859,11 +1890,11 @@ summary {
 }
 
 .drawer {
-  top: 0;
-  right: 0;
-  bottom: 0;
+  top: var(--screen-y);
+  right: var(--screen-x);
+  bottom: var(--screen-y);
   width: 460px;
-  max-width: 100vw;
+  max-width: var(--screen-w);
   padding: 18px;
   overflow: auto;
   display: flex;
@@ -1872,7 +1903,7 @@ summary {
 }
 
 .inspect {
-  max-height: 50vh;
+  max-height: calc(var(--screen-h) / 2);
   overflow: auto;
   margin: 8px 0 0;
   padding: 10px;
@@ -1883,13 +1914,13 @@ summary {
 .notices {
   position: fixed;
   left: 50%;
-  top: 70px;
+  top: calc(var(--screen-y) + 70px);
   transform: translateX(-50%);
   z-index: 9;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: min(640px, calc(100vw - 24px));
+  width: min(640px, calc(var(--screen-w) - 24px));
 }
 
 .notice {
@@ -1930,7 +1961,7 @@ summary {
 @media (max-width: 900px) {
   .campaign {
     height: auto;
-    min-height: 100vh;
+    min-height: var(--screen-h);
   }
 
   h1 {
@@ -2031,64 +2062,35 @@ label:has(> input[type='checkbox']:disabled) {
   border-left: 1px solid var(--divider);
 }
 
+/* CSCR, Navigation: as tall as its buttons need; the Situation panel takes the height that is left. */
 .side-nav {
+  flex: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px 16px;
+  gap: 10px;
+  padding: 10px 16px 14px;
   border-bottom: 1px solid var(--divider);
 }
 
-/* VIS, Navigation tabs: the tabs in one row, with the » button of CSCR, Hiding the Side panel, at its right end. */
-.nav-tabs {
+/* VIS, Navigation groups: the groups one under another, each its name in the Label style over its buttons. */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* CSCR, Hiding the Side panel: the group's name with, on the first group's line, the » button at its right end. */
+.nav-group-head {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.nav-tablist {
-  flex: 1;
-  display: flex;
-  min-width: 0;
-}
-
-/* VIS, Navigation tabs: the group's name in the Label style over a 2 px line along its bottom edge, Accent and
-   Text-coloured text for the chosen tab, Divider for the others. */
-.nav-tab {
-  flex: 1 1 auto;
-  height: 28px;
-  padding: 0 5px;
-  border: 0;
-  border-bottom: 2px solid var(--divider);
-  background: none;
-  color: var(--text-muted);
-  font-family: var(--font-heading);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.nav-tab:hover {
-  color: var(--text);
-}
-
-.nav-tab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
-.nav-tab-chosen {
-  border-bottom-color: var(--accent);
-  color: var(--text);
+  justify-content: space-between;
+  height: 20px;
 }
 
 .side-toggle {
   flex: none;
   width: 24px;
-  height: 24px;
+  height: 20px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -2110,15 +2112,12 @@ label:has(> input[type='checkbox']:disabled) {
   border-left: 1px solid var(--divider);
 }
 
-/* VIS, Navigation buttons: two to a row with 8 px between them, in the rows that the largest group takes, --nav-rows,
-   so that choosing a tab moves nothing below them. */
+/* VIS, Navigation buttons: the buttons of a group, two to a row with 8 px between them. */
 .nav-buttons {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: 36px;
-  align-content: start;
   gap: 8px;
-  min-height: calc(var(--nav-rows, 1) * 44px - 8px);
 }
 
 .nav-button {
@@ -3339,7 +3338,7 @@ label:has(> input[type='checkbox']:disabled) {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 100vh;
+  min-height: var(--screen-h);
   padding: 24px;
 }
 
@@ -3403,7 +3402,7 @@ label:has(> input[type='checkbox']:disabled) {
 
 /* CSIM, Teams: each side scrolls on its own, so that both stay in sight with many Combatants. */
 .simulator-rows {
-  max-height: calc(50vh - 210px);
+  max-height: calc(var(--screen-h) / 2 - 210px);
   min-height: 120px;
   overflow-y: auto;
   border-top: 1px solid var(--border);
@@ -3462,7 +3461,7 @@ label:has(> input[type='checkbox']:disabled) {
   position: relative;
   /* CRPLAY, Battlefield layout: centred in the width it is given. */
   margin: 0 auto;
-  width: min(100%, calc(100vh - var(--replay-chrome, 316px)));
+  width: min(100%, calc(var(--screen-h) - var(--replay-chrome, 316px)));
   min-width: 320px;
   aspect-ratio: 1;
 }

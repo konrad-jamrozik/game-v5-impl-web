@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentView, CurrentLiveWorldStateView, EquipmentItemView } from '../../engine/index.ts';
+import { currentScreenSpan } from '../screen-limit.ts';
 import { act, theEngine } from '../store.ts';
 import { AmmoWarning, ArmorIcon, SwordIcon } from './equipment-icons.tsx';
 
@@ -112,7 +113,9 @@ export function EquipmentPicker(props: {
   const options = open ? optionsOf(props.agent, props.kind, props.state) : [];
   // The list hangs in a layer over the whole window, so that a table's scroll box, e.g. the Agents table's, never clips
   // it. It opens below the cell, or above it when there is more room there.
-  const below = anchor === null || window.innerHeight - anchor.bottom >= Math.min(anchor.top, 260);
+  // VIS, Screen limit: the room is that of the area the screen is drawn in.
+  const span = currentScreenSpan();
+  const below = anchor === null || span.bottom - anchor.bottom >= Math.min(anchor.top - span.top, 260);
   const placement: CSSProperties =
     anchor === null
       ? {}

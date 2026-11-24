@@ -24,8 +24,8 @@ export type DetailViewId =
   | 'compendium';
 
 /**
- * CSCR, Detail views: the groups, in this order; the list is exhaustive. CSCR, Navigation: each group is one tab of
- * the Side panel's navigation.
+ * CSCR, Detail views: the groups, in this order; the list is exhaustive. CSCR, Navigation: the Side panel's navigation
+ * shows each group's name over its buttons.
  */
 export const DETAIL_VIEW_GROUPS: readonly {
   readonly name: string;
@@ -60,21 +60,6 @@ export const DETAIL_VIEW_GROUPS: readonly {
 ];
 
 export const DETAIL_VIEWS = DETAIL_VIEW_GROUPS.flatMap((group) => group.views);
-
-/** CSCR, Navigation: the name of the group whose tab holds the button of a Detail view. */
-export function groupOfDetailView(id: DetailViewId): string {
-  return DETAIL_VIEW_GROUPS.find((group) => group.views.some((view) => view.id === id))?.name ?? '';
-}
-
-/** CSCR, Navigation: the views of the group whose tab is chosen; of no group when no tab has that name. */
-export function viewsOfGroup(name: string): (typeof DETAIL_VIEW_GROUPS)[number]['views'] {
-  return DETAIL_VIEW_GROUPS.find((group) => group.name === name)?.views ?? [];
-}
-
-/** VIS, Navigation buttons: the rows of buttons, two to a row, that the largest group takes. */
-export const NAVIGATION_ROWS = Math.max(
-  ...DETAIL_VIEW_GROUPS.map((group) => Math.ceil(group.views.length / 2)),
-);
 
 /**
  * CSCR, Keyboard shortcuts: the number key that opens or closes a Detail view, by its place in the order of the

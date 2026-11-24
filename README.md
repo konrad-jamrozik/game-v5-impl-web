@@ -74,7 +74,8 @@ the Timeline entries, the Timeline pointer, and the Campaign configuration in fo
 - `e2e/web.spec.ts` plays the same Campaign through the engine API, the CLI, and the web UI in a browser, and
   requires the full Campaign state to be equal.
 - `e2e/layout.spec.ts` walks every screen in the Reference window of Visual Design, 1408 × 784, and fails when any
-  region scrolls sideways or a heading, label, or button wraps onto a second line.
+  region scrolls sideways or a heading, label, or button wraps onto a second line. It also turns the Screen limit on
+  in a window of 1920 × 1080 and requires every screen to be drawn at 1408 × 784, centred.
 
 ## The web UI
 
@@ -85,7 +86,7 @@ Google Fonts, in a dark theme only.
 - **Main menu.** The Campaign saves grouped by Campaign, with a Load and a Delete button on each Campaign save and a
   Delete Campaign button on each Campaign, every deletion confirmed first; New-Campaign setup with the preset, its
   values and Preset edits, and an optional Campaign seed; and the Global configuration settings, e.g. the Autosave
-  limit.
+  limit, or the Screen limit, which draws every screen at 1408 × 784, centred in a larger window.
 - **Status bar.** Turn, money, funding, projected income and upkeep, Agents against the Agent cap, a Panic meter,
   each Faction with its Faction activity level, and the buttons Undo, Redo, earlier and later Autosave, Save, Main
   menu, and Advance turn.
@@ -94,8 +95,8 @@ Google Fonts, in a dark theme only.
   rotation, show its clouds in full, at half opacity, or not at all, and set the day and night speed to 1×, 2×, 4×, or
   stopped. It loads on first show, stops drawing while a Detail view covers it, and shows a message in its place
   without WebGL 2. Imagery: NASA Blue Marble and Earth at Night, in the public domain.
-- **Side panel.** On the right, 272 px wide: the navigation, a row of tabs, one for each group of Detail views, over
-  the buttons of the chosen group; the compact Situation panel, in which each item is one line, or two when its name
+- **Side panel.** On the right, 272 px wide: the navigation, with a button for every Detail view under the name of
+  its group; the compact Situation panel, which takes the height that is left, in which each item is one line, or two when its name
   is long, e.g. an Active Investigation with its Progress circle and Completion estimate, and opens its Detail view;
   and a footer with the Autopilot controls, collapsed to one row until expanded, and the Music control, which
   collapses to its Track title.

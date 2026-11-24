@@ -7,6 +7,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { changedSettingLine, changedSettings } from '../changed-settings.ts';
+import { REFERENCE_WINDOW } from '../screen-limit.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND, soundSettings } from '../sounds.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
@@ -24,6 +25,11 @@ const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume'])
  * simulator shown, which the developer tools set (CSIM, Opening the Combat simulator).
  */
 const SET_ELSEWHERE = new Set(['autopilotControlsShown', 'autopilotTurns', 'combatSimulatorShown']);
+
+/** The label of the checkbox of a setting that is on or off; VIS, Screen limit names the Screen limit's. */
+const CHECKBOX_LABELS: Readonly<Record<string, string>> = {
+  screenLimit: `Limit the screen to ${String(REFERENCE_WINDOW.width)} × ${String(REFERENCE_WINDOW.height)}`,
+};
 
 /** GUI, Changed settings: one line per setting whose stored value overrides its Game build default, with Reset. */
 function ChangedSettingsRow({ snapshot }: { snapshot: Snapshot }) {
@@ -130,32 +136,48 @@ function SettingsRows(props: {
             <div>
               {setting.name}
               <span className="hint">
-                {setting.permitted} · {setting.stored ? 'your value' : 'build default'}
+                {typeof setting.gameBuildDefault === 'boolean' ? 'On or off' : setting.permitted} ·{' '}
+                {setting.stored ? 'your value' : 'build default'}
               </span>
             </div>
-            <div className="actions">
-              {setting.stored ? (
-                <Button
-                  onClick={() => {
-                    act(() => session.globalConfiguration.reset(setting.setting));
+            {typeof setting.gameBuildDefault === 'boolean' ? (
+              // A setting that is on or off is set with a checkbox; the Changed settings row resets it.
+              <label className="check-label">
+                <input
+                  type="checkbox"
+                  data-testid={`setting-${setting.setting}`}
+                  checked={setting.effectiveValue === true}
+                  onChange={(event) => {
+                    act(() => session.globalConfiguration.set(setting.setting, event.target.checked));
                   }}
-                >
-                  Reset to {String(setting.gameBuildDefault)}
-                </Button>
-              ) : null}
-              <NumberField
-                label={setting.name}
-                testId={`setting-${setting.setting}`}
-                stored={String(setting.effectiveValue)}
-                onCommit={(text) => {
-                  act(() =>
-                    text === ''
-                      ? session.globalConfiguration.reset(setting.setting)
-                      : session.globalConfiguration.set(setting.setting, Number(text)),
-                  );
-                }}
-              />
-            </div>
+                />
+                {CHECKBOX_LABELS[setting.setting] ?? setting.name}
+              </label>
+            ) : (
+              <div className="actions">
+                {setting.stored ? (
+                  <Button
+                    onClick={() => {
+                      act(() => session.globalConfiguration.reset(setting.setting));
+                    }}
+                  >
+                    Reset to {String(setting.gameBuildDefault)}
+                  </Button>
+                ) : null}
+                <NumberField
+                  label={setting.name}
+                  testId={`setting-${setting.setting}`}
+                  stored={String(setting.effectiveValue)}
+                  onCommit={(text) => {
+                    act(() =>
+                      text === ''
+                        ? session.globalConfiguration.reset(setting.setting)
+                        : session.globalConfiguration.set(setting.setting, Number(text)),
+                    );
+                  }}
+                />
+              </div>
+            )}
           </div>
         ))}
       <ChangedSettingsRow snapshot={snapshot} />

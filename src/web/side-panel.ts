@@ -3,13 +3,11 @@
  * whenever a Session starts and stays as the Player last left it for the rest of the Session, whatever Campaign is
  * loaded, so it lives here, outside the Campaign screen, which is mounted anew for each Campaign.
  * - CSCR, Hiding the Side panel: whether the Player has hidden the Side panel; shown when a Session starts.
- * - CSCR, Navigation: the chosen tab of the navigation, by the name of its group; Operations when a Session starts.
  * - MUSIC, Music control in the Side panel: whether the Music control is collapsed; expanded when a Session starts.
  */
 import { sessionValue } from './session-value.ts';
 
 const hidden = sessionValue(false);
-const navigationTab = sessionValue('Operations');
 const musicCollapsed = sessionValue(false);
 
 export function setSidePanelHidden(value: boolean): void {
@@ -24,15 +22,6 @@ export function useSidePanelHidden(): boolean {
 /** For tests: the Side panel as a new Session starts. */
 export function sidePanelHidden(): boolean {
   return hidden.get();
-}
-
-export function setNavigationTab(group: string): void {
-  navigationTab.set(group);
-}
-
-/** The name of the group whose tab is chosen. */
-export function useNavigationTab(): string {
-  return navigationTab.use();
 }
 
 export function setMusicCollapsed(value: boolean): void {

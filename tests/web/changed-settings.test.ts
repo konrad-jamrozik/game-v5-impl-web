@@ -30,6 +30,7 @@ describe('GUI: Changed settings', () => {
     expect(changedSettingLine(stored('autopilotAutosaveLimit', 0))).toBe(
       'Autopilot Autosave limit: 0 (default 5)',
     );
+    expect(changedSettingLine(stored('screenLimit', true))).toBe('Screen limit: on (default off)');
   });
 
   it('lists only stored values, in the order of the Global configuration table', () => {
@@ -46,6 +47,7 @@ describe('GUI: Changed settings', () => {
       'autopilotControlsShown',
       'autopilotTurns',
       'combatSimulatorShown',
+      'screenLimit',
     ]);
   });
 });

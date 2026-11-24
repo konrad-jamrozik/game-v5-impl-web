@@ -15,7 +15,7 @@ export interface SettingDescriptor {
 
 /**
  * The complete set of Global configuration settings of this Game build, in the order of the Global configuration table
- * in CONFIG; see MUSIC, Music settings, SOUNDS, Sound settings, and CSCR, Autopilot settings.
+ * in CONFIG; see MUSIC, Music settings, SOUNDS, Sound settings, CSCR, Autopilot settings, and VIS, Screen limit.
  */
 export const SETTINGS: readonly SettingDescriptor[] = [
   {
@@ -84,6 +84,14 @@ export const SETTINGS: readonly SettingDescriptor[] = [
   {
     setting: 'combatSimulatorShown',
     name: 'Combat simulator shown',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
+  // VIS, Screen limit: whether every screen is drawn at the size of the Reference window, centred in the window.
+  {
+    setting: 'screenLimit',
+    name: 'Screen limit',
     gameBuildDefault: false,
     permitted: 'true or false',
     isPermitted: (value): value is SettingValue => typeof value === 'boolean',
