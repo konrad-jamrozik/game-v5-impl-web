@@ -12,7 +12,7 @@ export const DEPLOY_NUMERIC: ReadonlySet<DeployKey> = new Set(['effectiveSkill',
 
 /**
  * MVIEW, Deployment: `candidates` in the table's default order, by Instance ID, then ordered by `tiers` under
- * VIS, Tables. The exhaustion column sorts by every Agent's exhaustion, whether its cell shows it or not.
+ * VIS, Tables.
  */
 export function deployRows<A extends Pick<AgentView, 'id' | 'effectiveSkill' | 'exhaustion'>>(
   candidates: readonly A[],

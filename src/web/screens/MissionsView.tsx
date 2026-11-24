@@ -23,7 +23,7 @@ import {
   type HistoryMission,
 } from '../mission-outcome.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import { TIRED_DEPLOYMENT_EXHAUSTION, confirmTiredDeployment } from '../tired-deployment.ts';
+import { confirmTiredDeployment } from '../tired-deployment.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
 import { DEPLOY_NUMERIC, deployRows, type DeployKey } from '../deploy-table.ts';
 import { useRowSelection } from '../row-selection.ts';
@@ -241,6 +241,7 @@ export function MissionsView(props: {
             locked={locked}
             checked={checked}
             onCheck={setChecked}
+            onShow={props.onShow}
             onDeploy={(team) => {
               if (confirmTiredDeployment(state, team)) {
                 act(() => player.actions.deployAgents(selected.id, team));
@@ -484,6 +485,8 @@ function Deployment(props: {
   locked: string | null;
   checked: readonly string[];
   onCheck: (ids: readonly string[]) => void;
+  /** CSCR, View trail, Follow: opens an Agent's details, or the Agents View. */
+  onShow: (target: ReportTarget) => void;
   onDeploy: (team: readonly string[]) => void;
 }) {
   const { player } = theEngine();
@@ -617,14 +620,26 @@ function Deployment(props: {
                       {...selection.checkbox(agent.id)}
                     />
                   </td>
-                  <td className="figure">{agent.id}</td>
+                  <td className="figure">
+                    {/* MVIEW, Deployment: an Agent's Instance ID opens its details as a Follow, without checking or
+                        unchecking its row, since the row ignores clicks on a button. */}
+                    <button
+                      type="button"
+                      className="history-link figure"
+                      data-testid={`deploy-agent-${agent.id}`}
+                      data-sound="main"
+                      onClick={() => {
+                        props.onShow({ kind: 'agent', agent: agent.id });
+                      }}
+                    >
+                      {agent.id}
+                    </button>
+                  </td>
                   <td className="secondary">{assignmentText(agent, state)}</td>
                   <td className="num">{agent.effectiveSkill}</td>
                   <td className="num">
-                    {/* MVIEW, Deployment: a tired Agent shows its exhaustion, coloured under VIS, Agent condition. */}
-                    {agent.exhaustion >= TIRED_DEPLOYMENT_EXHAUSTION ? (
-                      <Exhaustion value={agent.exhaustion} levels={exhaustionLevels(snapshot.gameData)} />
-                    ) : null}
+                    {/* MVIEW, Deployment: every Agent's exhaustion, coloured under VIS, Agent condition. */}
+                    <Exhaustion value={agent.exhaustion} levels={exhaustionLevels(snapshot.gameData)} />
                   </td>
                 </tr>
               );
@@ -633,6 +648,17 @@ function Deployment(props: {
         </Grid>
       )}
       <div className="pane-actions">
+        {/* MVIEW, Deployment: on the Deploy button's line, at the left, an Agents button opens the Agents View as a
+            Follow. */}
+        <Button
+          className="pane-action-start"
+          testId="deploy-open-agents"
+          onClick={() => {
+            props.onShow({ kind: 'agents' });
+          }}
+        >
+          Agents
+        </Button>
         <Button
           kind="primary"
           testId={`deploy-${site.id}`}

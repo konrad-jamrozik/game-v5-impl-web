@@ -34,7 +34,9 @@ export type ReportTarget =
   /** MVIEW, Concluded Mission site: an Agent's details in the Agents View. */
   | { readonly kind: 'agent'; readonly agent: string }
   /** TRVIEW, Sections, New acquisitions: the Acquisitions View. */
-  | { readonly kind: 'acquisitions' };
+  | { readonly kind: 'acquisitions' }
+  /** MVIEW, Deployment: the Agents View. */
+  | { readonly kind: 'agents' };
 
 function Section(props: { title: string; count: number; testId: string; children: ReactNode }) {
   return props.count === 0 ? null : (

@@ -40,7 +40,7 @@ describe('MVIEW: Deployment table', () => {
     ]);
   });
 
-  it('sorts by exhaustion, highest first, even where its cell is empty', () => {
+  it('sorts by exhaustion, highest first, on the first press of its header', () => {
     const tiers = pressHeader([], 'exhaustion', DEPLOY_NUMERIC.has('exhaustion'));
     expect(ids(deployRows(candidates, tiers, assignment))).toEqual([
       'agent-10',

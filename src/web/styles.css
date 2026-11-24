@@ -2556,6 +2556,11 @@ label:has(> input[type='checkbox']:disabled) {
   margin-top: 12px;
 }
 
+/* MVIEW, Deployment: a button at the left of a pane's action line; the rest stay right-adjusted. */
+.pane-action-start {
+  margin-right: auto;
+}
+
 .list-group + .list-group {
   margin-top: 12px;
 }
