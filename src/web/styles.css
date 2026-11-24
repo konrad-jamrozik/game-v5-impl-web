@@ -3176,6 +3176,14 @@ label:has(> input[type='checkbox']:disabled) {
   gap: 8px;
 }
 
+/* CSIM, Teams, Combat ratings: one line above the two sides. */
+.simulator-ratings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
+}
+
 .simulator-side-head {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr) auto;
@@ -3185,7 +3193,7 @@ label:has(> input[type='checkbox']:disabled) {
 
 /* CSIM, Teams: each side scrolls on its own, so that both stay in sight with many Combatants. */
 .simulator-rows {
-  max-height: calc(50vh - 190px);
+  max-height: calc(50vh - 210px);
   min-height: 120px;
   overflow-y: auto;
   border-top: 1px solid var(--border);

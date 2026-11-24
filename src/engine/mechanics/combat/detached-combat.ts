@@ -15,6 +15,7 @@ import type { MissionSiteArchetypeGdr } from '../../../gdr/index.ts';
 import { createEnemy, createMissionSite } from '../missions/missions.ts';
 import {
   agentCombatantState,
+  combatRating,
   enemyCombatantState,
   fightCombat,
   fightCombatSummary,
@@ -417,6 +418,31 @@ export function fightDetachedCombat(combat: DetachedCombat, random: Random): Det
       };
     }),
   };
+}
+
+/** COMBAT, Detached Combat without a Current campaign: the Combat rating of each side at Combat start. */
+export interface DetachedCombatRatings {
+  readonly agents: number;
+  readonly enemies: number;
+}
+
+/**
+ * `session.combatSimulator.rateSides(setup)`: the Combat ratings at Combat start of the Detached Combat the setup
+ * describes, which is not fought, or the rejection of the setup.
+ */
+export function detachedCombatRatings(gdrs: GdrCatalog, setup: unknown): DetachedCombatRatings | Rejection {
+  const combat = buildDetachedCombat(null, gdrs, setup);
+  if ('rejected' in combat) {
+    return combat;
+  }
+  const { agents, enemies, combat: parameters, agentParameters } = combat.inputs;
+  const rate = (side: CombatInputs['agents']) =>
+    combatRating(
+      side.map((combatant) => combatant.state),
+      parameters,
+      agentParameters,
+    );
+  return { agents: rate(agents), enemies: rate(enemies) };
 }
 
 /** `developer.tools.fightCombat(setup)`: a Detached Combat on the Current world state, or the rejection of its setup. */

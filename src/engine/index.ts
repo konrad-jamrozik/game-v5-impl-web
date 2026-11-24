@@ -44,6 +44,7 @@ import type { InitiativeOperationLevelsView, RevealedCompendiumView } from './vi
 import type {
   DetachedCombatBatchResult,
   DetachedCombatBatchStop,
+  DetachedCombatRatings,
   DetachedCombatResult,
   DetachedCombatSetup,
 } from './mechanics/combat/detached-combat.ts';
@@ -54,6 +55,7 @@ export type {
   DetachedCombatBatchResult,
   DetachedCombatBatchStop,
   DetachedCombatParticipant,
+  DetachedCombatRatings,
   DetachedCombatResult,
   DetachedCombatSetup,
   DetachedEnemyEntry,
@@ -161,6 +163,7 @@ export interface Engine {
     readonly combatSimulator: {
       getContent(): Result<CombatSimulatorContent>;
       fightCombat(setup: DetachedCombatSetup): Result<DetachedCombatResult>;
+      rateSides(setup: DetachedCombatSetup): Result<DetachedCombatRatings>;
     };
   };
   /** Player API, as the Session controller holds it. */
@@ -358,6 +361,8 @@ export async function createEngine(env: EngineEnvironment, options: EngineOption
           core.combatSimulatorTool(CONTROLLER, 'getContent', null) as Result<CombatSimulatorContent>,
         fightCombat: (setup) =>
           core.combatSimulatorTool(CONTROLLER, 'fightCombat', setup) as Result<DetachedCombatResult>,
+        rateSides: (setup) =>
+          core.combatSimulatorTool(CONTROLLER, 'rateSides', setup) as Result<DetachedCombatRatings>,
       },
     },
     player: playerApi(core, CONTROLLER),

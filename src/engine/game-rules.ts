@@ -3,7 +3,11 @@
  */
 import { produce } from 'immer';
 import { GAME_BUILD, type GdrCatalog } from '../gdr/index.ts';
-import { detachedCombat, detachedCombatBatch } from './mechanics/combat/detached-combat.ts';
+import {
+  detachedCombat,
+  detachedCombatBatch,
+  detachedCombatRatings,
+} from './mechanics/combat/detached-combat.ts';
 import { advanceTurnOf, applyActionTo } from './play.ts';
 import { playPrologue } from './prologue/prologue.ts';
 import type { ConfigurationValueDescriptor, GameRules } from './rules.ts';
@@ -192,6 +196,9 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       }
       if (tool === 'fightCombat') {
         return detachedCombat(null, gdrs, args);
+      }
+      if (tool === 'rateSides') {
+        return detachedCombatRatings(gdrs, args);
       }
       throw new Error(`There is no Combat simulator operation ${tool}`);
     },

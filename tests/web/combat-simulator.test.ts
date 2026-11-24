@@ -81,6 +81,33 @@ describe('COMBAT: Detached Combat without a Current campaign', () => {
     expect(ok(engine.session.combatSimulator.fightCombat(setup))).toEqual(without);
   });
 
+  it('rates both sides of a setup at Combat start without fighting it', async () => {
+    const { engine } = await startEngine();
+    const agent = (baseSkill: number, currentHealth: number) => ({
+      kind: 'explicit' as const,
+      baseSkill,
+      currentHealth,
+      effectiveMaxHealth: 30,
+      exhaustion: 0,
+      effectiveWeaponDamage: 10,
+      effectiveArmor: 20,
+    });
+    const setup = {
+      agents: [agent(100, 30), agent(200, 30), agent(100, 0)],
+      enemies: { missionSiteArchetype: 'apprehend_member' },
+      seed: 'ratings',
+    };
+    const ratings = ok(engine.session.combatSimulator.rateSides(setup));
+    // The Combat report holds the same Combat ratings as of Combat round 0.
+    const { combatReport } = ok(engine.session.combatSimulator.fightCombat(setup));
+    expect(combatReport.ratings[0]).toEqual({ round: 0, ...ratings });
+    expect(ratings.agents).toBeGreaterThan(0);
+    expect(ratings.enemies).toBeGreaterThan(0);
+    expect(errorCode(engine.session.combatSimulator.rateSides({ agents: [], enemies: [], seed: 's' }))).toBe(
+      'rejected',
+    );
+  });
+
   it('rejects an entry that names an Agent or an Enemy by Instance ID', async () => {
     const { engine } = await startEngine();
     const one = {

@@ -131,6 +131,10 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
     );
   }
 
+  // CSIM, Teams, Combat ratings: of the two sides as the rows give them now, or none while the setup is rejected.
+  const rated = session.combatSimulator.rateSides(setupOf(agents, enemies, FIRST_SEED));
+  const ratings = rated.ok ? rated.value : null;
+
   /** CSIM, Fighting the Combat: a rejected setup shows its reason, and the Combat replay keeps the Combat it shows. */
   const fight = (withSeed: string) => {
     const result = session.combatSimulator.fightCombat(setupOf(agents, enemies, withSeed));
@@ -204,6 +208,34 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
               {problem}
             </p>
           )}
+
+          <div className="simulator-ratings" data-testid="sim-ratings">
+            <span className="label">Combat rating</span>
+            {ratings === null ? (
+              <span className="muted">None: the setup is not valid</span>
+            ) : (
+              <>
+                <span>
+                  Agents{' '}
+                  <span className="figure tone-good" data-testid="sim-rating-agents">
+                    {ratings.agents}
+                  </span>
+                </span>
+                <span>
+                  Enemies{' '}
+                  <span className="figure tone-bad" data-testid="sim-rating-enemies">
+                    {ratings.enemies}
+                  </span>
+                </span>
+                <span>
+                  Agents / Enemies{' '}
+                  <span className="figure" data-testid="sim-rating-ratio">
+                    {ratings.enemies === 0 ? '—' : `${Math.round((100 * ratings.agents) / ratings.enemies)}%`}
+                  </span>
+                </span>
+              </>
+            )}
+          </div>
 
           <div className="simulator-side">
             <header className="simulator-side-head">
