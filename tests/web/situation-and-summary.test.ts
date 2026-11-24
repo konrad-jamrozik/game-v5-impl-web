@@ -12,7 +12,16 @@ import {
 import { completionEstimate, progressCircle } from '../../src/web/completion.ts';
 import { situationGroups } from '../../src/web/situation.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/web/turn-summary.ts';
-import { act, advance, agentIds, gdrs, newCampaign, tweak, withAgents } from '../helpers/game.ts';
+import {
+  act,
+  advance,
+  agentIds,
+  gdrs,
+  newCampaign,
+  setAssignment,
+  tweak,
+  withAgents,
+} from '../helpers/game.ts';
 
 const MEMBER = 'locate_red_dawn_member';
 /** The Lead's Required progress R, the least value of its Required progress range, which the tests fix it to. */
@@ -42,13 +51,27 @@ describe('GUI: Situation panel', () => {
     const groups = situationGroups(view, currentRetiredWorldStateView(state, gdrs).leads);
     // SITP, Groups: no Leads group, even while a Lead waits to be investigated.
     expect(groups.map((group) => group.id)).toEqual(['agents']);
-    // SITP, Groups: the Agents line counts the Agents on Standby and the free Training places; the group counts
-    // the Serving Agents.
+    // SITP, Groups: the Agents line counts the Agents fit to start work and the free Training places; the group
+    // counts the Serving Agents.
     expect(groups.find((group) => group.id === 'agents')).toMatchObject({
       count: view.agency.servingAgents,
-      standby: 4,
+      fitToStartWork: 4,
       trainingFree: view.agency.trainingCap,
     });
+  });
+
+  it('counts as fit to start work only the Agents At assignment on Standby that are Fit to start work', () => {
+    let state = withAgents(newCampaign(), 4);
+    const [, a2, a3] = agentIds(state) as [string, string, string, string];
+    state = setAssignment(state, [a2], 'Standby', 'InTransit');
+    state = tweak(state, (world) => {
+      world.agents[a3]!.state.exactExhaustionHundredths =
+        (gdrs.agentParameters.exhaustionWorkStartMax + 1) * 100;
+    });
+    const view = currentLiveWorldStateView(state, gdrs);
+    const groups = situationGroups(view, currentRetiredWorldStateView(state, gdrs).leads);
+    // SITP, Groups: an Agent In transit to Standby, and one too tired to start work, are not counted.
+    expect(groups.find((group) => group.id === 'agents')).toMatchObject({ fitToStartWork: 2 });
   });
 
   it('moves a Lead with an Active Investigation to the Active Investigations, with its Completion estimate', () => {

@@ -141,10 +141,10 @@ function GroupRows(props: { group: SituationGroup; onShow: (target: SituationTar
       ));
     case 'agents': {
       const parts: ReactNode[] = [];
-      if (group.standby > 0) {
+      if (group.fitToStartWork > 0) {
         parts.push(
-          <span key="standby">
-            <span className="figure strong">{group.standby}</span> on Standby
+          <span key="fit">
+            <span className="figure strong">{group.fitToStartWork}</span> fit to start work
           </span>,
         );
       }

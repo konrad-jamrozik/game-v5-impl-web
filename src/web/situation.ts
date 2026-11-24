@@ -57,7 +57,8 @@ export type SituationGroup =
       readonly id: 'agents';
       /** The number of Serving Agents. */
       readonly count: number;
-      readonly standby: number;
+      /** The number of Serving Agents At assignment on Standby and Fit to start work. */
+      readonly fitToStartWork: number;
       readonly trainingFree: number;
     };
 
@@ -106,10 +107,14 @@ export function situationGroups(
 ): SituationGroup[] {
   const groups: SituationGroup[] = [];
 
-  const standby = state.agents.filter((agent) => agent.assignment?.kind === 'Standby').length;
+  // SITP, Groups: the Agents At assignment on Standby and Fit to start work; one In transit to Standby is not counted.
+  const fitToStartWork = state.agents.filter(
+    (agent) =>
+      agent.agentStatus === 'AtAssignment' && agent.assignment?.kind === 'Standby' && agent.fitForWork,
+  ).length;
   const trainingFree = Math.max(0, state.agency.trainingCap - state.agency.trainingAgents);
-  if (standby > 0 || trainingFree > 0) {
-    groups.push({ id: 'agents', count: state.agency.servingAgents, standby, trainingFree });
+  if (fitToStartWork > 0 || trainingFree > 0) {
+    groups.push({ id: 'agents', count: state.agency.servingAgents, fitToStartWork, trainingFree });
   }
 
   // SITP, Groups: the Active Mission sites soonest to expire first, then those lost in the most recent Advance turn.

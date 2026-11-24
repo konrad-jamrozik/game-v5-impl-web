@@ -72,7 +72,7 @@ function Stats(props: { item: EquipmentItemView; ammoName: (id: string) => strin
   }
   return (
     <span className={item.ammoShort ? 'tone-warn figure' : 'figure'}>
-      {item.available.toLocaleString('en-US')} / {item.ammoNeeded.toLocaleString('en-US')} needed
+      {item.available.toLocaleString('en-US')} / {item.ammoNeeded.toLocaleString('en-US')} recommended
       {props.withNeed ? ` (${item.ammoAgents} Agents)` : ''}
       {item.ammoShort ? (
         <AmmoWarning
