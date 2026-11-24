@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import { IndexedDbStorage } from './indexeddb-storage.ts';
+import { registerServiceWorker } from './service-worker-registration.ts';
 import { boot } from './store.ts';
 import { installTableOverflowTitles } from './ui.tsx';
 import './styles.css';
@@ -13,6 +14,7 @@ if (root === null) {
 }
 const mount = createRoot(root);
 installTableOverflowTitles();
+registerServiceWorker();
 
 boot(new IndexedDbStorage(indexedDB)).then(
   () => {

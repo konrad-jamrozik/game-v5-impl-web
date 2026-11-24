@@ -1,7 +1,34 @@
 import { execFileSync } from 'node:child_process';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite-plus';
+import { defineConfig, type Plugin } from 'vite-plus';
 import { buildInfo, type BuildInfo } from './src/web/build-label.ts';
+
+/** The service worker's own entry, emitted as `sw.js` beside the page so that its scope is the whole game. */
+const SERVICE_WORKER = 'sw';
+
+/**
+ * Writes into the service worker the paths of every other file of the build, which it keeps in the browser's cache;
+ * see src/web/service-worker.ts.
+ */
+function serviceWorkerFiles(): Plugin {
+  return {
+    name: 'service-worker-files',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const worker = bundle['sw.js'];
+      if (worker?.type !== 'chunk') {
+        throw new Error('The build has no service worker sw.js');
+      }
+      const files = Object.keys(bundle)
+        .filter((name) => name !== 'sw.js' && name !== 'index.html')
+        .sort();
+      if (!worker.code.includes('__GAME_BUILD_FILES__')) {
+        throw new Error('The service worker sw.js does not name __GAME_BUILD_FILES__');
+      }
+      worker.code = worker.code.replaceAll('__GAME_BUILD_FILES__', JSON.stringify(files));
+    },
+  };
+}
 
 /**
  * The commit the build is made from, for the build label on the Main menu: its SHA and the committer dates of its
@@ -191,11 +218,21 @@ const generated = [
 export default defineConfig(() => ({
   // Relative asset URLs, so the build works under the GitHub Pages project path /game-v5-impl-web/.
   base: './',
-  plugins: [react()],
+  plugins: [react(), serviceWorkerFiles()],
   define: { __BUILD_INFO__: JSON.stringify(readBuildInfo()) },
   server: { port: 5175, strictPort: true },
   preview: { port: 5176, strictPort: true },
-  build: { outDir: 'dist', target: 'es2023' },
+  build: {
+    outDir: 'dist',
+    target: 'es2023',
+    rollupOptions: {
+      input: { index: 'index.html', [SERVICE_WORKER]: 'src/web/service-worker.ts' },
+      output: {
+        entryFileNames: (chunk: { readonly name: string }) =>
+          chunk.name === SERVICE_WORKER ? 'sw.js' : 'assets/[name]-[hash].js',
+      },
+    },
+  },
   test: {
     include: ['tests/**/*.test.ts'],
     testTimeout: 120_000,
