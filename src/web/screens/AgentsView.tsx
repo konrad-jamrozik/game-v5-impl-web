@@ -23,6 +23,7 @@ import { decimalText, wholeText } from '../format.ts';
 import {
   ASSIGNMENTS,
   blockedBy,
+  fitToStartWorkNow,
   hiddenByChecks,
   type HideChecks,
   type OrderAssignment,
@@ -104,7 +105,7 @@ const MEMORIAL_WIDTHS = [
 ];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
-type RowFilter = 'all' | 'inBase' | 'away' | 'memorial';
+type RowFilter = 'all' | 'fit' | 'inBase' | 'away' | 'memorial';
 
 /** AVIEW, Header, and VIS, Cap bars: a Label above the free count against the cap, followed by its cap bar. */
 function CapFigure(props: { label: string; testId: string; model: CapBarModel }) {
@@ -205,8 +206,8 @@ export function AgentsView(props: {
   const [tiers, setTiers] = usePlaceState<SortTier<string>[]>('tiers', []);
   const [rowFilter, setRowFilter] = usePlaceState<RowFilter>('rowFilter', 'all');
   const [hideChecks, setHideChecks] = usePlaceState<HideChecks>('hideChecks', NO_HIDING);
-  // AVIEW, Row filters: Hide with exhaustion > N, where N is `exhaustion_free_points` of AgentParameters.
-  const freePoints = snapshot.gameData?.agentParameters['exhaustionFreePoints'] ?? 30;
+  // AVIEW, Row filters: Hide too exhausted to start work reads `exhaustion_work_start_max` of AgentParameters.
+  const workStartMax = snapshot.gameData?.agentParameters['exhaustionWorkStartMax'] ?? 30;
   // AVIEW, Assignment filters: none is on whenever the Agents View opens.
   const [assignmentFilter, setAssignmentFilter] = usePlaceState<OrderAssignment | null>(
     'assignmentFilter',
@@ -280,14 +281,16 @@ export function AgentsView(props: {
     const shown =
       rowFilter === 'all'
         ? state.agents
-        : rowFilter === 'inBase'
-          ? state.agents.filter((agent) => agent.inBase)
-          : rowFilter === 'away'
-            ? state.agents.filter((agent) => agent.away)
-            : [];
+        : rowFilter === 'fit'
+          ? state.agents.filter(fitToStartWorkNow)
+          : rowFilter === 'inBase'
+            ? state.agents.filter((agent) => agent.inBase)
+            : rowFilter === 'away'
+              ? state.agents.filter((agent) => agent.away)
+              : [];
     // AVIEW, Agent table: the default order is by Instance ID, of the Agents the checkboxes do not hide.
     return shown
-      .filter((agent) => !hiddenByChecks(agent, hideChecks, freePoints))
+      .filter((agent) => !hiddenByChecks(agent, hideChecks, workStartMax))
       .sort((x, y) => byId(x.id, y.id))
       .map((agent) => ({
         ...agent,
@@ -299,7 +302,7 @@ export function AgentsView(props: {
           return preview.ok ? (preview.value.message ?? 'Cannot be selected') : preview.error.message;
         }),
       }));
-  }, [rowFilter, hideChecks, freePoints, state.agents, selectability, player]);
+  }, [rowFilter, hideChecks, workStartMax, state.agents, selectability, player]);
 
   const selectableIds = useMemo(
     () => rows.filter((row) => row.blockedBy === '').map((row) => row.id),
@@ -609,14 +612,15 @@ export function AgentsView(props: {
           </span>
           <div className="chips">
             {rowFilterButton('all', 'All', state.agents.length)}
+            {rowFilterButton('fit', 'Fit to start work', state.agents.filter(fitToStartWorkNow).length)}
             {rowFilterButton('inBase', 'In base', state.agents.filter((agent) => agent.inBase).length)}
             {rowFilterButton('away', 'Away', state.agents.filter((agent) => agent.away).length)}
             {rowFilterButton('memorial', 'Memorial', terminated.length)}
           </div>
-          {/* AVIEW, Row filters: below the four filters, two checkboxes, one above the other, hide more Agents;
+          {/* AVIEW, Row filters: below the five filters, two checkboxes, one above the other, hide more Agents;
               disabled for the Memorial. */}
           <div className="hide-checks">
-            {hideCheck('hideExhausted', `Hide with exhaustion > ${freePoints}`)}
+            {hideCheck('hideExhausted', 'Hide too exhausted to start work')}
             {hideCheck('hideRecovering', 'Hide recovering')}
           </div>
         </div>

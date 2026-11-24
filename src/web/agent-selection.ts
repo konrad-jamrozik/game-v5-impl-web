@@ -75,16 +75,24 @@ export interface HideChecks {
 
 /**
  * AVIEW, Row filters: whether the checkboxes hide an Agent: Hide recovering every Agent whose Assignment is Recovery,
- * Recovering or In transit, and Hide with exhaustion > N every Agent whose exhaustion is above N, the
- * `exhaustion_free_points` of AgentParameters.
+ * Recovering or In transit, and Hide too exhausted to start work every Agent whose exhaustion is above
+ * `exhaustion_work_start_max` of AgentParameters.
  */
 export function hiddenByChecks(
   agent: { readonly assignment: { readonly kind: string } | null; readonly exhaustion: number },
   checks: HideChecks,
-  freePoints: number,
+  workStartMax: number,
 ): boolean {
   return (
     (checks.hideRecovering && agent.assignment?.kind === 'Recovery') ||
-    (checks.hideExhausted && agent.exhaustion > freePoints)
+    (checks.hideExhausted && agent.exhaustion > workStartMax)
   );
+}
+
+/** AVIEW, Row filters, Fit to start work: an Agent that can take orders and is Fit to start work. */
+export function fitToStartWorkNow(agent: {
+  readonly canBeAssigned: boolean;
+  readonly fitForWork: boolean;
+}): boolean {
+  return agent.canBeAssigned && agent.fitForWork;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { hiddenByChecks } from '../../src/web/agent-selection.ts';
+import { fitToStartWorkNow, hiddenByChecks } from '../../src/web/agent-selection.ts';
 import { combatShare } from '../../src/web/combat-share.ts';
 
 describe('AVIEW, Row filters: the Hide checkboxes', () => {
@@ -18,11 +18,19 @@ describe('AVIEW, Row filters: the Hide checkboxes', () => {
     expect(hiddenByChecks(tired, checks, 30)).toBe(false);
   });
 
-  it('Hide with exhaustion > N hides only an exhaustion above exhaustion_free_points', () => {
+  it('Hide too exhausted to start work hides only an exhaustion above exhaustion_work_start_max', () => {
     const checks = { hideRecovering: false, hideExhausted: true };
     expect(hiddenByChecks(resting, checks, 30)).toBe(false);
     expect(hiddenByChecks(tired, checks, 30)).toBe(true);
     expect(hiddenByChecks(recovering, checks, 30)).toBe(false);
+  });
+});
+
+describe('AVIEW, Row filters: Fit to start work', () => {
+  it('shows an Agent only when it can take orders and is Fit to start work', () => {
+    expect(fitToStartWorkNow({ canBeAssigned: true, fitForWork: true })).toBe(true);
+    expect(fitToStartWorkNow({ canBeAssigned: false, fitForWork: true })).toBe(false);
+    expect(fitToStartWorkNow({ canBeAssigned: true, fitForWork: false })).toBe(false);
   });
 });
 
