@@ -12,6 +12,7 @@ import {
 import { completionEstimate, progressCircle } from '../../src/web/completion.ts';
 import { situationGroups } from '../../src/web/situation.ts';
 import {
+  contractingCapRiseText,
   leadsDiscoveredText,
   showsTurnSummary,
   turnSummary,
@@ -172,6 +173,13 @@ describe('GUI: Turn summary', () => {
   it('counts the Leads credited to a Mission, in the singular for one', () => {
     expect(leadsDiscoveredText(1)).toBe('1 new Lead discovered');
     expect(leadsDiscoveredText(2)).toBe('2 new Leads discovered');
+  });
+
+  it('names the rise in the Contracting cap a Mission brings', () => {
+    expect(contractingCapRiseText(4)).toBe(
+      'Reputation increased: 4 more Contracting opportunities available',
+    );
+    expect(contractingCapRiseText(1)).toBe('Reputation increased: 1 more Contracting opportunity available');
   });
 
   let state = withAgents(newCampaign(), 4);

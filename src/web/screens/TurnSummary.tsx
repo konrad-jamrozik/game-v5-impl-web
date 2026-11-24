@@ -9,7 +9,7 @@ import { completedProgressBar } from '../progress-bar.ts';
 import { SOON_EXPIRING_TURNS } from '../situation.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
-import { leadsDiscoveredText, type TurnSummaryModel } from '../turn-summary.ts';
+import { contractingCapRiseText, leadsDiscoveredText, type TurnSummaryModel } from '../turn-summary.ts';
 import { ProgressBar } from './ProgressBar.tsx';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -130,6 +130,15 @@ export function TurnSummary(props: {
                           {', '}
                           <span className="tone-good" data-testid={`summary-leads-${mission.mission}`}>
                             {leadsDiscoveredText(mission.leadsDiscovered)}
+                          </span>
+                        </span>
+                      ) : null}
+                      {/* TSUM, Groups: then the rise in the Contracting cap the Mission brings, in Positive. */}
+                      {mission.contractingCapRise > 0 ? (
+                        <span className="muted small">
+                          {', '}
+                          <span className="tone-good" data-testid={`summary-contracting-${mission.mission}`}>
+                            {contractingCapRiseText(mission.contractingCapRise)}
                           </span>
                         </span>
                       ) : null}

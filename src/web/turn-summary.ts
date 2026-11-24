@@ -30,11 +30,18 @@ export interface SummaryMission {
   readonly consequence: ConsequenceRecord;
   /** TSUM, Groups: the number of Leads discovered in the Advance turn that are credited to the Mission. */
   readonly leadsDiscovered: number;
+  /** TSUM, Groups: the rise in the Contracting cap the Mission brings; 0 for none. */
+  readonly contractingCapRise: number;
 }
 
 /** TSUM, Groups: e.g. "1 new Lead discovered" or "2 new Leads discovered". */
 export function leadsDiscoveredText(count: number): string {
   return `${count} new ${count === 1 ? 'Lead' : 'Leads'} discovered`;
+}
+
+/** TSUM, Groups: e.g. "Reputation increased: 4 more Contracting opportunities available". */
+export function contractingCapRiseText(rise: number): string {
+  return `Reputation increased: ${rise} more Contracting ${rise === 1 ? 'opportunity' : 'opportunities'} available`;
 }
 
 export interface SummaryInvestigation {
@@ -157,6 +164,7 @@ export function turnSummary(
       enemiesPresent: enemies.length,
       consequence: mission.consequence,
       leadsDiscovered: mission.discoveredLeads.length,
+      contractingCapRise: mission.contractingCapRise,
     };
   });
 

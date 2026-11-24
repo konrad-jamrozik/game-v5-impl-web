@@ -387,6 +387,11 @@ export interface MissionResultRecord {
    * the Leads discovered; empty for a Lost Mission.
    */
   readonly discoveredLeads: readonly string[];
+  /**
+   * LEAD, Turn report: the rise in the Contracting cap this Mission brings as the first Won Mission at its Initiative
+   * operation level while Contracting is unlocked; 0 otherwise.
+   */
+  readonly contractingCapRise: number;
 }
 
 /** EQUIP, Turn report: what one resolved Mission did to its team's equipment and to Storage, as counts by identifier. */

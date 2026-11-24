@@ -317,26 +317,46 @@ export function initiativeOperationLevels(gdrs: {
  * Mission site is Won, whatever its Faction.
  */
 export function initiativeLevelsWon(
-  world: {
-    readonly missions: Readonly<Record<string, Mission>>;
-    readonly missionSites: Readonly<Record<string, MissionSite>>;
-    readonly investigations: Readonly<Record<string, Investigation>>;
-  },
+  world: InitiativeWinWorld,
   gdrs: Parameters<typeof initiativeOperationLevels>[0],
 ): number {
+  return wonInitiativeLevels(world, gdrs).size;
+}
+
+/** The parts of a World state that Contracting cap growth reads. */
+export interface InitiativeWinWorld {
+  readonly missions: Readonly<Record<string, Mission>>;
+  readonly missionSites: Readonly<Record<string, MissionSite>>;
+  readonly investigations: Readonly<Record<string, Investigation>>;
+}
+
+/** LEAD, Contracting cap growth: the distinct Initiative operation levels at which a Mission is Won. */
+export function wonInitiativeLevels(
+  world: InitiativeWinWorld,
+  gdrs: Parameters<typeof initiativeOperationLevels>[0],
+): Set<number> {
   const levels = new Set<number>();
   for (const mission of Object.values(world.missions)) {
-    if (mission.state.lifecycle !== 'Won') {
-      continue;
-    }
-    const site = world.missionSites[mission.constants.missionSite];
-    const lead = site === undefined ? null : leadOfMissionSite(site, world.investigations);
-    const level = lead === null ? null : leadInitiativeOperationLevel(lead, gdrs);
+    const level = mission.state.lifecycle === 'Won' ? missionInitiativeLevel(mission, world, gdrs) : null;
     if (level !== null) {
       levels.add(level);
     }
   }
-  return levels.size;
+  return levels;
+}
+
+/**
+ * LEAD, Contracting cap growth: the Initiative operation level of a Mission's Mission site, i.e. that of the Lead
+ * whose Investigation created it; null for a Response Mission site or one whose Lead has none.
+ */
+export function missionInitiativeLevel(
+  mission: Pick<Mission, 'constants'>,
+  world: InitiativeWinWorld,
+  gdrs: Parameters<typeof initiativeOperationLevels>[0],
+): number | null {
+  const site = world.missionSites[mission.constants.missionSite];
+  const lead = site === undefined ? null : leadOfMissionSite(site, world.investigations);
+  return lead === null ? null : leadInitiativeOperationLevel(lead, gdrs);
 }
 
 /** ECON, Contracting cap, with W the Initiative levels won of the given World state. */

@@ -47,7 +47,14 @@ import {
   progressGain,
   reachesActualRequiredProgress,
 } from '../mechanics/investigations/investigations.ts';
-import { discoverLeads, factionOfLead, leadAvailability, leadCreditedTo } from '../mechanics/leads/leads.ts';
+import {
+  discoverLeads,
+  factionOfLead,
+  leadAvailability,
+  leadCreditedTo,
+  missionInitiativeLevel,
+  wonInitiativeLevels,
+} from '../mechanics/leads/leads.ts';
 import {
   consequencesOf,
   createMissionSite,
@@ -566,6 +573,7 @@ export function applyAdvanceTurn(
       equipment,
       // LEAD, Turn report: filled in once the Leads of the Advance turn are discovered, in Turn close.
       discoveredLeads: [],
+      contractingCapRise: 0,
     });
   }
   world.agency.state.funding = fundingAfter(fundingAtStep5, missionFunding);
@@ -805,6 +813,8 @@ export function applyAdvanceTurn(
   // LEAD, Lead discovery: within an Advance turn only the World state it produces counts. The Turn report lists the
   // Leads that joined the set of discovered Leads, in the authored order of the Lead GDRs (LEAD, Turn report).
   const discoveredLeads = discoverLeads(world, gdrs.leads);
+  // LEAD, Turn report: the Initiative operation levels Won before this Advance turn, which no Mission of it raises.
+  const levelsCounted = wonInitiativeLevels(before, gdrs);
   // EQUIP, Turn report: the Items and AmmoTypes that became Unlocked in this Advance turn, in Game build order.
   const unlockedBefore = unlockedEquipment(before, gdrs);
   const unlockedEquipmentNow = [...unlockedEquipment(world, gdrs)].filter((id) => !unlockedBefore.has(id));
@@ -821,24 +831,33 @@ export function applyAdvanceTurn(
     investigationsCompleted: investigationReports
       .filter((item) => item.completed)
       .map((item) => ({ investigation: item.investigation, gain: item.progressGain })),
-    // LEAD, Turn report: each Won Mission with the Leads discovered in this Advance turn credited to it.
+    // LEAD, Turn report: each Won Mission with the Leads discovered in this Advance turn credited to it, and the rise in
+    // the Contracting cap it brings as the first Won Mission at its Initiative operation level.
     missions: missionReports.map((item) => {
       const site = must(world.missionSites[item.missionSite], 'Mission site');
-      return item.result !== 'Won'
-        ? item
-        : {
-            ...item,
-            discoveredLeads: discoveredLeads.filter((id) =>
-              leadCreditedTo(
-                must(
-                  gdrs.leads.find((lead) => lead.id === id),
-                  'Lead',
-                ),
-                site,
-                world,
-              ),
+      if (item.result !== 'Won') {
+        return item;
+      }
+      const level = missionInitiativeLevel(must(world.missions[item.mission], 'Mission'), world, gdrs);
+      const first = level !== null && !levelsCounted.has(level);
+      if (level !== null) {
+        levelsCounted.add(level);
+      }
+      return {
+        ...item,
+        contractingCapRise:
+          first && world.agency.state.contractingUnlocked ? gdrs.economy.contractingCapPerInitiativeLevel : 0,
+        discoveredLeads: discoveredLeads.filter((id) =>
+          leadCreditedTo(
+            must(
+              gdrs.leads.find((lead) => lead.id === id),
+              'Lead',
             ),
-          };
+            site,
+            world,
+          ),
+        ),
+      };
     }),
     combatReports: missionReports.map((item) => must(combatReports.get(item.mission), 'Combat report')),
     discoveredLeads,

@@ -10,12 +10,14 @@ import {
 } from '../../src/engine/views/views.ts';
 import {
   act,
+  addMissionSite,
   advance,
   agentIds,
   expectRejected,
   gdrs,
   newCampaign,
   tweak,
+  winning,
   withAgents,
   useExampleCatalog,
 } from '../helpers/game.ts';
@@ -107,5 +109,32 @@ describe('ECON: Contracting cap', () => {
     expect(contractingCap(economy, true, 2)).toBe(economy.baseContractingCap + 2 * per);
     // Levels won before Contracting is unlocked raise nothing while it is locked.
     expect(contractingCap(economy, false, 2)).toBe(0);
+  });
+
+  it('Turn report: the first Won Mission at a level brings the rise, a second at that level and a locked cap none', () => {
+    const member = 'locate_red_dawn_member';
+    const archetype = gdrs.leads.find((lead) => lead.id === member)!.onCompletion.createMissionSite!;
+    // Each win sends four newly hired Agents, so that Agents still away from an earlier win play no part.
+    const win = (start: CampaignState) => {
+      const site = addMissionSite(withAgents(start, agentIds(start).length + 4), archetype, { lead: member });
+      const deployed = act(site.state, 'deployAgents', {
+        missionSite: site.site,
+        agents: agentIds(site.state).slice(-4),
+      });
+      const after = advance(deployed, winning(deployed, site.site));
+      return {
+        state: after,
+        rises: after.world.history.turnReport!.missions.map((m) => m.contractingCapRise),
+      };
+    };
+    const first = win(newCampaign());
+    expect(first.rises).toEqual([economy.contractingCapPerInitiativeLevel]);
+    expect(agency(first.state).contractingCap).toBe(
+      economy.baseContractingCap + economy.contractingCapPerInitiativeLevel,
+    );
+    // A second win at the level already counted brings no rise.
+    expect(win(first.state).rises).toEqual([0]);
+    // While Contracting is locked, the first win brings no rise either.
+    expect(win(newCampaign({ contractingUnlocked: false })).rises).toEqual([0]);
   });
 });
