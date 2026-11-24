@@ -28,6 +28,7 @@ import { Button, CloseControl, Fact, Meter, typingIn } from '../ui.tsx';
 import { turnsSinceLastFactionActivity } from '../faction-activity.ts';
 import { decimalText, panicText } from '../format.ts';
 import { AgentsView } from './AgentsView.tsx';
+import { ArmoryView } from './ArmoryView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
 import { ChartsView } from './ChartsView.tsx';
 import { CompendiumView } from './CompendiumView.tsx';
@@ -906,6 +907,16 @@ function OpenDetailView(props: {
           locked={locked}
           initial={open.item}
           onSelect={props.onSelect}
+          onShow={props.onShow}
+          onClose={onClose}
+        />
+      );
+    case 'armory':
+      return (
+        <ArmoryView
+          snapshot={snapshot}
+          state={state}
+          locked={locked}
           onShow={props.onShow}
           onClose={onClose}
         />

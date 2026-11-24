@@ -496,15 +496,40 @@ input::placeholder {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-/* AVIEW, Header and Agent filters: a labelled group of controls, its label in the Label style above them. */
+/* A labelled group of controls. */
 .control-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
+/* VIS, Alignment, Labelled groups: the Label stands before its controls on their line, centred on the row's centre
+   line, never above them. */
+.control-group.control-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.control-row > .label {
+  white-space: nowrap;
+}
+
+/* VIS, Detail views and navigation, Rows of controls: the row filters of the Agents View take one row of their own
+   under the title's row, on their Control backdrop, as wide as they are. */
+.agents-filters {
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 10px;
+}
+
+.agents-filters .chip {
+  white-space: nowrap;
+}
+
 .toolbar.agents-toolbar {
-  align-items: flex-end;
+  align-items: center;
 }
 
 /* VIS, Alignment: text in a row of controls is centred on the row's centre line. */
@@ -519,13 +544,11 @@ input::placeholder {
   gap: 16px;
 }
 
-/* AVIEW, Row filters: the Hide checkboxes below the row filters, one above the other, each label 8 px right of its
-   box. */
+/* AVIEW, Row filters: the Hide checkboxes after the row filters, on their line, each label 8 px right of its box. */
 .hide-checks {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 2px;
+  gap: 16px;
+  margin-left: 6px;
 }
 
 /* VIS, Colours: Control backdrop, the fill behind a group of controls over a Background artwork. */

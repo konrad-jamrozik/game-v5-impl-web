@@ -1,8 +1,9 @@
 /**
  * AVIEW: the Agents View. One table of the Agents the row filter shows, because the Player compares Agents with one
  * another and acts on several at once, with each Agent's details one step away. An Assignment filter decides which
- * shown Agents can be selected, every Agent that cannot is muted with what blocks it, and those that can come first. The
- * Memorial shows the Terminated Agents instead, with how each one's service ended.
+ * shown Agents can be selected, every Agent that cannot is muted with the reason as the tooltip of its checkbox, and
+ * those that can come first. The Memorial shows the Terminated Agents instead, with how each one's service ended. What
+ * each Agent wears is the Armory View's to show (ARMV).
  */
 import {
   createColumnHelper,
@@ -29,7 +30,7 @@ import {
   type OrderAssignment,
   type Selectability,
 } from '../agent-selection.ts';
-import { assignmentParts, assignmentText } from '../assignment.ts';
+import { assignmentParts, assignmentText, assignmentTone } from '../assignment.ts';
 import { capBar, type CapBarModel } from '../cap-bar.ts';
 import { memorialDeath, type MemorialDeath } from '../memorial.ts';
 import { fillColour } from '../progress-bar.ts';
@@ -38,14 +39,7 @@ import { useRowSelection } from '../row-selection.ts';
 import { confirmOrGoBack, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import {
-  compareValues,
-  pressHeader,
-  pressHeaderUnderLock,
-  sortRows,
-  withLockedTier,
-  type SortTier,
-} from '../table-sort.ts';
+import { pressHeader, pressHeaderUnderLock, sortRows, withLockedTier, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { EquipmentPicker } from './EquipmentPicker.tsx';
@@ -56,7 +50,6 @@ const NO_HIDING: HideChecks = { hideRecovering: false, hideExhausted: false };
 
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
 const NUMERIC = new Set([
-  'combatRating',
   'effectiveSkill',
   'skillHundredths',
   'experience',
@@ -65,44 +58,25 @@ const NUMERIC = new Set([
 ]);
 
 /**
- * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. Eff. holds four digits and
- * Exh. three after the warning triangle, each with its sort arrow. AVIEW, Agent table: Assignment holds the longest
- * Lead `name` of the GDRs after "Investigating: " and before " · In transit", e.g. "Investigating: Interrogate Black
- * Lotus high commander · In transit", so that it is never cut short.
+ * AVIEW, Agent table: the locked first sort tier while an Assignment filter is on. It puts the Agents that can be
+ * selected first and is no column of the table.
  */
-const SERVING_WIDTHS = [
-  '36px',
-  '104px',
-  '112px',
-  '84px',
-  '84px',
-  '64px',
-  '96px',
-  '76px',
-  '200px',
-  '220px',
-  '480px',
-  '220px',
-];
-/** VIS, Tables: the fixed widths of the Memorial table. */
+const SELECTABLE_FIRST = 'selectable';
+
 /**
- * AVIEW, Memorial: Killed by holds the longest Enemy label of the GDRs with a two-digit number, e.g.
- * "high-commander-12", and Where the longest MissionSiteArchetype `name` with a three-digit number, e.g. "Foil
- * nuclear plant bombing #123", so that neither is ever cut short.
+ * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first, 1024 px in all, so that the
+ * table fits its view in the Reference window. Eff. holds four digits and Exh. three after the warning triangle, each
+ * with its sort arrow. AVIEW, Agent table: Assignment holds the longest Lead `name` of the GDRs after
+ * "Investigating: " and before " · In transit", e.g. "Investigating: Interrogate Black Lotus high commander · In
+ * transit", so that it is never cut short.
  */
-const MEMORIAL_WIDTHS = [
-  '104px',
-  '84px',
-  '64px',
-  '96px',
-  '132px',
-  '96px',
-  '112px',
-  '88px',
-  '80px',
-  '200px',
-  '300px',
-];
+const SERVING_WIDTHS = ['36px', '104px', '84px', '84px', '64px', '96px', '76px', '480px'];
+/**
+ * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
+ * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by high-commander-12". Where is the
+ * table's one column of free text: it takes the width the others leave, and a longer value ends in "…".
+ */
+const MEMORIAL_WIDTHS = ['104px', '84px', '64px', '76px', '236px', '100px', '76px', '76px', '252px'];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
 type RowFilter = 'all' | 'fit' | 'inBase' | 'away' | 'memorial';
@@ -136,17 +110,6 @@ function CapFigure(props: { label: string; testId: string; model: CapBarModel })
 /** Instance IDs in their creation order, e.g. agent-9 before agent-10. */
 function byId(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true });
-}
-
-/** VIS, Tables: text that encodes a state takes the colour of that state. */
-function assignmentTone(agent: AgentView): string {
-  if (agent.assignment?.kind === 'Recovery' || agent.agentStatus === 'Recovering') {
-    return 'tone-accent';
-  }
-  if (agent.agentStatus === 'InTransit' || agent.assignment?.kind === 'Standby') {
-    return 'muted';
-  }
-  return 'tone-good';
 }
 
 /** AVIEW, Memorial, Killed by and Where: the Enemy and Mission site of a Killed Agent; null for a Dismissed one. */
@@ -214,12 +177,12 @@ export function AgentsView(props: {
     null,
   );
   const memorialOn = rowFilter === 'memorial';
-  // AVIEW, Agent table: while an Assignment filter is on, Blocked by is a locked first tier, ascending, so that the
-  // Agents that can be selected come first, and the Player's tiers order the Agents within each group of it.
-  const locksBlockedBy = assignmentFilter !== null && !memorialOn;
+  // AVIEW, Agent table: while an Assignment filter is on, a locked first tier puts the Agents that can be selected
+  // first, and the Player's tiers order the Agents within each of the two groups.
+  const locksSelectable = assignmentFilter !== null && !memorialOn;
   const sortTiers = useMemo(
-    () => withLockedTier(locksBlockedBy ? { key: 'blockedBy', desc: false } : null, tiers),
-    [locksBlockedBy, tiers],
+    () => withLockedTier(locksSelectable ? { key: SELECTABLE_FIRST, desc: false } : null, tiers),
+    [locksSelectable, tiers],
   );
   const sorting = useMemo<SortingState>(
     () => sortTiers.map((tier) => ({ id: tier.key, desc: tier.desc })),
@@ -347,23 +310,6 @@ export function AgentsView(props: {
           </button>
         ),
       }),
-      // AVIEW, Agent table: the Combat rating headed CR, with the Equipment Combat rating in parentheses.
-      helper.accessor((agent) => agent.combatRating ?? 0, {
-        id: 'combatRating',
-        header: 'CR',
-        cell: (cell) => {
-          const equipment = cell.row.original.equipmentCombatRating ?? 0;
-          const tone = equipment > 0 ? 'tone-good' : equipment < 0 ? 'tone-bad' : 'muted';
-          return (
-            <span data-testid={`cr-${cell.row.original.id}`}>
-              {cell.getValue()}{' '}
-              <span className={tone}>
-                ({equipment > 0 ? `+${equipment}` : equipment < 0 ? `−${-equipment}` : '0'})
-              </span>
-            </span>
-          );
-        },
-      }),
       // VIS, Tables: effective skill is headed Eff.
       helper.accessor('effectiveSkill', { header: 'Eff.' }),
       // GUI, Decimal quantities shown: base skill and current health with two decimals, e.g. "101.10", "29.40/30".
@@ -380,31 +326,6 @@ export function AgentsView(props: {
         // VIS, Tables: exhaustion is headed Exh.
         header: 'Exh.',
         cell: (cell) => <Exhaustion value={cell.getValue()} levels={levels} />,
-      }),
-      // AVIEW, Weapon and Armor cells: each opens the Equipment picker; each column sorts by its number.
-      helper.accessor('baseWeaponDamage', {
-        header: 'Weapon',
-        cell: (cell) => (
-          <EquipmentPicker
-            agent={cell.row.original}
-            kind="weapon"
-            state={state}
-            locked={locked}
-            testId={`weapon-${cell.row.original.id}`}
-          />
-        ),
-      }),
-      helper.accessor('baseArmor', {
-        header: 'Armor',
-        cell: (cell) => (
-          <EquipmentPicker
-            agent={cell.row.original}
-            kind="armor"
-            state={state}
-            locked={locked}
-            testId={`armor-${cell.row.original.id}`}
-          />
-        ),
       }),
       helper.accessor((agent) => assignmentText(agent, state, snapshot.retired), {
         id: 'assignment',
@@ -436,24 +357,17 @@ export function AgentsView(props: {
           );
         },
       }),
-      helper.accessor('blockedBy', {
-        header: 'Blocked by',
-        // Ascending puts the empty Blocked by of the Agents that can be selected first.
-        sortingFn: (a, b) => compareValues(a.original.blockedBy, b.original.blockedBy),
-        cell: (cell) => (
-          <span className="small" data-testid={`blocked-by-${cell.row.original.id}`}>
-            {cell.getValue()}
-          </span>
-        ),
-      }),
+      // AVIEW, Agent table: the locked first sort tier, which is no column: it is never shown, and ascending it puts
+      // the Agents that can be selected, whose `blockedBy` is empty, first.
+      helper.accessor((agent) => (agent.blockedBy === '' ? 0 : 1), { id: SELECTABLE_FIRST }),
     ],
-    [state, snapshot.retired, levels, onShow, locked],
+    [state, snapshot.retired, levels, onShow],
   );
 
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting },
+    state: { sorting, columnVisibility: { [SELECTABLE_FIRST]: false } },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getRowId: (agent) => agent.id,
@@ -604,29 +518,32 @@ export function AgentsView(props: {
           )}
         </span>
       }
-      actions={
-        // AVIEW, Row filters: the group stands on a Control backdrop (VIS, Colours).
-        <div className="control-group control-backdrop" role="group" aria-labelledby="agent-filters-label">
-          <span className="label" id="agent-filters-label">
-            Show agents
-          </span>
-          <div className="chips">
-            {rowFilterButton('all', 'All', state.agents.length)}
-            {rowFilterButton('fit', 'Fit to start work', state.agents.filter(fitToStartWorkNow).length)}
-            {rowFilterButton('inBase', 'In base', state.agents.filter((agent) => agent.inBase).length)}
-            {rowFilterButton('away', 'Away', state.agents.filter((agent) => agent.away).length)}
-            {rowFilterButton('memorial', 'Memorial', terminated.length)}
-          </div>
-          {/* AVIEW, Row filters: below the five filters, two checkboxes, one above the other, hide more Agents;
-              disabled for the Memorial. */}
-          <div className="hide-checks">
-            {hideCheck('hideExhausted', 'Hide too exhausted to start work')}
-            {hideCheck('hideRecovering', 'Hide recovering')}
-          </div>
-        </div>
-      }
       onClose={props.onClose}
     >
+      {/* VIS, Detail views and navigation, Rows of controls: the row filters take a row of their own under the title's
+          row, and the buttons the next one. VIS, Alignment, Labelled groups: each Label stands before its controls.
+          AVIEW, Row filters: the group stands on a Control backdrop (VIS, Colours), its two checkboxes, which hide
+          more Agents and are disabled for the Memorial, after the five filters. */}
+      <div
+        className="control-group control-row control-backdrop agents-filters"
+        role="group"
+        aria-labelledby="agent-filters-label"
+      >
+        <span className="label" id="agent-filters-label">
+          Show agents
+        </span>
+        <div className="chips">
+          {rowFilterButton('all', 'All', state.agents.length)}
+          {rowFilterButton('fit', 'Fit to start work', state.agents.filter(fitToStartWorkNow).length)}
+          {rowFilterButton('inBase', 'In base', state.agents.filter((agent) => agent.inBase).length)}
+          {rowFilterButton('away', 'Away', state.agents.filter((agent) => agent.away).length)}
+          {rowFilterButton('memorial', 'Memorial', terminated.length)}
+        </div>
+        <div className="hide-checks">
+          {hideCheck('hideExhausted', 'Hide too exhausted to start work')}
+          {hideCheck('hideRecovering', 'Hide recovering')}
+        </div>
+      </div>
       <div className="toolbar agents-toolbar">
         <Button
           shortcut="H"
@@ -638,7 +555,7 @@ export function AgentsView(props: {
         >
           Hire · {state.agency.hireCost}
         </Button>
-        <div className="control-group" role="group" aria-labelledby="assign-to-label">
+        <div className="control-group control-row" role="group" aria-labelledby="assign-to-label">
           <span className="label" id="assign-to-label">
             Assign to
           </span>
@@ -669,9 +586,8 @@ export function AgentsView(props: {
                     data-testid={`filter-to-${assignment.toLowerCase()}`}
                     data-sound="select"
                     onClick={() => {
-                      // AVIEW, Agent table: turning one on locks the Blocked by tier above the Player's tiers;
-                      // turning it off drops that tier and keeps the tiers the Player chose.
-                      setTiers(tiers.filter((tier) => tier.key !== 'blockedBy'));
+                      // AVIEW, Agent table: turning one on locks the selectable-first tier above the Player's
+                      // tiers; turning it off drops that tier and keeps the tiers the Player chose.
                       setAssignmentFilter(on ? null : assignment);
                     }}
                   >
@@ -756,7 +672,7 @@ export function AgentsView(props: {
                             tiers,
                             header.column.id,
                             NUMERIC.has(header.column.id),
-                            locksBlockedBy ? 'blockedBy' : null,
+                            locksSelectable ? SELECTABLE_FIRST : null,
                           ),
                         );
                       }}
@@ -776,8 +692,18 @@ export function AgentsView(props: {
                   data-testid={`agent-${row.id}`}
                   {...selection.row(row.id)}
                 >
-                  <td className="check">
-                    <input type="checkbox" aria-label={`Select ${row.id}`} {...selection.checkbox(row.id)} />
+                  {/* AVIEW, Agent table: the tooltip of a disabled checkbox says why its Agent cannot be selected. */}
+                  <td
+                    className="check"
+                    title={row.original.blockedBy === '' ? undefined : row.original.blockedBy}
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${row.id}`}
+                      data-testid={`select-${row.id}`}
+                      data-blocked-by={row.original.blockedBy}
+                      {...selection.checkbox(row.id)}
+                    />
                   </td>
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className={NUMERIC.has(cell.column.id) ? 'num' : undefined}>
@@ -799,14 +725,20 @@ type MemorialKey =
   | 'id'
   | 'skill'
   | 'experience'
-  | 'maxHealth'
   | 'turnTerminated'
   | 'cause'
   | 'missions'
   | 'turns'
   | 'kills'
-  | 'killedBy'
   | 'where';
+
+/** AVIEW, Memorial, Cause: "Dismissed", or "Killed by" and the Enemy label of the Enemy that killed the Agent. */
+function memorialCause(agent: AgentView, death: MemorialDeath | null): string {
+  if (agent.agentStatus !== 'Killed') {
+    return agent.agentStatus;
+  }
+  return death === null ? 'Killed' : `Killed by ${death.killedBy}`;
+}
 
 /** AVIEW, Memorial: one row per Terminated Agent, newest Turn terminated first, sorted by any column header. */
 function Memorial(props: {
@@ -831,20 +763,16 @@ function Memorial(props: {
         return row.agent.skillHundredths;
       case 'experience':
         return row.agent.experience;
-      case 'maxHealth':
-        return row.agent.effectiveMaxHealth;
       case 'turnTerminated':
         return row.agent.turnTerminated ?? 0;
       case 'cause':
-        return row.agent.agentStatus;
+        return memorialCause(row.agent, row.death);
       case 'missions':
         return row.missions;
       case 'turns':
         return row.turns;
       case 'kills':
         return row.kills;
-      case 'killedBy':
-        return row.death?.killedBy ?? '';
       case 'where':
         return row.death === null ? '' : `${row.death.where.name} ${row.death.where.number}`;
     }
@@ -872,13 +800,11 @@ function Memorial(props: {
             {header('id', 'Agent', false)}
             {header('skill', 'Skill', true)}
             {header('experience', 'Exp.', true, 'Experience')}
-            {header('maxHealth', 'Health', true, 'Effective max health')}
-            {header('turnTerminated', 'Terminated', true)}
+            {header('turnTerminated', 'Ended', true, 'Turn terminated')}
             {header('cause', 'Cause', false)}
             {header('missions', 'Missions', true)}
             {header('turns', 'Turns', true, 'Turns with the Agency')}
             {header('kills', 'Kills', true, 'Enemies killed')}
-            {header('killedBy', 'Killed by', false)}
             {header('where', 'Where', false)}
           </tr>
         </thead>
@@ -899,17 +825,23 @@ function Memorial(props: {
               </td>
               <td className="num">{wholeText(row.agent.skillHundredths)}</td>
               <td className="num">{row.agent.experience}</td>
-              <td className="num">{row.agent.effectiveMaxHealth}</td>
               <td className="num">T{row.agent.turnTerminated ?? '-'}</td>
-              <td className={row.agent.agentStatus === 'Killed' ? 'tone-bad' : 'muted'}>
-                {row.agent.agentStatus}
+              {/* AVIEW, Memorial, Cause: Dismissed in Text muted; Killed by and the Enemy label in Danger text. */}
+              <td
+                className={row.agent.agentStatus === 'Killed' ? 'tone-bad' : 'muted'}
+                data-testid={`memorial-cause-${row.agent.id}`}
+              >
+                {row.agent.agentStatus !== 'Killed' || row.death === null ? (
+                  row.agent.agentStatus
+                ) : (
+                  <>
+                    Killed by <span className="figure">{row.death.killedBy}</span>
+                  </>
+                )}
               </td>
               <td className="num">{row.missions}</td>
               <td className="num">{row.turns}</td>
               <td className="num">{row.kills}</td>
-              <td className="figure" data-testid={`memorial-killed-by-${row.agent.id}`}>
-                {row.death?.killedBy}
-              </td>
               <td data-testid={`memorial-where-${row.agent.id}`}>
                 {row.death === null ? null : (
                   <>

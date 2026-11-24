@@ -1,5 +1,5 @@
 /**
- * AVIEW, Equipment picker: a dropdown of what an Agent can wear in place of its Weapon or Armor: the one it wears,
+ * ARMV, Equipment picker: a dropdown of what an Agent can wear in place of its Weapon or Armor: the one it wears,
  * then every Item of that kind with at least one in Storage, from the highest number down, and last the Fallback
  * Weapon or Fallback Armor. Choosing another row equips the Agent with it in one Player action, without confirmation.
  */

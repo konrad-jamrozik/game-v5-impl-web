@@ -1,6 +1,7 @@
 /**
- * AVIEW, Agent table: an Assignment reads "Investigating:" with its Lead's name and leads to that Lead. TSUM, Groups: a
- * completed Investigation whose Lead unlocks Contracting says so.
+ * AVIEW, Agent table: an Assignment reads "Investigating:" with its Lead's name and leads to that Lead. ARMV, Agent
+ * table: the Armory View names the Assignment without the work it is on. TSUM, Groups: a completed Investigation whose
+ * Lead unlocks Contracting says so.
  */
 import { describe, expect, it } from 'vite-plus/test';
 import type { CampaignState } from '../../src/engine/state/types.ts';
@@ -9,7 +10,7 @@ import {
   currentRetiredWorldStateView,
   turnReportView,
 } from '../../src/engine/views/views.ts';
-import { assignmentParts, assignmentText } from '../../src/web/assignment.ts';
+import { assignmentKindText, assignmentParts, assignmentText } from '../../src/web/assignment.ts';
 import { turnSummary } from '../../src/web/turn-summary.ts';
 import { act, advance, agentIds, gdrs, newCampaign, tweak, withAgents } from '../helpers/game.ts';
 
@@ -48,6 +49,25 @@ describe('AVIEW: Agent table Assignment', () => {
     const parts = assignmentParts(view.agents[0]!, view);
     expect(parts.name).toBeNull();
     expect(parts.target).toBeNull();
+  });
+});
+
+describe('ARMV: Agent table Assignment', () => {
+  it('names an Investigation without its Lead, and keeps In transit', () => {
+    let state = withAgents(newCampaign(), 2);
+    const [a1] = agentIds(state) as [string];
+    state = start(state, MEMBER, a1);
+    const view = currentLiveWorldStateView(state, gdrs);
+    const agent = view.agents.find((item) => item.id === a1)!;
+    const parts = assignmentParts(agent, view);
+    expect(assignmentKindText(agent, view)).toBe(`Investigating${parts.transit}`);
+  });
+
+  it('reads any other Assignment as the Agents View does', () => {
+    const state = withAgents(newCampaign(), 1);
+    const view = currentLiveWorldStateView(state, gdrs);
+    const agent = view.agents[0]!;
+    expect(assignmentKindText(agent, view)).toBe(assignmentText(agent, view));
   });
 });
 

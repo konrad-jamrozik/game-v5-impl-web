@@ -64,3 +64,32 @@ export function assignmentText(
   const parts = assignmentParts(agent, state, retired);
   return `${parts.lead}${parts.name ?? ''}${parts.transit}`;
 }
+
+/**
+ * ARMV, Agent table: an Assignment without the work it is on: "Investigating" for an Investigation and "Deployed" for
+ * a Mission, and otherwise what the Assignment cell of the Agents View reads, e.g. "Recovery · 3 T left" or
+ * "Contracting · In transit".
+ */
+export function assignmentKindText(
+  agent: AgentView,
+  state: CurrentLiveWorldStateView,
+  retired?: CurrentRetiredWorldStateView | null,
+): string {
+  const parts = assignmentParts(agent, state, retired);
+  const lead = parts.name === null ? parts.lead : parts.lead.replace(/: $/, '');
+  return `${lead}${parts.transit}`;
+}
+
+/**
+ * AVIEW, Agent table: the colour of an Assignment cell, as a class: Accent text for Recovery, Text muted for Standby
+ * or In transit, and Positive otherwise.
+ */
+export function assignmentTone(agent: AgentView): string {
+  if (agent.assignment?.kind === 'Recovery' || agent.agentStatus === 'Recovering') {
+    return 'tone-accent';
+  }
+  if (agent.agentStatus === 'InTransit' || agent.assignment?.kind === 'Standby') {
+    return 'muted';
+  }
+  return 'tone-good';
+}
