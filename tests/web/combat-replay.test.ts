@@ -178,17 +178,12 @@ describe('CRPLAY: Figures', () => {
 });
 
 describe('CRPLAY: Battlefield layout', () => {
-  it('stands the Agents on the left and the Enemies on the right, each side from top to bottom in its order', () => {
+  it('stands the Agents on the left and the Enemies on the right, within the Battlefield', () => {
     const { figures } = buildReplay(report(), source);
     const agents = figures.filter((figure) => figure.side === 'agent');
     const enemies = figures.filter((figure) => figure.side === 'enemy');
     expect(Math.max(...agents.map((figure) => figure.x))).toBeLessThan(BATTLEFIELD_CELLS / 2);
     expect(Math.min(...enemies.map((figure) => figure.x))).toBeGreaterThanOrEqual(BATTLEFIELD_CELLS / 2);
-    for (const side of [agents, enemies]) {
-      expect(side.map((figure) => figure.y)).toEqual(
-        [...side.map((figure) => figure.y)].sort((a, b) => a - b),
-      );
-    }
     for (const figure of figures) {
       expect(figure.y).toBeGreaterThanOrEqual(0);
       expect(figure.y).toBeLessThan(BATTLEFIELD_CELLS);
@@ -248,6 +243,14 @@ describe('CRPLAY: Battlefield layout', () => {
     expect(mean(columns('agent', true))).toBeGreaterThan(mean(columns('agent', false)) + 1);
     expect(Math.max(...columns('enemy', true))).toBeLessThanOrEqual(Math.min(...columns('enemy', false)));
     expect(mean(columns('enemy', true))).toBeLessThan(mean(columns('enemy', false)) - 1);
+    // The elite stand nearer the middle row than the weak, who stand above and below them.
+    const fromMiddle = (side: 'agent' | 'enemy', weak: boolean) =>
+      figures
+        .filter((figure, index) => figure.side === side && (index % 2 === 0) === weak)
+        .map((figure) => Math.abs(figure.y - (BATTLEFIELD_CELLS - 1) / 2));
+    for (const side of ['agent', 'enemy'] as const) {
+      expect(mean(fromMiddle(side, false))).toBeLessThan(mean(fromMiddle(side, true)) - 3);
+    }
   });
 
   it('gives a side with more Combatants than its columns hold further columns, one figure to a cell', () => {
