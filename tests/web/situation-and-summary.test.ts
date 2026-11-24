@@ -15,9 +15,11 @@ import {
   contractingCapRiseText,
   leadsDiscoveredText,
   showsTurnSummary,
+  summedSpoils,
   turnSummary,
   turnSummaryHasContent,
 } from '../../src/web/turn-summary.ts';
+import type { TurnReport } from '../../src/engine/index.ts';
 import {
   act,
   advance,
@@ -173,6 +175,25 @@ describe('GUI: Turn summary', () => {
   it('counts the Leads credited to a Mission, in the singular for one', () => {
     expect(leadsDiscoveredText(1)).toBe('1 new Lead discovered');
     expect(leadsDiscoveredText(2)).toBe('2 new Leads discovered');
+  });
+
+  it('sums the Spoils of war over the Missions, Weapons before AmmoTypes, in authored order', () => {
+    const mission = (spoils: Record<string, number>) => ({ equipment: { lost: {}, returned: {}, spoils } });
+    const report = {
+      missions: [mission({ rifle_ammo: 5, rifle: 2 }), mission({ pistol: 1, rifle: 2, rifle_ammo: 6 })],
+    } as unknown as TurnReport;
+    const catalog = {
+      weapons: [
+        { id: 'pistol', name: 'Pistol' },
+        { id: 'rifle', name: 'Rifle' },
+      ],
+      ammoTypes: [{ id: 'rifle_ammo', name: 'Rifle ammo' }],
+    };
+    expect(summedSpoils(report, catalog)).toEqual([
+      { id: 'pistol', name: 'Pistol', count: 1 },
+      { id: 'rifle', name: 'Rifle', count: 4 },
+      { id: 'rifle_ammo', name: 'Rifle ammo', count: 11 },
+    ]);
   });
 
   it('names the rise in the Contracting cap a Mission brings', () => {

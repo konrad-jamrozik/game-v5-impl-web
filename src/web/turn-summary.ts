@@ -32,6 +32,43 @@ export interface SummaryMission {
   readonly leadsDiscovered: number;
   /** TSUM, Groups: the rise in the Contracting cap the Mission brings; 0 for none. */
   readonly contractingCapRise: number;
+  /** TSUM, Groups: whether the Mission brought Spoils of war, which its card marks "Equipment recovered". */
+  readonly equipmentRecovered: boolean;
+}
+
+/** TSUM, Groups, Spoils of war: one Weapon or AmmoType with its count summed over the Missions resolved. */
+export interface SummarySpoil {
+  readonly id: string;
+  readonly name: string;
+  readonly count: number;
+}
+
+/** The Weapons and AmmoTypes of the Game build, in authored order, which name and order the Spoils of war. */
+export interface SpoilsCatalog {
+  readonly weapons: readonly { readonly id: string; readonly name: string }[];
+  readonly ammoTypes: readonly { readonly id: string; readonly name: string }[];
+}
+
+/**
+ * TSUM, Groups, Spoils of war: the Spoils of war of every Mission resolved, summed per Weapon or AmmoType, Weapons
+ * before AmmoTypes, each in authored order; an identifier the catalog lacks follows them, named by itself.
+ */
+export function summedSpoils(report: TurnReport, catalog: SpoilsCatalog | null): SummarySpoil[] {
+  const counts = new Map<string, number>();
+  for (const mission of report.missions) {
+    for (const [id, count] of Object.entries(mission.equipment.spoils)) {
+      counts.set(id, (counts.get(id) ?? 0) + count);
+    }
+  }
+  const known = [...(catalog?.weapons ?? []), ...(catalog?.ammoTypes ?? [])];
+  const ordered = known.flatMap((item) => {
+    const count = counts.get(item.id) ?? 0;
+    return count > 0 ? [{ id: item.id, name: item.name, count }] : [];
+  });
+  const rest = [...counts.entries()]
+    .filter(([id, count]) => count > 0 && !known.some((item) => item.id === id))
+    .map(([id, count]) => ({ id, name: id, count }));
+  return [...ordered, ...rest];
 }
 
 /** TSUM, Groups: e.g. "1 new Lead discovered" or "2 new Leads discovered". */
@@ -81,6 +118,8 @@ export interface TurnSummaryModel {
   /** The Turn the Advance turn ended. */
   readonly turn: number;
   readonly missions: readonly SummaryMission[];
+  /** TSUM, Groups, Spoils of war: summed over the Missions resolved, naming no Mission. */
+  readonly spoils: readonly SummarySpoil[];
   readonly investigations: readonly SummaryInvestigation[];
   readonly newSites: readonly SummarySite[];
   readonly expiredSites: readonly SummaryExpiredSite[];
@@ -128,6 +167,7 @@ export function turnSummary(
   state: CurrentLiveWorldStateView,
   retired: CurrentRetiredWorldStateView | null,
   siteArchetypeName: (archetype: string) => string,
+  spoilsCatalog: SpoilsCatalog | null = null,
 ): TurnSummaryModel {
   const sites = new Map<string, MissionSiteView>();
   for (const site of [...(retired?.missionSites ?? []), ...state.missionSites]) {
@@ -165,6 +205,7 @@ export function turnSummary(
       consequence: mission.consequence,
       leadsDiscovered: mission.discoveredLeads.length,
       contractingCapRise: mission.contractingCapRise,
+      equipmentRecovered: Object.values(mission.equipment.spoils).some((count) => count > 0),
     };
   });
 
@@ -218,6 +259,7 @@ export function turnSummary(
   return {
     turn: report.turn,
     missions: summaryMissions,
+    spoils: summedSpoils(report, spoilsCatalog),
     investigations: summaryInvestigations,
     newSites,
     expiredSites,

@@ -142,6 +142,15 @@ export function TurnSummary(props: {
                           </span>
                         </span>
                       ) : null}
+                      {/* TSUM, Groups: then "Equipment recovered" when it brought Spoils of war, in Positive. */}
+                      {mission.equipmentRecovered ? (
+                        <span className="muted small">
+                          {', '}
+                          <span className="tone-good" data-testid={`summary-equipment-${mission.mission}`}>
+                            Equipment recovered
+                          </span>
+                        </span>
+                      ) : null}
                     </span>
                     <span className="trade-buttons">
                       <button
@@ -167,6 +176,17 @@ export function TurnSummary(props: {
                     </span>
                   </div>
                 </article>
+              ))}
+            </Group>
+          )}
+          {model.spoils.length === 0 ? null : (
+            <Group title="Spoils of war" count={model.spoils.length} testId="summary-spoils">
+              {/* TSUM, Groups, Spoils of war: each Weapon and AmmoType with its count, naming no Mission. */}
+              {model.spoils.map((spoil) => (
+                <div key={spoil.id} className="dialog-row sit-line" data-testid={`summary-spoil-${spoil.id}`}>
+                  <span>{spoil.name}</span>
+                  <span className="figure tone-good">{spoil.count}</span>
+                </div>
               ))}
             </Group>
           )}

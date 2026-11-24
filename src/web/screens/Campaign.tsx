@@ -792,8 +792,12 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
 
       {summaryOpen && snapshot.report !== null ? (
         <TurnSummary
-          model={turnSummary(snapshot.report, state, snapshot.retired, (archetype) =>
-            siteArchetypeName(snapshot, archetype),
+          model={turnSummary(
+            snapshot.report,
+            state,
+            snapshot.retired,
+            (archetype) => siteArchetypeName(snapshot, archetype),
+            snapshot.gameData,
           )}
           currentTurn={state.turn}
           onDismiss={dismissSummary}
