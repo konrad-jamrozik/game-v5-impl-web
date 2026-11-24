@@ -356,6 +356,11 @@ function hireAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rej
   for (let i = 0; i < count; i += 1) {
     addAgent(world, gdrs);
   }
+  // EQUIP, Equipment of new and departing Agents: each hired Agent brings the rounds `hire_ammo` lists into Storage.
+  const storage = world.agency.state.storage;
+  for (const [ammoType, rounds] of Object.entries(gdrs.equipment.hireAmmo)) {
+    storage[ammoType] = (storage[ammoType] ?? 0) + rounds * count;
+  }
   return null;
 }
 

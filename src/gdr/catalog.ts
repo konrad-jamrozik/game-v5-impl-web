@@ -333,6 +333,7 @@ const schemas = {
       type: z.literal('EquipmentParameters'),
       fallback_armor: id,
       starting_ammo: entries(whole(1)),
+      hire_ammo: entries(whole(1)),
       sale_price_fraction: decimal,
       spoils_ammo_max: whole(0),
       ammo_short_rounds_per_agent: whole(0),
@@ -342,6 +343,7 @@ const schemas = {
       id: g.id,
       fallbackArmor: g.fallback_armor,
       startingAmmo: Object.fromEntries(g.starting_ammo),
+      hireAmmo: Object.fromEntries(g.hire_ammo),
       salePriceFraction: g.sale_price_fraction,
       spoilsAmmoMax: g.spoils_ammo_max,
       ammoShortRoundsPerAgent: g.ammo_short_rounds_per_agent,
@@ -1095,9 +1097,14 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     if (!fallback || fallback.price !== null) {
       problems.push('EquipmentParameters: fallback_armor must be an Armor with no price');
     }
-    for (const ammoType of Object.keys(equipment.startingAmmo)) {
-      if (!ammoTypes.has(ammoType)) {
-        problems.push(`EquipmentParameters: starting_ammo names ${ammoType}, which is not an AmmoType`);
+    for (const [property, ammo] of [
+      ['starting_ammo', equipment.startingAmmo],
+      ['hire_ammo', equipment.hireAmmo],
+    ] as const) {
+      for (const ammoType of Object.keys(ammo)) {
+        if (!ammoTypes.has(ammoType)) {
+          problems.push(`EquipmentParameters: ${property} names ${ammoType}, which is not an AmmoType`);
+        }
       }
     }
     if (equipment.salePriceFraction.lte(0) || equipment.salePriceFraction.gt(1)) {

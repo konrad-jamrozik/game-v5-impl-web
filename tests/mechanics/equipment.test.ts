@@ -65,6 +65,22 @@ describe('EQUIP: Storage and equipping', () => {
     );
   });
 
+  it('each Agent hireAgents hires brings the rounds hire_ammo lists into Storage', () => {
+    let state = newCampaign({ money: 100 * gdrs.economy.hireCost });
+    const before = { ...storage(state) };
+    state = act(state, 'hireAgents', { count: 3 });
+    const ammoTypes = new Set([...Object.keys(before), ...Object.keys(gdrs.equipment.hireAmmo)]);
+    for (const ammoType of ammoTypes) {
+      expect(storage(state)[ammoType] ?? 0).toBe(
+        (before[ammoType] ?? 0) + 3 * (gdrs.equipment.hireAmmo[ammoType] ?? 0),
+      );
+    }
+    // EQUIP, Equipment of new and departing Agents: a rejected hire hires nobody and brings no rounds.
+    const afterHire = { ...storage(state) };
+    expectRejected(state, 'hireAgents', { count: 1000 }, 'not_enough_money');
+    expect(storage(state)).toEqual(afterHire);
+  });
+
   it('a Dismissed Agent leaves its Items in Storage', () => {
     let state = stock(newCampaign(), { ballistic_vest: 1 });
     const [a1] = agentIds(state) as [string];
