@@ -774,6 +774,7 @@ const schemas = {
       id,
       type: z.literal('Rank'),
       name,
+      abbreviation: name,
       min_base_skill: whole(0),
       mark: z.enum(['chevron', 'bar', 'star']).optional(),
       count: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
@@ -784,6 +785,7 @@ const schemas = {
       type: g.type,
       id: g.id,
       name: g.name,
+      abbreviation: g.abbreviation,
       minBaseSkill: g.min_base_skill,
       mark: g.mark ?? null,
       count: g.count ?? null,
@@ -1049,10 +1051,13 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const detachedCombatTeams = all<DetachedCombatTeamGdr>('DetachedCombatTeam');
   const ranks = [...all<RankGdr>('Rank')].sort((a, b) => b.minBaseSkill - a.minBaseSkill);
 
-  // GUI, Ranks: no two Ranks share a `min_base_skill`.
+  // GUI, Ranks: no two Ranks share a `min_base_skill` or an `abbreviation`.
   ranks.forEach((rank, index) => {
     if (ranks[index + 1]?.minBaseSkill === rank.minBaseSkill) {
       problems.push(`Rank ${rank.id}: another Rank has min_base_skill ${rank.minBaseSkill}`);
+    }
+    if (ranks.some((other) => other !== rank && other.abbreviation === rank.abbreviation)) {
+      problems.push(`Rank ${rank.id}: another Rank has abbreviation ${rank.abbreviation}`);
     }
   });
   // COMBAT, EnemyArchetype: no two EnemyArchetypes share an `abbreviation`.

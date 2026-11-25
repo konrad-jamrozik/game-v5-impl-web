@@ -386,6 +386,8 @@ export interface RankGdr {
   readonly type: 'Rank';
   readonly id: string;
   readonly name: string;
+  /** The short name a table shows, e.g. "Jr Agent". */
+  readonly abbreviation: string;
   /** The least base skill that earns the Rank, a whole number of at least 0. */
   readonly minBaseSkill: number;
   /** The kind of the Rank insignia, or null for a Rank without one. */

@@ -92,16 +92,16 @@ const SELECTABLE_FIRST = 'selectable';
 /**
  * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first, 1068 px in all, so that the
  * table fits its view in the Reference window. CR holds four digits and Exh. three after the warning triangle, each
- * with its sort arrow; Rank holds "Commander" and three stars; Weapon and Armor hold the longest Item `name` of the GDRs with
+ * with its sort arrow; Rank holds the abbreviation "Hi Cmdr" and three stars; Weapon and Armor hold the longest Item `name` of the GDRs with
  * its number and icon. AVIEW, Agent table: Assignment names no Lead or Mission site and marks In transit with an icon,
  * so it holds its widest value, "Recovery · 99 T left" and the In transit icon.
  */
-const SERVING_WIDTHS = ['36px', '96px', '60px', '140px', '84px', '72px', '200px', '220px', '160px'];
+const SERVING_WIDTHS = ['36px', '96px', '64px', '116px', '84px', '72px', '200px', '220px', '176px'];
 /**
  * VIS, Tables: the widths with Details checked. CR holds four digits and the Equipment Combat rating with its sign,
  * e.g. "1234 (+123)"; Skill and Base hold four digits and Exp. three, each with its sort arrow.
  */
-const DETAILS_WIDTHS = ['36px', '96px', '112px', '140px', '80px', '80px', '64px', '84px', '72px', '160px'];
+const DETAILS_WIDTHS = ['36px', '96px', '112px', '116px', '80px', '80px', '64px', '84px', '72px', '176px'];
 /**
  * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
  * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by hcmd-12". Where is the
@@ -363,7 +363,7 @@ export function AgentsView(props: {
         header: 'Rank',
         cell: (cell) => {
           const rank = rankOf(cell.getValue(), ranks);
-          return rank === null ? null : <RankText rank={rank} />;
+          return rank === null ? null : <RankText rank={rank} abbreviated />;
         },
       }),
       // AVIEW, Agent table, with Details checked: effective skill headed Skill, base skill Base, and Experience Exp.

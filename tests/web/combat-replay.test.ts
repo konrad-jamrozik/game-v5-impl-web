@@ -137,9 +137,9 @@ const source: ReplaySource = {
   enemyAmmoType: (id) => (id === 'enemy-1' ? 'cells' : null),
   shotOfAmmoType: (ammoType) => (ammoType === 'cells' ? 'beam' : ammoType === 'rounds' ? 'burst' : undefined),
   ranks: [
-    { name: 'Rank I', minBaseSkill: 0, mark: null, count: null },
-    { name: 'Rank II', minBaseSkill: 100, mark: 'chevron', count: 1 },
-    { name: 'Rank III', minBaseSkill: 300, mark: 'star', count: 1 },
+    { name: 'Rank I', abbreviation: 'R I', minBaseSkill: 0, mark: null, count: null },
+    { name: 'Rank II', abbreviation: 'R II', minBaseSkill: 100, mark: 'chevron', count: 1 },
+    { name: 'Rank III', abbreviation: 'R III', minBaseSkill: 300, mark: 'star', count: 1 },
   ],
   seed: 'mission-7',
 };
@@ -147,16 +147,20 @@ const source: ReplaySource = {
 describe('GUI: Ranks, and CRPLAY: Rank on the Battlefield', () => {
   // The Ranks in any order: the highest one reached wins.
   const thresholds = [
-    { name: 'Rank III', minBaseSkill: 350, mark: 'bar', count: 1 },
-    { name: 'Rank I', minBaseSkill: 0, mark: null, count: null },
-    { name: 'Rank II', minBaseSkill: 150, mark: 'chevron', count: 1 },
-    { name: 'Rank IV', minBaseSkill: 1000, mark: 'star', count: 3 },
+    { name: 'Rank III', abbreviation: 'R III', minBaseSkill: 350, mark: 'bar', count: 1 },
+    { name: 'Rank I', abbreviation: 'R I', minBaseSkill: 0, mark: null, count: null },
+    { name: 'Rank II', abbreviation: 'R II', minBaseSkill: 150, mark: 'chevron', count: 1 },
+    { name: 'Rank IV', abbreviation: 'R IV', minBaseSkill: 1000, mark: 'star', count: 3 },
   ] as const;
 
   it('takes the Rank from base skill rounded down', () => {
-    expect(rankOf(0, thresholds)).toEqual({ name: 'Rank I', insignia: null });
-    expect(rankOf(14999, thresholds)).toEqual({ name: 'Rank I', insignia: null });
-    expect(rankOf(15000, thresholds)).toEqual({ name: 'Rank II', insignia: { kind: 'chevron', count: 1 } });
+    expect(rankOf(0, thresholds)).toEqual({ name: 'Rank I', abbreviation: 'R I', insignia: null });
+    expect(rankOf(14999, thresholds)).toEqual({ name: 'Rank I', abbreviation: 'R I', insignia: null });
+    expect(rankOf(15000, thresholds)).toEqual({
+      name: 'Rank II',
+      abbreviation: 'R II',
+      insignia: { kind: 'chevron', count: 1 },
+    });
     expect(rankOf(50000, [])).toBeNull();
   });
 

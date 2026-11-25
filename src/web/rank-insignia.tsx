@@ -79,11 +79,13 @@ export function RankInsigniaIcon(props: { insignia: RankInsignia }) {
 }
 
 /** GUI, Ranks: the Rank's `name` followed by its Rank insignia, or the `name` alone for a Rank without one. */
-export function RankText(props: { rank: Rank }) {
+export function RankText(props: { rank: Rank; abbreviated?: boolean }) {
   const { rank } = props;
+  // GUI, Ranks: a table shows the `abbreviation` in place of the `name`, with the `name` in its tooltip.
+  const abbreviated = props.abbreviated === true;
   return (
-    <span className="rank-text">
-      {rank.name}
+    <span className="rank-text" title={abbreviated ? rank.name : undefined}>
+      {abbreviated ? rank.abbreviation : rank.name}
       {rank.insignia === null ? null : <RankInsigniaIcon insignia={rank.insignia} />}
     </span>
   );

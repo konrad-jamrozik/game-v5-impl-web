@@ -621,6 +621,7 @@ export interface GameDataView {
   readonly ranks: readonly {
     readonly id: string;
     readonly name: string;
+    readonly abbreviation: string;
     readonly minBaseSkill: number;
     readonly mark: 'chevron' | 'bar' | 'star' | null;
     readonly count: 1 | 2 | 3 | null;

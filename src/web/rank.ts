@@ -12,6 +12,7 @@ export interface RankInsignia {
 /** GUI, Ranks: a Rank GDR, as the game data reports it. */
 export interface RankThreshold {
   readonly name: string;
+  readonly abbreviation: string;
   readonly minBaseSkill: number;
   readonly mark: RankInsignia['kind'] | null;
   readonly count: RankInsignia['count'] | null;
@@ -20,6 +21,7 @@ export interface RankThreshold {
 /** GUI, Ranks: a Rank as the GUI shows it, its `name` and its Rank insignia, or null for a Rank without one. */
 export interface Rank {
   readonly name: string;
+  readonly abbreviation: string;
   readonly insignia: RankInsignia | null;
 }
 
@@ -37,7 +39,7 @@ export function rankOf(baseSkillHundredths: number, ranks: readonly RankThreshol
   }
   const insignia =
     reached.mark === null || reached.count === null ? null : { kind: reached.mark, count: reached.count };
-  return { name: reached.name, insignia };
+  return { name: reached.name, abbreviation: reached.abbreviation, insignia };
 }
 
 /** CRPLAY, Rank on the Battlefield: the Rank insignia of the Rank this base skill earns, or null for none. */

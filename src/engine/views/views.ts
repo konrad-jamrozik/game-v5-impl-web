@@ -1293,6 +1293,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
       ranks: gdrs.ranks.map((rank) => ({
         id: rank.id,
         name: rank.name,
+        abbreviation: rank.abbreviation,
         minBaseSkill: rank.minBaseSkill,
         mark: rank.mark,
         count: rank.count,
