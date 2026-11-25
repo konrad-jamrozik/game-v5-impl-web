@@ -2831,9 +2831,22 @@ label:has(> input[type='checkbox']:disabled) {
   margin-top: 12px;
 }
 
-/* MVIEW, Deployment: a button at the left of a pane's action line; the rest stay right-adjusted. */
-.pane-action-start {
-  margin-right: auto;
+/* MVIEW, Deployment, and LVIEW, Team: the Agents button at the right of a pane's action line; the primary button and
+   what goes with it stand at the left. */
+.pane-action-end {
+  margin-left: auto;
+}
+
+/* GUI, Ranks: a Rank's name followed by its Rank insignia, centred on the line. */
+.rank-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.rank-insignia {
+  flex: none;
 }
 
 .list-group + .list-group {

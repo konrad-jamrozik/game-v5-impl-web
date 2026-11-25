@@ -504,7 +504,7 @@ export interface CombatSimulatorContent {
   readonly armors: GameDataView['armors'];
   readonly ammoTypes: GameDataView['ammoTypes'];
   readonly enemyArchetypes: GameDataView['enemyArchetypes'];
-  readonly rankInsignias: GameDataView['rankInsignias'];
+  readonly ranks: GameDataView['ranks'];
   /** Every MissionSiteArchetype, with the EnemyArchetype of each Enemy a new Mission site of it would have, in creation order. */
   readonly missionSiteArchetypes: readonly {
     readonly id: string;
@@ -617,12 +617,13 @@ export interface GameDataView {
     readonly image: string;
     readonly opacityPct: number;
   }[];
-  /** CRPLAY, Rank insignia thresholds: every RankInsignia GDR, highest `min_base_skill` first; display content. */
-  readonly rankInsignias: readonly {
+  /** GUI, Ranks: every Rank GDR, highest `min_base_skill` first; display content. */
+  readonly ranks: readonly {
     readonly id: string;
+    readonly name: string;
     readonly minBaseSkill: number;
-    readonly mark: 'chevron' | 'bar' | 'star';
-    readonly count: 1 | 2 | 3;
+    readonly mark: 'chevron' | 'bar' | 'star' | null;
+    readonly count: 1 | 2 | 3 | null;
   }[];
 }
 

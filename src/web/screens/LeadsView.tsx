@@ -440,25 +440,7 @@ function Team(props: {
         </>
       )}
       <div className="pane-actions">
-        {/* LVIEW, Team: on the primary button's line, at the left, an Agents button opens the Agents View as a Follow. */}
-        <Button
-          className="pane-action-start"
-          testId="team-open-agents"
-          onClick={() => {
-            props.onShow({ kind: 'agents' });
-          }}
-        >
-          Agents
-        </Button>
-        {estimate === null ? null : (
-          <span
-            className="figure secondary"
-            data-testid="team-estimate"
-            title="An estimate: it takes every Agent's effective skill as it is now and counts no Advance turn In transit."
-          >
-            Est. +{progressGain(estimate)} / turn
-          </span>
-        )}
+        {/* LVIEW, Team: the primary button stands at the left of its line, followed by the Team progress estimate. */}
         {investigation === undefined ? (
           <Button
             kind="primary"
@@ -496,6 +478,25 @@ function Team(props: {
             Assign · {team.length}
           </Button>
         )}
+        {estimate === null ? null : (
+          <span
+            className="figure secondary"
+            data-testid="team-estimate"
+            title="An estimate: it takes every Agent's effective skill as it is now and counts no Advance turn In transit."
+          >
+            Est. +{progressGain(estimate)} / turn
+          </span>
+        )}
+        {/* LVIEW, Team: at the right, an Agents button opens the Agents View as a Follow. */}
+        <Button
+          className="pane-action-end"
+          testId="team-open-agents"
+          onClick={() => {
+            props.onShow({ kind: 'agents' });
+          }}
+        >
+          Agents
+        </Button>
       </div>
     </div>
   );

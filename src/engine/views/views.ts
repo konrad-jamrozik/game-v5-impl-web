@@ -1290,11 +1290,12 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         image: artwork.image,
         opacityPct: artwork.opacityPct,
       })),
-      rankInsignias: gdrs.rankInsignias.map((insignia) => ({
-        id: insignia.id,
-        minBaseSkill: insignia.minBaseSkill,
-        mark: insignia.mark,
-        count: insignia.count,
+      ranks: gdrs.ranks.map((rank) => ({
+        id: rank.id,
+        name: rank.name,
+        minBaseSkill: rank.minBaseSkill,
+        mark: rank.mark,
+        count: rank.count,
       })),
     });
     gameDataCache.set(gdrs, view);
@@ -1311,7 +1312,7 @@ export function combatSimulatorContentView(gdrs: GdrCatalog): CombatSimulatorCon
     armors: data.armors,
     ammoTypes: data.ammoTypes,
     enemyArchetypes: data.enemyArchetypes,
-    rankInsignias: data.rankInsignias,
+    ranks: data.ranks,
     missionSiteArchetypes: gdrs.missionSiteArchetypes.map((archetype) => ({
       id: archetype.id,
       name: archetype.name,

@@ -659,17 +659,7 @@ function Deployment(props: {
         </>
       )}
       <div className="pane-actions">
-        {/* MVIEW, Deployment: on the Deploy button's line, at the left, an Agents button opens the Agents View as a
-            Follow. */}
-        <Button
-          className="pane-action-start"
-          testId="deploy-open-agents"
-          onClick={() => {
-            props.onShow({ kind: 'agents' });
-          }}
-        >
-          Agents
-        </Button>
+        {/* MVIEW, Deployment: the Deploy button stands at the left of its line. */}
         <Button
           kind="primary"
           testId={`deploy-${site.id}`}
@@ -686,6 +676,16 @@ function Deployment(props: {
           }}
         >
           Deploy {team.length}
+        </Button>
+        {/* MVIEW, Deployment: at the right, an Agents button opens the Agents View as a Follow. */}
+        <Button
+          className="pane-action-end"
+          testId="deploy-open-agents"
+          onClick={() => {
+            props.onShow({ kind: 'agents' });
+          }}
+        >
+          Agents
         </Button>
       </div>
     </div>

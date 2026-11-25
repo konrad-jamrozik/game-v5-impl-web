@@ -121,7 +121,7 @@ export function articleVisible(
     case 'MissionSiteArchetype':
       return missionSiteArchetypeVisible(subject, world, gdrs);
     // Player API reports these GDRs in every World state: `getGameData()`, with every BackgroundArtwork and
-    // RankInsignia, and the Agency, Investigation, and Mission names. A parameter GDR has no `name`, so none can be a subject.
+    // Rank, and the Agency, Investigation, and Mission names. A parameter GDR has no `name`, so none can be a subject.
     case 'AgentParameters':
     case 'CombatParameters':
     case 'RecoveryParameters':
@@ -134,7 +134,7 @@ export function articleVisible(
     case 'MissionArchetype':
     case 'EndingParameters':
     case 'BackgroundArtwork':
-    case 'RankInsignia':
+    case 'Rank':
       return true;
     // No Player API value includes a Campaign configuration preset or the default-preset choice. FACTION,
     // Player-visible information: no FactionActivityLevel is Player-visible.

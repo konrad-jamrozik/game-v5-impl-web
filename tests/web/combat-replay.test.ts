@@ -28,6 +28,7 @@ import {
   type ReplayFigure,
   type ReplaySource,
 } from '../../src/web/combat-replay.ts';
+import { rankOf } from '../../src/web/rank.ts';
 
 type Attack = CombatReport['log'][number];
 type Participant = CombatReport['participants'][number];
@@ -135,21 +136,31 @@ const source: ReplaySource = {
   enemyOrder: (id) => (id === 'enemy-1' ? 0 : 4),
   enemyAmmoType: (id) => (id === 'enemy-1' ? 'cells' : null),
   shotOfAmmoType: (ammoType) => (ammoType === 'cells' ? 'beam' : ammoType === 'rounds' ? 'burst' : undefined),
-  rankInsignias: [
-    { minBaseSkill: 100, mark: 'chevron', count: 1 },
-    { minBaseSkill: 300, mark: 'star', count: 1 },
+  ranks: [
+    { name: 'Rank I', minBaseSkill: 0, mark: null, count: null },
+    { name: 'Rank II', minBaseSkill: 100, mark: 'chevron', count: 1 },
+    { name: 'Rank III', minBaseSkill: 300, mark: 'star', count: 1 },
   ],
   seed: 'mission-7',
 };
 
-describe('CRPLAY: Rank insignia thresholds', () => {
-  it('takes the Rank insignia from base skill rounded down, and none below the first threshold', () => {
-    // The thresholds in any order: the highest one reached wins.
-    const thresholds = [
-      { minBaseSkill: 350, mark: 'bar', count: 1 },
-      { minBaseSkill: 150, mark: 'chevron', count: 1 },
-      { minBaseSkill: 1000, mark: 'star', count: 3 },
-    ] as const;
+describe('GUI: Ranks, and CRPLAY: Rank on the Battlefield', () => {
+  // The Ranks in any order: the highest one reached wins.
+  const thresholds = [
+    { name: 'Rank III', minBaseSkill: 350, mark: 'bar', count: 1 },
+    { name: 'Rank I', minBaseSkill: 0, mark: null, count: null },
+    { name: 'Rank II', minBaseSkill: 150, mark: 'chevron', count: 1 },
+    { name: 'Rank IV', minBaseSkill: 1000, mark: 'star', count: 3 },
+  ] as const;
+
+  it('takes the Rank from base skill rounded down', () => {
+    expect(rankOf(0, thresholds)).toEqual({ name: 'Rank I', insignia: null });
+    expect(rankOf(14999, thresholds)).toEqual({ name: 'Rank I', insignia: null });
+    expect(rankOf(15000, thresholds)).toEqual({ name: 'Rank II', insignia: { kind: 'chevron', count: 1 } });
+    expect(rankOf(50000, [])).toBeNull();
+  });
+
+  it('draws the Rank insignia of the Rank, and none for a Rank without one', () => {
     expect(rankInsignia(14999, thresholds)).toBeNull();
     expect(rankInsignia(15000, thresholds)).toEqual({ kind: 'chevron', count: 1 });
     expect(rankInsignia(34999, thresholds)).toEqual({ kind: 'chevron', count: 1 });

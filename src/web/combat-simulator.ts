@@ -186,7 +186,7 @@ export function replaySourceOf(
     enemyAmmoType: (id) => ammoTypeOf(archetypeOf(id)?.weapon),
     agentAmmoType: (id) => ammoTypeOf(agents[positionOf(id) - 1]?.weapon),
     shotOfAmmoType: (ammoType) => content.ammoTypes.find((item) => item.id === ammoType)?.shot,
-    rankInsignias: content.rankInsignias,
+    ranks: content.ranks,
     seed,
   };
 }

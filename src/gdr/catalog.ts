@@ -18,7 +18,7 @@ import type {
   GdrCatalog,
   LeadGdr,
   MissionSiteArchetypeGdr,
-  RankInsigniaGdr,
+  RankGdr,
 } from './types.ts';
 
 export interface RawGdrFile {
@@ -768,21 +768,25 @@ const schemas = {
       image: g.image,
       opacityPct: g.opacity_pct,
     })),
-  // CRPLAY, Rank insignia thresholds: the exhaustive properties of a RankInsignia.
-  RankInsignia: z
+  // GUI, Ranks: the exhaustive properties of a Rank.
+  Rank: z
     .strictObject({
       id,
-      type: z.literal('RankInsignia'),
+      type: z.literal('Rank'),
+      name,
       min_base_skill: whole(0),
-      mark: z.enum(['chevron', 'bar', 'star']),
-      count: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+      mark: z.enum(['chevron', 'bar', 'star']).optional(),
+      count: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
     })
+    // GUI, Ranks: `count` is present exactly when `mark` is.
+    .refine((g) => (g.mark === undefined) === (g.count === undefined))
     .transform((g) => ({
       type: g.type,
       id: g.id,
+      name: g.name,
       minBaseSkill: g.min_base_skill,
-      mark: g.mark,
-      count: g.count,
+      mark: g.mark ?? null,
+      count: g.count ?? null,
     })),
 } as const;
 
@@ -1043,18 +1047,17 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const articles = all<CompendiumArticleGdr>('CompendiumArticle');
   const backgroundArtworks = all<BackgroundArtworkGdr>('BackgroundArtwork');
   const detachedCombatTeams = all<DetachedCombatTeamGdr>('DetachedCombatTeam');
-  const rankInsignias = [...all<RankInsigniaGdr>('RankInsignia')].sort(
-    (a, b) => b.minBaseSkill - a.minBaseSkill,
-  );
+  const ranks = [...all<RankGdr>('Rank')].sort((a, b) => b.minBaseSkill - a.minBaseSkill);
 
-  // CRPLAY, Rank insignia thresholds: no two RankInsignias share a `min_base_skill`.
-  rankInsignias.forEach((insignia, index) => {
-    if (rankInsignias[index + 1]?.minBaseSkill === insignia.minBaseSkill) {
-      problems.push(
-        `RankInsignia ${insignia.id}: another RankInsignia has min_base_skill ${insignia.minBaseSkill}`,
-      );
+  // GUI, Ranks: no two Ranks share a `min_base_skill`, and one has a `min_base_skill` of 0.
+  ranks.forEach((rank, index) => {
+    if (ranks[index + 1]?.minBaseSkill === rank.minBaseSkill) {
+      problems.push(`Rank ${rank.id}: another Rank has min_base_skill ${rank.minBaseSkill}`);
     }
   });
+  if (!ranks.some((rank) => rank.minBaseSkill === 0)) {
+    problems.push('Rank: no Rank has min_base_skill 0');
+  }
   // COMBAT, EnemyArchetype: no two EnemyArchetypes share an `abbreviation`.
   const abbreviations = new Set<string>();
   for (const enemy of enemyArchetypes.values()) {
@@ -1343,7 +1346,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     missionSiteArchetypes,
     compendiumArticles,
     backgroundArtworks,
-    rankInsignias,
+    ranks,
     detachedCombatTeams,
   };
 }

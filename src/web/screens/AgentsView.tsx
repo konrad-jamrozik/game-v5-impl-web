@@ -2,8 +2,8 @@
  * AVIEW: the Agents View. One table of the Agents the row filter shows, because the Player compares Agents with one
  * another and acts on several at once, with each Agent's details one step away. An Assignment filter decides which
  * shown Agents can be selected, every Agent that cannot is muted with the reason as the tooltip of its checkbox, and
- * those that can come first. The Memorial shows the Terminated Agents instead, with how each one's service ended. What
- * each Agent wears is the Armory View's to show (ARMV).
+ * those that can come first. The Memorial shows the Terminated Agents instead, with how each one's service ended. It
+ * shows what each Agent wears, but changing it is the Armory View's task (ARMV).
  */
 import {
   createColumnHelper,
@@ -43,20 +43,20 @@ import { act, theEngine, type Snapshot } from '../store.ts';
 import { pressHeader, pressHeaderUnderLock, sortRows, withLockedTier, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort, withShortcut } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
-import { EquipmentPicker } from './EquipmentPicker.tsx';
+import { EquipmentPicker, EquipmentText } from './EquipmentPicker.tsx';
 import type { ReportTarget } from './TurnReportView.tsx';
+import { rankOf, type RankThreshold } from '../rank.ts';
+import { RankText } from '../rank-insignia.tsx';
 
 /** AVIEW, Row filters: both checkboxes are unchecked whenever the Agents View opens. */
 const NO_HIDING: HideChecks = { hideRecovering: false, hideExhausted: false };
+/** A stable empty list of Ranks while the game data is not yet read. */
+const NO_RANKS: readonly RankThreshold[] = [];
 
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
-const NUMERIC = new Set([
-  'effectiveSkill',
-  'skillHundredths',
-  'experience',
-  'currentHealthHundredths',
-  'exhaustion',
-]);
+const NUMERIC = new Set(['combatRating', 'currentHealthHundredths', 'exhaustion']);
+/** VIS, Tables: the columns whose header sorts descending first, because they sort by a number. */
+const DESCENDING_FIRST = new Set([...NUMERIC, 'rank', 'weapon', 'armor']);
 
 /**
  * AVIEW, Agent table: the locked first sort tier while an Assignment filter is on. It puts the Agents that can be
@@ -65,12 +65,13 @@ const NUMERIC = new Set([
 const SELECTABLE_FIRST = 'selectable';
 
 /**
- * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first, 744 px in all, so that the
- * table fits its view in the Reference window. Skill and Base hold four digits and Exh. three after the warning
- * triangle, each with its sort arrow. AVIEW, Agent table: Assignment names no Lead or Mission site and marks In transit
- * with an icon, so it holds its widest value, "Recovery · 99 T left" and the In transit icon, in 200 px.
+ * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first, 1068 px in all, so that the
+ * table fits its view in the Reference window. CR holds four digits and Exh. three after the warning triangle, each
+ * with its sort arrow; Rank holds "Rank VIII" and a star; Weapon and Armor hold the longest Item `name` of the GDRs with
+ * its number and icon. AVIEW, Agent table: Assignment names no Lead or Mission site and marks In transit with an icon,
+ * so it holds its widest value, "Recovery · 99 T left" and the In transit icon.
  */
-const SERVING_WIDTHS = ['36px', '104px', '84px', '84px', '64px', '96px', '76px', '200px'];
+const SERVING_WIDTHS = ['36px', '96px', '64px', '108px', '88px', '72px', '200px', '220px', '184px'];
 /**
  * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
  * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by hcmd-12". Where is the
@@ -165,6 +166,7 @@ export function AgentsView(props: {
   const { snapshot, state, selected, locked, onSelect, onShow } = props;
   const actions = snapshot.actions;
   const levels = exhaustionLevels(snapshot.gameData);
+  const ranks = snapshot.gameData?.ranks ?? NO_RANKS;
   // VIS, Tables: up to four sort tiers over the default order by Instance ID.
   const [tiers, setTiers] = usePlaceState<SortTier<string>[]>('tiers', []);
   const [rowFilter, setRowFilter] = usePlaceState<RowFilter>('rowFilter', 'all');
@@ -310,11 +312,17 @@ export function AgentsView(props: {
           </button>
         ),
       }),
-      // VIS, Tables: effective skill is headed Skill, and base skill Base.
-      helper.accessor('effectiveSkill', { header: 'Skill' }),
-      helper.accessor('skillHundredths', { header: 'Base', cell: (cell) => wholeText(cell.getValue()) }),
-      // AVIEW, Agent table: Experience, a whole number, headed Exp.
-      helper.accessor('experience', { header: 'Exp.' }),
+      // AVIEW, Agent table: the Combat rating alone, without the Equipment Combat rating.
+      helper.accessor((agent) => agent.combatRating ?? 0, { id: 'combatRating', header: 'CR' }),
+      // AVIEW, Agent table: the Rank's `name` followed by its Rank insignia; the column sorts by base skill.
+      helper.accessor('skillHundredths', {
+        id: 'rank',
+        header: 'Rank',
+        cell: (cell) => {
+          const rank = rankOf(cell.getValue(), ranks);
+          return rank === null ? null : <RankText rank={rank} />;
+        },
+      }),
       helper.accessor('currentHealthHundredths', {
         header: 'Health',
         cell: (cell) => (
@@ -325,6 +333,18 @@ export function AgentsView(props: {
         // VIS, Tables: exhaustion is headed Exh.
         header: 'Exh.',
         cell: (cell) => <Exhaustion value={cell.getValue()} levels={levels} />,
+      }),
+      // AVIEW, Agent table: Weapon and Armor read as the Armory View's cells, and sort by their numbers, but open no
+      // Equipment picker.
+      helper.accessor('baseWeaponDamage', {
+        id: 'weapon',
+        header: 'Weapon',
+        cell: (cell) => <EquipmentText agent={cell.row.original} kind="weapon" />,
+      }),
+      helper.accessor('baseArmor', {
+        id: 'armor',
+        header: 'Armor',
+        cell: (cell) => <EquipmentText agent={cell.row.original} kind="armor" />,
       }),
       helper.accessor((agent) => assignmentText(agent, state, snapshot.retired), {
         id: 'assignment',
@@ -342,7 +362,7 @@ export function AgentsView(props: {
       // the Agents that can be selected, whose `blockedBy` is empty, first.
       helper.accessor((agent) => (agent.blockedBy === '' ? 0 : 1), { id: SELECTABLE_FIRST }),
     ],
-    [state, snapshot.retired, levels, onShow],
+    [state, snapshot.retired, levels, ranks, onShow],
   );
 
   const table = useReactTable({
@@ -653,7 +673,7 @@ export function AgentsView(props: {
                           pressHeaderUnderLock(
                             tiers,
                             header.column.id,
-                            NUMERIC.has(header.column.id),
+                            DESCENDING_FIRST.has(header.column.id),
                             locksSelectable ? SELECTABLE_FIRST : null,
                           ),
                         );

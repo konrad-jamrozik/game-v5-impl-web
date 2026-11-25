@@ -381,15 +381,17 @@ export interface BackgroundArtworkGdr {
   readonly opacityPct: number;
 }
 
-/** CRPLAY, Rank insignia thresholds: the mark beside an Agent's figure; Display content only. */
-export interface RankInsigniaGdr {
-  readonly type: 'RankInsignia';
+/** GUI, Ranks: how skilled an Agent is when rested; Display content only. */
+export interface RankGdr {
+  readonly type: 'Rank';
   readonly id: string;
-  /** The least base skill that earns the mark, a whole number of at least 0. */
+  readonly name: string;
+  /** The least base skill that earns the Rank, a whole number of at least 0. */
   readonly minBaseSkill: number;
-  readonly mark: 'chevron' | 'bar' | 'star';
-  /** A whole number from 1 to 3. */
-  readonly count: 1 | 2 | 3;
+  /** The kind of the Rank insignia, or null for a Rank without one. */
+  readonly mark: 'chevron' | 'bar' | 'star' | null;
+  /** A whole number from 1 to 3, null exactly when `mark` is. */
+  readonly count: 1 | 2 | 3 | null;
 }
 
 /** COMBAT, DetachedCombatTeam: a ready-made team of Agents for a Detached Combat; Display content, read by no rule. */
@@ -438,7 +440,7 @@ export type AnyGdr =
   | EndingParametersGdr
   | CompendiumArticleGdr
   | BackgroundArtworkGdr
-  | RankInsigniaGdr
+  | RankGdr
   | DetachedCombatTeamGdr;
 
 /**
@@ -497,8 +499,8 @@ export interface GdrCatalog {
   readonly compendiumArticles: readonly CatalogCompendiumArticle[];
   /** VIS, Background artwork: every BackgroundArtwork, in Game build order. */
   readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
-  /** CRPLAY, Rank insignia thresholds: every RankInsignia, highest `min_base_skill` first. */
-  readonly rankInsignias: readonly RankInsigniaGdr[];
+  /** GUI, Ranks: every Rank, highest `min_base_skill` first. */
+  readonly ranks: readonly RankGdr[];
   /** COMBAT, DetachedCombatTeam: every DetachedCombatTeam, in Game build order. */
   readonly detachedCombatTeams: readonly DetachedCombatTeamGdr[];
 }
