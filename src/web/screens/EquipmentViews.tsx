@@ -153,9 +153,9 @@ function Chosen(props: { label: string; lines: readonly string[] }) {
 
 /**
  * STVIEW, Trade count: one control for both directions of one Item, a count below 0 selling and above 0 buying,
- * between a worded Sell and Buy button rather than a bare "−" and "+". The count shows its sign and its direction's
- * colour, "−5" in Positive and "+10" in Accent text, with "Sell 5" or "Buy 10" as its tooltip. "all" before Sell sets
- * the count to the sale limit; for an AmmoType, "+10" and "+100" after Buy add to what is bought.
+ * between a left and a right arrow; the column header names the directions, "Sell" over the left and "Buy" over the
+ * right. The count shows its sign and its direction's colour, "−5" in Positive and "+10" in Accent text, with "Sell 5"
+ * or "Buy 10" as its tooltip. "all" before the left arrow sets the count to the sale limit.
  */
 function TradeControl(props: {
   name: string;
@@ -163,7 +163,6 @@ function TradeControl(props: {
   /** How many can be sold at most, i.e. the count can go down to minus this. */
   saleLimit: number;
   canBuy: boolean;
-  bulk: boolean;
   testId: string;
   onChange: (count: number) => void;
 }) {
@@ -184,6 +183,11 @@ function TradeControl(props: {
   const move = (direction: 1 | -1, event: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
     props.onChange(clamp(count + direction * stepOf(event)));
   };
+  const keepShift = (event: { shiftKey: boolean; preventDefault: () => void }) => {
+    if (event.shiftKey) {
+      event.preventDefault();
+    }
+  };
   return (
     <span className="trade-control" data-testid={props.testId}>
       <button
@@ -195,20 +199,18 @@ function TradeControl(props: {
       >
         all
       </button>
+      {/* STVIEW, Trade count: the left arrow moves towards selling, so from a purchase it buys one fewer; it stops
+          only at the sale limit. */}
       <button
         type="button"
         className="btn trade-step"
-        disabled={saleLimit === 0 || count <= -saleLimit}
-        title="Sell one · Shift: 10 · Ctrl: 100"
-        aria-label={`Sell one more ${props.name}`}
-        onMouseDown={(event) => {
-          if (event.shiftKey) {
-            event.preventDefault();
-          }
-        }}
+        disabled={count <= -saleLimit}
+        title={count > 0 ? 'Buy one fewer · Shift: 10 · Ctrl: 100' : 'Sell one more · Shift: 10 · Ctrl: 100'}
+        aria-label={count > 0 ? `Buy one fewer ${props.name}` : `Sell one more ${props.name}`}
+        onMouseDown={keepShift}
         onClick={(event) => move(-1, event)}
       >
-        Sell
+        ◀
       </button>
       <input
         type="text"
@@ -229,39 +231,25 @@ function TradeControl(props: {
           }
         }}
       />
+      {/* STVIEW, Trade count: the right arrow moves towards buying, so from a sale it sells one fewer; an Item that
+          is not Unlocked stops at 0. */}
       <button
         type="button"
         className="btn trade-step"
-        disabled={!canBuy}
-        title={canBuy ? 'Buy one · Shift: 10 · Ctrl: 100' : 'Not unlocked'}
-        aria-label={`Buy one more ${props.name}`}
-        onMouseDown={(event) => {
-          if (event.shiftKey) {
-            event.preventDefault();
-          }
-        }}
+        disabled={count >= most}
+        title={
+          count < 0
+            ? 'Sell one fewer · Shift: 10 · Ctrl: 100'
+            : canBuy
+              ? 'Buy one more · Shift: 10 · Ctrl: 100'
+              : 'Not unlocked'
+        }
+        aria-label={count < 0 ? `Sell one fewer ${props.name}` : `Buy one more ${props.name}`}
+        onMouseDown={keepShift}
         onClick={(event) => move(1, event)}
       >
-        Buy
+        ▶
       </button>
-      {props.bulk && canBuy ? (
-        <>
-          <button
-            type="button"
-            className="stepper-link"
-            onClick={() => props.onChange(clamp(Math.max(0, count) + 10))}
-          >
-            +10
-          </button>
-          <button
-            type="button"
-            className="stepper-link"
-            onClick={() => props.onChange(clamp(Math.max(0, count) + 100))}
-          >
-            +100
-          </button>
-        </>
-      ) : null}
     </span>
   );
 }
@@ -295,7 +283,7 @@ export function StorageView(props: {
   const cost = buying.reduce((sum, item) => sum + item.price * buyCount(item), 0);
   const money = props.state.agency.money;
   const missing = cost - money - earns;
-  const stripped = takeEquipped ? strippedAgents(props.state, selling, sellCount) : [];
+  const stripped = takeEquipped ? strippedAgents(props.state, selling, sellCount) : null;
   const nothing = selling.length === 0 && buying.length === 0;
   const clear = () => {
     setTrades({});
@@ -338,10 +326,10 @@ export function StorageView(props: {
     >
       <div className="storage-trade">
         <Grid
-          // VIS, Tables: 994 px in all, so that the table fits its view in the Reference window with room for the
-          // view's scroll bar. Item holds "Reinforced ballistic vest" after its indent, Stats "32 ⚔ Laser rifle battery",
-          // the counts "10,000", and Trade its "all", Sell, count, Buy, "+10", and "+100".
-          widths={['186px', '176px', '68px', '60px', '68px', '64px', '72px', '300px']}
+          // VIS, Tables: Item holds "Reinforced ballistic vest" after its indent, Stats "32 ⚔ Laser rifle battery", the
+          // counts "10,000", and Sell · Buy its "all", arrows, and count, so that the table and the trade panel fit
+          // the Reference window side by side.
+          widths={['186px', '176px', '68px', '60px', '68px', '64px', '72px', '196px']}
           className="equipment-table"
           testId="storage-table"
         >
@@ -360,7 +348,11 @@ export function StorageView(props: {
               <th className="num" title="Sale value of one">
                 Value
               </th>
-              <th title="Below 0 sells, above 0 buys">Trade</th>
+              {/* STVIEW, Storage table, Sell · Buy: the header names the directions the arrows move the count. */}
+              <th className="trade-head" title="Below 0 sells, above 0 buys">
+                <span>Sell</span>
+                <span>Buy</span>
+              </th>
             </tr>
           </thead>
           {GROUPS.map((group) => {
@@ -405,7 +397,6 @@ export function StorageView(props: {
                           count={tradeOf(item)}
                           saleLimit={limit(item)}
                           canBuy={item.unlocked}
-                          bulk={item.kind === 'ammo'}
                           testId={`trade-${item.id}`}
                           onChange={(value) => setTrades({ ...trades, [item.id]: value })}
                         />
@@ -417,27 +408,41 @@ export function StorageView(props: {
             );
           })}
         </Grid>
-        {/* STVIEW, Trading: one bar as wide as the table, its parts from its left edge. */}
-        <div className="trade-bar" data-testid="trade-bar">
+        {/* STVIEW, Trading: a panel on the right of the table, its parts from its top; the lists scroll inside it. */}
+        <aside className="trade-panel" data-testid="trade-bar">
           <div className="trade-chosen-pair">
             <Chosen label="Selling" lines={chosenLines(selling, sellCount)} />
             <Chosen label="Buying" lines={chosenLines(buying, buyCount)} />
           </div>
           <div className="trade-line">
-            <span className="figure">
-              Earns <span className="tone-good">+{earns.toLocaleString('en-US')}</span> · Costs{' '}
-              <span className={missing > 0 ? 'tone-bad' : undefined}>{cost.toLocaleString('en-US')}</span> ·
-              Money after {(money + earns - cost).toLocaleString('en-US')}
+            {/* Each part keeps its words together, so the panel wraps only between parts. */}
+            <span className="figure trade-sums">
+              <span>
+                Earns <span className="tone-good">+{earns.toLocaleString('en-US')}</span> ·
+              </span>{' '}
+              <span>
+                Costs{' '}
+                <span className={missing > 0 ? 'tone-bad' : undefined}>{cost.toLocaleString('en-US')}</span> ·
+              </span>{' '}
+              <span>Money after {(money + earns - cost).toLocaleString('en-US')}</span>
               {missing > 0 ? (
-                <span className="tone-bad"> · {missing.toLocaleString('en-US')} missing</span>
+                <>
+                  {' '}
+                  <span className="tone-bad">· {missing.toLocaleString('en-US')} missing</span>
+                </>
               ) : null}
             </span>
           </div>
-          {stripped.map((line) => (
-            <div key={line} className="trade-line muted small">
-              {line}
+          {/* STVIEW, Trading, item 3: how many Agents the sale takes equipment off, each Agent in the tooltip. */}
+          {stripped === null || stripped.agents === 0 ? null : (
+            <div
+              className="trade-line tone-warn"
+              title={stripped.lines.join('\n')}
+              data-testid="trade-stripped"
+            >
+              {stripped.agents} {stripped.agents === 1 ? 'Agent loses' : 'Agents lose'} equipment
             </div>
-          ))}
+          )}
           <div className="trade-line">
             <label className="trade-check">
               <input
@@ -450,7 +455,7 @@ export function StorageView(props: {
             </label>
             <span className="trade-buttons">
               <Button disabledReason={nothing ? 'Nothing is chosen.' : null} onClick={clear}>
-                Clear
+                Reset
               </Button>
               <Button
                 kind="primary"
@@ -465,22 +470,23 @@ export function StorageView(props: {
               </Button>
             </span>
           </div>
-        </div>
+        </aside>
       </div>
     </DetailView>
   );
 }
 
 /**
- * STVIEW, Trading, item 3: one line per Agent a sale takes an Item off, in the order EQUIP, Selling Items, takes them:
- * the lowest effective skill first, and among equal the higher Instance ID number.
+ * STVIEW, Trading, item 3: how many Agents a sale takes an Item off, and one line per such Item in the order EQUIP,
+ * Selling Items, takes them: the lowest effective skill first, and among equal the higher Instance ID number.
  */
 function strippedAgents(
   state: CurrentLiveWorldStateView,
   chosen: readonly EquipmentItemView[],
   count: (item: EquipmentItemView) => number,
-): string[] {
+): { agents: number; lines: string[] } {
   const view = state.agency.equipment;
+  const agents = new Set<string>();
   const number = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
   const lines: string[] = [];
   for (const item of chosen) {
@@ -495,8 +501,9 @@ function strippedAgents(
       .slice(0, rest);
     const fallbackName = item.kind === 'weapon' ? view.fallbackWeaponName : view.fallbackArmorName;
     for (const agent of wearers) {
+      agents.add(agent.id);
       lines.push(`${agent.id} loses ${item.name} → ${fallbackName}`);
     }
   }
-  return lines;
+  return { agents: agents.size, lines };
 }

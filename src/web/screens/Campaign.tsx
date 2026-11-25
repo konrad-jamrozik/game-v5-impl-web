@@ -115,8 +115,11 @@ type TrailId = DetailViewId | typeof TURN_SUMMARY;
 export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: CurrentLiveWorldStateView }) {
   const { session, player } = theEngine();
   const [open, setOpen] = useState<OpenView | null>(null);
-  /** CSCR, Hiding the Side panel: the Compendium View covers the whole screen, status bar and Side panel included. */
-  const compendiumOpen = open?.id === 'compendium';
+  /**
+   * CSCR, Hiding the Side panel: the Compendium View and the Storage View cover the whole screen, status bar and Side
+   * panel included.
+   */
+  const wholeScreenOpen = open?.id === 'compendium' || open?.id === 'storage';
   // CSCR, View trail: empty whenever the Campaign screen is shown anew, e.g. after a Campaign is loaded.
   const [trail, setTrail] = useState<ViewTrail<TrailId>>([]);
   const live = useRef<Record<string, unknown>>({});
@@ -416,7 +419,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       } else if (key === 'v') {
         // CSCR, Hiding the Side panel: the V key hides or shows it wherever the Player is on the Campaign screen,
         // except while the Compendium View, which leaves the Side panel out, is open.
-        if (!compendiumOpen) {
+        if (!wholeScreenOpen) {
           playSound(SOUND.select);
           setSidePanelHidden(!sidePanelHidden);
         }
@@ -431,7 +434,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         }
       } else if (autopilotActive) {
         return;
-      } else if (compendiumOpen && (key === 'n' || key === 'u' || key === 'r')) {
+      } else if (wholeScreenOpen && (key === 'n' || key === 'u' || key === 'r')) {
         // CSCR, Hiding the Side panel: the keys of the status bar controls do nothing while the Compendium View hides
         // the status bar, so that the Campaign never changes behind it.
         return;
@@ -513,8 +516,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   return (
     // CSCR, Hiding the Side panel: while the Compendium View is open, the status bar and the Side panel are left out
     // and the Compendium View covers the whole screen.
-    <div className={compendiumOpen ? 'campaign compendium-open' : 'campaign'}>
-      {compendiumOpen ? null : (
+    <div className={wholeScreenOpen ? 'campaign whole-screen-open' : 'campaign'}>
+      {wholeScreenOpen ? null : (
         <header className="statusbar">
           <div className="status-facts">
             <Fact label="Turn" testId="turn">
@@ -659,7 +662,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         </header>
       )}
 
-      {state.ending === null || compendiumOpen ? null : (
+      {state.ending === null || wholeScreenOpen ? null : (
         <div
           className={`ending ending-${state.ending.ending.toLowerCase()}`}
           data-testid="ending"
@@ -675,7 +678,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           width; another place brings it back as the Player last left it. */}
       <div
         className={
-          compendiumOpen
+          wholeScreenOpen
             ? 'campaign-body side-none'
             : sidePanelHidden
               ? 'campaign-body side-hidden'
@@ -706,7 +709,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           )}
         </main>
 
-        {compendiumOpen ? null : sidePanelHidden ? (
+        {wholeScreenOpen ? null : sidePanelHidden ? (
           // CSCR, Hiding the Side panel: a strip along the right edge holds the button that shows it again.
           <aside className="side-strip" aria-label="Side panel hidden">
             <button

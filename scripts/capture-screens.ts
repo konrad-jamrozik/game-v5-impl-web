@@ -221,12 +221,12 @@ async function shootElement(page: Page, name: string, element: Locator): Promise
 const view = (page: Page, viewId: string) => id(page, `view-${viewId}`);
 
 /**
- * Opens a Detail view from the Side panel unless it is open. CSCR, Hiding the Side panel: the Compendium View leaves the
- * Side panel out, so it is closed first.
+ * Opens a Detail view from the Side panel unless it is open. CSCR, Hiding the Side panel: the Compendium View and the
+ * Storage View leave the Side panel out, so either is closed first.
  */
 async function open(page: Page, viewId: string): Promise<void> {
   if ((await view(page, viewId).count()) === 0) {
-    if ((await view(page, 'compendium').count()) > 0) {
+    if ((await view(page, 'compendium').count()) > 0 || (await view(page, 'storage').count()) > 0) {
       await page.keyboard.press('Escape');
     }
     await id(page, `nav-${viewId}`).click();
@@ -397,6 +397,9 @@ async function capture(page: Page): Promise<void> {
   // The first Enemy the Agency has met, whichever the Prologue revealed.
   await id(page, 'compendium-articles').getByRole('button').first().click();
   await shootElement(page, 'compendium-view-subject', view(page, 'compendium'));
+  // CSCR, Hiding the Side panel: the Compendium View hides the status bar, so it closes before Settings opens.
+  await page.keyboard.press('Escape');
+  await expect(view(page, 'compendium')).toHaveCount(0);
 
   await id(page, 'open-settings').click();
   await shootElement(page, 'settings-panel', page.getByRole('dialog'));

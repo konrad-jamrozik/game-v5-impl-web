@@ -1068,6 +1068,11 @@ function AgentDetails(props: {
         <dd className="figure" data-testid="details-experience">
           {agent.experience}
         </dd>
+        {/* AVIEW, Agent details: the base skill gained on Training, under Experience, with two decimals. */}
+        <dt>Training skill gain</dt>
+        <dd className="figure" data-testid="details-training-gain">
+          {decimalText(agent.trainingSkillGainHundredths)}
+        </dd>
         <dt>Health</dt>
         <dd className="figure" data-testid="details-health">
           {terminated

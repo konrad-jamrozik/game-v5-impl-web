@@ -47,6 +47,11 @@ export interface AgentView {
   readonly skillHundredths: number;
   /** AGENT, Mission growth: the base skill gained from Missions, a whole number. */
   readonly experience: number;
+  /**
+   * AGENT, Growth: the base skill gained on Training, in hundredths: base skill less the AgentArchetype's `base_skill`
+   * and less Experience, Skill gain having no other source.
+   */
+  readonly trainingSkillGainHundredths: number;
   readonly effectiveSkill: number;
   /** Current health, a Decimal quantity held in hundredths: effective max health less health lost. A Derived value. */
   readonly currentHealthHundredths: number;

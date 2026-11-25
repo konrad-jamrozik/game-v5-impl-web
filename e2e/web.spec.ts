@@ -359,20 +359,26 @@ test('LVIEW, Team: an Instance ID opens the Agent details, and Escape returns to
   await expect(id(page, `team-pick-${agentId}`)).not.toBeChecked();
 });
 
-test('STVIEW, Trading: the Storage View buys through its trade bar, which is as wide as its table', async ({
+test('STVIEW, Trading: the Storage View buys through its trade panel, on the right of its table', async ({
   page,
 }) => {
   await newCampaign(page, 'storage-trade');
   await id(page, 'nav-storage').click();
   const ammo = id(page, 'storage-pistol_ammo');
   const ownedBefore = Number((await ammo.locator('td').nth(2).innerText()).replaceAll(',', ''));
-  await ammo.getByRole('button', { name: '+10', exact: true }).click();
-  // STVIEW, Trade count: a purchase shows as a signed count above 0.
-  await expect(id(page, 'trade-pistol_ammo').locator('input')).toHaveValue('+10');
+  const control = id(page, 'trade-pistol_ammo');
+  await control.getByRole('button', { name: 'Buy one more Pistol ammo' }).click({ modifiers: ['Shift'] });
+  await control.getByRole('button', { name: 'Buy one more Pistol ammo' }).click();
+  // STVIEW, Trade count: a purchase shows as a signed count above 0, and the left arrow buys one fewer.
+  await expect(control.locator('input')).toHaveValue('+11');
+  await control.getByRole('button', { name: 'Buy one fewer Pistol ammo' }).click();
+  await expect(control.locator('input')).toHaveValue('+10');
   await expect(id(page, 'trade-bar')).toContainText('10 Pistol ammo');
+  // STVIEW: the Storage View covers the whole screen, and the trade panel stands on the right of the table.
+  await expect(id(page, 'nav-storage')).toHaveCount(0);
   const table = await id(page, 'storage-table').boundingBox();
   const bar = await id(page, 'trade-bar').boundingBox();
-  expect(Math.round(bar?.width ?? 0)).toBe(Math.round(table?.width ?? -1));
+  expect(bar?.x ?? 0).toBeGreaterThanOrEqual((table?.x ?? 0) + (table?.width ?? 0));
   await id(page, 'trade').click();
   await expect(ammo.locator('td').nth(2)).toHaveText((ownedBefore + 10).toLocaleString('en-US'));
 });

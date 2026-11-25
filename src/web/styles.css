@@ -2262,15 +2262,15 @@ label:has(> input[type='checkbox']:disabled) {
   grid-template-columns: minmax(0, 1fr) 44px;
 }
 
-/* CSCR, Hiding the Side panel: while the Compendium View is open, the Side panel is left out and nothing stands in
+/* CSCR, Hiding the Side panel: while the Compendium View or the Storage View is open, the Side panel is left out and nothing stands in
    its place. */
 .campaign-body.side-none {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* VIS, Detail views and navigation: the Compendium View, which covers the whole screen, fills the window without the
+/* VIS, Detail views and navigation: the Compendium View and the Storage View, which cover the whole screen, fill the window without the
    inset and without the Accent top edge. */
-.campaign.compendium-open .detail-view {
+.campaign.whole-screen-open .detail-view {
   inset: 0;
   border-top: none;
 }
@@ -3542,24 +3542,46 @@ label:has(> input[type='checkbox']:disabled) {
   text-transform: uppercase;
 }
 
-.trade-bar {
-  position: sticky;
-  bottom: 0;
+/* STVIEW, Trading: the table on the left scrolls on its own, and the trade panel on its right runs the height of the
+   view, so that neither scrolls the other out of view. */
+.detail-body:has(> .storage-trade) {
   display: flex;
   flex-direction: column;
-  padding: 12px 14px;
-  margin-top: 14px;
-  border-top: 2px solid var(--accent);
-  background: var(--background);
-  gap: 8px;
+  overflow: hidden;
 }
 
-/* ACQVIEW, Buying, and STVIEW, Selling: every part starts at the bar's left edge, so a wide window keeps it near the table. */
+.storage-trade {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.storage-trade > .grid-scroll {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.trade-panel {
+  display: flex;
+  flex: 0 0 300px;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 14px;
+  border-left: 2px solid var(--accent);
+  background: var(--background);
+  gap: 10px;
+}
+
 .trade-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
-  gap: 16px;
+  gap: 8px 16px;
 }
 
 .trade-chosen {
@@ -3568,19 +3590,28 @@ label:has(> input[type='checkbox']:disabled) {
   gap: 2px;
 }
 
-/* STVIEW, Trading: the table and the trade bar under it share one width, the table's, so neither reaches past the
-   other; what is sold and what is bought stand side by side. */
-.storage-trade {
-  width: fit-content;
-  max-width: 100%;
-}
-
+/* STVIEW, Trading, item 1: Selling over Buying; a long list scrolls inside the panel, keeping the parts below in
+   view. */
 .trade-chosen-pair {
   display: flex;
-  gap: 48px;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  gap: 12px;
 }
 
-/* STVIEW, Trade count: "all", Sell, the signed count, Buy, and the bulk buttons on one line. */
+/* STVIEW, Storage table, Sell · Buy: "Sell" over the left of the column and "Buy" over its right. */
+.trade-head > span:last-child {
+  float: right;
+}
+
+.trade-sums > span {
+  white-space: nowrap;
+}
+
+/* STVIEW, Trade count: "all", the left arrow, the signed count, and the right arrow on one line. */
 .trade-control {
   display: inline-flex;
   align-items: center;
@@ -3599,7 +3630,7 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 .trade-count {
-  width: 64px;
+  width: 60px;
   height: 24px;
   box-sizing: border-box;
   border: 1px solid var(--border);

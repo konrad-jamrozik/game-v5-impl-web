@@ -246,6 +246,10 @@ function agentView(
     agentStatus: s.status,
     skillHundredths: s.skillHundredths,
     experience: s.experience,
+    trainingSkillGainHundredths: Math.max(
+      0,
+      s.skillHundredths - gdrs.agentArchetype.skill * 100 - s.experience * 100,
+    ),
     effectiveSkill: effectiveSkill(values, gdrs.agentParameters),
     currentHealthHundredths: values.currentHealthHundredths,
     healthLostHundredths: s.healthLostHundredths,

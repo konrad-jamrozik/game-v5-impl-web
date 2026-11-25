@@ -82,12 +82,12 @@ async function expectFits(page: Page, screen: string): Promise<void> {
 }
 
 /**
- * Opens a Detail view from the Side panel unless it is open. CSCR, Hiding the Side panel: the Compendium View leaves the
- * Side panel out, so it is closed first.
+ * Opens a Detail view from the Side panel unless it is open. CSCR, Hiding the Side panel: the Compendium View and the
+ * Storage View leave the Side panel out, so either is closed first.
  */
 async function open(page: Page, viewId: string): Promise<void> {
   if ((await view(page, viewId).count()) === 0) {
-    if ((await view(page, 'compendium').count()) > 0) {
+    if ((await view(page, 'compendium').count()) > 0 || (await view(page, 'storage').count()) > 0) {
       await page.keyboard.press('Escape');
     }
     await id(page, `nav-${viewId}`).click();
