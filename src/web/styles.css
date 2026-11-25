@@ -3567,8 +3567,9 @@ label:has(> input[type='checkbox']:disabled) {
 
 .trade-panel {
   display: flex;
-  flex: 0 0 300px;
+  flex: 1 1 300px;
   flex-direction: column;
+  min-width: 300px;
   min-height: 0;
   padding: 12px 14px;
   border-left: 2px solid var(--accent);
@@ -3586,16 +3587,18 @@ label:has(> input[type='checkbox']:disabled) {
 
 .trade-chosen {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
+  min-width: 0;
   gap: 2px;
 }
 
-/* STVIEW, Trading, item 1: Selling over Buying; a long list scrolls inside the panel, keeping the parts below in
-   view. */
+/* STVIEW, Trading, item 4: Selling beside Buying, last in the panel; a long list scrolls inside it. */
 .trade-chosen-pair {
   display: flex;
-  flex: 0 1 auto;
-  flex-direction: column;
+  flex: 1 1 auto;
+  flex-direction: row;
+  align-items: flex-start;
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: thin;

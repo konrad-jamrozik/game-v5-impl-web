@@ -1,9 +1,10 @@
 /**
- * BASICAI (Basic Autopilot AI): a sound, cautious player. It reaches the game only through Player API, decides each
- * Player action from the current Player-visible information alone, and keeps no plan across turns. It splits the roster
- * into the Agent reserve, the Investigators, and the Contractors, deploys and musters teams, and buys in a fixed cycle.
- * When no step of its Turn routine has a Player action left to make, it requests Advance turn, which the engine
- * withholds under the Autopilot limits `singleAction` and `turnActions`.
+ * BASICAI (Basic Autopilot AI): it races the Factions' clock. It reaches the game only through Player API, decides each
+ * Player action from the current Player-visible information alone, and keeps no plan across Turns. Its Strike team, the
+ * strongest Agents the Transport cap carries, stays in base sized to the Strike goal; while it falls short, money buys
+ * it strength. Every other Agent researches or earns. When no step of its Turn routine has a Player action left to
+ * make, it requests Advance turn, which the engine withholds under the Autopilot limits `singleAction` and
+ * `turnActions`.
  */
 import type {
   AgentView,
@@ -11,88 +12,35 @@ import type {
   CommitOutcome,
   CurrentLiveWorldStateView,
   GameDataView,
-  LeadView,
+  ItemEntryView,
   MissionSiteView,
   PlayerApi,
   Result,
   WorldStateChanges,
 } from '../../engine/player-api.ts';
 import { applyWorldStateChanges, type WorldStateViews } from '../world-state-changes.ts';
-
-/** BASICAI, Tuning parameters. */
-export interface BasicAiThresholds {
-  /** Reserve share: the Reserve quota, as a Percent value of the Roster size, rounded down. */
-  readonly reserveSharePct: number;
-  /** Investigator share: the Investigator quota, as a Percent value of the Roster size, rounded down. */
-  readonly investigatorSharePct: number;
-  /** Cap share: the least Transport cap and Training cap, each as a Percent value of the Agent cap. */
-  readonly capSharePct: number;
-  /** Savings floor: Turns of the projected upkeep the Agency would have after a purchase. */
-  readonly savingsFloorTurns: number;
-  /**
-   * Combat margin: the Combat rating a Winning team needs while no Mission of the same MissionSiteArchetype is Lost,
-   * as a Percent value of the Enemies' Combat rating.
-   */
-  readonly combatMarginPct: number;
-  /** Loss margin step: percentage points each Lost Mission of a MissionSiteArchetype adds for later Mission sites. */
-  readonly lossMarginStepPct: number;
-  /** Enemies per Agent: how many Enemies one Agent of a team answers for. */
-  readonly enemiesPerAgent: number;
-  /** Recovery lookahead: Advance turns of recovery over which an Agent of the Agent reserve is projected. */
-  readonly recoveryLookaheadTurns: number;
-  /**
-   * Upgrade weights: the weight of each Other Upgrade in the rotation, by Upgrade ID; an Upgrade it does not name has
-   * weight 1, and one with weight 0 is never bought.
-   */
-  readonly upgradeWeights: Readonly<Record<string, number>>;
-}
-
-/**
- * BASICAI, Glossary, Required rating share: the Combat margin plus the Loss margin step for each Lost Mission at a
- * Mission site of the MissionSiteArchetype, as a Percent value. Every Lost Mission counts, whoever deployed its team,
- * because the Player-visible Missions do not say who did.
- */
-export function requiredRatingSharePct(
-  thresholds: Pick<BasicAiThresholds, 'combatMarginPct' | 'lossMarginStepPct'>,
-  missionSites: readonly { readonly id: string; readonly archetype: string }[],
-  missions: readonly { readonly missionSite: string; readonly lifecycle: string }[],
-  archetype: string,
-): number {
-  const archetypeOf = new Map(missionSites.map((site) => [site.id, site.archetype] as const));
-  const lost = missions.filter(
-    (mission) => mission.lifecycle === 'Lost' && archetypeOf.get(mission.missionSite) === archetype,
-  ).length;
-  return thresholds.combatMarginPct + thresholds.lossMarginStepPct * lost;
-}
-
-/** BASICAI, Glossary, Winning team: its Combat rating is at least the share of the Enemies'. */
-export function meetsRequiredShare(teamRating: number, enemiesRating: number, requiredPct: number): boolean {
-  return teamRating * 100 >= enemiesRating * requiredPct;
-}
-
-/** BASICAI, Game designer values. */
-export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
-  reserveSharePct: 35,
-  investigatorSharePct: 5,
-  capSharePct: 25,
-  savingsFloorTurns: 5,
-  combatMarginPct: 110,
-  lossMarginStepPct: 5,
-  enemiesPerAgent: 2.5,
-  recoveryLookaheadTurns: 2,
-  upgradeWeights: { training_skill_gain: 2, exhaustion_recovery: 2, health_recovery: 2 },
-};
+import {
+  decimal,
+  memberWeight,
+  ratingOf,
+  ratingParameters,
+  sideRating,
+  type RatedMember,
+  type RatingParameters,
+} from './rating.ts';
+import { leadsToInvestigate, makePlan, type Plan } from './strategy.ts';
+import {
+  agentsNeeded,
+  BASIC_AI_THRESHOLDS,
+  meetsRequiredShare,
+  requiredRatingSharePct,
+  type BasicAiThresholds,
+} from './tuning.ts';
 
 /** Thrown inside a step when the Autopilot engagement has ended, so that the step makes no further call. */
 class EngagementOver extends Error {}
 
 const ceilDiv = (a: number, b: number): number => Math.floor((a + b - 1) / b);
-
-/** A decimal text of GameDataView, e.g. "0.85", as a number. */
-const decimal = (text: string | undefined, fallback: number): number => {
-  const value = Number(text);
-  return Number.isFinite(value) ? value : fallback;
-};
 
 /**
  * One Agent as a team member: the effective skill and exhaustion it is judged by, and in how many Advance turns it is
@@ -104,11 +52,11 @@ interface Candidate {
   readonly effectiveSkill: number;
   readonly exhaustion: number;
   readonly turns: number;
-  /** 0 for a Deployable Agent now, 1 for an Agent of the Agent reserve that becomes one later, 2 for a Contractor. */
+  /** 0 for a Deployable Agent now, 1 for a Projected Agent that becomes one later, 2 for a Contractor. */
   readonly group: number;
 }
 
-/** BASICAI, Choosing Agents: the lowest exhaustion first, then the highest effective skill, then roster order. */
+/** BASICAI, Deploying and mustering: the lowest exhaustion first, then the highest effective skill, then roster order. */
 const byDeployPreference = (a: Candidate, b: Candidate): number =>
   a.group - b.group ||
   a.exhaustion - b.exhaustion ||
@@ -118,7 +66,13 @@ const byDeployPreference = (a: Candidate, b: Candidate): number =>
 /** BASICAI, Glossary, Muster: its members and the Contractors among them that are recalled now. */
 type Muster = { readonly agents: ReadonlySet<string>; readonly recall: readonly string[] } | null;
 
-const isCapEffect = (effect: string): boolean => effect.endsWith('_cap');
+const RATE_EFFECTS = ['training_skill_gain', 'exhaustion_recovery', 'health_recovery'];
+
+/** What one pass of the Turn routine reads: the World state, the plan derived from it, and the Muster. */
+interface Pass {
+  readonly plan: Plan;
+  readonly muster: Muster;
+}
 
 class Turn {
   private readonly player: PlayerApi;
@@ -126,11 +80,17 @@ class Turn {
   private readonly data: GameDataView;
   /** Player actions that were rejected this turn; they are not retried. */
   private readonly rejected = new Set<string>();
+  private readonly rating: RatingParameters;
+  /** Whether a purchase due did not fit this Turn, so that nothing else is bought. */
+  private saving = false;
+  /** Whether a health recovery Upgrade was bought this Turn. */
+  private healthBought = false;
 
   constructor(player: PlayerApi, thresholds: BasicAiThresholds) {
     this.player = player;
     this.t = thresholds;
     this.data = this.unwrap(player.queries.getGameData());
+    this.rating = ratingParameters(this.data);
   }
 
   private unwrap<T>(result: Result<T>): T {
@@ -145,7 +105,7 @@ class Turn {
 
   /**
    * BASICAI, Information: both World state query results, read at the start of each step of the Turn routine and
-   * kept current within it from the changes each Player action returns; none until the next read.
+   * kept current within it from the changes each Player action returns.
    */
   private views: WorldStateViews | null = null;
   /** The last step of the Turn routine whose start read the World state, so that each later step reads it again. */
@@ -187,61 +147,58 @@ class Turn {
     return false;
   }
 
-  // ---- Agent groups -------------------------------------------------------------------------------
-
-  /** BASICAI, Glossary, Agent reserve: Standby, Training, Recovery, or Deployed, In transit or not. */
-  private inReserve(agent: AgentView): boolean {
-    const kind = agent.assignment?.kind;
-    return kind === 'Standby' || kind === 'Training' || kind === 'Recovery' || kind === 'Deployed';
-  }
-
-  private reserve(state: CurrentLiveWorldStateView): AgentView[] {
-    return state.agents.filter((agent) => this.inReserve(agent));
-  }
-
-  private count(state: CurrentLiveWorldStateView, kind: string): number {
-    return state.agents.filter((agent) => agent.assignment?.kind === kind).length;
-  }
-
-  /** BASICAI, Glossary, Reserve quota. */
-  private reserveQuota(state: CurrentLiveWorldStateView): number {
-    return Math.floor((state.agency.servingAgents * this.t.reserveSharePct) / 100);
-  }
+  // ---- Step 1: equip ------------------------------------------------------------------------------
 
   /**
-   * BASICAI, Glossary, Investigator quota: the Investigator share of the Roster size, rounded down, but at least 1 while
-   * the Roster size is at least 1 and the share is above 0, so that a small roster still unlocks Contracting.
+   * BASICAI, Equipping: one equipAgent for the first Agent whose plan differs from what it wears. When the Item it is to
+   * wear is not in Storage, the Agent wearing it that is to wear something else first takes the fallback, which frees it.
    */
-  private investigatorQuota(state: CurrentLiveWorldStateView): number {
-    const share = Math.floor((state.agency.servingAgents * this.t.investigatorSharePct) / 100);
-    return this.t.investigatorSharePct > 0 && state.agency.servingAgents >= 1 ? Math.max(1, share) : share;
-  }
-
-  /**
-   * BASICAI, Glossary, Spare Agent: as many Agents of the Agent reserve as it exceeds the Reserve quota, from those Fit
-   * to start work, At assignment on Standby or Training, and not of the Muster; the lowest effective skill first, so
-   * the strongest stay in the Agent reserve.
-   */
-  private spareAgents(state: CurrentLiveWorldStateView, muster: Muster): AgentView[] {
-    const surplus = this.reserve(state).length - this.reserveQuota(state);
-    if (surplus <= 0) {
-      return [];
+  private async equip(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
+    const view = state.agency.equipment;
+    const serving = pass.plan.order
+      .map((agent) => state.agents.find((item) => item.id === agent.id))
+      .filter((agent): agent is AgentView => agent !== undefined);
+    for (const kind of ['weapon', 'armor'] as const) {
+      const worn = (agent: AgentView) => (kind === 'weapon' ? agent.weapon : agent.armor);
+      const target = (agent: AgentView) => {
+        const kit = pass.plan.storage.kit.get(agent.id);
+        const fallback = kind === 'weapon' ? view.fallbackWeapon : view.fallbackArmor;
+        return kit === undefined ? fallback : kind === 'weapon' ? kit.weapon : kit.armor;
+      };
+      const fallback = kind === 'weapon' ? view.fallbackWeapon : view.fallbackArmor;
+      for (const agent of serving) {
+        const share = target(agent);
+        if (worn(agent) === share) {
+          continue;
+        }
+        const stored = view.items.find((item) => item.id === share)?.available ?? 0;
+        if (share === fallback || stored > 0) {
+          if (
+            await this.act(`equip ${agent.id} ${share}`, () =>
+              this.player.actions.equipAgent(agent.id, share),
+            )
+          ) {
+            return true;
+          }
+          continue;
+        }
+        const wearer = serving.find(
+          (other) => other !== agent && worn(other) === share && target(other) !== share,
+        );
+        if (
+          wearer !== undefined &&
+          (await this.act(`equip ${wearer.id} ${fallback}`, () =>
+            this.player.actions.equipAgent(wearer.id, fallback),
+          ))
+        ) {
+          return true;
+        }
+      }
     }
-    return state.agents
-      .map((agent, index) => ({ agent, index }))
-      .filter(
-        ({ agent }) =>
-          agent.canTakeOrders &&
-          agent.fitForWork &&
-          (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
-          !(muster?.agents.has(agent.id) ?? false),
-      )
-      .sort((a, b) => a.agent.effectiveSkill - b.agent.effectiveSkill || a.index - b.index)
-      .slice(0, surplus)
-      .map((item) => item.agent);
+    return false;
   }
 
-  // ---- Projection and Combat rating ---------------------------------------------------------------
+  // ---- Step 2: deploy and muster ------------------------------------------------------------------
 
   /** AGENT, Effective skill, at full health: round down(skill × penalty factor / 100). */
   private effectiveSkillAt(agent: AgentView, exactExhaustionHundredths: number): number {
@@ -263,9 +220,9 @@ class Turn {
   }
 
   /**
-   * BASICAI, Glossary, Projected Agent: an Agent of the Agent reserve, other than a Deployed one, after the Recovery
-   * lookahead, recovering only in the Advance turns in which it is not In transit, at the Agency's current rates. Its
-   * turns are the first Advance turn after which it is a Deployable Agent, none when that is beyond the lookahead.
+   * BASICAI, Glossary, Projected Agent: an Agent on Standby, Training, or Recovery after the Recovery lookahead,
+   * recovering only in the Advance turns in which it is not In transit, at the Agency's current rates. Its turns are the
+   * first Advance turn after which it is a Deployable Agent, none when that is beyond the lookahead.
    */
   private projected(state: CurrentLiveWorldStateView, agent: AgentView, index: number): Candidate | null {
     const kind = agent.assignment?.kind;
@@ -300,8 +257,6 @@ class Turn {
     let turns: number | null = null;
     for (let h = 1; h <= lookahead; h += 1) {
       if (h > transit) {
-        // AGENT RECOVERY: Standby and Recovery recover exhaustion; Recovery also recovers health, and once health
-        // lost is 0 the Agent is on Standby.
         exact = Math.max(0, exact - state.agency.exhaustionRecoveryHundredths);
         if (healthLost > 0 && kind === 'Recovery') {
           healthLost = Math.max(0, healthLost - healthRate);
@@ -324,9 +279,8 @@ class Turn {
     };
   }
 
-  /** A Contractor as a Musterable Agent: Fit to start work, so its current values, after one Advance turn of transit. */
+  /** A Contractor as a member of a Muster: its current values, after one Advance turn of transit. */
   private contractor(agent: AgentView, index: number): Candidate {
-    // BASICAI, Choosing Agents: a Contractor counts with its own exhaustion, which its transit back leaves unchanged.
     return {
       agent,
       index,
@@ -337,34 +291,15 @@ class Turn {
     };
   }
 
-  /**
-   * COMBAT, Combat rating: ⌊n ^ (rating_team_size_exponent − 1) × Σ effective skill × rating factor⌋, with each rating
-   * factor half the sum of the attack, health, and armor terms. It rates projected values, which no Player API query
-   * previews.
-   */
-  private ratingOf(members: readonly Candidate[]): number {
-    if (members.length === 0) {
-      return 0;
-    }
-    const c = this.data.combatParameters;
-    const baseWeapon = decimal(c['ratingBaseWeaponDamage'], 1);
-    const baseHealth = decimal(c['ratingBaseHealth'], 1);
-    const baseArmor = decimal(c['ratingBaseArmor'], 1);
-    const exponent = decimal(c['ratingTeamSizeExponent'], 1);
-    const sum = members.reduce((total, member) => {
-      const factor =
-        (member.agent.effectiveWeaponDamage / baseWeapon +
-          member.agent.effectiveMaxHealth / baseHealth +
-          member.agent.effectiveArmor / baseArmor) /
-        2;
-      return total + member.effectiveSkill * factor;
-    }, 0);
-    return Math.floor(members.length ** (exponent - 1) * sum + 1e-9);
-  }
-
-  /** BASICAI, Glossary, Winning team: the least number of Agents for the Enemies. */
-  private needed(enemyCount: number): number {
-    return Math.max(1, Math.ceil(enemyCount / this.t.enemiesPerAgent - 1e-9));
+  /** The Combat rating of Candidates with the values they are judged by, as worn now. */
+  private candidateRating(members: readonly Candidate[]): number {
+    const rated: RatedMember[] = members.map((member) => ({
+      effectiveSkill: member.effectiveSkill,
+      weaponDamage: member.agent.effectiveWeaponDamage,
+      maxHealth: member.agent.effectiveMaxHealth,
+      armor: member.agent.effectiveArmor,
+    }));
+    return ratingOf(rated, this.rating);
   }
 
   /** The Required rating share of a MissionSiteArchetype, from the Retired Missions, where every Lost one is. */
@@ -378,10 +313,7 @@ class Turn {
     );
   }
 
-  /**
-   * A Winning team from `candidates`, taken in order until the team qualifies, or none when it does not within
-   * `places` Agents. `rate` gives a team's Combat rating.
-   */
+  /** A Winning team from `candidates`, taken in order until the team qualifies within `places` Agents. */
   private formTeam(
     candidates: readonly Candidate[],
     places: number,
@@ -390,7 +322,7 @@ class Turn {
     requiredPct: number,
     rate: (team: readonly Candidate[]) => number,
   ): Candidate[] | null {
-    const needed = this.needed(enemyCount);
+    const needed = agentsNeeded(enemyCount, this.t.enemiesPerAgent);
     const team: Candidate[] = [];
     for (const candidate of candidates) {
       if (team.length >= places) {
@@ -414,7 +346,7 @@ class Turn {
     ).teamCombatRating;
   }
 
-  /** The Deployable Agents now, in the order of BASICAI, Choosing Agents. */
+  /** The Deployable Agents now, in the order of BASICAI, Deploying and mustering. */
   private deployableNow(state: CurrentLiveWorldStateView): Candidate[] {
     return state.agents
       .map((agent, index) => ({ agent, index }))
@@ -431,9 +363,8 @@ class Turn {
   }
 
   /**
-   * A Winning team of Deployable Agents for a Mission site from their current values, within the free Transport cap.
-   * The Agents are taken in the order of preference; when that order fits no Winning team within the Transport cap,
-   * the strongest are taken first, because a Winning team can then still be formed.
+   * A Winning team of Deployable Agents for a Mission site, within the free Transport cap: in the order of preference,
+   * or, when that fits no Winning team, the strongest first.
    */
   private deployTeam(state: CurrentLiveWorldStateView, site: MissionSiteView): string[] | null {
     const places = state.agency.transportCap - state.agency.deployedAgents;
@@ -456,15 +387,21 @@ class Turn {
     return null;
   }
 
-  /** Active Mission sites to which no team is deployed, most urgent first. */
+  /**
+   * BASICAI, Deploying and mustering: Active Mission sites without a team, Response ones first, the one whose loss costs
+   * most first, then Initiative ones; among equals the one that expires soonest.
+   */
   private sitesByUrgency(state: CurrentLiveWorldStateView): MissionSiteView[] {
-    const urgency = (site: MissionSiteView) => (site.kind === 'Response' ? 0 : 1);
+    const kind = (site: MissionSiteView) => (site.kind === 'Response' ? 0 : 1);
     return state.missionSites
       .filter((site) => site.lifecycle === 'Active')
       .map((site, index) => ({ site, index }))
       .sort(
         (a, b) =>
-          urgency(a.site) - urgency(b.site) ||
+          kind(a.site) - kind(b.site) ||
+          Number(b.site.penalties.defeat) - Number(a.site.penalties.defeat) ||
+          b.site.penalties.panicIncreaseHundredths - a.site.penalties.panicIncreaseHundredths ||
+          a.site.penalties.fundingChange - b.site.penalties.fundingChange ||
           a.site.turnsUntilExpiration - b.site.turnsUntilExpiration ||
           a.index - b.index,
       )
@@ -473,10 +410,9 @@ class Turn {
 
   /**
    * BASICAI, Deploying and mustering, Muster: for the most urgent Initiative Mission site to which no team can be
-   * deployed now, a Winning team of Musterable Agents whose last member becomes a Deployable Agent within the Recovery
-   * lookahead and before the Mission site expires: the Deployable Agents first, then the Agents of the Agent reserve
-   * that become Deployable Agents soonest, then Contractors. Its Contractors are recalled only when every other member
-   * is a Deployable Agent within one Advance turn. It is derived anew from the current state for every Player action.
+   * deployed now, a Winning team of Projected Agents and Contractors whose last member becomes a Deployable Agent within
+   * the Recovery lookahead and before the Mission site expires. Its Contractors are recalled only when every other
+   * member is a Deployable Agent within one Advance turn.
    */
   private muster(state: CurrentLiveWorldStateView): Muster {
     const places = state.agency.transportCap - state.agency.deployedAgents;
@@ -501,7 +437,7 @@ class Turn {
         site.enemies.length,
         site.enemiesCombatRating,
         this.requiredPct(state, site.archetype),
-        (members) => this.ratingOf(members),
+        (members) => this.candidateRating(members),
       );
       if (team === null) {
         continue;
@@ -515,14 +451,8 @@ class Turn {
     return null;
   }
 
-  // ---- Turn routine -------------------------------------------------------------------------------
-  //
-  // Each step makes at most one Player action and reports whether it made one. After every Player action the
-  // routine starts again from its first step, so each Player action is decided from the current Player-visible
-  // information alone, and the Basic Autopilot AI plays the same way whatever its Autopilot limit is.
-
-  /** Step 1: deploy a Winning team of Deployable Agents, most urgent first; then recall the Muster's Contractors. */
-  private async deployAndMuster(state: CurrentLiveWorldStateView, muster: Muster): Promise<boolean> {
+  /** Step 2: deploy a Winning team of Deployable Agents, most urgent first. */
+  private async deploy(state: CurrentLiveWorldStateView): Promise<boolean> {
     for (const site of this.sitesByUrgency(state)) {
       const team = this.deployTeam(state, site);
       if (
@@ -532,119 +462,93 @@ class Turn {
         return true;
       }
     }
-    for (const id of muster?.recall ?? []) {
-      if (await this.act(`muster ${id}`, () => this.player.actions.assignAgents([id], 'Standby'))) {
-        return true;
-      }
-    }
     return false;
   }
 
-  /** Step 2: while the Agent reserve is below the Reserve quota, recall the most skilled Contractor. */
-  private async refillReserve(state: CurrentLiveWorldStateView): Promise<boolean> {
-    if (this.reserve(state).length >= this.reserveQuota(state)) {
-      return false;
-    }
-    const candidates = state.agents
-      .map((agent, index) => ({ agent, index }))
-      .filter(({ agent }) => agent.assignment?.kind === 'Contracting' && agent.canTakeOrders)
-      .sort((a, b) => b.agent.effectiveSkill - a.agent.effectiveSkill || a.index - b.index)
-      .map((item) => item.agent);
-    for (const agent of candidates) {
-      if (
-        await this.act(`recall ${agent.id}`, () => this.player.actions.assignAgents([agent.id], 'Standby'))
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }
+  // ---- Step 3: Strike team ------------------------------------------------------------------------
 
-  /**
-   * BASICAI, Choosing Leads: a Lead that creates no Mission site is always worth investigating; one that creates a
-   * Mission site only when a Winning team of Musterable Agents could be formed for it, with the whole Transport cap
-   * and no regard to timing.
-   */
-  private worthInvestigating(state: CurrentLiveWorldStateView, lead: LeadView): boolean {
-    if (lead.createsMissionSite === null) {
+  /** Step 3: recall the Contractors of a Muster that is due, then those of the Strike team. */
+  private async recall(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
+    const atWork = (id: string) => {
+      const agent = state.agents.find((item) => item.id === id);
+      return agent !== undefined && agent.canTakeOrders && agent.assignment?.kind === 'Contracting';
+    };
+    const muster = (pass.muster?.recall ?? []).filter(atWork);
+    if (
+      muster.length > 0 &&
+      (await this.act(`muster ${muster.join(',')}`, () =>
+        this.player.actions.assignAgents(muster, 'Standby'),
+      ))
+    ) {
       return true;
     }
-    const archetype = this.data.missionSiteArchetypes.find((item) => item.id === lead.createsMissionSite);
-    if (archetype === undefined) {
-      return false;
-    }
-    const musterable = [
-      ...state.agents
-        .map((agent, index) => this.projected(state, agent, index))
-        .filter((item): item is Candidate => item !== null),
-      ...state.agents
-        .map((agent, index) => ({ agent, index }))
-        .filter(({ agent }) => agent.assignment?.kind === 'Contracting')
-        .map(({ agent, index }) => this.contractor(agent, index)),
-    ].sort((a, b) => byDeployPreference({ ...a, group: 0 }, { ...b, group: 0 }));
-    const enemyCount = archetype.enemies.reduce((sum, entry) => sum + entry.count, 0);
+    const strike = pass.plan.strike.map((agent) => agent.id).filter(atWork);
     return (
-      this.formTeam(
-        musterable,
-        state.agency.transportCap,
-        enemyCount,
-        archetype.enemiesCombatRating,
-        this.requiredPct(state, archetype.id),
-        (members) => this.ratingOf(members),
-      ) !== null
+      strike.length > 0 &&
+      (await this.act(`strike ${strike.join(',')}`, () =>
+        this.player.actions.assignAgents(strike, 'Standby'),
+      ))
     );
   }
 
+  // ---- Steps 4 and 5: roles -----------------------------------------------------------------------
+
   /**
-   * Step 3: while the Investigators are fewer than the Investigator quota, send Spare Agents to an Active
-   * Investigation, or else start an Investigation of the best Lead worth investigating.
+   * BASICAI, Glossary, Free Agent: Fit to start work, At assignment on Standby or Training, and neither of the Strike team
+   * nor of the Muster; the highest effective skill first.
    */
-  private async investigate(state: CurrentLiveWorldStateView, muster: Muster): Promise<boolean> {
-    const short = this.investigatorQuota(state) - this.count(state, 'Investigation');
-    const spares = this.spareAgents(state, muster);
-    const count = Math.min(short, spares.length);
-    if (count <= 0) {
+  private freeAgents(state: CurrentLiveWorldStateView, pass: Pass): AgentView[] {
+    return state.agents
+      .map((agent, index) => ({ agent, index }))
+      .filter(
+        ({ agent }) =>
+          agent.canTakeOrders &&
+          agent.fitForWork &&
+          (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
+          !pass.plan.strikeIds.has(agent.id) &&
+          !(pass.muster?.agents.has(agent.id) ?? false),
+      )
+      .sort((a, b) => b.agent.effectiveSkill - a.agent.effectiveSkill || a.index - b.index)
+      .map((item) => item.agent);
+  }
+
+  /**
+   * Step 4, BASICAI, Roles and Choosing Leads: one Investigation team first; further teams only from the Free Agents
+   * that Contracting leaves. An Active Investigation below the Research team size is reinforced before another starts.
+   */
+  private async research(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
+    const size = this.t.researchTeamSize;
+    if (size <= 0) {
       return false;
     }
-    const team = spares.slice(0, count).map((agent) => agent.id);
-    // Effort is concentrated: an Active Investigation receives Agents before another Lead is started. Whether its
-    // Lead is worth investigating was judged when it started.
-    const [active] = state.investigations;
-    if (active !== undefined) {
-      return this.act(`join ${active.id}`, () =>
-        this.player.actions.assignAgentsToInvestigation(active.id, team),
-      );
+    const free = this.freeAgents(state, pass);
+    const researchers = state.agents.filter((agent) => agent.assignment?.kind === 'Investigation').length;
+    const contractingPlaces = Math.max(0, state.agency.contractingCap - state.agency.contractingAgents);
+    const allowance = Math.min(
+      free.length,
+      researchers < size ? size - researchers : Math.max(0, free.length - contractingPlaces),
+    );
+    if (allowance <= 0) {
+      return false;
     }
-    const retired = this.retiredState();
-    // A Lead whose completion wins the Campaign comes first, then one whose completion makes a Faction Eliminated,
-    // directly or through a Won Mission at the Mission site it creates, then the one furthest along its Faction's
-    // chain, read as its Initiative operation level; a Lead with no level comes after every Lead with one.
-    const eliminates = (lead: LeadView): boolean =>
-      lead.eliminatesFaction ||
-      this.data.missionSiteArchetypes.find((item) => item.id === lead.createsMissionSite)?.onWin
-        ?.eliminatesTargetFaction === true;
-    const wonSites = new Set(
-      retired.missions.filter((mission) => mission.lifecycle === 'Won').map((mission) => mission.missionSite),
-    );
-    const missionWon = new Set(
-      retired.missionSites
-        .filter((site) => site.lead !== null && wonSites.has(site.id))
-        .map((site) => site.lead),
-    );
-    const chainPosition = (lead: LeadView): number => lead.initiativeOperationLevel ?? -1;
-    // BASICAI, Choosing Leads: after one that wins the Campaign comes one that unlocks Contracting.
-    const rank = (lead: LeadView): number =>
-      lead.winsCampaign ? 3 : lead.unlocksContracting ? 2 : eliminates(lead) ? 1 : 0;
-    const leads = [...retired.leads].sort((a, b) => rank(b) - rank(a) || chainPosition(b) - chainPosition(a));
-    // A Lead a Mission from which was already Won is investigated again only when no other Lead qualifies.
-    const ordered = [
-      ...leads.filter((lead) => !missionWon.has(lead.id)),
-      ...leads.filter((lead) => missionWon.has(lead.id)),
-    ];
-    for (const lead of ordered) {
-      if (!lead.canBeInvestigatedNow || !this.worthInvestigating(state, lead)) {
-        continue;
+    for (const investigation of state.investigations) {
+      const missing = size - investigation.currentTeam.length;
+      if (missing > 0) {
+        const team = free.slice(0, Math.min(allowance, missing)).map((agent) => agent.id);
+        if (
+          await this.act(`join ${investigation.id} ${team.join(',')}`, () =>
+            this.player.actions.assignAgentsToInvestigation(investigation.id, team),
+          )
+        ) {
+          return true;
+        }
       }
+    }
+    if (state.investigations.length >= this.t.mostInvestigations) {
+      return false;
+    }
+    const team = free.slice(0, Math.min(allowance, size)).map((agent) => agent.id);
+    for (const lead of leadsToInvestigate(pass.plan, state, this.retiredState(), this.data, this.t)) {
       if (await this.act(`start ${lead.id}`, () => this.player.actions.startInvestigation(lead.id, team))) {
         return true;
       }
@@ -653,173 +557,355 @@ class Turn {
   }
 
   /**
-   * Step 4: every remaining Spare Agent to Contracting; then the Agents of the Agent reserve that are Fit to start work
-   * and At assignment on Standby to Training while the Training cap has a place, the lowest base skill first.
+   * Step 5: Free Agents to Contracting while the Contracting cap has a place; then the Agents on Standby that are Fit to
+   * start work to Training while the Training cap has a place, the Strike team first, then the lowest base skill.
    */
-  private async contractAndTrain(state: CurrentLiveWorldStateView, muster: Muster): Promise<boolean> {
-    // BASICAI, Turn routine, step 4: only as many as the Contracting cap has places left.
-    const contractingPlaces = Math.max(0, state.agency.contractingCap - state.agency.contractingAgents);
-    const spares = this.spareAgents(state, muster)
-      .slice(0, contractingPlaces)
+  private async contractAndTrain(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
+    const places = Math.max(0, state.agency.contractingCap - state.agency.contractingAgents);
+    const contract = this.freeAgents(state, pass)
+      .slice(0, places)
       .map((agent) => agent.id);
     if (
-      spares.length > 0 &&
-      (await this.act(`contract ${spares.join(',')}`, () =>
-        this.player.actions.assignAgents(spares, 'Contracting'),
+      contract.length > 0 &&
+      (await this.act(`contract ${contract.join(',')}`, () =>
+        this.player.actions.assignAgents(contract, 'Contracting'),
       ))
     ) {
       return true;
     }
-    const places = Math.max(0, state.agency.trainingCap - state.agency.trainingAgents);
-    const toTraining = state.agents
+    const trainingPlaces = Math.max(0, state.agency.trainingCap - state.agency.trainingAgents);
+    const strikeRank = new Map(pass.plan.strike.map((agent, index) => [agent.id, index]));
+    const train = state.agents
       .map((agent, index) => ({ agent, index }))
       .filter(
         ({ agent }) =>
           agent.canTakeOrders &&
           agent.fitForWork &&
           agent.assignment?.kind === 'Standby' &&
-          !(muster?.agents.has(agent.id) ?? false),
+          !(pass.muster?.agents.has(agent.id) ?? false),
       )
-      .sort((a, b) => a.agent.skillHundredths - b.agent.skillHundredths || a.index - b.index)
-      .slice(0, places)
+      .sort(
+        (a, b) =>
+          (strikeRank.get(a.agent.id) ?? Infinity) - (strikeRank.get(b.agent.id) ?? Infinity) ||
+          a.agent.skillHundredths - b.agent.skillHundredths ||
+          a.index - b.index,
+      )
+      .slice(0, trainingPlaces)
       .map((item) => item.agent.id);
     return (
-      toTraining.length > 0 &&
-      (await this.act(`train ${toTraining.join(',')}`, () =>
-        this.player.actions.assignAgents(toTraining, 'Training'),
-      ))
+      train.length > 0 &&
+      (await this.act(`train ${train.join(',')}`, () => this.player.actions.assignAgents(train, 'Training')))
     );
   }
 
-  /**
-   * Step 5, BASICAI, Purchases: the first purchase due in the list Other Upgrades, supporting caps, hire, Agent cap,
-   * made only when money stays at or above the Savings floor after it; when the first one due does not fit, nothing
-   * more is bought this Turn.
-   */
-  private async purchase(state: CurrentLiveWorldStateView): Promise<boolean> {
-    const agency = state.agency;
-    const upkeepPerAgent = this.data.economy['upkeepPerAgent'] ?? 0;
-    const affordable = (price: number, upkeepAfter: number): boolean =>
-      agency.money - price >= this.t.savingsFloorTurns * upkeepAfter;
-    const buy = async (id: string, price: number): Promise<boolean> =>
-      affordable(price, agency.projectedUpkeep) &&
-      (await this.act(`buy ${id}`, () => this.player.actions.purchaseUpgrade(id)));
-    const ofEffect = (effect: string) =>
-      [...agency.upgrades]
-        .filter((item) => item.effect === effect && item.incrementHundredths > 0)
-        .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price)[0];
+  // ---- Step 6: purchases --------------------------------------------------------------------------
 
-    // 1. Ammo: each AmmoType a Serving Agent's Weapon uses, brought up to twice what Ammo short asks for, in one
-    // buyItems. An AmmoType that is not Unlocked cannot be bought.
-    const ammo = agency.equipment.items
-      .filter((item) => item.kind === 'ammo' && item.unlocked && item.ammoAgents > 0)
-      .filter((item) => item.available < 2 * item.ammoNeeded)
-      .map((item) => ({ id: item.id, count: 2 * item.ammoNeeded - item.available, price: item.price }));
+  private affordable(state: CurrentLiveWorldStateView, cost: number, upkeepAfter: number): boolean {
+    return state.agency.money - cost >= this.t.savingsFloorTurns * upkeepAfter;
+  }
+
+  /** Buys when money stays at or above the Savings floor; otherwise saves for it and buys nothing else this Turn. */
+  private async buy(
+    state: CurrentLiveWorldStateView,
+    key: string,
+    cost: number,
+    upkeepAfter: number,
+    action: () => Promise<Result<CommitOutcome>>,
+  ): Promise<boolean> {
+    if (!this.affordable(state, cost, upkeepAfter)) {
+      this.saving = true;
+      return false;
+    }
+    if (await this.act(key, action)) {
+      return true;
+    }
+    // A rejected purchase is not retried; the next one due is read on the next pass.
+    return false;
+  }
+
+  private upgradeOf(state: CurrentLiveWorldStateView, effect: string) {
+    return [...state.agency.upgrades]
+      .filter((item) => item.effect === effect && item.incrementHundredths > 0)
+      .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price)[0];
+  }
+
+  /** The best Unlocked Weapon whose `price` is at most the Sidearm price, or none. */
+  private sidearm(state: CurrentLiveWorldStateView) {
+    return state.agency.equipment.items
+      .filter((item) => item.kind === 'weapon' && item.unlocked && item.price <= this.t.sidearmPrice)
+      .sort((a, b) => (b.stat ?? 0) - (a.stat ?? 0) || a.price - b.price)[0];
+  }
+
+  /** Step 6, BASICAI, Purchases: the first purchase due. */
+  private async purchase(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
+    if (this.saving) {
+      return false;
+    }
+    const agency = state.agency;
+    const equipment = agency.equipment;
+    const upkeepPerAgent = this.data.economy['upkeepPerAgent'] ?? 0;
+    const per = equipment.ammoShortRoundsPerAgent;
+    const plan = pass.plan;
+
+    // 1. Ammo: each Unlocked AmmoType up to the Ammo reserve times its Ammo need under the Buying plan.
+    const ammo = equipment.items
+      .filter((item) => item.kind === 'ammo' && item.unlocked)
+      .map((item) => ({ item, want: this.t.ammoReserve * per * (plan.buying.carriers.get(item.id) ?? 0) }))
+      .filter(({ item, want }) => item.available < want)
+      .map(({ item, want }) => ({ id: item.id, count: want - item.available, price: item.price }));
     if (ammo.length > 0) {
       const cost = ammo.reduce((sum, item) => sum + item.price * item.count, 0);
-      return (
-        affordable(cost, agency.projectedUpkeep) &&
-        (await this.act(`ammo ${ammo.map((item) => item.id).join(',')}`, () =>
-          this.player.actions.buyItems(ammo.map(({ id, count }) => ({ id, count }))),
-        ))
+      const entries: ItemEntryView[] = ammo.map(({ id, count }) => ({ id, count }));
+      return this.buy(
+        state,
+        `ammo ${entries.map((e) => `${e.id}:${e.count}`).join(',')}`,
+        cost,
+        agency.projectedUpkeep,
+        () => this.player.actions.buyItems(entries),
       );
     }
 
-    // 2. Other Upgrades, up to the Upgrade budget.
-    const agentCapUpgrade = ofEffect('agent_cap');
-    const agentCapBought = agency.upgrades
-      .filter((item) => item.effect === 'agent_cap')
-      .reduce((sum, item) => sum + item.acquisitions, 0);
-    const budget = (agentCapUpgrade?.price ?? 0) * agentCapBought;
-    const others = agency.upgrades.filter((item) => !isCapEffect(item.effect));
-    const spent = others.reduce((sum, item) => sum + item.price * item.acquisitions, 0);
-    const weight = (id: string): number => this.t.upgradeWeights[id] ?? 1;
-    const next = others
-      .filter((item) => item.incrementHundredths > 0 && weight(item.id) > 0 && item.price <= budget - spent)
-      .map((item) => ({ item, due: (item.acquisitions + 1) / weight(item.id) }))
-      .sort((a, b) => a.due - b.due || a.item.price - b.item.price)
-      .map(({ item }) => item)[0];
-    if (next !== undefined) {
-      return buy(next.id, next.price);
+    // 2. Sidearms for every Agent the Buying plan leaves with the Fallback Weapon.
+    const unarmed = plan.order.filter(
+      (agent) => plan.buying.kit.get(agent.id)?.weapon === equipment.fallbackWeapon,
+    ).length;
+    const sidearm = this.sidearm(state);
+    if (unarmed > 0 && sidearm !== undefined) {
+      return this.buy(
+        state,
+        `sidearms ${sidearm.id}:${unarmed}`,
+        sidearm.price * unarmed,
+        agency.projectedUpkeep,
+        () => this.player.actions.buyItems([{ id: sidearm.id, count: unarmed }]),
+      );
     }
-    // 3. Supporting caps: the Transport cap first, then the Training cap.
-    for (const [cap, effect] of [
-      [agency.transportCap, 'transport_cap'],
-      [agency.trainingCap, 'training_cap'],
-    ] as const) {
-      if (cap * 100 < agency.agentCap * this.t.capSharePct) {
-        const upgrade = ofEffect(effect);
-        return upgrade !== undefined && buy(upgrade.id, upgrade.price);
-      }
-    }
-    // 4. Hire up to the Agent cap, in one hireAgents: as many as hiring one at a time would, each one judged against
-    // the Savings floor with the upkeep of every Agent hired so far and itself.
-    if (agency.servingAgents < agency.agentCap) {
-      let count = 0;
-      while (
-        agency.servingAgents + count < agency.agentCap &&
-        affordable((count + 1) * agency.hireCost, agency.projectedUpkeep + (count + 1) * upkeepPerAgent)
-      ) {
-        count += 1;
-      }
-      return count > 0 && (await this.act('hire', () => this.player.actions.hireAgents(count)));
-    }
-    // 5. Raise the Agent cap.
-    return agentCapUpgrade !== undefined && buy(agentCapUpgrade.id, agentCapUpgrade.price);
-  }
 
-  /**
-   * Step 5, BASICAI, Equipping: for Weapons and then Armors, every Item worn or in Storage, from the highest number
-   * down, goes to the Serving Agents from the highest effective skill down, ties by the lower Instance ID; Agents
-   * beyond the Items keep the fallback. It makes one equipAgent per call: the first Agent whose share differs gets it
-   * from Storage, or, when another Agent wears it, that Agent first takes the fallback, which frees it.
-   */
-  private async equip(state: CurrentLiveWorldStateView): Promise<boolean> {
-    const view = state.agency.equipment;
-    const number = (id: string) => Number(id.slice(id.lastIndexOf('-') + 1));
-    const serving = state.agents
-      .filter((agent) => agent.agentStatus !== 'Killed' && agent.agentStatus !== 'Dismissed')
-      .sort((x, y) => y.effectiveSkill - x.effectiveSkill || number(x.id) - number(y.id));
-    for (const kind of ['weapon', 'armor'] as const) {
-      const worn = (agent: (typeof serving)[number]) => (kind === 'weapon' ? agent.weapon : agent.armor);
-      const fallback = kind === 'weapon' ? view.fallbackWeapon : view.fallbackArmor;
-      const pool = view.items
-        .filter((item) => item.kind === kind)
-        .sort((x, y) => (y.stat ?? 0) - (x.stat ?? 0))
-        .flatMap((item) => Array.from({ length: item.owned }, () => item.id));
-      for (const [index, agent] of serving.entries()) {
-        const share = pool[index] ?? fallback;
-        if (worn(agent) === share) {
-          continue;
-        }
-        const stored = view.items.find((item) => item.id === share)?.available ?? 0;
-        if (share === fallback || stored > 0) {
-          return this.act(`equip ${agent.id} ${share}`, () =>
-            this.player.actions.equipAgent(agent.id, share),
-          );
-        }
-        const wearer = serving.find(
-          (other, at) => at !== index && worn(other) === share && pool[at] !== share,
-        );
-        if (wearer !== undefined) {
-          return this.act(`equip ${wearer.id} ${fallback}`, () =>
-            this.player.actions.equipAgent(wearer.id, fallback),
-          );
+    // 3. Hires up to the wanted roster that the planned net income allows; the Agent cap when it alone stops them.
+    const roster = agency.servingAgents;
+    const size = this.t.researchTeamSize;
+    const rest = Math.min(99, Math.max(0, this.t.restSharePct));
+    const strike = plan.strike.length;
+    const teams = Math.min(
+      this.t.mostInvestigations,
+      state.investigations.length +
+        leadsToInvestigate(plan, state, this.retiredState(), this.data, this.t).length,
+    );
+    const wanted = Math.ceil(
+      ((plan.strikeWanted + Math.max(size > 0 ? 1 : 0, teams) * size + agency.contractingCap) * 100) /
+        (100 - rest),
+    );
+    const income = this.data.economy['contractingIncomePerAgent'] ?? 0;
+    // The Strike team a roster of r Agents would have: what the Strike goal asks for, less what keeps the income.
+    const strikeAt = (r: number) =>
+      Math.min(plan.strikeWanted, Math.max(0, r - agency.contractingCap - size));
+    const plannedNet = (r: number) =>
+      agency.funding +
+      income *
+        Math.min(
+          agency.contractingCap,
+          Math.max(0, Math.floor((r * (100 - rest)) / 100) - strikeAt(r) - size),
+        ) -
+      upkeepPerAgent * r;
+    const limit = Math.min(agency.agentCap, wanted);
+    let best = 0;
+    let due = false;
+    for (let k = 1; roster + k <= limit; k += 1) {
+      if (plannedNet(roster + k) >= this.t.leastNetIncome) {
+        due = true;
+        if (this.affordable(state, k * agency.hireCost, agency.projectedUpkeep + k * upkeepPerAgent)) {
+          best = k;
         }
       }
+    }
+    if (best > 0) {
+      return this.buy(
+        state,
+        `hire ${best}`,
+        best * agency.hireCost,
+        agency.projectedUpkeep + best * upkeepPerAgent,
+        () => this.player.actions.hireAgents(best),
+      );
+    }
+    if (due) {
+      this.saving = true;
+      return false;
+    }
+    const agentCap = this.upgradeOf(state, 'agent_cap');
+    if (
+      agentCap !== undefined &&
+      roster >= agency.agentCap &&
+      wanted > agency.agentCap &&
+      plannedNet(agency.agentCap + 1) >= this.t.leastNetIncome
+    ) {
+      return this.buy(state, `buy ${agentCap.id}`, agentCap.price, agency.projectedUpkeep, () =>
+        this.player.actions.purchaseUpgrade(agentCap.id),
+      );
+    }
+
+    // 4. Health recovery while more than the Recovery share of the Serving Agents are on Recovery.
+    const recovering = state.agents.filter((agent) => agent.assignment?.kind === 'Recovery').length;
+    const health = this.upgradeOf(state, 'health_recovery');
+    if (!this.healthBought && health !== undefined && recovering * 100 > roster * this.t.recoverySharePct) {
+      // At most one a Turn: its effect shows only from the next Advance turn.
+      const bought = await this.buy(state, `buy ${health.id}`, health.price, agency.projectedUpkeep, () =>
+        this.player.actions.purchaseUpgrade(health.id),
+      );
+      this.healthBought ||= bought;
+      return bought;
+    }
+
+    // 5. Strength while the Strength gap is open.
+    if (plan.gap) {
+      const choice = this.strengthPurchase(state, plan);
+      if (choice !== null) {
+        return this.buy(state, choice.key, choice.price, agency.projectedUpkeep, choice.action);
+      }
+    }
+
+    // 6. The Training cap while the Strike team exceeds it, else the Rate Upgrade with the fewest acquisitions.
+    const training = this.upgradeOf(state, 'training_cap');
+    if (training !== undefined && strike > agency.trainingCap) {
+      return this.buy(state, `buy ${training.id}`, training.price, agency.projectedUpkeep, () =>
+        this.player.actions.purchaseUpgrade(training.id),
+      );
+    }
+    const rate = [...agency.upgrades]
+      .filter((item) => RATE_EFFECTS.includes(item.effect) && item.incrementHundredths > 0)
+      .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price || a.id.localeCompare(b.id))[0];
+    if (rate !== undefined) {
+      return this.buy(state, `buy ${rate.id}`, rate.price, agency.projectedUpkeep, () =>
+        this.player.actions.purchaseUpgrade(rate.id),
+      );
     }
     return false;
   }
 
+  /**
+   * BASICAI, Purchases, item 5: the purchase that adds most Rested rating to the Strike team for its money: a Weapon or an
+   * Armor for the member that gains most, its Ammo reserve counted in a Weapon's cost; or a Transport cap Upgrade when
+   * the Strike team fills the Transport cap, with the hires that fill it counted in its cost.
+   */
+  private strengthPurchase(
+    state: CurrentLiveWorldStateView,
+    plan: Plan,
+  ): { key: string; price: number; action: () => Promise<Result<CommitOutcome>> } | null {
+    const p = plan.rating;
+    const equipment = state.agency.equipment;
+    const per = equipment.ammoShortRoundsPerAgent;
+    const size = plan.strike.length;
+    const teamFactor = size === 0 ? 0 : size ** (p.exponent - 1);
+    const members = plan.eligible.slice(0, size);
+    let best: {
+      ratio: number;
+      key: string;
+      price: number;
+      action: () => Promise<Result<CommitOutcome>>;
+    } | null = null;
+    const consider = (
+      gain: number,
+      cost: number,
+      key: string,
+      price: number,
+      action: () => Promise<Result<CommitOutcome>>,
+    ) => {
+      if (gain > 0 && cost > 0 && (best === null || gain / cost > best.ratio)) {
+        best = { ratio: gain / cost, key, price, action };
+      }
+    };
+    for (const item of equipment.items) {
+      if ((item.kind !== 'weapon' && item.kind !== 'armor') || !item.unlocked || item.stat === null) {
+        continue;
+      }
+      let gain = 0;
+      for (const { member } of members) {
+        const current = item.kind === 'weapon' ? member.weaponDamage : member.armor;
+        if (item.stat > current) {
+          const better: RatedMember =
+            item.kind === 'weapon' ? { ...member, weaponDamage: item.stat } : { ...member, armor: item.stat };
+          gain = Math.max(gain, teamFactor * (memberWeight(better, p) - memberWeight(member, p)));
+        }
+      }
+      const ammoPrice =
+        item.ammoType === null
+          ? 0
+          : (equipment.items.find((other) => other.id === item.ammoType)?.price ?? 0);
+      const cost = item.price + this.t.ammoReserve * per * ammoPrice;
+      const id = item.id;
+      consider(gain, cost, `strength ${id}`, item.price, () =>
+        this.player.actions.buyItems([{ id, count: 1 }]),
+      );
+    }
+    const transport = this.upgradeOf(state, 'transport_cap');
+    if (transport !== undefined && size === state.agency.transportCap) {
+      const increment = Math.floor(transport.incrementHundredths / 100);
+      const extra = plan.eligible.slice(size, size + increment).map((item) => item.member);
+      const sidearm = this.sidearm(state);
+      const rookie: RatedMember = {
+        effectiveSkill: this.data.agentArchetype.skill,
+        weaponDamage: sidearm?.stat ?? equipment.fallbackWeaponDamage,
+        maxHealth: this.data.agentArchetype.baseHealth,
+        armor: equipment.fallbackArmorValue,
+      };
+      const rookies = increment - extra.length;
+      const grown = [
+        ...members.map((item) => item.member),
+        ...extra,
+        ...Array.from({ length: rookies }, () => rookie),
+      ];
+      const gain =
+        sideRating(
+          grown.length,
+          grown.reduce((sum, m) => sum + memberWeight(m, p), 0),
+          p,
+        ) - plan.strikeRating;
+      const id = transport.id;
+      consider(gain, transport.price + rookies * state.agency.hireCost, `buy ${id}`, transport.price, () =>
+        this.player.actions.purchaseUpgrade(id),
+      );
+    }
+    return best;
+  }
+
+  // ---- Step 7: sell -------------------------------------------------------------------------------
+
+  /** Step 7: every Item no Agent is to wear under any plan, beyond Spare Items of each, in one sellItems. */
+  private async sell(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
+    const plan = pass.plan;
+    const entries: ItemEntryView[] = state.agency.equipment.items
+      .filter((item) => item.kind === 'weapon' || item.kind === 'armor')
+      .map((item) => {
+        const kept =
+          Math.max(
+            plan.storage.wearers.get(item.id) ?? 0,
+            plan.buying.wearers.get(item.id) ?? 0,
+            plan.unlimited.wearers.get(item.id) ?? 0,
+          ) + this.t.spareItems;
+        return { id: item.id, count: Math.min(item.available, item.owned - kept) };
+      })
+      .filter((entry) => entry.count > 0);
+    return (
+      entries.length > 0 &&
+      (await this.act(`sell ${entries.map((e) => `${e.id}:${e.count}`).join(',')}`, () =>
+        this.player.actions.sellItems(entries, false),
+      ))
+    );
+  }
+
+  // ---- Turn routine -------------------------------------------------------------------------------
+  //
+  // Each step makes at most one Player action and reports whether it made one. After every Player action the routine
+  // starts again from its first step, so each Player action is decided from the current Player-visible information.
+
   /** Makes the next Player action of the Turn routine. Returns false once it has advanced the turn. */
   private async next(): Promise<boolean> {
-    const steps: readonly ((state: CurrentLiveWorldStateView, muster: Muster) => Promise<boolean>)[] = [
-      (state, muster) => this.deployAndMuster(state, muster),
-      (state) => this.refillReserve(state),
-      (state, muster) => this.investigate(state, muster),
-      (state, muster) => this.contractAndTrain(state, muster),
-      (state) => this.purchase(state),
-      (state) => this.equip(state),
+    const steps: readonly ((state: CurrentLiveWorldStateView, pass: Pass) => Promise<boolean>)[] = [
+      (state, pass) => this.equip(state, pass),
+      (state) => this.deploy(state),
+      (state, pass) => this.recall(state, pass),
+      (state, pass) => this.research(state, pass),
+      (state, pass) => this.contractAndTrain(state, pass),
+      (state, pass) => this.purchase(state, pass),
+      (state, pass) => this.sell(state, pass),
     ];
     // BASICAI, Information: the World state is read at the start of each step; within a step, and for an earlier step
     // looked at again, the views held are current from the changes each Player action returned.
@@ -830,10 +916,13 @@ class Turn {
       }
       return this.state();
     };
-    // Every step reads the Muster as step 1 forms it from the current state.
-    const muster = this.muster(enter(0));
+    const first = enter(0);
+    const pass: Pass = {
+      plan: makePlan(first, this.retiredState(), this.data, this.t),
+      muster: this.muster(first),
+    };
     for (const [index, step] of steps.entries()) {
-      if (await step(enter(index), muster)) {
+      if (await step(enter(index), pass)) {
         return true;
       }
     }
@@ -842,8 +931,8 @@ class Turn {
   }
 
   async run(): Promise<void> {
-    // The bound only guards against a defect: every order either puts its Agent In transit or moves it within base,
-    // and no step moves an Agent back to where an earlier step took it, so a Turn has few actions.
+    // The bound only guards against a defect: no step undoes what an earlier one did in the same Turn, so a Turn has
+    // few actions.
     for (let actions = 0; actions < 10_000; actions += 1) {
       if (!(await this.next())) {
         return;

@@ -408,12 +408,9 @@ export function StorageView(props: {
             );
           })}
         </Grid>
-        {/* STVIEW, Trading: a panel on the right of the table, its parts from its top; the lists scroll inside it. */}
+        {/* STVIEW, Trading: a panel on the right of the table, taking the width it leaves, its parts from its top and
+            the lists last, so that adding to them never moves the controls. */}
         <aside className="trade-panel" data-testid="trade-bar">
-          <div className="trade-chosen-pair">
-            <Chosen label="Selling" lines={chosenLines(selling, sellCount)} />
-            <Chosen label="Buying" lines={chosenLines(buying, buyCount)} />
-          </div>
           <div className="trade-line">
             {/* Each part keeps its words together, so the panel wraps only between parts. */}
             <span className="figure trade-sums">
@@ -469,6 +466,10 @@ export function StorageView(props: {
                 Trade
               </Button>
             </span>
+          </div>
+          <div className="trade-chosen-pair">
+            <Chosen label="Selling" lines={chosenLines(selling, sellCount)} />
+            <Chosen label="Buying" lines={chosenLines(buying, buyCount)} />
           </div>
         </aside>
       </div>

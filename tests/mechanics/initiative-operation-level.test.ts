@@ -264,8 +264,8 @@ describe('LEAD, Reading Initiative operation levels', () => {
   });
 });
 
-describe('Basic Autopilot AI, Keep Mission sites coming', () => {
-  it('tries the Lead with the highest Initiative operation level first, and one with none last', async () => {
+describe('Basic Autopilot AI, Choosing Leads', () => {
+  it('tries a Lead that creates no Mission site from the lowest Initiative operation level up, one with none last', async () => {
     const { engine } = await startEngine();
     ok(await engine.session.campaign.create({ seed: 'order' }));
     const attempts: string[] = [];
@@ -307,15 +307,10 @@ describe('Basic Autopilot AI, Keep Mission sites coming', () => {
         },
       },
     };
-    // Fixture values: no Agent reserve and every Agent an investigator, so that the AI starts an Investigation at once.
-    const ai = createBasicAutopilotAi({
-      ...BASIC_AI_THRESHOLDS,
-      reserveSharePct: 0,
-      investigatorSharePct: 100,
-    });
+    const ai = createBasicAutopilotAi(BASIC_AI_THRESHOLDS);
     for (let turn = 0; turn < 5 && attempts.length === 0; turn += 1) {
       await ai.step({ player });
     }
-    expect(attempts.slice(0, 3)).toEqual(['high', 'low', 'no_level']);
+    expect(attempts.slice(0, 3)).toEqual(['low', 'high', 'no_level']);
   });
 });
