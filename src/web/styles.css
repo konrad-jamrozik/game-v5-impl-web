@@ -2942,6 +2942,13 @@ label:has(> input[type='checkbox']:disabled) {
   flex: none;
 }
 
+/* MVIEW, Deployment: the Rank insignia 6 px after an Agent's Instance ID. */
+.deploy-rank {
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: -2px;
+}
+
 .list-group + .list-group {
   margin-top: 12px;
 }

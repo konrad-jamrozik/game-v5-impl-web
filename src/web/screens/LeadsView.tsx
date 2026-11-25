@@ -2,6 +2,7 @@
  * LVIEW: the Leads View. Three panes side by side: the Discovered Leads in groups, the selected Lead, and the team
  * of its Investigation.
  */
+import { AGENT_COLUMN_WIDTH } from '../table-widths.ts';
 import { useMemo, useState } from 'react';
 import type {
   AgentView,
@@ -11,7 +12,7 @@ import type {
 } from '../../engine/index.ts';
 import { agentsToAddOrder, isInBase } from '../agents-to-add.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
-import { progressGain, progressPoints, wholeText } from '../format.ts';
+import { progressGain, progressPoints } from '../format.ts';
 import { leadFactionName, onCompletionLines } from '../lead-completion.ts';
 import { progressBar } from '../progress-bar.ts';
 import { activeInvestigationRows, leadsToInvestigate, rangeText } from '../situation.ts';
@@ -338,7 +339,11 @@ function Team(props: {
             <span className="figure tone-accent">{investigation.currentTeam.length}</span>
           </div>
           {/* LVIEW, Team, Current team: headed Agent, Status, and Skill; Status holds "In transit" and the icon. */}
-          <Grid widths={['110px', '120px', '64px', '110px']} className="compact" testId="current-team">
+          <Grid
+            widths={[AGENT_COLUMN_WIDTH, '120px', '64px', '110px']}
+            className="compact"
+            testId="current-team"
+          >
             <thead>
               <tr>
                 <th>Agent</th>
@@ -414,7 +419,7 @@ function Team(props: {
             Showing agents fit to start work
           </p>
           <Grid
-            widths={['36px', '104px', '84px', '80px', '76px']}
+            widths={['36px', AGENT_COLUMN_WIDTH, '84px', '76px']}
             className="compact pick-grid"
             testId="agents-to-add"
           >
@@ -422,9 +427,8 @@ function Team(props: {
               <tr>
                 <th className="check" />
                 {header('id', 'Agent', false)}
-                {/* VIS, Tables: effective skill is headed Skill, base skill Base, and exhaustion Exh. */}
+                {/* VIS, Tables: effective skill is headed Skill, and exhaustion Exh. */}
                 {header('effectiveSkill', 'Skill', true, 'Effective skill')}
-                {header('skillHundredths', 'Base', true, 'Base skill')}
                 {header('exhaustion', 'Exh.', true, 'Exhaustion')}
               </tr>
             </thead>
@@ -457,7 +461,6 @@ function Team(props: {
                       </button>
                     </td>
                     <td className="num">{agent.effectiveSkill}</td>
-                    <td className="num">{wholeText(agent.skillHundredths)}</td>
                     <td className="num">
                       <Exhaustion value={agent.exhaustion} levels={levels} />
                     </td>

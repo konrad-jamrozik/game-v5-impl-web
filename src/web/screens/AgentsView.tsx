@@ -6,6 +6,7 @@
  * also where the Player equips Agents: a Weapon or Armor cell opens the Equipment picker. With Details checked, the
  * table shows the numbers behind each Combat rating in place of what each Agent wears.
  */
+import { AGENT_COLUMN_WIDTH } from '../table-widths.ts';
 import {
   createColumnHelper,
   flexRender,
@@ -80,13 +81,23 @@ const SELECTABLE_FIRST = 'selectable';
  * warning triangle, each with its sort arrow; Rank holds the abbreviation "Hi Cmdr" and three stars; Assignment names
  * no Lead or Mission site and marks In transit with an icon, so it holds "Recovery · 99 T left" and the icon.
  */
-const SERVING_WIDTHS = ['36px', '274px', '64px', '116px', '84px', '72px', '176px'];
+const SERVING_WIDTHS = ['36px', AGENT_COLUMN_WIDTH, '64px', '116px', '84px', '72px', '176px'];
 /**
  * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
  * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by hcmd-12". Where is the
  * table's one column of free text: it takes the width the others leave, and a longer value ends in "…".
  */
-const MEMORIAL_WIDTHS = ['104px', '84px', '64px', '76px', '236px', '100px', '76px', '76px', '252px'];
+const MEMORIAL_WIDTHS = [
+  AGENT_COLUMN_WIDTH,
+  '84px',
+  '64px',
+  '76px',
+  '150px',
+  '84px',
+  '64px',
+  '64px',
+  '208px',
+];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
 type RowFilter = 'all' | 'fit' | 'inBase' | 'away' | 'memorial';

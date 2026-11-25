@@ -4,6 +4,7 @@
  * checkboxes, because the Player equips one Agent at a time; a Weapon or Armor cell opens the Equipment picker. Until
  * it is fitted it may scroll sideways in the Reference window (AVIEW, TODOs).
  */
+import { AGENT_COLUMN_WIDTH } from '../table-widths.ts';
 import type {
   AgentView,
   CurrentLiveWorldStateView,
@@ -41,7 +42,7 @@ type EquipKey =
  * of the GDRs with its number and icon.
  */
 const EQUIP_WIDTHS = [
-  '274px',
+  AGENT_COLUMN_WIDTH,
   '64px',
   '80px',
   '116px',

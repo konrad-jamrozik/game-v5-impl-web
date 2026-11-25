@@ -5,7 +5,7 @@
 import type { GameDataView } from '../engine/index.ts';
 
 export interface ExhaustionLevels {
-  /** `exhaustion_work_start_max`: Warning from here. */
+  /** `exhaustion_work_start_max`: Warning above it, i.e. from one more. */
   readonly warning: number;
   /** The midpoint of the two, rounded up: Accent text from here. */
   readonly high: number;
@@ -32,7 +32,7 @@ export function exhaustionTone(
   if (exhaustion >= levels.high) {
     return { tone: 'tone-accent', triangle: false };
   }
-  if (exhaustion >= levels.warning) {
+  if (exhaustion > levels.warning) {
     return { tone: 'tone-warning', triangle: false };
   }
   return { tone: '', triangle: false };

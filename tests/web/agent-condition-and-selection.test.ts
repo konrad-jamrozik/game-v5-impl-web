@@ -17,8 +17,9 @@ describe('VIS: Agent condition', () => {
   const levels = { warning: 30, high: 50, danger: 70 };
 
   it('colours exhaustion from its thresholds, with a triangle from the Danger threshold', () => {
-    expect(exhaustionTone(29, levels)).toEqual({ tone: '', triangle: false });
-    expect(exhaustionTone(30, levels)).toEqual({ tone: 'tone-warning', triangle: false });
+    // VIS, Agent condition: Text up to `exhaustion_work_start_max`, Warning above it.
+    expect(exhaustionTone(30, levels)).toEqual({ tone: '', triangle: false });
+    expect(exhaustionTone(31, levels)).toEqual({ tone: 'tone-warning', triangle: false });
     expect(exhaustionTone(50, levels)).toEqual({ tone: 'tone-accent', triangle: false });
     expect(exhaustionTone(70, levels)).toEqual({ tone: 'tone-bad', triangle: true });
   });

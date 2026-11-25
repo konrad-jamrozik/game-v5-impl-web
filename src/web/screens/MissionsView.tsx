@@ -2,6 +2,9 @@
  * MVIEW: the Missions View. Three panes read left to right as the Player decides: which Mission site, what is there,
  * and who goes.
  */
+import { AGENT_COLUMN_WIDTH } from '../table-widths.ts';
+import { rankOf, type RankThreshold } from '../rank.ts';
+import { RankInsigniaIcon } from '../rank-insignia.tsx';
 import { useEffect, useState, type ReactNode } from 'react';
 import type {
   ConsequenceView,
@@ -395,8 +398,11 @@ function Participants(props: {
             testId={`concluded-${key}-combat-rating`}
           />
         </div>
-        {/* VIS, Tables: Skill holds "1234 → 1234" and Health "123 → 123". */}
-        <Grid widths={['150px', '120px', '150px', '136px']} className="compact">
+        {/* VIS, Tables: Skill holds "1234 → 1234" and Health "123 → 123"; a column headed Agent holds 30 characters. */}
+        <Grid
+          widths={[which === 'enemy' ? '150px' : AGENT_COLUMN_WIDTH, '120px', '150px', '136px']}
+          className="compact"
+        >
           <thead>
             <tr>
               <th>{which === 'enemy' ? 'Enemy' : 'Agent'}</th>
@@ -494,6 +500,8 @@ function Deployment(props: {
 }) {
   const { player } = theEngine();
   const { site, snapshot, state, checked, onCheck } = props;
+  // GUI, Ranks: the Rank GDRs, whose insignia stand beside the Instance IDs.
+  const ranks = snapshot.gameData?.ranks ?? [];
   // MVIEW, Deployment: the Agents that can take orders, are At assignment on Standby or Training, and do not meet the
   // incapacitation condition.
   const candidates = state.agents.filter(
@@ -584,7 +592,7 @@ function Deployment(props: {
             Showing deployable agents
           </p>
           <Grid
-            widths={['36px', '110px', '76px', '84px', '84px', '76px']}
+            widths={['36px', AGENT_COLUMN_WIDTH, '76px', '76px']}
             className="compact pick-grid"
             testId="deploy-grid"
           >
@@ -611,10 +619,8 @@ function Deployment(props: {
                   />
                 </th>
                 {header('id', 'Agent')}
-                {/* MVIEW, Deployment: no Assignment; VIS, Tables: effective skill is headed Skill and base skill Base. */}
+                {/* MVIEW, Deployment: no Assignment and no skill, the Rank insignia standing beside the Instance ID. */}
                 {header('combatRating', 'CR', 'Combat rating')}
-                {header('effectiveSkill', 'Skill', 'Effective skill')}
-                {header('skillHundredths', 'Base', 'Base skill')}
                 {header('exhaustion', 'Exh.', 'Exhaustion')}
               </tr>
             </thead>
@@ -645,10 +651,9 @@ function Deployment(props: {
                       >
                         {agent.id}
                       </button>
+                      <DeployRankInsignia baseSkillHundredths={agent.skillHundredths} ranks={ranks} />
                     </td>
                     <td className="num">{agent.combatRating ?? 0}</td>
-                    <td className="num">{agent.effectiveSkill}</td>
-                    <td className="num">{wholeText(agent.skillHundredths)}</td>
                     <td className="num">
                       {/* MVIEW, Deployment: every Agent's exhaustion, coloured under VIS, Agent condition. */}
                       <Exhaustion value={agent.exhaustion} levels={exhaustionLevels(snapshot.gameData)} />
@@ -691,5 +696,18 @@ function Deployment(props: {
         </Button>
       </div>
     </div>
+  );
+}
+
+/** MVIEW, Deployment: the Rank insignia of an Agent's Rank after its Instance ID, with the Rank's `name` as tooltip. */
+function DeployRankInsignia(props: { baseSkillHundredths: number; ranks: readonly RankThreshold[] }) {
+  const rank = rankOf(props.baseSkillHundredths, props.ranks);
+  if (rank === null || rank.insignia === null) {
+    return null;
+  }
+  return (
+    <span className="deploy-rank" title={rank.name}>
+      <RankInsigniaIcon insignia={rank.insignia} />
+    </span>
   );
 }
