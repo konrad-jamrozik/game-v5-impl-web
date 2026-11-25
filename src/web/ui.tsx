@@ -2,7 +2,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { sliderFill } from './slider.ts';
 import type { ButtonSound } from './sounds.ts';
-import { tierColour, type SortTier } from './table-sort.ts';
+import { showsSortArrow, type SortTier } from './table-sort.ts';
 import { tallySquares } from './tally.ts';
 
 /**
@@ -265,17 +265,18 @@ export function Grid(props: {
 }
 
 /**
- * VIS, Tables: the direction of a column's sort tier after its header label, ▲ for ascending or ▼ for descending, in
- * the colour of its tier; nothing for a column in no tier.
+ * VIS, Tables: the direction of the first sort tier after its column's header label, ▲ for ascending or ▼ for
+ * descending, in the header's own colour; nothing for any other column, lower tiers included. `tiers` are the column
+ * tiers, without a locked tier that is no column.
  */
 export function SortMark<K extends string>(props: { tiers: readonly SortTier<K>[]; column: K }) {
-  const index = props.tiers.findIndex((tier) => tier.key === props.column);
-  if (index < 0) {
+  const first = props.tiers[0];
+  if (first === undefined || !showsSortArrow(props.tiers, props.column)) {
     return null;
   }
   return (
-    <span className="sort-mark" style={{ color: tierColour(index) }} aria-hidden="true">
-      {(props.tiers[index] as SortTier<K>).desc ? '▼' : '▲'}
+    <span className="sort-mark" aria-hidden="true">
+      {first.desc ? '▼' : '▲'}
     </span>
   );
 }

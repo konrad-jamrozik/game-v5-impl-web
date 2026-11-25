@@ -659,7 +659,7 @@ export function AgentsView(props: {
                       }}
                     >
                       {flexRender(header.column.columnDef.header, header.getContext())}
-                      <SortMark tiers={sortTiers} column={header.column.id} />
+                      <SortMark tiers={tiers} column={header.column.id} />
                     </th>
                   ))}
                 </tr>

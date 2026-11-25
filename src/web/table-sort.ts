@@ -13,14 +13,11 @@ export interface SortTier<K extends string> {
 export const MAX_SORT_TIERS = 4;
 
 /**
- * VIS, Tables: the colour of the direction arrow of the first, second, third, and fourth tier: green, yellow, orange,
- * and red, each less saturated and a little darker than the one before.
+ * VIS, Tables: whether a column's header shows the sort arrow: only the column of the first tier does, and the lower
+ * tiers order the rows without one. `tiers` are the column tiers, without a locked tier that is no column.
  */
-export const TIER_COLOURS: readonly string[] = ['#86C26F', '#C8B35A', '#BD8752', '#A8675F'];
-
-/** VIS, Tables: the colour of a tier's arrow; a locked tier counts as the first, and every tier past the fourth is red. */
-export function tierColour(index: number): string {
-  return TIER_COLOURS[Math.min(index, TIER_COLOURS.length - 1)] ?? '#A8675F';
+export function showsSortArrow<K extends string>(tiers: readonly SortTier<K>[], column: K): boolean {
+  return tiers[0]?.key === column;
 }
 
 /**

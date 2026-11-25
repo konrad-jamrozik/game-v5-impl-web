@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   pressHeader,
   pressHeaderUnderLock,
+  showsSortArrow,
   sortRows,
-  tierColour,
   withLockedTier,
   type SortTier,
 } from '../../src/web/table-sort.ts';
@@ -84,7 +84,15 @@ describe('VIS: Tables, sort tiers', () => {
     expect(withLockedTier(null, player)).toEqual(player);
     expect(pressHeaderUnderLock(player, 'a', false, 'a')).toEqual(player);
     expect(pressHeaderUnderLock(player, 'c', false, 'a')[0]).toEqual({ key: 'c', desc: false });
-    // VIS, Tables: green, yellow, orange, and red, and every tier past the fourth in the fourth's red.
-    expect([0, 1, 2, 3, 4].map(tierColour)).toEqual(['#86C26F', '#C8B35A', '#BD8752', '#A8675F', '#A8675F']);
+    // VIS, Tables: only the first column tier shows the arrow, b here, the Player's tiers being the column tiers
+    // without the locked one; the lower tiers still sort without one.
+    expect(['a', 'b', 'c', 'd', 'e'].map((key) => showsSortArrow(player, key))).toEqual([
+      false,
+      true,
+      false,
+      false,
+      false,
+    ]);
+    expect(showsSortArrow([], 'a')).toBe(false);
   });
 });
