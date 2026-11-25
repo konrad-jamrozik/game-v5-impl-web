@@ -86,6 +86,8 @@ export type ShotKind = 'bullet' | 'burst' | 'beam' | 'blade';
 export interface ReplaySource {
   /** GUI, Enemy labels: an Agent by its Instance ID, an Enemy by its Enemy label. */
   readonly nameOf: (id: string) => string;
+  /** GUI, Enemy labels: the name in a tooltip, an Agent by its Instance ID, an Enemy by its full Enemy label. */
+  readonly fullNameOf: (id: string) => string;
   /** The place of an Enemy's EnemyArchetype in the EnemyArchetype order, counted from 0, or -1 when unknown. */
   readonly enemyOrder: (id: string) => number;
   /** The AmmoType of an Enemy's Weapon, or null when the Weapon has no `ammo_type`. */
@@ -124,10 +126,14 @@ export interface ReplayFigure {
   readonly id: string;
   readonly side: 'agent' | 'enemy';
   readonly name: string;
+  /** The name its tooltip gives, e.g. the full Enemy label. */
+  readonly fullName: string;
   /** The cell of the Battlefield the figure stands in. */
   readonly x: number;
   readonly y: number;
   readonly maxHealth: number;
+  /** The current armor at Combat start, i.e. the effective armor. */
+  readonly startArmor: number;
   readonly baseSkillHundredths: number;
   /** The effective weapon damage at Combat start. */
   readonly weaponDamage: number;
@@ -199,12 +205,48 @@ const DEPTH_CHANCE = 0.3;
  */
 const ROW_GAP_MAX = 4;
 
+/** A rectangle of the Battlefield, in cells. */
+export interface Box {
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+}
+
+const overlaps = (a: Box, b: Box) =>
+  a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
 /**
- * CRPLAY, Figures, Name: a side with more Combatants than the Battlefield has rows shows no names, which would lie over
- * one another.
+ * CRPLAY, Figures, Name: which figures are named beside them. A name that would lie over another figure or a name
+ * placed before it, or reach past the Battlefield, is left out; names are placed in the order of the figures, i.e. in
+ * each side's fixed order. `nameBox` gives where a figure's name would stand, in cells.
  */
-export function sideNamed(count: number): boolean {
-  return count <= BATTLEFIELD_ROWS;
+export function namedFigures(
+  figures: readonly ReplayFigure[],
+  nameBox: (figure: ReplayFigure) => Box,
+): Set<number> {
+  const body = (figure: ReplayFigure): Box => ({
+    left: figure.x + 0.05,
+    right: figure.x + 0.95,
+    top: figure.y + 0.05,
+    bottom: figure.y + 0.95,
+  });
+  const placed: Box[] = [];
+  const named = new Set<number>();
+  figures.forEach((figure, index) => {
+    const box = nameBox(figure);
+    const inside =
+      box.left >= 0 && box.right <= BATTLEFIELD_COLUMNS && box.top >= 0 && box.bottom <= BATTLEFIELD_ROWS;
+    const clear =
+      inside &&
+      figures.every((other, k) => k === index || !overlaps(box, body(other))) &&
+      placed.every((other) => !overlaps(box, other));
+    if (clear) {
+      placed.push(box);
+      named.add(index);
+    }
+  });
+  return named;
 }
 
 /**
@@ -327,9 +369,11 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
         id,
         side,
         name: source.nameOf(id),
+        fullName: source.fullNameOf(id),
         x: cell.x,
         y: cell.y,
         maxHealth: who.start.maxHealth,
+        startArmor: who.start.armor,
         baseSkillHundredths: who.start.skillHundredths,
         weaponDamage: who.start.weaponDamage,
         // CRPLAY, Rank insignia thresholds: an Enemy's shape says how strong its kind is, so it has no Rank insignia.

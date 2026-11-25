@@ -490,10 +490,11 @@ export function CombatReplay(props: {
                   : { left: hovered.x + 14, top: hovered.y + 14 }
               }
             >
-              <div>{hoveredFigure.name}</div>
+              {/* CRPLAY, Figures, Name: the full Enemy label, and health and armor as left of what it started with. */}
+              <div>{hoveredFigure.fullName}</div>
               <div className="figure secondary">
                 health {wholeText(hoveredValues.healthHundredths)}/{hoveredFigure.maxHealth} · armor{' '}
-                {hoveredValues.armor}
+                {hoveredValues.armor}/{hoveredFigure.startArmor}
               </div>
               <div className="figure secondary">
                 base skill {wholeText(hoveredFigure.baseSkillHundredths)} · exhaustion{' '}

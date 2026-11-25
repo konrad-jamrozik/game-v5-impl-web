@@ -5,7 +5,7 @@
 import {
   BATTLEFIELD_COLUMNS,
   BATTLEFIELD_ROWS,
-  sideNamed,
+  namedFigures,
   settledIndex,
   shownRange,
   type EnemyColour,
@@ -197,6 +197,39 @@ function rimWidth(armor: number, armorScale: number, cell: number): number {
   return armor <= 0 ? 0 : Math.max(1, Math.sqrt(Math.min(1, armor / Math.max(1, armorScale))) * cell * 0.26);
 }
 
+/** The font of the names beside the figures. */
+const nameFontSize = (cell: number) => Math.max(9, cell * 0.42);
+const nameFont = (cell: number, palette: ReplayPalette) => `${nameFontSize(cell)}px ${palette.figureFont}`;
+
+/** How far from the centre of its cell a figure's name starts: past the figure and its Rank insignia. */
+function nameReach(figure: ReplayFigure, cell: number): number {
+  return figure.rank === null ? cell * 0.82 : cell * 0.82 + insigniaWidth(figure.rank, cell) + cell * 0.18;
+}
+
+/** CRPLAY, Figures, Name: the figures named beside them, measured in the font the names are drawn in. */
+function namedOf(
+  ctx: CanvasRenderingContext2D,
+  replay: Replay,
+  cell: number,
+  palette: ReplayPalette,
+): Set<number> {
+  ctx.save();
+  ctx.font = nameFont(cell, palette);
+  const named = namedFigures(replay.figures, (figure) => {
+    const width = ctx.measureText(figure.name).width / cell;
+    const start = figure.x + 0.5 + (figure.side === 'agent' ? -1 : 1) * (nameReach(figure, cell) / cell);
+    const half = nameFontSize(cell) / cell / 2;
+    return {
+      left: figure.side === 'agent' ? start - width : start,
+      right: figure.side === 'agent' ? start : start + width,
+      top: figure.y + 0.5 - half,
+      bottom: figure.y + 0.5 + half,
+    };
+  });
+  ctx.restore();
+  return named;
+}
+
 /** The width a Rank insignia takes beside its figure. */
 function insigniaWidth(rank: RankInsignia | null, cell: number): number {
   if (rank === null) {
@@ -354,20 +387,18 @@ function drawFigure(
 
   // The Rank insignia and the name stand on the outer side of the figure's own cell, whatever the figure does.
   const outward = figure.side === 'agent' ? -1 : 1;
-  const mark = insigniaWidth(figure.rank, cell);
-  let reach = cell * 0.82;
   ctx.fillStyle = dead ? palette.border : palette.text;
   ctx.strokeStyle = dead ? palette.border : palette.text;
   if (figure.rank !== null) {
-    drawInsignia(ctx, figure.rank, homeX + outward * (reach + mark / 2), homeY, cell);
-    reach += mark + cell * 0.18;
+    const mark = insigniaWidth(figure.rank, cell);
+    drawInsignia(ctx, figure.rank, homeX + outward * (cell * 0.82 + mark / 2), homeY, cell);
   }
   if (named) {
     ctx.fillStyle = shown.condition === 'ableToFight' ? palette.muted : palette.border;
-    ctx.font = `${Math.max(9, cell * 0.42)}px ${palette.figureFont}`;
+    ctx.font = nameFont(cell, palette);
     ctx.textBaseline = 'middle';
     ctx.textAlign = figure.side === 'agent' ? 'right' : 'left';
-    ctx.fillText(figure.name, homeX + outward * reach, homeY);
+    ctx.fillText(figure.name, homeX + outward * nameReach(figure, cell), homeY);
   }
   ctx.restore();
 }
@@ -662,9 +693,7 @@ export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): voi
   }
   ctx.stroke();
 
-  const sideCount = (side: 'agent' | 'enemy') =>
-    replay.figures.filter((figure) => figure.side === side).length;
-  const named = { agent: sideNamed(sideCount('agent')), enemy: sideNamed(sideCount('enemy')) };
+  const named = namedOf(ctx, replay, cell, palette);
   const settled = settledIndex(playback);
   const base = replay.frames[settled] ?? [];
   const playing = playback.active.length > 0;
@@ -748,7 +777,7 @@ export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): voi
         condition = after.condition;
       }
     }
-    drawFigure(ctx, input, figure, { health, armor, condition }, offset, named[figure.side]);
+    drawFigure(ctx, input, figure, { health, armor, condition }, offset, named.has(index));
   });
 
   for (const step of playback.active) {

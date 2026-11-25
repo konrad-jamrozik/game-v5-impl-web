@@ -9,6 +9,7 @@ import {
   buildReplay,
   enemyLook,
   jumpTo,
+  namedFigures,
   newPlayback,
   paceSettings,
   phaseEnd,
@@ -23,6 +24,7 @@ import {
   settledIndex,
   shownRange,
   type PlaybackSettings,
+  type ReplayFigure,
   type ReplaySource,
 } from '../../src/web/combat-replay.ts';
 
@@ -128,6 +130,7 @@ function report(): CombatReport {
 
 const source: ReplaySource = {
   nameOf: (id) => id.toUpperCase(),
+  fullNameOf: (id) => `full-${id}`,
   enemyOrder: (id) => (id === 'enemy-1' ? 0 : 4),
   enemyAmmoType: (id) => (id === 'enemy-1' ? 'cells' : null),
   shotOfAmmoType: (ammoType) => (ammoType === 'cells' ? 'beam' : ammoType === 'rounds' ? 'burst' : undefined),
@@ -190,6 +193,38 @@ describe('CRPLAY: Figures', () => {
       null,
       null,
     ]);
+    // The tooltip's name, and the armor each figure started the Combat with.
+    expect(replay.figures.map((figure) => figure.fullName)).toEqual([
+      'full-agent-1',
+      'full-agent-2',
+      'full-enemy-1',
+      'full-enemy-2',
+    ]);
+    expect(replay.figures.map((figure) => figure.startArmor)).toEqual(
+      report().participants.map((who) => who.start.armor),
+    );
+  });
+
+  it('leaves out only a name that would lie over another figure or a name placed before it', () => {
+    const figure = (id: string, x: number, y: number) =>
+      ({ ...buildReplay(report(), source).figures[0], id, side: 'enemy', x, y }) as ReplayFigure;
+    // Each name stands right of its figure, three cells wide and half a row high.
+    const nameBox = (who: ReplayFigure) => ({
+      left: who.x + 1,
+      right: who.x + 4,
+      top: who.y + 0.25,
+      bottom: who.y + 0.75,
+    });
+    const figures = [
+      figure('a', 20, 10),
+      // Two columns on, in the same row: a's name lies over it, so a is left unnamed, and b is named.
+      figure('b', 22, 10),
+      // Its name would lie over b's name only if b's stood in the same row; one row below, both are named.
+      figure('c', 20, 11),
+      // At the right edge, its name would reach past the Battlefield.
+      figure('d', BATTLEFIELD_COLUMNS - 2, 20),
+    ];
+    expect([...namedFigures(figures, nameBox)]).toEqual([1, 2]);
   });
 });
 

@@ -1,6 +1,6 @@
 /** GUI, Enemy labels: each EnemyArchetype numbers its own Enemies at each Mission site, from 1. */
 import { describe, expect, it } from 'vite-plus/test';
-import { enemyLabels } from '../../src/web/enemy-labels.ts';
+import { enemyLabels, fullEnemyLabels } from '../../src/web/enemy-labels.ts';
 
 const initiate = (id: string) => ({ id, archetype: 'initiate', archetypeAbbreviation: 'init' });
 const soldier = (id: string) => ({ id, archetype: 'soldier', archetypeAbbreviation: 'sold' });
@@ -16,5 +16,18 @@ describe('GUI: Enemy labels', () => {
     ]);
     expect([...labels.values()]).toEqual(['init-1', 'init-2', 'init-3', 'sold-1', 'sold-2']);
     expect(labels.get('enemy-20')).toBe('init-2');
+  });
+
+  it('writes the full Enemy label from the EnemyArchetype name, in lower case with each space a hyphen', () => {
+    const labels = fullEnemyLabels([
+      { id: 'enemy-7', archetype: 'soldier', archetypeAbbreviation: 'sold', archetypeName: 'Soldier' },
+      {
+        id: 'enemy-8',
+        archetype: 'high_commander',
+        archetypeAbbreviation: 'hcmd',
+        archetypeName: 'High commander',
+      },
+    ]);
+    expect([...labels.values()]).toEqual(['soldier-1', 'high-commander-1']);
   });
 });

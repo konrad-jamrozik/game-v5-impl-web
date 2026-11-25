@@ -14,7 +14,7 @@ import type {
 import { armorText, combatLogRow, finalCondition } from '../combat-log.ts';
 import { buildReplay } from '../combat-replay.ts';
 import { Consequences, GainLineText, toneClass } from '../consequences.tsx';
-import { enemyLabels } from '../enemy-labels.ts';
+import { enemyLabels, fullEnemyLabels } from '../enemy-labels.ts';
 import { hitChanceText, progressGain, progressPoints, wholeText } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import {
@@ -140,6 +140,7 @@ export function TurnReportView(props: {
           );
     // GUI, Enemy labels: each Enemy by its Enemy label, each Agent by its Instance ID.
     const labels = enemyLabels(site?.enemies ?? []);
+    const fullLabels = fullEnemyLabels(site?.enemies ?? []);
     const aside = (
       <>
         {siteName}
@@ -165,6 +166,7 @@ export function TurnReportView(props: {
       const enemyOf = (id: string) => site?.enemies.find((enemy) => enemy.id === id);
       const replay = buildReplay(shownCombat, {
         nameOf: (id) => labels.get(id) ?? id,
+        fullNameOf: (id) => fullLabels.get(id) ?? id,
         // GUI, EnemyArchetype order: the authored order of the EnemyArchetypes, which the game data keeps.
         enemyOrder: (id) =>
           gameData?.enemyArchetypes.findIndex((archetype) => archetype.id === enemyOf(id)?.archetype) ?? -1,
