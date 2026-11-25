@@ -1,13 +1,23 @@
 /** GUI, Enemy labels: each EnemyArchetype numbers its own Enemies at each Mission site, from 1. */
 import { describe, expect, it } from 'vite-plus/test';
-import { enemyLabels, fullEnemyLabels } from '../../src/web/enemy-labels.ts';
+import { enemyLabels, shortEnemyLabels } from '../../src/web/enemy-labels.ts';
 
-const initiate = (id: string) => ({ id, archetype: 'initiate', archetypeAbbreviation: 'init' });
-const soldier = (id: string) => ({ id, archetype: 'soldier', archetypeAbbreviation: 'sold' });
+const initiate = (id: string) => ({
+  id,
+  archetype: 'initiate',
+  archetypeAbbreviation: 'init',
+  archetypeName: 'Initiate',
+});
+const soldier = (id: string) => ({
+  id,
+  archetype: 'soldier',
+  archetypeAbbreviation: 'sold',
+  archetypeName: 'Soldier',
+});
 
 describe('GUI: Enemy labels', () => {
   it('numbers the Enemies of each EnemyArchetype in the Mission site list order, whatever the Instance IDs', () => {
-    const labels = enemyLabels([
+    const labels = shortEnemyLabels([
       initiate('enemy-19'),
       initiate('enemy-20'),
       initiate('enemy-21'),
@@ -18,8 +28,8 @@ describe('GUI: Enemy labels', () => {
     expect(labels.get('enemy-20')).toBe('init-2');
   });
 
-  it('writes the full Enemy label from the EnemyArchetype name, in lower case with each space a hyphen', () => {
-    const labels = fullEnemyLabels([
+  it('writes the Enemy label from the EnemyArchetype name, in lower case with each space a hyphen', () => {
+    const labels = enemyLabels([
       { id: 'enemy-7', archetype: 'soldier', archetypeAbbreviation: 'sold', archetypeName: 'Soldier' },
       {
         id: 'enemy-8',

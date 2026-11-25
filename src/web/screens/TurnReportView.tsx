@@ -14,7 +14,7 @@ import type {
 import { armorText, combatLogRow, finalCondition } from '../combat-log.ts';
 import { buildReplay } from '../combat-replay.ts';
 import { Consequences, GainLineText, toneClass } from '../consequences.tsx';
-import { enemyLabels, fullEnemyLabels } from '../enemy-labels.ts';
+import { enemyLabels, shortEnemyLabels } from '../enemy-labels.ts';
 import { hitChanceText, progressGain, progressPoints, wholeText } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import {
@@ -139,8 +139,9 @@ export function TurnReportView(props: {
             ),
           );
     // GUI, Enemy labels: each Enemy by its Enemy label, each Agent by its Instance ID.
+    // GUI, Enemy labels: the short Enemy label only beside a figure of the Combat replay.
+    const shortLabels = shortEnemyLabels(site?.enemies ?? []);
     const labels = enemyLabels(site?.enemies ?? []);
-    const fullLabels = fullEnemyLabels(site?.enemies ?? []);
     const aside = (
       <>
         {siteName}
@@ -165,8 +166,8 @@ export function TurnReportView(props: {
       const gameData = snapshot.gameData;
       const enemyOf = (id: string) => site?.enemies.find((enemy) => enemy.id === id);
       const replay = buildReplay(shownCombat, {
-        nameOf: (id) => labels.get(id) ?? id,
-        fullNameOf: (id) => fullLabels.get(id) ?? id,
+        nameOf: (id) => shortLabels.get(id) ?? id,
+        fullNameOf: (id) => labels.get(id) ?? id,
         // GUI, EnemyArchetype order: the authored order of the EnemyArchetypes, which the game data keeps.
         enemyOrder: (id) =>
           gameData?.enemyArchetypes.findIndex((archetype) => archetype.id === enemyOf(id)?.archetype) ?? -1,
@@ -185,6 +186,19 @@ export function TurnReportView(props: {
             title="Combat replay"
             aside={aside}
             asideText={asideText}
+            // CRPLAY, Whole screen: a Combat report button opens this Combat's Combat report as a Follow, before the
+            // Back control.
+            actions={
+              <Button
+                testId="replay-combat-report"
+                onClick={() => {
+                  place.follow();
+                  setReplayShown(false);
+                }}
+              >
+                Combat report
+              </Button>
+            }
             onClose={props.onClose}
           >
             <CombatReplay
@@ -624,11 +638,12 @@ function Sections(props: {
 /**
  * VIS, Tables: the fixed widths of the participants table, the Combat log, and the Combat ratings table, each column
  * wide enough for the widest value of its quantity, e.g. "1234 → 1234" in Skill, "123 → 123/123" in Health,
- * "123 → 123" in Armor, and "99.9% (1234 vs 1234)" in Hit chance. The participants table is 1020 px in all, so that
- * it fits its pane in the Reference window.
+ * "123 → 123" in Armor, and "99.9% (1234 vs 1234)" in Hit chance; a participant, an attacker, and a defender hold the
+ * longest Enemy label, e.g. "high-commander-12". The participants table is 1068 px in all, so that it fits its pane in
+ * the Reference window.
  */
 const PARTICIPANT_WIDTHS = [
-  '112px',
+  '160px',
   '64px',
   '120px',
   '140px',
@@ -640,7 +655,7 @@ const PARTICIPANT_WIDTHS = [
   '60px',
   '116px',
 ];
-const LOG_WIDTHS = ['72px', '120px', '120px', '184px', '300px'];
+const LOG_WIDTHS = ['72px', '160px', '160px', '184px', '300px'];
 
 /**
  * TRVIEW, Combat report: the Exp of one participant. A survivor shows its Mission experience as one total in Positive,

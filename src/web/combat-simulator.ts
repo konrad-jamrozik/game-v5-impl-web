@@ -9,7 +9,7 @@ import type {
   FoughtCombatReport,
 } from '../engine/index.ts';
 import type { ReplaySource } from './combat-replay.ts';
-import { enemyLabels, fullEnemyLabels } from './enemy-labels.ts';
+import { enemyLabels, shortEnemyLabels } from './enemy-labels.ts';
 
 /** CSIM, Teams: one field for each value of an explicit entry of a Detached Combat, as the text its field holds. */
 export interface RowValues {
@@ -176,8 +176,8 @@ export function replaySourceOf(
       archetypeName: archetype?.name ?? row.archetype,
     };
   });
-  const labels = enemyLabels(labelled);
-  const fullLabels = fullEnemyLabels(labelled);
+  const labels = shortEnemyLabels(labelled);
+  const fullLabels = enemyLabels(labelled);
   const agentName = (id: string) => `agent-${positionOf(id)}`;
   return {
     nameOf: (id) => (id.startsWith('agent#') ? agentName(id) : (labels.get(id) ?? id)),

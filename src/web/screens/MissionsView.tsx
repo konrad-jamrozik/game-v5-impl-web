@@ -400,7 +400,7 @@ function Participants(props: {
         </div>
         {/* VIS, Tables: Skill holds "1234 → 1234" and Health "123 → 123"; a column headed Agent holds 30 characters. */}
         <Grid
-          widths={[which === 'enemy' ? '150px' : AGENT_COLUMN_WIDTH, '120px', '150px', '136px']}
+          widths={[which === 'enemy' ? '160px' : AGENT_COLUMN_WIDTH, '120px', '150px', '136px']}
           className="compact"
         >
           <thead>
