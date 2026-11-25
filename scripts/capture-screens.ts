@@ -368,9 +368,6 @@ async function capture(page: Page): Promise<void> {
   await id(page, 'memorial-grid').locator('[data-testid^="agent-details-"]').first().click();
   await shootElement(page, 'agent-details', view(page, 'agents'));
 
-  await open(page, 'armory');
-  await shootElement(page, 'armory-view', view(page, 'armory'));
-
   await open(page, 'missions');
   const picks = await deployable(page);
   for (const agent of picks.slice(0, TEAM)) {

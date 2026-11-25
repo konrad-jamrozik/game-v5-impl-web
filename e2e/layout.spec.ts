@@ -140,8 +140,10 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   await id(page, 'agents-grid').locator('[data-testid^="agent-details-"]').first().click();
   await expectFits(page, 'the Agent details');
 
-  await open(page, 'armory');
-  await expectFits(page, 'the Armory View');
+  await open(page, 'storage');
+  await open(page, 'agents');
+  await id(page, 'show-details').click();
+  await expectFits(page, 'the Agents View with Details checked');
 
   await open(page, 'missions');
   const picks = (await deployable(page)).slice(0, 3);
@@ -279,7 +281,7 @@ test('the Screen limit draws every screen at the size of the Reference window, c
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
   expect(await boxOf(page, '.campaign'), 'the area of the Campaign screen').toEqual(area);
-  for (const viewId of ['agents', 'armory', 'missions', 'history']) {
+  for (const viewId of ['agents', 'storage', 'missions', 'history']) {
     await open(page, viewId);
     await expectFits(page, `the Detail view ${viewId} under the Screen limit`);
   }

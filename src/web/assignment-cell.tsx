@@ -1,4 +1,4 @@
-/** AVIEW, Agent table: the Assignment cell, shared by the Agents View, its Agent details, and the Armory View. */
+/** AVIEW, Agent table: the Assignment cell, shared by the Agents View and its Agent details. */
 import type { AgentView, CurrentLiveWorldStateView, CurrentRetiredWorldStateView } from '../engine/index.ts';
 import { assignmentParts, assignmentTone, IN_TRANSIT_NAME, type AssignmentTarget } from './assignment.ts';
 

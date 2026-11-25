@@ -561,7 +561,7 @@ input::placeholder {
   padding: 6px 10px;
 }
 
-.agents-filters .chip {
+.agents-row-filters .chip {
   white-space: nowrap;
 }
 

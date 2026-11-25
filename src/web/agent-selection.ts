@@ -4,7 +4,7 @@
  */
 import type { AgentView } from '../engine/index.ts';
 
-export const ASSIGNMENTS = ['Standby', 'Contracting', 'Training'] as const;
+export const ASSIGNMENTS = ['Standby', 'Training', 'Contracting'] as const;
 export type OrderAssignment = (typeof ASSIGNMENTS)[number];
 
 /** The inputs that decide which Agents can be selected, under AVIEW, Assignment filters. */
