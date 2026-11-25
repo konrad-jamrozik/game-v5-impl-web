@@ -287,16 +287,15 @@ export function CombatReplay(props: {
 
   const finished = 'Every attack has been played.';
   const step = (kind: StepKind) => {
+    // CRPLAY, Slider and Combat log: a step goes on from the attack the slider or the Combat log picked, also when it
+    // is taken before the picked attack has started to play.
+    const start = playback.picked ? playback.target : playback.index;
     const target =
-      kind === 'turn'
-        ? playback.index + 1
-        : kind === 'phase'
-          ? phaseEnd(replay, playback.index)
-          : roundEnd(replay, playback.index);
+      kind === 'turn' ? start + 1 : kind === 'phase' ? phaseEnd(replay, start) : roundEnd(replay, start);
     withOptions();
     setTakenStep({
       kind,
-      from: playback.index,
+      from: start,
       to: Math.min(total, target),
       combatKey: props.combatKey,
     });
