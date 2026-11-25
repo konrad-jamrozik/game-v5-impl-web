@@ -144,14 +144,14 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
           checked={devMode}
           disabled={engaged !== null}
           onChange={() => {
-            setDevMode(!devMode);
+            void setDevMode(!devMode);
           }}
         />
         Dev mode
       </label>
       <p className="muted small">
-        Dev mode gives access to cheats, to hidden values, and to every tool below. It is off when a Session
-        starts, and stays as you leave it for the rest of the Session. Campaign seed:{' '}
+        Dev mode gives access to cheats, to hidden values, and to every tool below. It stays as you leave it,
+        in every Campaign and every later Session. Campaign seed:{' '}
         {devMode ? (snapshot.status.campaignSeed ?? '-') : 'hidden'}.
       </p>
       {/* GUI, Reveal hidden content: disabled while Dev mode is disabled or Autopilot is engaged. */}
@@ -162,7 +162,7 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
           checked={snapshot.revealHiddenContent}
           disabled={off !== null}
           onChange={(event) => {
-            setRevealHiddenContent(event.target.checked);
+            void setRevealHiddenContent(event.target.checked);
           }}
         />
         Reveal hidden content

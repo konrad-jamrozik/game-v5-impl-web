@@ -231,22 +231,22 @@ test('Global configuration survives a reload of the browser', async ({ page }) =
   // GUI, Changed settings: the row lists the value once Global configuration holds it.
   await id(page, 'open-settings').click();
   await expect(id(page, 'changed-settings')).toContainText(turns);
-  await id(page, 'close-settings').click();
+  await id(page, 'open-developer').click();
+  await id(page, 'dev-reveal').check();
+  await expect(id(page, 'dev-reveal')).toBeChecked();
+  await id(page, 'close-developer').click();
 
+  // A reload starts a new Session. GUI, Developer tools, Kept across Sessions: Dev mode on and Reveal hidden content on
+  // survive it, and the GUI enables Dev mode once the Campaign is current again; CSCR, Autopilot settings: the
+  // Autopilot controls stay shown and expanded, with the same Turns.
   await page.reload();
-  // GUI, Developer tools, Kept for the Session: a reload starts a new Session, so Dev mode is disabled and the
-  // Autopilot controls stay hidden until it is enabled again; Autopilot controls shown itself survived.
-  await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
-  await expect(id(page, 'autopilot-bar')).toHaveCount(0);
+  await expect(id(page, 'autopilot-bar')).toBeVisible({ timeout: 60_000 });
+  await expect(id(page, 'autopilot-turns')).toHaveValue(turns);
   await id(page, 'open-settings').click();
   await id(page, 'open-developer').click();
-  await expect(id(page, 'dev-show-autopilot')).toBeChecked();
-  await expect(id(page, 'dev-show-autopilot')).toBeDisabled();
-  await id(page, 'dev-mode').check();
-  await id(page, 'close-developer').click();
-  await expect(id(page, 'autopilot-bar')).toBeVisible();
-  await id(page, 'autopilot-toggle').click();
-  await expect(id(page, 'autopilot-turns')).toHaveValue(turns);
+  await expect(id(page, 'dev-mode')).toBeChecked();
+  await expect(id(page, 'dev-reveal')).toBeChecked();
+  await expect(id(page, 'dev-reveal')).toBeEnabled();
 });
 
 test('Undo and Redo name the Autopilot step that getAutosaveStatus reports, and take it', async ({

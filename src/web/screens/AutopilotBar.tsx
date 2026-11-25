@@ -4,13 +4,8 @@
  */
 import { useEffect, useState } from 'react';
 import type { AutopilotLimit, DisengagementResult } from '../../engine/index.ts';
-import {
-  autopilotSettings,
-  permittedAutopilotTurns,
-  shownAutopilotAi,
-  useAutopilotControls,
-} from '../autopilot-controls.ts';
-import { run, theEngine, type Snapshot } from '../store.ts';
+import { autopilotSettings, permittedAutopilotTurns, shownAutopilotAi } from '../autopilot-controls.ts';
+import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { Button } from '../ui.tsx';
 
 const REASONS: Record<string, string> = {
@@ -48,13 +43,11 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
   const { session } = theEngine();
   const listed = session.autopilot.listAutopilotAis();
   const ais = listed.ok ? listed.value : [];
-  // CSCR, Autopilot controls: whether they are expanded and the chosen Autopilot AI are kept for the rest of the
-  // Session.
-  const [controls, keep] = useAutopilotControls();
-  const { expanded } = controls;
+  // CSCR, Autopilot settings: whether the controls are expanded and the chosen Autopilot AI are Global configuration
+  // settings, kept whatever Campaign is created or loaded and in every later Session.
+  const { turns: storedTurns, expanded, aiId: chosenAi } = autopilotSettings(snapshot.configuration.settings);
   // CSCR, Autopilot settings: the Turns field shows Autopilot Turns and stores it whenever the Player leaves it holding
   // a permitted value; leaving it holding any other text shows Autopilot Turns again.
-  const { turns: storedTurns } = autopilotSettings(snapshot.configuration.settings);
   const [draft, setDraft] = useState<{ from: number; text: string } | null>(null);
   const turnsText = draft !== null && draft.from === storedTurns ? draft.text : String(storedTurns);
   const turns = permittedAutopilotTurns(turnsText) ?? storedTurns;
@@ -76,7 +69,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
     });
   };
   const aiId = shownAutopilotAi(
-    controls.aiId,
+    chosenAi,
     ais.map((ai) => ai.autopilotAiId),
   );
   const active = snapshot.status.autopilot;
@@ -124,7 +117,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
       // SOUNDS, Select click, Expand or collapse: as the Collapse button of the Music control.
       data-sound="select"
       onClick={() => {
-        keep({ expanded: !expanded });
+        act(() => session.globalConfiguration.set('autopilotControlsExpanded', !expanded));
       }}
     >
       Autopilot {expanded ? '▾' : '▸'}
@@ -174,7 +167,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
         disabled={reason !== null}
         title={reason ?? undefined}
         onChange={(event) => {
-          keep({ aiId: event.target.value });
+          act(() => session.globalConfiguration.set('autopilotAi', event.target.value));
         }}
       >
         {ais.map((ai) => (

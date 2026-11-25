@@ -84,60 +84,77 @@ let pending = 0;
 let lastEngagementId: string | null = null;
 let leftCampaign: string | null = null;
 /**
- * GUI, Reveal hidden content: the Session setting; it starts off and no Campaign save holds it. GUI, Developer tools,
- * Kept for the Session: it stays as the Game designer left it while Dev mode is disabled, e.g. across a load.
+ * GUI, Developer tools, Kept across Sessions: the Dev mode on setting as the GUI last acted on it, so that turning it
+ * off, by its checkbox or by Reset in Changed settings, disables Dev mode; null before the first look.
  */
-let revealHiddenContent = false;
+let lastDevModeOn: boolean | null = null;
 /**
- * GUI, Developer tools, Kept for the Session: whether the Game designer left Dev mode enabled. A create or a load
- * disables Dev mode, and the GUI then enables it again; a new Session starts with it off.
+ * The choice of the "Dev mode" and "Reveal hidden content" checkboxes while Global configuration stores it, so that each
+ * checkbox follows a click at once; null while none is being stored.
  */
-let devModeKept = false;
+let devModeChoice: boolean | null = null;
+let revealChoice: boolean | null = null;
 const listeners = new Set<() => void>();
 
+/** Whether the boolean Global configuration setting `setting` is on. */
+function settingOn(configuration: GlobalConfigurationReport | null, setting: string): boolean {
+  return configuration?.settings.find((item) => item.setting === setting)?.effectiveValue === true;
+}
+
 /**
- * GUI, Reveal hidden content: checks or clears the checkbox. It can be checked only while Dev mode is enabled and
- * Autopilot is not engaged; it changes no Campaign state and adds no Timeline entry.
+ * GUI, Reveal hidden content: checks or clears the checkbox, which stores Reveal hidden content on in Global
+ * configuration. It can change only while Dev mode is enabled and Autopilot is not engaged; it changes no Campaign
+ * state and adds no Timeline entry.
  */
-export function setRevealHiddenContent(on: boolean): void {
+export async function setRevealHiddenContent(on: boolean): Promise<void> {
   const status = engine === null ? null : valueOf(engine.session.getStatus());
   if (status === null || !canReveal(status)) {
     return;
   }
-  if (on !== revealHiddenContent) {
-    revealHiddenContent = on;
-    changed();
+  revealChoice = on;
+  changed();
+  await run(() => theEngine().session.globalConfiguration.set('revealHiddenContentOn', on));
+  revealChoice = null;
+  changed();
+}
+
+/**
+ * GUI, Developer tools, Gated by Dev mode: the "Dev mode" checkbox enables or disables Dev mode at once and stores Dev
+ * mode on in Global configuration; should the store fail, Dev mode follows the stored setting again.
+ */
+export async function setDevMode(on: boolean): Promise<void> {
+  devModeChoice = on;
+  syncDevMode();
+  changed();
+  await run(() => theEngine().session.globalConfiguration.set('devModeOn', on));
+  devModeChoice = null;
+  syncDevMode();
+  changed();
+}
+
+/**
+ * GUI, Developer tools, Kept across Sessions: while Dev mode on is on, enables Dev mode whenever a Campaign is current
+ * and Dev mode is disabled, e.g. after a create or a load, which disable it, and in a new Session; once it is turned
+ * off, disables Dev mode. Dev mode cannot change while Autopilot is engaged, so this waits for the engagement to end.
+ */
+function syncDevMode(): void {
+  if (engine === null) {
+    return;
   }
-}
-
-/**
- * GUI, Developer tools, Gated by Dev mode: the "Dev mode" checkbox enables or disables Dev mode, and the GUI keeps the
- * choice for the rest of the Session.
- */
-export function setDevMode(on: boolean): void {
-  act(() => {
-    const result = on ? theEngine().session.developer.enable() : theEngine().session.developer.disable();
-    if (result.ok) {
-      devModeKept = on;
-    }
-    return result;
-  });
-}
-
-/**
- * GUI, Developer tools, Kept for the Session: enables Dev mode again once a create or a load has disabled it, when the
- * Game designer left it enabled. Autopilot cannot be engaged then, so this never waits for one.
- */
-function restoreDevMode(): void {
-  const status = engine === null ? null : valueOf(engine.session.getStatus());
-  if (
-    devModeKept &&
-    status !== null &&
-    status.hasCurrentCampaign &&
-    !status.devMode &&
-    status.autopilot === null
-  ) {
-    theEngine().session.developer.enable();
+  const status = valueOf(engine.session.getStatus());
+  if (status === null || status.autopilot !== null) {
+    return;
+  }
+  const on = devModeChoice ?? settingOn(valueOf(engine.session.globalConfiguration.get()), 'devModeOn');
+  const turnedOff = (lastDevModeOn === true || devModeChoice === false) && !on;
+  lastDevModeOn = on;
+  if (!status.hasCurrentCampaign) {
+    return;
+  }
+  if (on && !status.devMode) {
+    engine.session.developer.enable();
+  } else if (turnedOff && status.devMode) {
+    engine.session.developer.disable();
   }
 }
 
@@ -228,14 +245,15 @@ export async function boot(storage: GameStorage): Promise<void> {
     },
     { autopilotAis: [...AUTOPILOT_AIS] },
   );
-  // DEV, Revealed presentation, Session setting, and GUI, Developer tools, Kept for the Session: a new Session starts
-  // with Dev mode and Reveal hidden content off.
-  revealHiddenContent = false;
-  devModeKept = false;
+  // GUI, Developer tools, Kept across Sessions: Dev mode follows Dev mode on, which Global configuration keeps.
+  lastDevModeOn = null;
+  devModeChoice = null;
+  revealChoice = null;
   engine.subscribe(() => {
-    restoreDevMode();
+    syncDevMode();
     changed();
   });
+  syncDevMode();
   let resume: string | null = null;
   try {
     resume = sessionStorage.getItem(RESUME_KEY);
@@ -273,6 +291,8 @@ export function snapshot(): Snapshot {
   if (status.autopilot !== null) {
     lastEngagementId = status.autopilot.engagementId;
   }
+  // GUI, Developer tools, Kept across Sessions: Reveal hidden content is on exactly while its setting is.
+  const revealHiddenContent = revealChoice ?? settingOn(configuration, 'revealHiddenContentOn');
   // DEV, Revealed presentation, Read through Developer API: every revealed value comes from `developer.queries`.
   const revealed = revealInEffect(revealHiddenContent, status);
   const compendium = revealed ? valueOf(game.developer.queries.getRevealedCompendium()) : null;

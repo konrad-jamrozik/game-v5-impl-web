@@ -1,5 +1,5 @@
 /**
- * DEV, Revealed presentation; GUI, Reveal hidden content; COMPV: the Session setting's lifecycle, and the Compendium
+ * DEV, Revealed presentation; GUI, Reveal hidden content; COMPV: the setting's lifecycle, and the Compendium
  * View under it.
  */
 import { describe, expect, it } from 'vite-plus/test';
@@ -18,12 +18,12 @@ describe('GUI: Reveal hidden content', () => {
   it('starts off, and can be checked only while Dev mode is enabled', async () => {
     await campaign();
     expect(snapshot().revealHiddenContent).toBe(false);
-    setRevealHiddenContent(true);
+    await setRevealHiddenContent(true);
     expect(snapshot().revealHiddenContent).toBe(false);
     expect(snapshot().revealed).toBe(false);
 
     ok(theEngine().session.developer.enable());
-    setRevealHiddenContent(true);
+    await setRevealHiddenContent(true);
     expect(snapshot().revealHiddenContent).toBe(true);
     expect(snapshot().revealed).toBe(true);
   });
@@ -32,12 +32,12 @@ describe('GUI: Reveal hidden content', () => {
     await campaign();
     const engine = theEngine();
     ok(engine.session.developer.enable());
-    setRevealHiddenContent(true);
+    await setRevealHiddenContent(true);
     ok(engine.session.developer.disable());
     expect(snapshot().revealHiddenContent).toBe(true);
     expect(snapshot().revealed).toBe(false);
     // The checkbox cannot change while Dev mode is disabled.
-    setRevealHiddenContent(false);
+    await setRevealHiddenContent(false);
     expect(snapshot().revealHiddenContent).toBe(true);
     ok(engine.session.developer.enable());
     expect(snapshot().revealed).toBe(true);
@@ -49,9 +49,9 @@ describe('GUI: Reveal hidden content', () => {
     ok(engine.session.developer.enable());
     const timeline = ok(engine.session.timeline.getStatus());
     const state = ok(engine.developer.queries.getCampaignState());
-    setRevealHiddenContent(true);
-    setRevealHiddenContent(false);
-    setRevealHiddenContent(true);
+    await setRevealHiddenContent(true);
+    await setRevealHiddenContent(false);
+    await setRevealHiddenContent(true);
     expect(ok(engine.session.timeline.getStatus())).toEqual(timeline);
     expect(ok(engine.developer.queries.getCampaignState())).toEqual(state);
   });
@@ -69,7 +69,7 @@ describe('GUI: Reveal hidden content', () => {
     await campaign();
     ok(theEngine().session.developer.enable());
     const shown = snapshot().retired!.leads.map((lead) => lead.id);
-    setRevealHiddenContent(true);
+    await setRevealHiddenContent(true);
     const revealed = snapshot().retired!.leads;
     expect(revealed.length).toBeGreaterThan(shown.length);
     const hidden = revealed.find((lead) => !shown.includes(lead.id))!;
@@ -79,13 +79,13 @@ describe('GUI: Reveal hidden content', () => {
   });
 });
 
-describe('GUI: Developer tools, Kept for the Session', () => {
+describe('GUI: Developer tools, Kept across Sessions', () => {
   it('keeps Dev mode and Reveal hidden content across a create, a close, and a load', async () => {
     await campaign();
     const engine = theEngine();
-    setDevMode(true);
+    await setDevMode(true);
     expect(snapshot().status.devMode).toBe(true);
-    setRevealHiddenContent(true);
+    await setRevealHiddenContent(true);
 
     ok(await engine.session.campaign.create({ seed: 'another' }));
     expect(snapshot().status.devMode).toBe(true);
@@ -102,19 +102,36 @@ describe('GUI: Developer tools, Kept for the Session', () => {
     expect(snapshot().revealed).toBe(true);
   });
 
-  it('stays disabled after a create once disabled, and a new Session starts with both off', async () => {
+  it('disables Dev mode once Dev mode on is turned off or reset, and stays disabled after a create', async () => {
     await campaign();
     const engine = theEngine();
-    setDevMode(true);
-    setRevealHiddenContent(true);
-    setDevMode(false);
+    await setDevMode(true);
+    expect(snapshot().status.devMode).toBe(true);
+    await setDevMode(false);
+    expect(snapshot().status.devMode).toBe(false);
     ok(await engine.session.campaign.create({ seed: 'another' }));
     expect(snapshot().status.devMode).toBe(false);
 
-    setDevMode(true);
-    await campaign();
+    await setDevMode(true);
+    expect(snapshot().status.devMode).toBe(true);
+    // GUI, Changed settings: Reset makes the setting follow its Game build default, off.
+    ok(await engine.session.globalConfiguration.reset('devModeOn'));
     expect(snapshot().status.devMode).toBe(false);
-    expect(snapshot().revealHiddenContent).toBe(false);
+  });
+
+  it('keeps both in a new Session, which enables Dev mode once a Campaign is current', async () => {
+    const storage = new MemoryStorage();
+    await boot(storage);
+    ok(await theEngine().session.campaign.create({ seed: 'first' }));
+    await setDevMode(true);
+    await setRevealHiddenContent(true);
+
+    await boot(storage);
+    expect(snapshot().status.hasCurrentCampaign).toBe(false);
+    expect(snapshot().revealHiddenContent).toBe(true);
+    ok(await theEngine().session.campaign.create({ seed: 'second' }));
+    expect(snapshot().status.devMode).toBe(true);
+    expect(snapshot().revealed).toBe(true);
   });
 });
 
@@ -124,7 +141,7 @@ describe('COMPV: the Compendium View under Reveal hidden content', () => {
     const engine = theEngine();
     ok(engine.session.developer.enable());
     const visible = snapshot().articles!.map((article) => article.id);
-    setRevealHiddenContent(true);
+    await setRevealHiddenContent(true);
     const all = snapshot().articles!;
     expect(all.length).toBeGreaterThan(visible.length);
     const hidden = all.find((article) => !visible.includes(article.id))!;
@@ -138,7 +155,7 @@ describe('COMPV: the Compendium View under Reveal hidden content', () => {
     expect(currentArticle(visibleHistory(history, new Set(all.map((item) => item.id)), visible[0]!))).toBe(
       hidden.id,
     );
-    setRevealHiddenContent(false);
+    await setRevealHiddenContent(false);
     const after = snapshot().articles!.map((article) => article.id);
     expect(after).toEqual(visible);
     expect(snapshot().revealedTerms).toBeNull();

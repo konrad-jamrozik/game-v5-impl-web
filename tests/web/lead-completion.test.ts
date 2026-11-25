@@ -1,17 +1,13 @@
 /** LVIEW, Selected Lead: the Faction and the "On completion" lines of a Lead. CSCR, Autopilot controls: kept state. */
-import { afterEach, describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   currentLiveWorldStateView,
   currentRetiredWorldStateView,
   gameDataView,
 } from '../../src/engine/views/views.ts';
 import {
-  NEW_SESSION_CONTROLS,
   autopilotSettings,
-  keepAutopilotControls,
-  keptAutopilotControls,
   permittedAutopilotTurns,
-  resetAutopilotControls,
   shownAutopilotAi,
 } from '../../src/web/autopilot-controls.ts';
 import { leadFactionName, onCompletionLines, onCompletionText } from '../../src/web/lead-completion.ts';
@@ -72,26 +68,17 @@ describe('LVIEW: Selected Lead', () => {
 });
 
 describe('CSCR: Autopilot controls', () => {
-  afterEach(() => {
-    resetAutopilotControls();
-  });
-
-  it('start a Session collapsed and keep every change for the rest of it', () => {
-    expect(keptAutopilotControls()).toEqual(NEW_SESSION_CONTROLS);
-    expect(NEW_SESSION_CONTROLS.expanded).toBe(false);
-    keepAutopilotControls({ expanded: true });
-    keepAutopilotControls({ aiId: 'second' });
-    expect(keptAutopilotControls()).toEqual({ expanded: true, aiId: 'second' });
-  });
-
-  it('take Autopilot controls shown and Autopilot Turns from Global configuration', () => {
-    expect(autopilotSettings([])).toEqual({ shown: false, turns: 10 });
+  it('take every Autopilot setting from Global configuration, collapsed with no Autopilot AI chosen by default', () => {
+    expect(autopilotSettings([])).toEqual({ shown: false, turns: 10, expanded: false, aiId: null });
     expect(
       autopilotSettings([
         { setting: 'autopilotControlsShown', effectiveValue: true },
         { setting: 'autopilotTurns', effectiveValue: 100 },
+        { setting: 'autopilotControlsExpanded', effectiveValue: true },
+        { setting: 'autopilotAi', effectiveValue: 'second' },
       ]),
-    ).toEqual({ shown: true, turns: 100 });
+    ).toEqual({ shown: true, turns: 100, expanded: true, aiId: 'second' });
+    expect(autopilotSettings([{ setting: 'autopilotAi', effectiveValue: '' }]).aiId).toBeNull();
   });
 
   it('store only a permitted number of Turns from the Turns field', () => {

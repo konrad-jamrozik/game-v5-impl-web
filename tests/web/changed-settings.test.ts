@@ -46,6 +46,10 @@ describe('GUI: Changed settings', () => {
       'soundsVolume',
       'autopilotControlsShown',
       'autopilotTurns',
+      'autopilotControlsExpanded',
+      'autopilotAi',
+      'devModeOn',
+      'revealHiddenContentOn',
       'combatSimulatorShown',
       'screenLimit',
     ]);

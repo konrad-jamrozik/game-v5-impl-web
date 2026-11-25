@@ -20,6 +20,13 @@ const WORDING: Readonly<Record<string, { readonly name: string; readonly words: 
     name: 'Autopilot controls',
     words: (value) => (value === true ? 'shown' : 'hidden'),
   },
+  autopilotControlsExpanded: {
+    name: 'Autopilot controls',
+    words: (value) => (value === true ? 'expanded' : 'collapsed'),
+  },
+  autopilotAi: { name: 'Autopilot AI', words: (value) => (value === '' ? 'first available' : String(value)) },
+  devModeOn: { name: 'Dev mode', words: onOff },
+  revealHiddenContentOn: { name: 'Reveal hidden content', words: onOff },
   combatSimulatorShown: {
     name: 'Combat simulator',
     words: (value) => (value === true ? 'shown' : 'hidden'),

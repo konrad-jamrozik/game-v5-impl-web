@@ -22,9 +22,18 @@ const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume'])
 
 /**
  * GUI, Settings panel: the Autopilot settings have no row; the Player sets them where they are used. Nor has Combat
- * simulator shown, which the developer tools set (CSIM, Opening the Combat simulator).
+ * simulator shown, Dev mode on, or Reveal hidden content on, which the developer tools set (CSIM, Opening the Combat
+ * simulator; GUI, Developer tools).
  */
-const SET_ELSEWHERE = new Set(['autopilotControlsShown', 'autopilotTurns', 'combatSimulatorShown']);
+const SET_ELSEWHERE = new Set([
+  'autopilotControlsShown',
+  'autopilotTurns',
+  'autopilotControlsExpanded',
+  'autopilotAi',
+  'devModeOn',
+  'revealHiddenContentOn',
+  'combatSimulatorShown',
+]);
 
 /** The label of the checkbox of a setting that is on or off; VIS, Screen limit names the Screen limit's. */
 const CHECKBOX_LABELS: Readonly<Record<string, string>> = {

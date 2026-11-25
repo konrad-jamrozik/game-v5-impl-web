@@ -80,6 +80,36 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     isPermitted: (value): value is SettingValue =>
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 1,
   },
+  // CSCR, Autopilot settings: whether the Autopilot controls are expanded, and the chosen Autopilot AI, '' for none.
+  {
+    setting: 'autopilotControlsExpanded',
+    name: 'Autopilot controls expanded',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
+  {
+    setting: 'autopilotAi',
+    name: 'Autopilot AI',
+    gameBuildDefault: '',
+    permitted: 'The ID of an Autopilot AI, or empty text for none',
+    isPermitted: (value): value is SettingValue => typeof value === 'string',
+  },
+  // GUI, Developer tools: whether the GUI keeps Dev mode enabled, and whether Reveal hidden content is on.
+  {
+    setting: 'devModeOn',
+    name: 'Dev mode on',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
+  {
+    setting: 'revealHiddenContentOn',
+    name: 'Reveal hidden content on',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
   // CSIM, Opening the Combat simulator: whether the Main menu shows the Combat simulator button.
   {
     setting: 'combatSimulatorShown',

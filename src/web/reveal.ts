@@ -1,6 +1,6 @@
 /**
- * DEV, Revealed presentation, and GUI, Reveal hidden content: the Session setting Reveal hidden content, which the GUI
- * holds and the engine never sees. It is not Campaign state, no Campaign save holds it, and setting it is no Player
+ * DEV, Revealed presentation, and GUI, Reveal hidden content: the setting Reveal hidden content, which the GUI keeps in
+ * the Global configuration setting Reveal hidden content on and the Game rules never read. It is not Campaign state, no Campaign save holds it, and setting it is no Player
  * action. These rules need no browser.
  */
 import type { SessionStatus } from '../engine/index.ts';
@@ -12,8 +12,8 @@ export function canReveal(status: Pick<SessionStatus, 'devMode' | 'autopilot'>):
 
 /**
  * DEV, Revealed presentation: whether the GUI presents the Current campaign under Revealed presentation. The setting
- * is in effect only while Dev mode is enabled, and the GUI keeps it while Dev mode is disabled, e.g. across a load
- * (GUI, Developer tools, Kept for the Session). While Autopilot is engaged it presents only Player-visible information,
+ * is in effect only while Dev mode is enabled, and the GUI keeps it while Dev mode is disabled, e.g. at the Main
+ * menu (GUI, Developer tools, Kept across Sessions). While Autopilot is engaged it presents only Player-visible information,
  * because Developer API is unavailable, and it presents revealed values again once Autopilot is disengaged.
  */
 export function revealInEffect(
