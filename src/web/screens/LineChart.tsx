@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { lastTurnsFrom, useLastTurns } from '../chart-range.ts';
 import { LastTurnsCheckbox } from './LastTurnsCheckbox.tsx';
 import { ChartDot } from './SeriesChart.tsx';
+import { FullScreenButton, FullScreenFrame, useFullScreen, usePlotSize } from './ChartFullScreen.tsx';
 
 export interface Point {
   readonly turn: number;
@@ -53,11 +54,14 @@ export function LineChart(props: {
   const text = props.valueText ?? String;
   const [hover, setHover] = useState<number | null>(null);
   const headline = props.headline === true;
-  const width = headline ? 760 : 300;
-  const height = headline ? 230 : 170;
+  // VIS, Charts: while the chart is shown full screen, its plot is drawn at the size it takes on screen.
+  const screen = useFullScreen();
+  const [plotRef, plotSize] = usePlotSize(screen.full);
+  const width = plotSize?.width ?? (headline ? 760 : 300);
+  const height = plotSize?.height ?? (headline ? 230 : 170);
   const first = points[0];
   const last = points.at(-1);
-  const className = headline ? 'chart chart-headline' : 'chart';
+  const className = `${headline ? 'chart chart-headline' : 'chart'}${screen.full ? ' chart-full' : ''}`;
   if (first === undefined || last === undefined) {
     return (
       <figure className={className} data-testid={props.testId}>
@@ -90,116 +94,130 @@ export function LineChart(props: {
   const middle = top / 2;
 
   return (
-    <figure className={className} data-testid={props.testId}>
-      <figcaption>
-        <h4>{props.title}</h4>
-        {checkbox}
-        <span className="chart-value">
-          {shown === null ? (
-            <>
-              {text(last.value)}
-              {unit}
-              {props.valueNote === undefined ? null : <small>{props.valueNote}</small>}
-            </>
-          ) : (
-            <>
-              {text(shown.value)}
-              {unit}
-              <small>Turn {shown.turn}</small>
-            </>
-          )}
-        </span>
-      </figcaption>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label={`${props.title}: ${text(first.value)}${unit} in Turn ${first.turn}, ${text(last.value)}${unit} in Turn ${last.turn}`}
-        onMouseLeave={() => {
-          setHover(null);
-        }}
-        onMouseMove={(event) => {
-          const box = event.currentTarget.getBoundingClientRect();
-          const at = ((event.clientX - box.left) / box.width) * width;
-          let best = 0;
-          points.forEach((point, index) => {
-            if (Math.abs(x(point.turn) - at) < Math.abs(x(points[best]?.turn ?? 0) - at)) {
-              best = index;
-            }
-          });
-          setHover(best);
-        }}
-      >
-        {headline ? (
-          <line className="chart-grid" x1={padLeft} x2={width - PAD.right} y1={y(middle)} y2={y(middle)} />
-        ) : null}
-        <line className="chart-grid" x1={padLeft} x2={width - PAD.right} y1={y(top)} y2={y(top)} />
-        <line className="chart-base" x1={padLeft} x2={width - PAD.right} y1={y(0)} y2={y(0)} />
-        <text className="chart-tick" x={padLeft - 6} y={y(top) + 4} textAnchor="end">
-          {top}
-        </text>
-        {headline ? (
-          <text className="chart-tick" x={padLeft - 6} y={y(middle) + 4} textAnchor="end">
-            {middle}
-          </text>
-        ) : null}
-        <text className="chart-tick" x={padLeft - 6} y={y(0) + 4} textAnchor="end">
-          0
-        </text>
-        {low < 0 ? (
-          <text className="chart-tick" x={padLeft - 6} y={y(low) + 4} textAnchor="end">
-            {low}
-          </text>
-        ) : null}
-        {props.limit === undefined ? null : (
-          <>
-            <rect
-              className="chart-band"
-              x={padLeft}
-              y={y(props.limit)}
-              width={width - padLeft - PAD.right}
-              height={Math.min(14, y(0) - y(props.limit))}
-            />
-            <line
-              className="chart-limit"
-              x1={padLeft}
-              x2={width - PAD.right}
-              y1={y(props.limit)}
-              y2={y(props.limit)}
-            />
-            <text
-              className="chart-limit-label"
-              x={width - PAD.right - 4}
-              y={y(props.limit) + 11}
-              textAnchor="end"
-            >
-              LOSS AT {props.limit}
-              {unit}
+    <FullScreenFrame screen={screen}>
+      <figure className={className} data-testid={props.testId}>
+        <figcaption>
+          <h4>{props.title}</h4>
+          {checkbox}
+          <span className="chart-value">
+            {shown === null ? (
+              <>
+                {text(last.value)}
+                {unit}
+                {props.valueNote === undefined ? null : <small>{props.valueNote}</small>}
+              </>
+            ) : (
+              <>
+                {text(shown.value)}
+                {unit}
+                <small>Turn {shown.turn}</small>
+              </>
+            )}
+          </span>
+          <FullScreenButton
+            screen={screen}
+            {...(props.testId === undefined ? {} : { testId: props.testId })}
+          />
+        </figcaption>
+        <div className="chart-plot" ref={plotRef}>
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            role="img"
+            aria-label={`${props.title}: ${text(first.value)}${unit} in Turn ${first.turn}, ${text(last.value)}${unit} in Turn ${last.turn}`}
+            onMouseLeave={() => {
+              setHover(null);
+            }}
+            onMouseMove={(event) => {
+              const box = event.currentTarget.getBoundingClientRect();
+              const at = ((event.clientX - box.left) / box.width) * width;
+              let best = 0;
+              points.forEach((point, index) => {
+                if (Math.abs(x(point.turn) - at) < Math.abs(x(points[best]?.turn ?? 0) - at)) {
+                  best = index;
+                }
+              });
+              setHover(best);
+            }}
+          >
+            {headline ? (
+              <line
+                className="chart-grid"
+                x1={padLeft}
+                x2={width - PAD.right}
+                y1={y(middle)}
+                y2={y(middle)}
+              />
+            ) : null}
+            <line className="chart-grid" x1={padLeft} x2={width - PAD.right} y1={y(top)} y2={y(top)} />
+            <line className="chart-base" x1={padLeft} x2={width - PAD.right} y1={y(0)} y2={y(0)} />
+            <text className="chart-tick" x={padLeft - 6} y={y(top) + 4} textAnchor="end">
+              {top}
             </text>
-          </>
-        )}
-        <text className="chart-tick" x={padLeft} y={height - 6} textAnchor="start">
-          T{first.turn}
-        </text>
-        <text className="chart-tick" x={width - PAD.right} y={height - 6} textAnchor="end">
-          T{last.turn}
-        </text>
-        <path className="chart-area" d={area} />
-        <path className="chart-line" d={line} />
-        {shown === null ? (
-          <ChartDot className="chart-dot" x={x(last.turn)} y={y(last.value)} />
-        ) : (
-          <>
-            <line
-              className="chart-cross"
-              x1={x(shown.turn)}
-              x2={x(shown.turn)}
-              y1={PAD.top}
-              y2={height - PAD.bottom}
-            />
-            <ChartDot className="chart-dot" x={x(shown.turn)} y={y(shown.value)} />
-          </>
-        )}
-      </svg>
-    </figure>
+            {headline ? (
+              <text className="chart-tick" x={padLeft - 6} y={y(middle) + 4} textAnchor="end">
+                {middle}
+              </text>
+            ) : null}
+            <text className="chart-tick" x={padLeft - 6} y={y(0) + 4} textAnchor="end">
+              0
+            </text>
+            {low < 0 ? (
+              <text className="chart-tick" x={padLeft - 6} y={y(low) + 4} textAnchor="end">
+                {low}
+              </text>
+            ) : null}
+            {props.limit === undefined ? null : (
+              <>
+                <rect
+                  className="chart-band"
+                  x={padLeft}
+                  y={y(props.limit)}
+                  width={width - padLeft - PAD.right}
+                  height={Math.min(14, y(0) - y(props.limit))}
+                />
+                <line
+                  className="chart-limit"
+                  x1={padLeft}
+                  x2={width - PAD.right}
+                  y1={y(props.limit)}
+                  y2={y(props.limit)}
+                />
+                <text
+                  className="chart-limit-label"
+                  x={width - PAD.right - 4}
+                  y={y(props.limit) + 11}
+                  textAnchor="end"
+                >
+                  LOSS AT {props.limit}
+                  {unit}
+                </text>
+              </>
+            )}
+            <text className="chart-tick" x={padLeft} y={height - 6} textAnchor="start">
+              T{first.turn}
+            </text>
+            <text className="chart-tick" x={width - PAD.right} y={height - 6} textAnchor="end">
+              T{last.turn}
+            </text>
+            <path className="chart-area" d={area} />
+            <path className="chart-line" d={line} />
+            {shown === null ? (
+              <ChartDot className="chart-dot" x={x(last.turn)} y={y(last.value)} />
+            ) : (
+              <>
+                <line
+                  className="chart-cross"
+                  x1={x(shown.turn)}
+                  x2={x(shown.turn)}
+                  y1={PAD.top}
+                  y2={height - PAD.bottom}
+                />
+                <ChartDot className="chart-dot" x={x(shown.turn)} y={y(shown.value)} />
+              </>
+            )}
+          </svg>
+        </div>
+      </figure>
+    </FullScreenFrame>
   );
 }

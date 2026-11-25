@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { readoutText, type Bar, type Series } from '../agency-charts.ts';
 import { lastTurnsFrom, useLastTurns } from '../chart-range.ts';
 import { LastTurnsCheckbox } from './LastTurnsCheckbox.tsx';
+import { FullScreenButton, FullScreenFrame, useFullScreen, usePlotSize } from './ChartFullScreen.tsx';
 
 export interface LineSeries extends Series {
   readonly points: readonly { readonly turn: number; readonly value: number }[];
@@ -69,6 +70,12 @@ export function SeriesChart(props: {
     points: line.points.filter((p) => p.turn >= from),
   }));
   const [hover, setHover] = useState<number | null>(null);
+  // VIS, Charts: while the chart is shown full screen, its plot is drawn at the size it takes on screen.
+  const screen = useFullScreen();
+  const [plotRef, plotSize] = usePlotSize(screen.full);
+  const width = plotSize?.width ?? WIDTH;
+  const height = plotSize?.height ?? HEIGHT;
+  const className = `chart chart-wide${screen.full ? ' chart-full' : ''}`;
   const turns = [...bars.map((bar) => bar.turn), ...lines.flatMap((line) => line.points.map((p) => p.turn))];
   const legend = [
     ...barSeries.map((series) => ({ ...series, line: false })),
@@ -89,6 +96,7 @@ export function SeriesChart(props: {
           </li>
         ))}
       </ul>
+      <FullScreenButton screen={screen} {...(props.testId === undefined ? {} : { testId: props.testId })} />
     </figcaption>
   );
   if (turns.length === 0) {
@@ -101,7 +109,7 @@ export function SeriesChart(props: {
   }
   const first = Math.min(...turns);
   const last = Math.max(...turns);
-  const slot = (WIDTH - PAD.left - PAD.right) / (last - first + 1);
+  const slot = (width - PAD.left - PAD.right) / (last - first + 1);
   const cx = (turn: number) => PAD.left + slot * (turn - first + 0.5);
   const leftLines = lines.filter((line) => line.axis !== 'right');
   const rightLines = lines.filter((line) => line.axis === 'right');
@@ -119,7 +127,7 @@ export function SeriesChart(props: {
   );
   const bottom = lowest < 0 ? -roundUp(-lowest) : 0;
   const rightTop = roundUp(Math.max(1, ...rightLines.flatMap((line) => line.points.map((p) => p.value))));
-  const plot = HEIGHT - PAD.top - PAD.bottom;
+  const plot = height - PAD.top - PAD.bottom;
   const y = (value: number) => PAD.top + ((top - value) / (top - bottom)) * plot;
   const yRight = (value: number) => PAD.top + ((rightTop - value) / rightTop) * plot;
   const barWidth = slot * 0.7;
@@ -135,120 +143,139 @@ export function SeriesChart(props: {
   });
 
   return (
-    <figure className="chart chart-wide" data-testid={props.testId}>
-      {caption}
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        role="img"
-        aria-label={`${props.title}, Turn ${first} to Turn ${last}`}
-        onMouseLeave={() => {
-          setHover(null);
-        }}
-        onMouseMove={(event) => {
-          const box = event.currentTarget.getBoundingClientRect();
-          const at = ((event.clientX - box.left) / box.width) * WIDTH;
-          const turn = Math.round((at - PAD.left) / slot - 0.5) + first;
-          setHover(Math.min(last, Math.max(first, turn)));
-        }}
-      >
-        <line className="chart-grid" x1={PAD.left} x2={WIDTH - PAD.right} y1={y(top)} y2={y(top)} />
-        {bottom < 0 ? (
-          <line className="chart-grid" x1={PAD.left} x2={WIDTH - PAD.right} y1={y(bottom)} y2={y(bottom)} />
-        ) : null}
-        <line className="chart-base" x1={PAD.left} x2={WIDTH - PAD.right} y1={y(0)} y2={y(0)} />
-        <text className="chart-tick" x={PAD.left - 6} y={y(top) + 4} textAnchor="end">
-          {top}
-        </text>
-        <text className="chart-tick" x={PAD.left - 6} y={y(0) + 4} textAnchor="end">
-          0
-        </text>
-        {bottom < 0 ? (
-          <text className="chart-tick" x={PAD.left - 6} y={y(bottom) + 4} textAnchor="end">
-            {bottom}
-          </text>
-        ) : null}
-        {rightLines.length > 0 ? (
-          <>
-            <text
-              className="chart-tick"
-              x={WIDTH - PAD.right + 6}
-              y={yRight(rightTop) + 4}
-              textAnchor="start"
-            >
-              {rightTop}
+    <FullScreenFrame screen={screen}>
+      <figure className={className} data-testid={props.testId}>
+        {caption}
+        <div className="chart-plot" ref={plotRef}>
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            role="img"
+            aria-label={`${props.title}, Turn ${first} to Turn ${last}`}
+            onMouseLeave={() => {
+              setHover(null);
+            }}
+            onMouseMove={(event) => {
+              const box = event.currentTarget.getBoundingClientRect();
+              const at = ((event.clientX - box.left) / box.width) * width;
+              const turn = Math.round((at - PAD.left) / slot - 0.5) + first;
+              setHover(Math.min(last, Math.max(first, turn)));
+            }}
+          >
+            <line className="chart-grid" x1={PAD.left} x2={width - PAD.right} y1={y(top)} y2={y(top)} />
+            {bottom < 0 ? (
+              <line
+                className="chart-grid"
+                x1={PAD.left}
+                x2={width - PAD.right}
+                y1={y(bottom)}
+                y2={y(bottom)}
+              />
+            ) : null}
+            <line className="chart-base" x1={PAD.left} x2={width - PAD.right} y1={y(0)} y2={y(0)} />
+            <text className="chart-tick" x={PAD.left - 6} y={y(top) + 4} textAnchor="end">
+              {top}
             </text>
-            <text className="chart-tick" x={WIDTH - PAD.right + 6} y={yRight(0) + 4} textAnchor="start">
+            <text className="chart-tick" x={PAD.left - 6} y={y(0) + 4} textAnchor="end">
               0
             </text>
-          </>
-        ) : null}
-        <text className="chart-tick" x={cx(first)} y={HEIGHT - 6} textAnchor="middle">
-          T{first}
-        </text>
-        <text className="chart-tick" x={cx(last)} y={HEIGHT - 6} textAnchor="middle">
-          T{last}
-        </text>
-        {shownTurn === null ? null : (
-          <rect className="chart-hover" x={cx(shownTurn) - slot / 2} y={PAD.top} width={slot} height={plot} />
-        )}
-        {bars.map((bar) => {
-          const rects: React.JSX.Element[] = [];
-          let up = 0;
-          bar.above.forEach((value, index) => {
-            if (value > 0) {
-              rects.push(
-                <rect
-                  key={`a${index}`}
-                  x={cx(bar.turn) - barWidth / 2}
-                  y={y(up + value)}
-                  width={barWidth}
-                  height={y(up) - y(up + value)}
-                  fill={barSeries[index]?.color}
-                />,
+            {bottom < 0 ? (
+              <text className="chart-tick" x={PAD.left - 6} y={y(bottom) + 4} textAnchor="end">
+                {bottom}
+              </text>
+            ) : null}
+            {rightLines.length > 0 ? (
+              <>
+                <text
+                  className="chart-tick"
+                  x={width - PAD.right + 6}
+                  y={yRight(rightTop) + 4}
+                  textAnchor="start"
+                >
+                  {rightTop}
+                </text>
+                <text className="chart-tick" x={width - PAD.right + 6} y={yRight(0) + 4} textAnchor="start">
+                  0
+                </text>
+              </>
+            ) : null}
+            <text className="chart-tick" x={cx(first)} y={height - 6} textAnchor="middle">
+              T{first}
+            </text>
+            <text className="chart-tick" x={cx(last)} y={height - 6} textAnchor="middle">
+              T{last}
+            </text>
+            {shownTurn === null ? null : (
+              <rect
+                className="chart-hover"
+                x={cx(shownTurn) - slot / 2}
+                y={PAD.top}
+                width={slot}
+                height={plot}
+              />
+            )}
+            {bars.map((bar) => {
+              const rects: React.JSX.Element[] = [];
+              let up = 0;
+              bar.above.forEach((value, index) => {
+                if (value > 0) {
+                  rects.push(
+                    <rect
+                      key={`a${index}`}
+                      x={cx(bar.turn) - barWidth / 2}
+                      y={y(up + value)}
+                      width={barWidth}
+                      height={y(up) - y(up + value)}
+                      fill={barSeries[index]?.color}
+                    />,
+                  );
+                  up += value;
+                }
+              });
+              let down = 0;
+              bar.below.forEach((value, index) => {
+                if (value > 0) {
+                  rects.push(
+                    <rect
+                      key={`b${index}`}
+                      x={cx(bar.turn) - barWidth / 2}
+                      y={y(-down)}
+                      width={barWidth}
+                      height={y(-down - value) - y(-down)}
+                      fill={barSeries[aboveCount + index]?.color}
+                    />,
+                  );
+                  down += value;
+                }
+              });
+              return <g key={bar.turn}>{rects}</g>;
+            })}
+            {lines.map((line) => {
+              const at = line.axis === 'right' ? yRight : y;
+              const latest = line.points.at(-1);
+              if (latest === undefined) {
+                return null;
+              }
+              const path = line.points
+                .map(
+                  (p, index) =>
+                    `${index === 0 ? 'M' : 'L'}${cx(p.turn).toFixed(1)},${at(p.value).toFixed(1)}`,
+                )
+                .join(' ');
+              // VIS, Charts: a line over stacked bars has a 4 px Background outline beneath its 2 px line, and the line,
+              // its outline, and its dot are drawn at 50% opacity.
+              const overBars = bars.length > 0;
+              return (
+                <g key={line.name} opacity={overBars ? 0.5 : undefined} data-testid="chart-series-line">
+                  {overBars ? <path className="chart-series-outline" d={path} /> : null}
+                  <path className="chart-series-line" d={path} style={{ stroke: line.color }} />
+                  <ChartDot x={cx(latest.turn)} y={at(latest.value)} color={line.color} />
+                </g>
               );
-              up += value;
-            }
-          });
-          let down = 0;
-          bar.below.forEach((value, index) => {
-            if (value > 0) {
-              rects.push(
-                <rect
-                  key={`b${index}`}
-                  x={cx(bar.turn) - barWidth / 2}
-                  y={y(-down)}
-                  width={barWidth}
-                  height={y(-down - value) - y(-down)}
-                  fill={barSeries[aboveCount + index]?.color}
-                />,
-              );
-              down += value;
-            }
-          });
-          return <g key={bar.turn}>{rects}</g>;
-        })}
-        {lines.map((line) => {
-          const at = line.axis === 'right' ? yRight : y;
-          const latest = line.points.at(-1);
-          if (latest === undefined) {
-            return null;
-          }
-          const path = line.points
-            .map((p, index) => `${index === 0 ? 'M' : 'L'}${cx(p.turn).toFixed(1)},${at(p.value).toFixed(1)}`)
-            .join(' ');
-          // VIS, Charts: a line over stacked bars has a 4 px Background outline beneath its 2 px line, and the line,
-          // its outline, and its dot are drawn at 50% opacity.
-          const overBars = bars.length > 0;
-          return (
-            <g key={line.name} opacity={overBars ? 0.5 : undefined} data-testid="chart-series-line">
-              {overBars ? <path className="chart-series-outline" d={path} /> : null}
-              <path className="chart-series-line" d={path} style={{ stroke: line.color }} />
-              <ChartDot x={cx(latest.turn)} y={at(latest.value)} color={line.color} />
-            </g>
-          );
-        })}
-      </svg>
-      <p className="chart-details small muted">{detailText}</p>
-    </figure>
+            })}
+          </svg>
+        </div>
+        <p className="chart-details small muted">{detailText}</p>
+      </figure>
+    </FullScreenFrame>
   );
 }

@@ -302,3 +302,23 @@ test('VIS, Tables: pressing a group row of the Storage View folds its group, and
   await fold.click();
   await expect(weapons.locator('tr')).toHaveCount(unfoldedRows);
 });
+
+test('VIS, Charts: the Full screen button shows a chart alone over a Scrim, and Escape returns it', async ({
+  page,
+}) => {
+  await newCampaign(page, 'full-screen-chart');
+  await id(page, 'advance-turn').click();
+  await expect(id(page, 'turn')).toHaveText('2', { timeout: 60_000 });
+  // The Turn summary, if shown, closes first.
+  await page.keyboard.press('Escape');
+  await id(page, 'nav-charts').click();
+  const chart = id(page, 'money-flow-chart');
+  const before = await chart.locator('svg').boundingBox();
+  await id(page, 'money-flow-chart-full-screen').click();
+  await expect(id(page, 'chart-scrim')).toBeVisible();
+  const full = await id(page, 'chart-scrim').getByTestId('money-flow-chart').locator('svg').boundingBox();
+  expect(full?.height ?? 0).toBeGreaterThan((before?.height ?? 0) * 1.5);
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'chart-scrim')).toHaveCount(0);
+  await expect(id(page, 'view-charts')).toBeVisible();
+});
