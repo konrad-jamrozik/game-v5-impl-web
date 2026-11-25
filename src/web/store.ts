@@ -28,6 +28,8 @@ export interface Notice {
   readonly id: number;
   readonly kind: 'info' | 'error' | 'warning';
   readonly text: string;
+  /** Dismissed, but keeping its place so that the notices below it do not move. */
+  readonly dismissed: boolean;
 }
 
 export interface Snapshot {
@@ -151,14 +153,32 @@ function remember(campaignId: string | null): void {
   }
 }
 
+/** The most notices shown at once, counting the places of dismissed ones that are kept. */
+const MAX_NOTICES = 4;
+
+/**
+ * Shows a notice. So that no notice on the screen ever moves, a new one takes the place of the topmost dismissed
+ * one, and otherwise goes below the others; only when every place is taken by a notice still shown does the oldest
+ * make room.
+ */
 export function notify(kind: Notice['kind'], text: string): void {
-  notices = [...notices.slice(-3), { id: nextNoticeId, kind, text }];
+  const notice: Notice = { id: nextNoticeId, kind, text, dismissed: false };
   nextNoticeId += 1;
+  const free = notices.findIndex((shown) => shown.dismissed);
+  notices =
+    free === -1
+      ? [...notices.slice(-(MAX_NOTICES - 1)), notice]
+      : notices.map((shown, index) => (index === free ? notice : shown));
   changed();
 }
 
+/**
+ * Dismisses a notice. It keeps its place, unseen, while any notice is still shown, so that the notices below it never
+ * move up; once none is, all their places are freed.
+ */
 export function dismissNotice(id: number): void {
-  notices = notices.filter((notice) => notice.id !== id);
+  const marked = notices.map((notice) => (notice.id === id ? { ...notice, dismissed: true } : notice));
+  notices = marked.every((notice) => notice.dismissed) ? [] : marked;
   changed();
 }
 

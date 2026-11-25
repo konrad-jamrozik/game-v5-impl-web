@@ -1950,6 +1950,11 @@ summary {
   animation: notice-fade-out 300ms ease-in 2700ms forwards;
 }
 
+/* A dismissed notice keeps its place, unseen, while a notice below it is still shown. */
+.notice-gone {
+  visibility: hidden;
+}
+
 @keyframes notice-fade-out {
   to {
     opacity: 0;

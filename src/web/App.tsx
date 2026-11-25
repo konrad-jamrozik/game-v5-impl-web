@@ -72,15 +72,24 @@ const NOTICE_MS = 3000;
  */
 function NoticeToast({ notice }: { notice: Notice }) {
   useEffect(() => {
+    if (notice.dismissed) {
+      return undefined;
+    }
     const timer = setTimeout(() => {
       dismissNotice(notice.id);
     }, NOTICE_MS);
     return () => {
       clearTimeout(timer);
     };
-  }, [notice.id]);
+  }, [notice.id, notice.dismissed]);
 
-  return (
+  // A dismissed notice keeps its place and its height, unseen, so that the notices below it stay where they are.
+  return notice.dismissed ? (
+    <div className={`notice notice-${notice.kind} notice-gone`} aria-hidden="true">
+      <span>{notice.text}</span>
+      <span className="notice-close">×</span>
+    </div>
+  ) : (
     <div className={`notice notice-${notice.kind}`} data-testid={`notice-${notice.kind}`}>
       <span>{notice.text}</span>
       <button
