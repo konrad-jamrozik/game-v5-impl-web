@@ -2720,22 +2720,22 @@ label:has(> input[type='checkbox']:disabled) {
   grid-template-columns: minmax(200px, max-content) minmax(0, 1fr);
 }
 
-/* COMPV, Panes: each pane scrolls on its own and the Compendium View as a whole does not, so the article stays in
-   view while the Player scrolls a long list of titles. */
+/* VIS, Detail views and navigation, Panes: each pane scrolls on its own and the Detail view as a whole does not, so
+   that scrolling a long list, e.g. the Concluded Mission sites, never scrolls the selected item out of view. */
 @media (min-width: 1101px) {
-  .detail-body:has(> .panes-compendium) {
+  .detail-body:has(> .panes) {
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
 
-  .panes-compendium {
+  .detail-body > .panes {
     flex: 1;
     min-height: 0;
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .panes-compendium > .pane {
+  .detail-body > .panes > .pane {
     max-height: 100%;
     overflow-y: auto;
     scrollbar-width: thin;
