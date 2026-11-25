@@ -647,13 +647,15 @@ export function CombatReplay(props: {
               testId={`replay-${pace.id}`}
               pressed={playback.playing && !playback.picked && activePace?.id === pace.id}
               disabledReason={total === 0 ? 'This Combat had no attack.' : null}
-              hint="Ctrl+click also sets the Options to this pace"
+              hint="Ctrl+click sets the Options to this pace without playing"
               onClick={(event) => {
-                // GUI, Glossary, Ctrl: on a Mac the Command key works in its place.
+                // GUI, Glossary, Ctrl: on a Mac the Command key works in its place. With it held, a pace button only
+                // sets the Options and leaves the playing as it is.
                 if (event.ctrlKey || event.metaKey) {
                   setOptionsTo(pace);
+                } else {
+                  playAt(pace);
                 }
-                playAt(pace);
               }}
             >
               <Arrows count={pace.arrows} />
