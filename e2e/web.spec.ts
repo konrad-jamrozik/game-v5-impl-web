@@ -358,3 +358,19 @@ test('LVIEW, Team: an Instance ID opens the Agent details, and Escape returns to
   // Opening the details checked nothing.
   await expect(id(page, `team-pick-${agentId}`)).not.toBeChecked();
 });
+
+test('STVIEW, Trading: the Storage View buys through its trade bar, which is as wide as its table', async ({
+  page,
+}) => {
+  await newCampaign(page, 'storage-trade');
+  await id(page, 'nav-storage').click();
+  const ammo = id(page, 'storage-pistol_ammo');
+  const ownedBefore = Number((await ammo.locator('td').nth(2).innerText()).replaceAll(',', ''));
+  await ammo.getByRole('button', { name: '+10', exact: true }).click();
+  await expect(id(page, 'trade-bar')).toContainText('10 Pistol ammo');
+  const table = await id(page, 'storage-table').boundingBox();
+  const bar = await id(page, 'trade-bar').boundingBox();
+  expect(Math.round(bar?.width ?? 0)).toBe(Math.round(table?.width ?? -1));
+  await id(page, 'trade').click();
+  await expect(ammo.locator('td').nth(2)).toHaveText((ownedBefore + 10).toLocaleString('en-US'));
+});

@@ -46,8 +46,8 @@ export type ReportTarget =
   | { readonly kind: 'lead'; readonly lead: string }
   /** MVIEW, Concluded Mission site: an Agent's details in the Agents View. */
   | { readonly kind: 'agent'; readonly agent: string }
-  /** TRVIEW, Sections, New acquisitions: the Acquisitions View. */
-  | { readonly kind: 'acquisitions' }
+  /** TRVIEW, Sections, New acquisitions: the Storage View, where they can be bought. */
+  | { readonly kind: 'storage' }
   /** MVIEW, Deployment: the Agents View. */
   | { readonly kind: 'agents' };
 
@@ -596,13 +596,13 @@ function Sections(props: {
         {report.cancelledMissionSites.map((id) => siteRow(id, <span className="muted">Cancelled</span>))}
       </Section>
 
-      {/* TRVIEW, Sections, New acquisitions: what an interrogation unlocked; it opens the Acquisitions View. */}
+      {/* TRVIEW, Sections, New acquisitions: what an interrogation unlocked; it opens the Storage View. */}
       <Section title="New acquisitions" count={report.unlockedEquipment.length} testId="new-acquisitions">
         <button
           type="button"
           className="list-row"
           onClick={() => {
-            onOpen({ kind: 'acquisitions' });
+            onOpen({ kind: 'storage' });
           }}
         >
           <span className="list-name">{report.unlockedEquipment.map(itemName).join(', ')}</span>

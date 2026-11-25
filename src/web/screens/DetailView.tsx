@@ -15,7 +15,6 @@ export type DetailViewId =
   | 'leads'
   | 'agents'
   | 'storage'
-  | 'acquisitions'
   | 'upgrades'
   | 'report'
   | 'history'
@@ -38,7 +37,6 @@ export const DETAIL_VIEW_GROUPS: readonly {
       { id: 'agents', name: 'Agents' },
       { id: 'storage', name: 'Storage' },
       { id: 'upgrades', name: 'Upgrades' },
-      { id: 'acquisitions', name: 'Acquisitions' },
     ],
   },
   {

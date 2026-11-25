@@ -798,7 +798,6 @@ const DETAIL_VIEW_NAMES = [
   'leads',
   'agents',
   'storage',
-  'acquisitions',
   'upgrades',
   'turn_report',
   'history',

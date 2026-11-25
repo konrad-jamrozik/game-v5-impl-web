@@ -383,8 +383,6 @@ async function capture(page: Page): Promise<void> {
   await shootElement(page, 'upgrades-view', view(page, 'upgrades'));
   await open(page, 'storage');
   await shootElement(page, 'storage-view', view(page, 'storage'));
-  await open(page, 'acquisitions');
-  await shootElement(page, 'acquisitions-view', view(page, 'acquisitions'));
   await open(page, 'charts');
   await shootElement(page, 'charts-view', view(page, 'charts'));
   await open(page, 'history');

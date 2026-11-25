@@ -161,7 +161,7 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   await expectFits(page, 'the Missions View with a Concluded Mission site');
   await id(page, 'missions-concluded').click();
 
-  for (const viewId of ['leads', 'storage', 'upgrades', 'acquisitions', 'charts', 'history', 'compendium']) {
+  for (const viewId of ['leads', 'storage', 'upgrades', 'charts', 'history', 'compendium']) {
     await open(page, viewId);
     await expectFits(page, `the Detail view ${viewId}`);
   }

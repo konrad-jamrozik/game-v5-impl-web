@@ -3564,6 +3564,18 @@ label:has(> input[type='checkbox']:disabled) {
   gap: 2px;
 }
 
+/* STVIEW, Trading: the table and the trade bar under it share one width, the table's, so neither reaches past the
+   other; what is sold and what is bought stand side by side. */
+.storage-trade {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.trade-chosen-pair {
+  display: flex;
+  gap: 48px;
+}
+
 /* STVIEW, Storage table, Stats: long Ammo Stats wrap rather than being cut short. */
 .equipment-table tr:not(.group-row) > td:nth-child(2) {
   white-space: normal;
