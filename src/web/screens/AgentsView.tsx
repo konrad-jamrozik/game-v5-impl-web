@@ -30,7 +30,8 @@ import {
   type OrderAssignment,
   type Selectability,
 } from '../agent-selection.ts';
-import { assignmentParts, assignmentText, assignmentTone } from '../assignment.ts';
+import { assignmentText } from '../assignment.ts';
+import { AssignmentCell } from '../assignment-cell.tsx';
 import { capBar, type CapBarModel } from '../cap-bar.ts';
 import { memorialDeath, type MemorialDeath } from '../memorial.ts';
 import { fillColour } from '../progress-bar.ts';
@@ -64,13 +65,12 @@ const NUMERIC = new Set([
 const SELECTABLE_FIRST = 'selectable';
 
 /**
- * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first, 1024 px in all, so that the
- * table fits its view in the Reference window. Eff. holds four digits and Exh. three after the warning triangle, each
- * with its sort arrow. AVIEW, Agent table: Assignment holds the longest Lead `name` of the GDRs after
- * "Investigating: " and before " · In transit", e.g. "Investigating: Interrogate Black Lotus high commander · In
- * transit", so that it is never cut short.
+ * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first, 744 px in all, so that the
+ * table fits its view in the Reference window. Skill and Base hold four digits and Exh. three after the warning
+ * triangle, each with its sort arrow. AVIEW, Agent table: Assignment names no Lead or Mission site and marks In transit
+ * with an icon, so it holds its widest value, "Recovery · 99 T left" and the In transit icon, in 200 px.
  */
-const SERVING_WIDTHS = ['36px', '104px', '84px', '84px', '64px', '96px', '76px', '480px'];
+const SERVING_WIDTHS = ['36px', '104px', '84px', '84px', '64px', '96px', '76px', '200px'];
 /**
  * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
  * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by high-commander-12". Where is the
@@ -310,10 +310,9 @@ export function AgentsView(props: {
           </button>
         ),
       }),
-      // VIS, Tables: effective skill is headed Eff.
-      helper.accessor('effectiveSkill', { header: 'Eff.' }),
-      // GUI, Decimal quantities shown: base skill and current health with two decimals, e.g. "101.10", "29.40/30".
-      helper.accessor('skillHundredths', { header: 'Skill', cell: (cell) => wholeText(cell.getValue()) }),
+      // VIS, Tables: effective skill is headed Skill, and base skill Base.
+      helper.accessor('effectiveSkill', { header: 'Skill' }),
+      helper.accessor('skillHundredths', { header: 'Base', cell: (cell) => wholeText(cell.getValue()) }),
       // AVIEW, Agent table: Experience, a whole number, headed Exp.
       helper.accessor('experience', { header: 'Exp.' }),
       helper.accessor('currentHealthHundredths', {
@@ -330,32 +329,14 @@ export function AgentsView(props: {
       helper.accessor((agent) => assignmentText(agent, state, snapshot.retired), {
         id: 'assignment',
         header: 'Assignment',
-        cell: (cell) => {
-          const parts = assignmentParts(cell.row.original, state, snapshot.retired);
-          const target = parts.target;
-          return (
-            <span className={assignmentTone(cell.row.original)}>
-              {parts.lead}
-              {parts.name === null ? null : target === null ? (
-                parts.name
-              ) : (
-                // AVIEW, Agent table: the Lead or Mission site opens its Detail view with it selected, as a Follow.
-                <button
-                  type="button"
-                  className="assignment-link"
-                  data-testid={`assignment-link-${cell.row.original.id}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onShow(target);
-                  }}
-                >
-                  {parts.name}
-                </button>
-              )}
-              {parts.transit}
-            </span>
-          );
-        },
+        cell: (cell) => (
+          <AssignmentCell
+            agent={cell.row.original}
+            state={state}
+            retired={snapshot.retired}
+            onShow={onShow}
+          />
+        ),
       }),
       // AVIEW, Agent table: the locked first sort tier, which is no column: it is never shown, and ascending it puts
       // the Agents that can be selected, whose `blockedBy` is empty, first.
@@ -798,7 +779,7 @@ function Memorial(props: {
         <thead>
           <tr>
             {header('id', 'Agent', false)}
-            {header('skill', 'Skill', true)}
+            {header('skill', 'Base', true, 'Base skill')}
             {header('experience', 'Exp.', true, 'Experience')}
             {header('turnTerminated', 'Ended', true, 'Turn terminated')}
             {header('cause', 'Cause', false)}
@@ -995,7 +976,9 @@ function AgentDetails(props: {
           </>
         )}
         <dt>Assignment</dt>
-        <dd>{assignmentText(agent, state, snapshot.retired)}</dd>
+        <dd>
+          <AssignmentCell agent={agent} state={state} retired={snapshot.retired} onShow={props.onShow} />
+        </dd>
       </dl>
       {/* AVIEW, Agent details: the one place that shows a base Combat rating, beside the Combat rating that the Weapon
           damage and Armor Upgrades raise, in the shared Combat rating style, e.g. "COMBAT RATING 78 · base 76". A

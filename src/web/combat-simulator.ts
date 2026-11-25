@@ -26,7 +26,7 @@ export const VALUE_FIELDS: readonly {
   readonly label: string;
   readonly title: string;
 }[] = [
-  { key: 'baseSkill', label: 'Skill', title: 'Base skill' },
+  { key: 'baseSkill', label: 'Base', title: 'Base skill' },
   { key: 'currentHealth', label: 'Health', title: 'Current health' },
   { key: 'maxHealth', label: 'Max', title: 'Effective max health' },
   { key: 'exhaustion', label: 'Exh.', title: 'Exhaustion' },

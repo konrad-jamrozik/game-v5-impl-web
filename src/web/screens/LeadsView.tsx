@@ -20,6 +20,7 @@ import { useRowSelection } from '../row-selection.ts';
 import { pressHeader, sortRows, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { assignmentText } from '../assignment.ts';
+import { InTransitIcon } from '../assignment-cell.tsx';
 import { DetailView } from './DetailView.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
 
@@ -331,12 +332,12 @@ function Team(props: {
             <span className="label">Current team</span>
             <span className="figure tone-accent">{investigation.currentTeam.length}</span>
           </div>
-          <Grid widths={['110px', '90px', '64px', '110px']} className="compact">
+          <Grid widths={['110px', '32px', '64px', '110px']} className="compact">
             <tbody>
               {investigation.currentTeam.map((member) => (
                 <tr key={member.agent}>
                   <td className="figure">{member.agent}</td>
-                  <td className="muted small">{member.agentStatus === 'InTransit' ? 'In transit' : ''}</td>
+                  <td className="muted">{member.agentStatus === 'InTransit' ? <InTransitIcon /> : null}</td>
                   <td className="num">{agentById(member.agent)?.effectiveSkill ?? '-'}</td>
                   <td>
                     <Button
@@ -380,9 +381,9 @@ function Team(props: {
               <th className="check" />
               {header('id', 'Agent', false)}
               {header('assignment', 'Assignment', false)}
-              {/* VIS, Tables: effective skill is headed Eff., and exhaustion Exh. */}
-              {header('effectiveSkill', 'Eff.', true)}
-              {header('skillHundredths', 'Skill', true)}
+              {/* VIS, Tables: effective skill is headed Skill, base skill Base, and exhaustion Exh. */}
+              {header('effectiveSkill', 'Skill', true)}
+              {header('skillHundredths', 'Base', true)}
               {header('exhaustion', 'Exh.', true)}
             </tr>
           </thead>

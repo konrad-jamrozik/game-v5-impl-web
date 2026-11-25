@@ -2342,7 +2342,7 @@ label:has(> input[type='checkbox']:disabled) {
   text-align: left;
 }
 
-/* AVIEW, Agent table: the Lead or Mission site an Assignment names leads to it; it reads as the text around it. */
+/* AVIEW, Agent table: "Investigating" or "Deployed" leads to the Lead or Mission site; a dotted line shows it does. */
 .assignment-link {
   padding: 0;
   border: 0;
@@ -2350,12 +2350,29 @@ label:has(> input[type='checkbox']:disabled) {
   color: inherit;
   font: inherit;
   cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
 }
 
 .assignment-link:hover,
 .assignment-link:focus-visible {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* AVIEW, Agent table: the Assignment and the In transit icon after it, on one line. */
+.assignment-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* VIS, Icons: the In transit icon takes the colour of the text it follows. */
+.in-transit-icon {
+  display: inline-flex;
+  flex: none;
+  color: inherit;
 }
 
 .strong {

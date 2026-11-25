@@ -628,7 +628,7 @@ function Sections(props: {
 
 /**
  * VIS, Tables: the fixed widths of the participants table, the Combat log, and the Combat ratings table, each column
- * wide enough for the widest value of its quantity, e.g. "1234 → 1234" in Eff., "123 → 123/123" in Health,
+ * wide enough for the widest value of its quantity, e.g. "1234 → 1234" in Skill, "123 → 123/123" in Health,
  * "123 → 123" in Armor, and "99.9% (1234 vs 1234)" in Hit chance. The participants table is 1020 px in all, so that
  * it fits its pane in the Reference window.
  */
@@ -697,10 +697,10 @@ function CombatReportDetails(props: {
               <th>Participant</th>
               {/* VIS, Tables: a header is worded to fit the values under it, as in the Agent table of AVIEW. */}
               <th className="num" title="Base skill">
-                Skill
+                Base
               </th>
               <th className="num" title="Effective skill">
-                Eff.
+                Skill
               </th>
               <th className="num">Health</th>
               <th className="num">Armor</th>

@@ -32,7 +32,7 @@ import { SOUND } from '../sounds.ts';
 import { pressHeader, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
-import { assignmentText } from '../assignment.ts';
+import { instanceNumber } from '../memorial.ts';
 import type { ReportTarget } from './TurnReportView.tsx';
 import { combatShare } from '../combat-share.ts';
 import { usePlaceState } from '../place.tsx';
@@ -164,7 +164,8 @@ export function MissionsView(props: {
             {/* MVIEW, Mission site list: the Instance ID after the name, in Text muted; in a narrow pane it moves
                 onto a line of its own as a whole. */}
             <span className="list-name">
-              {item.site.name} <span className="list-id figure muted small">{item.site.id}</span>
+              {item.site.name}{' '}
+              <span className="list-id figure muted small">{instanceNumber(item.site.id)}</span>
             </span>
             <span className={`list-value ${item.tone ?? ''}`}>{item.detail}</span>
           </button>
@@ -278,8 +279,8 @@ function SiteDetails(props: {
   const applied = reached === null ? null : appliedConsequence(entries, site.id, record);
   return (
     <div className="pane" data-testid={`site-details-${site.id}`}>
-      <h4 className="pane-title" title={`${site.name} ${site.id}`}>
-        {site.name} <span className="figure muted small">{site.id}</span>
+      <h4 className="pane-title" title={`${site.name} ${instanceNumber(site.id)}`}>
+        {site.name} <span className="figure muted small">{instanceNumber(site.id)}</span>
       </h4>
       <dl className="pairs">
         <dt>Kind</dt>
@@ -505,7 +506,7 @@ function Deployment(props: {
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
   // VIS, Tables: up to four sort tiers over the default order, by Instance ID.
   const [tiers, setTiers] = useState<SortTier<DeployKey>[]>([]);
-  const rows = deployRows(candidates, tiers, (agent) => assignmentText(agent, state));
+  const rows = deployRows(candidates, tiers);
   const candidateIds = rows.map((agent) => agent.id);
   // VIS, Tables: Select all checks every row, follows the shown rows while on, and is cleared by any row change.
   const [selectAll, setSelectAll] = useState(false);
@@ -525,11 +526,12 @@ function Deployment(props: {
       onCheck(ids);
     },
   });
-  const header = (key: DeployKey, label: string) => {
+  const header = (key: DeployKey, label: string, title?: string) => {
     const numeric = DEPLOY_NUMERIC.has(key);
     return (
       <th
         className={numeric ? 'sortable num' : 'sortable'}
+        title={title}
         aria-sort={ariaSort(tiers, key)}
         data-testid={`deploy-sort-${key}`}
         onClick={() => {
@@ -574,78 +576,86 @@ function Deployment(props: {
       {candidates.length === 0 ? (
         <p className="muted small">No Agent on Standby or in Training can be deployed now.</p>
       ) : (
-        <Grid
-          widths={['36px', '110px', '220px', '84px', '76px']}
-          className="compact pick-grid"
-          testId="deploy-grid"
-        >
-          <thead>
-            <tr>
-              <th className="check">
-                <input
-                  type="checkbox"
-                  aria-label="Select all"
-                  data-testid="deploy-select-all"
-                  checked={selectAll}
-                  onChange={() => {
-                    // SOUNDS, Select click: checking or unchecking Select all.
-                    playSound(SOUND.select);
-                    if (selectAll) {
-                      setSelectAll(false);
-                      onCheck([]);
-                    } else {
-                      setSelectAll(true);
-                      onCheck([...team, ...candidateIds.filter((id) => !team.includes(id))]);
-                    }
-                  }}
-                />
-              </th>
-              {header('id', 'Agent')}
-              {header('assignment', 'Assignment')}
-              {/* VIS, Tables: effective skill is headed Eff., and exhaustion Exh. */}
-              {header('effectiveSkill', 'Eff.')}
-              {header('exhaustion', 'Exh.')}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((agent) => {
-              const on = team.includes(agent.id);
-              return (
-                <tr key={agent.id} className={on ? 'row-selected' : ''} {...selection.row(agent.id)}>
-                  <td className="check">
-                    <input
-                      type="checkbox"
-                      aria-label={`Deploy ${agent.id}`}
-                      data-testid={`deploy-pick-${agent.id}`}
-                      {...selection.checkbox(agent.id)}
-                    />
-                  </td>
-                  <td className="figure">
-                    {/* MVIEW, Deployment: an Agent's Instance ID opens its details as a Follow, without checking or
+        <>
+          {/* MVIEW, Deployment: the note above the table says which Agents it lists. */}
+          <p className="muted small deploy-note" data-testid="deploy-note">
+            Showing deployable agents
+          </p>
+          <Grid
+            widths={['36px', '110px', '76px', '84px', '84px', '76px']}
+            className="compact pick-grid"
+            testId="deploy-grid"
+          >
+            <thead>
+              <tr>
+                <th className="check">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all"
+                    data-testid="deploy-select-all"
+                    checked={selectAll}
+                    onChange={() => {
+                      // SOUNDS, Select click: checking or unchecking Select all.
+                      playSound(SOUND.select);
+                      if (selectAll) {
+                        setSelectAll(false);
+                        onCheck([]);
+                      } else {
+                        setSelectAll(true);
+                        onCheck([...team, ...candidateIds.filter((id) => !team.includes(id))]);
+                      }
+                    }}
+                  />
+                </th>
+                {header('id', 'Agent')}
+                {/* MVIEW, Deployment: no Assignment; VIS, Tables: effective skill is headed Skill and base skill Base. */}
+                {header('combatRating', 'CR', 'Combat rating')}
+                {header('effectiveSkill', 'Skill', 'Effective skill')}
+                {header('skillHundredths', 'Base', 'Base skill')}
+                {header('exhaustion', 'Exh.', 'Exhaustion')}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((agent) => {
+                const on = team.includes(agent.id);
+                return (
+                  <tr key={agent.id} className={on ? 'row-selected' : ''} {...selection.row(agent.id)}>
+                    <td className="check">
+                      <input
+                        type="checkbox"
+                        aria-label={`Deploy ${agent.id}`}
+                        data-testid={`deploy-pick-${agent.id}`}
+                        {...selection.checkbox(agent.id)}
+                      />
+                    </td>
+                    <td className="figure">
+                      {/* MVIEW, Deployment: an Agent's Instance ID opens its details as a Follow, without checking or
                         unchecking its row, since the row ignores clicks on a button. */}
-                    <button
-                      type="button"
-                      className="history-link figure"
-                      data-testid={`deploy-agent-${agent.id}`}
-                      data-sound="main"
-                      onClick={() => {
-                        props.onShow({ kind: 'agent', agent: agent.id });
-                      }}
-                    >
-                      {agent.id}
-                    </button>
-                  </td>
-                  <td className="secondary">{assignmentText(agent, state)}</td>
-                  <td className="num">{agent.effectiveSkill}</td>
-                  <td className="num">
-                    {/* MVIEW, Deployment: every Agent's exhaustion, coloured under VIS, Agent condition. */}
-                    <Exhaustion value={agent.exhaustion} levels={exhaustionLevels(snapshot.gameData)} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Grid>
+                      <button
+                        type="button"
+                        className="history-link figure"
+                        data-testid={`deploy-agent-${agent.id}`}
+                        data-sound="main"
+                        onClick={() => {
+                          props.onShow({ kind: 'agent', agent: agent.id });
+                        }}
+                      >
+                        {agent.id}
+                      </button>
+                    </td>
+                    <td className="num">{agent.combatRating ?? 0}</td>
+                    <td className="num">{agent.effectiveSkill}</td>
+                    <td className="num">{wholeText(agent.skillHundredths)}</td>
+                    <td className="num">
+                      {/* MVIEW, Deployment: every Agent's exhaustion, coloured under VIS, Agent condition. */}
+                      <Exhaustion value={agent.exhaustion} levels={exhaustionLevels(snapshot.gameData)} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Grid>
+        </>
       )}
       <div className="pane-actions">
         {/* MVIEW, Deployment: on the Deploy button's line, at the left, an Agents button opens the Agents View as a

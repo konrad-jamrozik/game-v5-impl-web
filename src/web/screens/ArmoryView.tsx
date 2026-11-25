@@ -4,7 +4,8 @@
  * them: the roster has one table for each of the two tasks, so that each fits its view (VIS, Tables).
  */
 import type { AgentView, CurrentLiveWorldStateView } from '../../engine/index.ts';
-import { assignmentKindText, assignmentTone } from '../assignment.ts';
+import { assignmentText } from '../assignment.ts';
+import { AssignmentCell } from '../assignment-cell.tsx';
 import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
 import { usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
@@ -66,7 +67,7 @@ export function ArmoryView(props: {
   const levels = exhaustionLevels(snapshot.gameData);
   // VIS, Tables: up to four sort tiers over the default order by Instance ID.
   const [tiers, setTiers] = usePlaceState<SortTier<ArmoryKey>[]>('armoryTiers', []);
-  const assignment = (agent: AgentView) => assignmentKindText(agent, state, snapshot.retired);
+  const assignment = (agent: AgentView) => assignmentText(agent, state, snapshot.retired);
   const value = (agent: AgentView, key: ArmoryKey): number | string => {
     switch (key) {
       case 'id':
@@ -114,7 +115,7 @@ export function ArmoryView(props: {
             <tr>
               {header('id', 'Agent', false)}
               {header('combatRating', 'CR', true, 'Combat rating, and what the equipment adds to it')}
-              {header('effectiveSkill', 'Eff.', true, 'Effective skill')}
+              {header('effectiveSkill', 'Skill', true, 'Effective skill')}
               {header('health', 'Health', true)}
               {header('exhaustion', 'Exh.', true, 'Exhaustion')}
               {header('weapon', 'Weapon', false)}
@@ -167,8 +168,13 @@ export function ArmoryView(props: {
                     testId={`armor-${agent.id}`}
                   />
                 </td>
-                <td className={assignmentTone(agent)} data-testid={`armory-assignment-${agent.id}`}>
-                  {assignment(agent)}
+                <td data-testid={`armory-assignment-${agent.id}`}>
+                  <AssignmentCell
+                    agent={agent}
+                    state={state}
+                    retired={snapshot.retired}
+                    onShow={props.onShow}
+                  />
                 </td>
               </tr>
             ))}

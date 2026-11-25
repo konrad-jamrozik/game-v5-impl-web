@@ -4,21 +4,32 @@
 import type { AgentView } from '../engine/index.ts';
 import { compareValues, sortRows, type SortTier } from './table-sort.ts';
 
-/** MVIEW, Deployment: the sortable columns of the deployment table, in their order. */
-export type DeployKey = 'id' | 'assignment' | 'effectiveSkill' | 'exhaustion';
+/** MVIEW, Deployment: the sortable columns of the deployment table, in their order; it shows no Assignment. */
+export type DeployKey = 'id' | 'combatRating' | 'effectiveSkill' | 'skillHundredths' | 'exhaustion';
 
 /** MVIEW, Deployment: the columns that hold numbers, which sort descending first under VIS, Tables. */
-export const DEPLOY_NUMERIC: ReadonlySet<DeployKey> = new Set(['effectiveSkill', 'exhaustion']);
+export const DEPLOY_NUMERIC: ReadonlySet<DeployKey> = new Set([
+  'combatRating',
+  'effectiveSkill',
+  'skillHundredths',
+  'exhaustion',
+]);
+
+type DeployAgent = Pick<
+  AgentView,
+  'id' | 'combatRating' | 'effectiveSkill' | 'skillHundredths' | 'exhaustion'
+>;
 
 /**
  * MVIEW, Deployment: `candidates` in the table's default order, by Instance ID, then ordered by `tiers` under
  * VIS, Tables.
  */
-export function deployRows<A extends Pick<AgentView, 'id' | 'effectiveSkill' | 'exhaustion'>>(
+export function deployRows<A extends DeployAgent>(
   candidates: readonly A[],
   tiers: readonly SortTier<DeployKey>[],
-  assignment: (agent: A) => string,
 ): A[] {
   const byId = [...candidates].sort((a, b) => compareValues(a.id, b.id));
-  return sortRows(byId, tiers, (agent, key) => (key === 'assignment' ? assignment(agent) : agent[key]));
+  return sortRows(byId, tiers, (agent, key) =>
+    key === 'combatRating' ? (agent.combatRating ?? 0) : agent[key],
+  );
 }
