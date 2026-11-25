@@ -259,6 +259,56 @@ describe('CRPLAY: Battlefield layout', () => {
     }
   });
 
+  it('fills each column from the middle row outwards in order of Combat rating, whatever the order of the side', () => {
+    const rated = (id: string, combatRating: number): Participant => {
+      const who = participant(id, 'enemy', 100);
+      return { ...who, start: { ...who.start, combatRating } };
+    };
+    // The side lists its weakest first and its single strongest last, e.g. Soldiers, Elites, Commanders, Cult leader.
+    const tiers = [
+      ...Array.from({ length: 30 }, () => 50),
+      ...Array.from({ length: 12 }, () => 400),
+      ...Array.from({ length: 4 }, () => 600),
+      2000,
+    ];
+    const cult: CombatReport = {
+      ...report(),
+      agents: ['agent-0'],
+      enemies: tiers.map((_, k) => `enemy-${k}`),
+      participants: [
+        participant('agent-0', 'agent', 100),
+        ...tiers.map((rating, k) => rated(`enemy-${k}`, rating)),
+      ],
+      log: [],
+    };
+    const middle = BATTLEFIELD_ROWS / 2;
+    for (const seed of ['sim-nmzgi3', 'a', 'b', 'c', 'd']) {
+      const enemies = buildReplay(cult, { ...source, seed }).figures.filter(
+        (figure) => figure.side === 'enemy',
+      );
+      const ratingOf = (id: string) => tiers[Number(id.split('-')[1])] ?? 0;
+      // The single strongest stands on the middle row, in the back column.
+      const leader = enemies.find((figure) => ratingOf(figure.id) === 2000);
+      expect(leader?.y).toBe(middle);
+      expect(leader?.x).toBe(Math.max(...enemies.map((figure) => figure.x)));
+      for (const x of new Set(enemies.map((figure) => figure.x))) {
+        const column = enemies
+          .filter((figure) => figure.x === x)
+          .sort((a, b) => Math.abs(a.y - middle) - Math.abs(b.y - middle) || a.y - b.y);
+        const ratings = column.map((figure) => ratingOf(figure.id));
+        expect(ratings, `column ${x}`).toEqual([...ratings].sort((a, b) => b - a));
+        // Combatants of equal strength spread evenly above and below the column's strongest.
+        const centre = column[0]?.y ?? middle;
+        for (const rating of new Set(ratings)) {
+          const rows = column.filter((figure) => ratingOf(figure.id) === rating).map((figure) => figure.y);
+          const above = rows.filter((y) => y < centre).length;
+          const below = rows.filter((y) => y > centre).length;
+          expect(Math.abs(above - below), `column ${x}, rating ${rating}`).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+  });
+
   it('leaves the eight cells around every figure free, even for the largest sides', () => {
     for (const [agents, enemies] of [
       [4, 12],

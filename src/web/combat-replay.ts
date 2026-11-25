@@ -213,7 +213,7 @@ export function ratingRanks(ratings: readonly number[]): number[] {
  * CRPLAY, Battlefield layout: the cell of each Combatant of one side, by its Combat rating at Combat start, given in
  * the side's fixed order. Its column follows its Combat rating: the lower, the nearer the other side, and chance moves
  * it a little, so that a side of equal Combatants does not stand in one line. The Combatants of one column stand
- * evenly spaced around the middle row, in the side's fixed order from top to bottom.
+ * evenly spaced around the middle row, and fill it from the middle outwards in order of Combat rating.
  */
 function sideCells(
   side: 'agent' | 'enemy',
@@ -243,18 +243,48 @@ function sideCells(
     members[roomy[0] ?? wanted]?.push(k);
   }
   const cells: { x: number; y: number }[] = Array.from({ length: count }, () => ({ x: 0, y: 0 }));
+  const middleRow = BATTLEFIELD_ROWS / 2;
   members.forEach((column, back) => {
     const gap = Math.min(ROW_GAP_MAX, BATTLEFIELD_ROWS / Math.max(1, column.length));
-    const middle = BATTLEFIELD_ROWS / 2 - ((column.length - 1) / 2) * gap;
-    const stagger = back % ROW_GAP_MAX;
-    const first =
-      gap === ROW_GAP_MAX ? stagger + ROW_GAP_MAX * Math.round((middle - stagger) / ROW_GAP_MAX) : middle;
-    column.forEach((k, place) => {
-      const y = Math.floor(first + place * gap);
-      cells[k] = { x: xOf(back), y: Math.min(BATTLEFIELD_ROWS - 1, Math.max(0, y)) };
-    });
+    // Each column stands one row below the column before it, and the back column, holding the strongest, unshifted.
+    const stagger = (((back - (depth - 1)) % ROW_GAP_MAX) + ROW_GAP_MAX) % ROW_GAP_MAX;
+    // A column with room to spare takes the staggered rows nearest the middle, so that its places lie evenly on both
+    // sides of its middle one; a crowded column spans the Battlefield evenly.
+    const first = middleRow - ((column.length - 1) / 2) * gap;
+    const rows =
+      gap === ROW_GAP_MAX
+        ? rowsFromMiddleOut(
+            Array.from({ length: BATTLEFIELD_ROWS / ROW_GAP_MAX }, (_, step) => stagger + step * ROW_GAP_MAX),
+            middleRow,
+          ).slice(0, column.length)
+        : column.map((_, place) =>
+            Math.min(BATTLEFIELD_ROWS - 1, Math.max(0, Math.floor(first + place * gap))),
+          );
+    for (const [k, y] of zip(fromMiddleOut(column, ratings), rowsFromMiddleOut(rows, middleRow))) {
+      cells[k] = { x: xOf(back), y };
+    }
   });
   return cells;
+}
+
+/**
+ * CRPLAY, Battlefield layout: the Combatants of one column in the order they take its places, the highest Combat
+ * rating first, and equal ones in the fixed order of their side.
+ */
+function fromMiddleOut(column: readonly number[], ratings: readonly number[]): number[] {
+  return [...column].sort((a, b) => (ratings[b] ?? 0) - (ratings[a] ?? 0) || a - b);
+}
+
+/**
+ * CRPLAY, Battlefield layout: the rows of one column from the middle row outwards, the nearest first, and of two as
+ * near, the upper one first.
+ */
+function rowsFromMiddleOut(rows: readonly number[], middleRow: number): number[] {
+  return [...rows].sort((a, b) => Math.abs(a - middleRow) - Math.abs(b - middleRow) || a - b);
+}
+
+function zip<A, B>(as: readonly A[], bs: readonly B[]): [A, B][] {
+  return as.map((a, i) => [a, bs[i] as B]);
 }
 
 function conditionOf(healthHundredths: number, incapacitated: boolean): FigureValues['condition'] {
