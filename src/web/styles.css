@@ -3580,6 +3580,36 @@ label:has(> input[type='checkbox']:disabled) {
   gap: 48px;
 }
 
+/* STVIEW, Trade count: "all", Sell, the signed count, Buy, and the bulk buttons on one line. */
+.trade-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.trade-control > .stepper-link {
+  margin-left: 0;
+}
+
+.btn.trade-step {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.trade-count {
+  width: 64px;
+  height: 24px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  background: var(--background);
+  font-family: var(--font-figure);
+  word-spacing: normal;
+  font-size: 14px;
+  text-align: center;
+}
+
 /* STVIEW, Storage table, Stats: long Ammo Stats wrap rather than being cut short. */
 .equipment-table tr:not(.group-row) > td:nth-child(2) {
   white-space: normal;

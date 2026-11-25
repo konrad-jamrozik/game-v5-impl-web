@@ -2,9 +2,9 @@
  * STVIEW, the Storage View: the Items and Ammo the agency holds and can buy, grouped into Weapons, Armor, and Ammo,
  * with a trade bar that gathers the chosen counts into one sale and one purchase.
  */
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import type { CurrentLiveWorldStateView, EquipmentItemView, EquipmentView } from '../../engine/index.ts';
-import { stepOf, steppedCount } from '../stepper.ts';
+import { stepOf } from '../stepper.ts';
 import { run, theEngine } from '../store.ts';
 import { Button, Grid } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -122,59 +122,6 @@ function Stats(props: { item: EquipmentItemView; ammoName: (id: string) => strin
   );
 }
 
-/** VIS, Steppers: a stepper with a number field, from 0 to `max`, and extra buttons after it. */
-function Stepper(props: {
-  label: string;
-  value: number;
-  max: number;
-  onChange: (value: number) => void;
-  extra?: ReactNode;
-}) {
-  const set = (value: number) => {
-    props.onChange(Math.max(0, Math.min(props.max, Number.isFinite(value) ? Math.floor(value) : 0)));
-  };
-  return (
-    <span className="stepper">
-      <button
-        type="button"
-        aria-label={`One fewer ${props.label}`}
-        title="Shift: 10 · Ctrl: 100"
-        onMouseDown={(event) => {
-          if (event.shiftKey) {
-            event.preventDefault();
-          }
-        }}
-        onClick={(event) => set(steppedCount(props.value, -stepOf(event), props.max))}
-      >
-        −
-      </button>
-      <input
-        type="number"
-        min={0}
-        max={props.max}
-        aria-label={`${props.label} count`}
-        className={props.value > 0 ? 'chosen' : undefined}
-        value={props.value}
-        onChange={(event) => set(Number(event.target.value))}
-      />
-      <button
-        type="button"
-        aria-label={`One more ${props.label}`}
-        title="Shift: 10 · Ctrl: 100"
-        onMouseDown={(event) => {
-          if (event.shiftKey) {
-            event.preventDefault();
-          }
-        }}
-        onClick={(event) => set(steppedCount(props.value, stepOf(event), props.max))}
-      >
-        +
-      </button>
-      {props.extra}
-    </span>
-  );
-}
-
 /** "2 Rifles", "1 Ballistic vest", "50 Pistol ammo": each chosen entry by count and name, one per line. */
 function chosenLines(
   items: readonly EquipmentItemView[],
@@ -204,6 +151,121 @@ function Chosen(props: { label: string; lines: readonly string[] }) {
   );
 }
 
+/**
+ * STVIEW, Trade count: one control for both directions of one Item, a count below 0 selling and above 0 buying,
+ * between a worded Sell and Buy button rather than a bare "−" and "+". The count shows its sign and its direction's
+ * colour, "−5" in Positive and "+10" in Accent text, with "Sell 5" or "Buy 10" as its tooltip. "all" before Sell sets
+ * the count to the sale limit; for an AmmoType, "+10" and "+100" after Buy add to what is bought.
+ */
+function TradeControl(props: {
+  name: string;
+  count: number;
+  /** How many can be sold at most, i.e. the count can go down to minus this. */
+  saleLimit: number;
+  canBuy: boolean;
+  bulk: boolean;
+  testId: string;
+  onChange: (count: number) => void;
+}) {
+  const { count, saleLimit, canBuy } = props;
+  const most = canBuy ? Number.MAX_SAFE_INTEGER : 0;
+  const clamp = (value: number) => Math.max(-saleLimit, Math.min(most, Number.isFinite(value) ? value : 0));
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = count > 0 ? `+${count}` : count < 0 ? `−${-count}` : '0';
+  const tone =
+    count < 0 ? 'trade-count tone-good' : count > 0 ? 'trade-count tone-accent' : 'trade-count muted';
+  const commit = () => {
+    if (draft !== null) {
+      const parsed = Number(draft.replace('−', '-').replace('+', '').trim());
+      props.onChange(clamp(Number.isNaN(parsed) ? count : Math.trunc(parsed)));
+      setDraft(null);
+    }
+  };
+  const move = (direction: 1 | -1, event: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
+    props.onChange(clamp(count + direction * stepOf(event)));
+  };
+  return (
+    <span className="trade-control" data-testid={props.testId}>
+      <button
+        type="button"
+        className="stepper-link"
+        disabled={saleLimit === 0 || count === -saleLimit}
+        title={`Sell every ${props.name} that can be sold`}
+        onClick={() => props.onChange(-saleLimit)}
+      >
+        all
+      </button>
+      <button
+        type="button"
+        className="btn trade-step"
+        disabled={saleLimit === 0 || count <= -saleLimit}
+        title="Sell one · Shift: 10 · Ctrl: 100"
+        aria-label={`Sell one more ${props.name}`}
+        onMouseDown={(event) => {
+          if (event.shiftKey) {
+            event.preventDefault();
+          }
+        }}
+        onClick={(event) => move(-1, event)}
+      >
+        Sell
+      </button>
+      <input
+        type="text"
+        inputMode="numeric"
+        className={tone}
+        aria-label={`${props.name} to trade: below 0 sells, above 0 buys`}
+        title={count < 0 ? `Sell ${-count}` : count > 0 ? `Buy ${count}` : 'Nothing traded'}
+        value={draft ?? shown}
+        onFocus={(event) => {
+          setDraft(String(count));
+          event.currentTarget.select();
+        }}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            commit();
+          }
+        }}
+      />
+      <button
+        type="button"
+        className="btn trade-step"
+        disabled={!canBuy}
+        title={canBuy ? 'Buy one · Shift: 10 · Ctrl: 100' : 'Not unlocked'}
+        aria-label={`Buy one more ${props.name}`}
+        onMouseDown={(event) => {
+          if (event.shiftKey) {
+            event.preventDefault();
+          }
+        }}
+        onClick={(event) => move(1, event)}
+      >
+        Buy
+      </button>
+      {props.bulk && canBuy ? (
+        <>
+          <button
+            type="button"
+            className="stepper-link"
+            onClick={() => props.onChange(clamp(Math.max(0, count) + 10))}
+          >
+            +10
+          </button>
+          <button
+            type="button"
+            className="stepper-link"
+            onClick={() => props.onChange(clamp(Math.max(0, count) + 100))}
+          >
+            +100
+          </button>
+        </>
+      ) : null}
+    </span>
+  );
+}
+
 /** STVIEW: the Storage View, which shows the agency's gear and what it can buy, and sells and buys in one trade. */
 export function StorageView(props: {
   state: CurrentLiveWorldStateView;
@@ -212,8 +274,8 @@ export function StorageView(props: {
 }) {
   const { player } = theEngine();
   const view = props.state.agency.equipment;
-  const [sells, setSells] = useState<Record<string, number>>({});
-  const [buys, setBuys] = useState<Record<string, number>>({});
+  // STVIEW, Trade count: one signed count per row, below 0 selling and above 0 buying.
+  const [trades, setTrades] = useState<Record<string, number>>({});
   const folds = useFoldedGroups();
   const [takeEquipped, setTakeEquipped] = useState(false);
   // STVIEW, Storage table: every Item and AmmoType that is Unlocked or owned; nothing says what would unlock the rest.
@@ -221,8 +283,9 @@ export function StorageView(props: {
   const ammoName = (id: string) => view.items.find((item) => item.id === id)?.name ?? id;
   const limit = (item: EquipmentItemView) =>
     takeEquipped && item.kind !== 'ammo' ? item.owned : item.available;
-  const sellCount = (item: EquipmentItemView) => Math.min(sells[item.id] ?? 0, limit(item));
-  const buyCount = (item: EquipmentItemView) => (item.unlocked ? (buys[item.id] ?? 0) : 0);
+  const tradeOf = (item: EquipmentItemView) => trades[item.id] ?? 0;
+  const sellCount = (item: EquipmentItemView) => Math.min(Math.max(0, -tradeOf(item)), limit(item));
+  const buyCount = (item: EquipmentItemView) => (item.unlocked ? Math.max(0, tradeOf(item)) : 0);
   const selling = shown.filter((item) => sellCount(item) > 0);
   const buying = shown.filter((item) => buyCount(item) > 0);
   const earns = saleValueOf(
@@ -234,10 +297,8 @@ export function StorageView(props: {
   const missing = cost - money - earns;
   const stripped = takeEquipped ? strippedAgents(props.state, selling, sellCount) : [];
   const nothing = selling.length === 0 && buying.length === 0;
-  const addBuy = (item: EquipmentItemView, n: number) => setBuys({ ...buys, [item.id]: buyCount(item) + n });
   const clear = () => {
-    setSells({});
-    setBuys({});
+    setTrades({});
   };
   // STVIEW, Trading: the sale first, so that its money pays for the purchase; each is one Player action.
   const trade = () => {
@@ -277,10 +338,10 @@ export function StorageView(props: {
     >
       <div className="storage-trade">
         <Grid
-          // VIS, Tables: 1060 px in all, so that the table fits its view in the Reference window. Item holds
-          // "Reinforced ballistic vest" after its indent, Stats "32 ⚔ Laser rifle battery", the counts "10,000", and Buy and
-          // Sell a stepper with its "+10" and "+100" or "max" buttons.
-          widths={['186px', '176px', '68px', '60px', '68px', '64px', '72px', '190px', '176px']}
+          // VIS, Tables: 994 px in all, so that the table fits its view in the Reference window with room for the
+          // view's scroll bar. Item holds "Reinforced ballistic vest" after its indent, Stats "32 ⚔ Laser rifle battery",
+          // the counts "10,000", and Trade its "all", Sell, count, Buy, "+10", and "+100".
+          widths={['186px', '176px', '68px', '60px', '68px', '64px', '72px', '300px']}
           className="equipment-table"
           testId="storage-table"
         >
@@ -299,8 +360,7 @@ export function StorageView(props: {
               <th className="num" title="Sale value of one">
                 Value
               </th>
-              <th>Buy</th>
-              <th>Sell</th>
+              <th title="Below 0 sells, above 0 buys">Trade</th>
             </tr>
           </thead>
           {GROUPS.map((group) => {
@@ -320,11 +380,10 @@ export function StorageView(props: {
                   <td />
                   <td />
                   <td />
-                  <td />
                 </tr>
                 {folds.isFolded(group.kind) ? null : items.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="muted">
+                    <td colSpan={8} className="muted">
                       Nothing yet
                     </td>
                   </tr>
@@ -341,55 +400,15 @@ export function StorageView(props: {
                       <td className="num">{item.unlocked ? item.price.toLocaleString('en-US') : ''}</td>
                       <td className="num">{unitText(view, item.price)}</td>
                       <td>
-                        {item.unlocked ? (
-                          <Stepper
-                            label={`${item.name} to buy`}
-                            value={buyCount(item)}
-                            max={Number.MAX_SAFE_INTEGER}
-                            onChange={(value) => setBuys({ ...buys, [item.id]: value })}
-                            extra={
-                              item.kind === 'ammo' ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="stepper-link"
-                                    onClick={() => addBuy(item, 10)}
-                                  >
-                                    +10
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="stepper-link"
-                                    onClick={() => addBuy(item, 100)}
-                                  >
-                                    +100
-                                  </button>
-                                </>
-                              ) : null
-                            }
-                          />
-                        ) : null}
-                      </td>
-                      <td>
-                        {item.owned > 0 ? (
-                          <Stepper
-                            label={`${item.name} to sell`}
-                            value={sellCount(item)}
-                            max={limit(item)}
-                            onChange={(value) => setSells({ ...sells, [item.id]: value })}
-                            extra={
-                              limit(item) > 0 ? (
-                                <button
-                                  type="button"
-                                  className="stepper-link"
-                                  onClick={() => setSells({ ...sells, [item.id]: limit(item) })}
-                                >
-                                  max
-                                </button>
-                              ) : null
-                            }
-                          />
-                        ) : null}
+                        <TradeControl
+                          name={item.name}
+                          count={tradeOf(item)}
+                          saleLimit={limit(item)}
+                          canBuy={item.unlocked}
+                          bulk={item.kind === 'ammo'}
+                          testId={`trade-${item.id}`}
+                          onChange={(value) => setTrades({ ...trades, [item.id]: value })}
+                        />
                       </td>
                     </tr>
                   ))

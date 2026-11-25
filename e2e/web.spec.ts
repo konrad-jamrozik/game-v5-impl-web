@@ -367,6 +367,8 @@ test('STVIEW, Trading: the Storage View buys through its trade bar, which is as 
   const ammo = id(page, 'storage-pistol_ammo');
   const ownedBefore = Number((await ammo.locator('td').nth(2).innerText()).replaceAll(',', ''));
   await ammo.getByRole('button', { name: '+10', exact: true }).click();
+  // STVIEW, Trade count: a purchase shows as a signed count above 0.
+  await expect(id(page, 'trade-pistol_ammo').locator('input')).toHaveValue('+10');
   await expect(id(page, 'trade-bar')).toContainText('10 Pistol ammo');
   const table = await id(page, 'storage-table').boundingBox();
   const bar = await id(page, 'trade-bar').boundingBox();
