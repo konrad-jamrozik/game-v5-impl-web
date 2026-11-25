@@ -155,6 +155,8 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
     await open(page, viewId);
     await expectFits(page, `the Detail view ${viewId}`);
   }
+  // CSCR, Hiding the Side panel: the Compendium View leaves the status bar out, so it is closed first.
+  await page.keyboard.press('Escape');
 
   await id(page, 'open-settings').click();
   await expectFits(page, 'the Settings panel');

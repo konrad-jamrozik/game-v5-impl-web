@@ -112,6 +112,8 @@ type TrailId = DetailViewId | typeof TURN_SUMMARY;
 export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: CurrentLiveWorldStateView }) {
   const { session, player } = theEngine();
   const [open, setOpen] = useState<OpenView | null>(null);
+  /** CSCR, Hiding the Side panel: the Compendium View covers the whole screen, status bar and Side panel included. */
+  const compendiumOpen = open?.id === 'compendium';
   // CSCR, View trail: empty whenever the Campaign screen is shown anew, e.g. after a Campaign is loaded.
   const [trail, setTrail] = useState<ViewTrail<TrailId>>([]);
   const live = useRef<Record<string, unknown>>({});
@@ -401,7 +403,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       } else if (key === 'v') {
         // CSCR, Hiding the Side panel: the V key hides or shows it wherever the Player is on the Campaign screen,
         // except while the Compendium View, which leaves the Side panel out, is open.
-        if (open?.id !== 'compendium') {
+        if (!compendiumOpen) {
           playSound(SOUND.select);
           setSidePanelHidden(!sidePanelHidden);
         }
@@ -410,6 +412,10 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         playSound(SOUND.select);
         setPicked(new Set(actions?.assignableAgents ?? []));
       } else if (autopilotActive) {
+        return;
+      } else if (compendiumOpen && (key === 'n' || key === 'u' || key === 'r')) {
+        // CSCR, Hiding the Side panel: the keys of the status bar controls do nothing while the Compendium View hides
+        // the status bar, so that the Campaign never changes behind it.
         return;
       } else if (key === 'n') {
         advance();
@@ -487,143 +493,147 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   }
 
   return (
-    <div className="campaign">
-      <header className="statusbar">
-        <div className="status-facts">
-          <Fact label="Turn" testId="turn">
-            {state.turn}
-          </Fact>
-          <div className="fact">
-            <span className="fact-label">Money</span>
-            <span className="fact-value">
-              <span data-testid="money">{state.agency.money}</span>
-              {/* VIS, Status bar: the projected change of a value follows it in Positive or Danger. */}
-              <span className="fact-change tone-good" title="Projected income">
-                +{state.agency.projectedIncome}
-              </span>
-              <span className="fact-change tone-bad" title="Projected upkeep">
-                −{state.agency.projectedUpkeep}
-              </span>
-            </span>
-          </div>
-          <Fact label="Funding">{state.agency.funding}</Fact>
-          <Fact label="Agents">
-            {state.agency.servingAgents}/{state.agency.agentCap}
-          </Fact>
-          <div className="fact">
-            <span className="fact-label">Panic</span>
-            <span className="meter-figure" data-testid="panic">
-              <span>
-                {decimalText(state.panicHundredths)} / {state.panicLimit}%
-              </span>
-              <Meter
-                value={state.panicHundredths}
-                max={state.panicLimit * 100}
-                label={`Panic ${panicText(state.panicHundredths)}`}
-              />
-            </span>
-          </div>
-          {/* CSCR, Status bar values, 6: Enemy quiet, written with "T", with its full name as its tooltip. VIS,
-              Status bar: a unit follows its value in the 13 px Figure style and Text muted. */}
-          <div className="fact" title="Turns since last enemy activity">
-            <span className="fact-label">Enemy quiet</span>
-            <span className="fact-value">
-              <span data-testid="turns-since-faction-activity">
-                {turnsSinceLastFactionActivity(state.turn, [
-                  ...state.missionSites,
-                  ...(snapshot.retired?.missionSites ?? []),
-                ])}
-              </span>
-              <span className="fact-unit">T</span>
-            </span>
-          </div>
-        </div>
-        <div className="status-actions">
-          {(['undo', 'redo'] as const).map((which) => {
-            const step = steps[which];
-            const form: UndoRedoForm = step?.form ?? 'action';
-            return (
-              <Button
-                key={which}
-                kind={stepButtonKind(step)}
-                className="undo-redo"
-                shortcut={which === 'undo' ? 'U' : 'R'}
-                testId={which}
-                tooltip={step?.tooltip}
-                disabledReason={
-                  locked ??
-                  (step === null ? (which === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.') : null)
-                }
-                onClick={() => {
-                  takeStep(which);
-                }}
-              >
-                {/* CSCR, Undo and redo: the button keeps one width, that of its widest label. */}
-                <span className="label-swap">
-                  {(['action', 'turn', 'autopilot'] as const).map((item) => (
-                    <span
-                      key={item}
-                      className={item === form ? '' : 'label-off'}
-                      aria-hidden={item === form ? undefined : true}
-                    >
-                      {STEP_LABELS[which][item]}
-                    </span>
-                  ))}
+    // CSCR, Hiding the Side panel: while the Compendium View is open, the status bar and the Side panel are left out
+    // and the Compendium View covers the whole screen.
+    <div className={compendiumOpen ? 'campaign compendium-open' : 'campaign'}>
+      {compendiumOpen ? null : (
+        <header className="statusbar">
+          <div className="status-facts">
+            <Fact label="Turn" testId="turn">
+              {state.turn}
+            </Fact>
+            <div className="fact">
+              <span className="fact-label">Money</span>
+              <span className="fact-value">
+                <span data-testid="money">{state.agency.money}</span>
+                {/* VIS, Status bar: the projected change of a value follows it in Positive or Danger. */}
+                <span className="fact-change tone-good" title="Projected income">
+                  +{state.agency.projectedIncome}
                 </span>
-              </Button>
-            );
-          })}
-          <Button
-            testId="save"
-            disabledReason={locked}
-            onClick={() => {
-              act(() => session.saves.save(), 'Campaign saved.');
-            }}
-          >
-            Save
-          </Button>
-          <Button
-            testId="to-menu"
-            disabledReason={locked}
-            onClick={() => {
-              void leaveCampaign();
-            }}
-          >
-            Main menu
-          </Button>
-          {/* CSCR, Status bar controls: Settings, which stays enabled while an Autopilot engagement is active. */}
-          <button
-            type="button"
-            className="btn btn-plain settings-button"
-            aria-label="Settings"
-            title="Settings"
-            data-testid="open-settings"
-            onClick={() => {
-              setSettings(true);
-            }}
-          >
-            <Cogwheel />
-          </button>
-          <Button
-            kind="primary"
-            main
-            shortcut="N"
-            testId="advance-turn"
-            sound="none"
-            disabledReason={
-              locked ??
-              (actions?.advanceTurn.available === true
-                ? null
-                : (actions?.advanceTurn.message ?? 'Unavailable.'))
-            }
-            onClick={advance}
-          >
-            Advance turn
-          </Button>
-        </div>
-      </header>
+                <span className="fact-change tone-bad" title="Projected upkeep">
+                  −{state.agency.projectedUpkeep}
+                </span>
+              </span>
+            </div>
+            <Fact label="Funding">{state.agency.funding}</Fact>
+            <Fact label="Agents">
+              {state.agency.servingAgents}/{state.agency.agentCap}
+            </Fact>
+            <div className="fact">
+              <span className="fact-label">Panic</span>
+              <span className="meter-figure" data-testid="panic">
+                <span>
+                  {decimalText(state.panicHundredths)} / {state.panicLimit}%
+                </span>
+                <Meter
+                  value={state.panicHundredths}
+                  max={state.panicLimit * 100}
+                  label={`Panic ${panicText(state.panicHundredths)}`}
+                />
+              </span>
+            </div>
+            {/* CSCR, Status bar values, 6: Enemy quiet, written with "T", with its full name as its tooltip. VIS,
+              Status bar: a unit follows its value in the 13 px Figure style and Text muted. */}
+            <div className="fact" title="Turns since last enemy activity">
+              <span className="fact-label">Enemy quiet</span>
+              <span className="fact-value">
+                <span data-testid="turns-since-faction-activity">
+                  {turnsSinceLastFactionActivity(state.turn, [
+                    ...state.missionSites,
+                    ...(snapshot.retired?.missionSites ?? []),
+                  ])}
+                </span>
+                <span className="fact-unit">T</span>
+              </span>
+            </div>
+          </div>
+          <div className="status-actions">
+            {(['undo', 'redo'] as const).map((which) => {
+              const step = steps[which];
+              const form: UndoRedoForm = step?.form ?? 'action';
+              return (
+                <Button
+                  key={which}
+                  kind={stepButtonKind(step)}
+                  className="undo-redo"
+                  shortcut={which === 'undo' ? 'U' : 'R'}
+                  testId={which}
+                  tooltip={step?.tooltip}
+                  disabledReason={
+                    locked ??
+                    (step === null ? (which === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.') : null)
+                  }
+                  onClick={() => {
+                    takeStep(which);
+                  }}
+                >
+                  {/* CSCR, Undo and redo: the button keeps one width, that of its widest label. */}
+                  <span className="label-swap">
+                    {(['action', 'turn', 'autopilot'] as const).map((item) => (
+                      <span
+                        key={item}
+                        className={item === form ? '' : 'label-off'}
+                        aria-hidden={item === form ? undefined : true}
+                      >
+                        {STEP_LABELS[which][item]}
+                      </span>
+                    ))}
+                  </span>
+                </Button>
+              );
+            })}
+            <Button
+              testId="save"
+              disabledReason={locked}
+              onClick={() => {
+                act(() => session.saves.save(), 'Campaign saved.');
+              }}
+            >
+              Save
+            </Button>
+            <Button
+              testId="to-menu"
+              disabledReason={locked}
+              onClick={() => {
+                void leaveCampaign();
+              }}
+            >
+              Main menu
+            </Button>
+            {/* CSCR, Status bar controls: Settings, which stays enabled while an Autopilot engagement is active. */}
+            <button
+              type="button"
+              className="btn btn-plain settings-button"
+              aria-label="Settings"
+              title="Settings"
+              data-testid="open-settings"
+              onClick={() => {
+                setSettings(true);
+              }}
+            >
+              <Cogwheel />
+            </button>
+            <Button
+              kind="primary"
+              main
+              shortcut="N"
+              testId="advance-turn"
+              sound="none"
+              disabledReason={
+                locked ??
+                (actions?.advanceTurn.available === true
+                  ? null
+                  : (actions?.advanceTurn.message ?? 'Unavailable.'))
+              }
+              onClick={advance}
+            >
+              Advance turn
+            </Button>
+          </div>
+        </header>
+      )}
 
-      {state.ending === null ? null : (
+      {state.ending === null || compendiumOpen ? null : (
         <div
           className={`ending ending-${state.ending.ending.toLowerCase()}`}
           data-testid="ending"
@@ -639,7 +649,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           width; another place brings it back as the Player last left it. */}
       <div
         className={
-          open?.id === 'compendium'
+          compendiumOpen
             ? 'campaign-body side-none'
             : sidePanelHidden
               ? 'campaign-body side-hidden'
@@ -670,7 +680,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           )}
         </main>
 
-        {open?.id === 'compendium' ? null : sidePanelHidden ? (
+        {compendiumOpen ? null : sidePanelHidden ? (
           // CSCR, Hiding the Side panel: a strip along the right edge holds the button that shows it again.
           <aside className="side-strip" aria-label="Side panel hidden">
             <button

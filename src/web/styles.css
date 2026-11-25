@@ -2126,6 +2126,13 @@ label:has(> input[type='checkbox']:disabled) {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* VIS, Detail views and navigation: the Compendium View, which covers the whole screen, fills the window without the
+   inset and without the Accent top edge. */
+.campaign.compendium-open .detail-view {
+  inset: 0;
+  border-top: none;
+}
+
 .side-strip {
   display: flex;
   justify-content: center;
