@@ -678,7 +678,6 @@ function CombatReportDetails(props: {
   const { combat } = props;
   const sideOf = (id: string) => combat.participants.find((who) => who.id === id)?.side ?? 'enemy';
   const group = (side: 'agent' | 'enemy') => combat.participants.filter((who) => who.side === side);
-  const rounds = combat.ratings.map((rating) => rating.round);
   return (
     <div className="stack" data-testid="combat-report">
       <section className="pane">
@@ -787,26 +786,21 @@ function CombatReportDetails(props: {
       </section>
       <section className="pane">
         <h3 className="pane-title">Combat ratings</h3>
-        <Grid widths={['120px', ...rounds.map(() => '96px')]} testId="combat-ratings">
+        {/* VIS, Tables: one row per Combat round, so that a long Combat makes the table taller, never wider. */}
+        <Grid widths={['120px', '96px', '96px']} testId="combat-ratings">
           <thead>
             <tr>
-              <th>Side</th>
-              {rounds.map((round) => (
-                <th key={round} className="num">
-                  {round === 0 ? 'Start' : `Round ${round}`}
-                </th>
-              ))}
+              <th>Round</th>
+              <th className="num">Agents</th>
+              <th className="num">Enemies</th>
             </tr>
           </thead>
           <tbody>
-            {(['agents', 'enemies'] as const).map((side) => (
-              <tr key={side}>
-                <th scope="row">{side === 'agents' ? 'Agents' : 'Enemies'}</th>
-                {combat.ratings.map((rating) => (
-                  <td key={rating.round} className="num">
-                    {rating[side]}
-                  </td>
-                ))}
+            {combat.ratings.map((rating) => (
+              <tr key={rating.round}>
+                <th scope="row">{rating.round === 0 ? 'Start' : `Round ${rating.round}`}</th>
+                <td className="num">{rating.agents}</td>
+                <td className="num">{rating.enemies}</td>
               </tr>
             ))}
           </tbody>
