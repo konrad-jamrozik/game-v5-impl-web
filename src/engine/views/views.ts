@@ -1237,6 +1237,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
           damageOfAHit: { min: bounds.lo, max: bounds.hi },
           price: weapon.price,
           ammoType: weapon.ammoType,
+          shot: weapon.shot,
         };
       }),
       armors: [...gdrs.armors.values()].map((armor) => ({
@@ -1249,7 +1250,6 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         id: ammo.id,
         name: ammo.name,
         price: ammo.price,
-        shot: ammo.shot,
       })),
       enemyArchetypes: [...gdrs.enemyArchetypes.values()].map((enemy) => ({
         id: enemy.id,

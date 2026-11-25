@@ -74,6 +74,11 @@ export interface Combatant {
    * a Weapon without one, for an Agent of explicit values, and for every Enemy, which never runs out.
    */
   readonly ammoType?: string | null;
+  /**
+   * COMBAT, Combat report, Starting values: the Weapon the Combatant is equipped with, which only the Combat report
+   * reads; absent or null for a Combatant given as explicit values.
+   */
+  readonly weapon?: string | null;
 }
 
 /**
@@ -420,6 +425,7 @@ function fight(
           maxHealth: combatant.state.maxHealth,
           exhaustion: exhaustionOf(combatant.state),
           weaponDamage: combatant.state.weaponDamage,
+          ...(typeof combatant.weapon === 'string' ? { weapon: combatant.weapon } : {}),
           armor: combatant.state.armor,
           effectiveSkill: effective,
           // COMBAT, Combat report, Starting values: the Combat rating of the Combatant alone, 0 when not able to fight.

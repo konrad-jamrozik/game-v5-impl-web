@@ -18,6 +18,15 @@ import {
   type ReplayAttack,
   type ReplayFigure,
 } from './combat-replay.ts';
+import {
+  T_DRAIN,
+  T_HIT,
+  attackerOffset,
+  drawShotEffect,
+  missShownAt,
+  outlineGlow,
+  type ShotGeometry,
+} from './combat-replay-shots.ts';
 
 /** VIS, Colours: the Design tokens the Battlefield is drawn in, read from the style sheet. */
 export interface ReplayPalette {
@@ -32,7 +41,11 @@ export interface ReplayPalette {
   /** VIS, Colours: the five Enemy colours of CRPLAY, Enemy figures. */
   readonly enemy: Readonly<Record<EnemyColour, string>>;
   readonly tracer: string;
+  readonly muzzle: string;
+  readonly tracerRed: string;
+  readonly brass: string;
   readonly beam: string;
+  readonly beamFringe: string;
   readonly figureFont: string;
 }
 
@@ -56,7 +69,11 @@ export function readPalette(element: Element): ReplayPalette {
       violet: token('--enemy-violet'),
     },
     tracer: token('--tracer'),
+    muzzle: token('--muzzle'),
+    tracerRed: token('--tracer-red'),
+    brass: token('--brass'),
     beam: token('--beam'),
+    beamFringe: token('--beam-fringe'),
     figureFont: token('--font-figure'),
   };
 }
@@ -76,10 +93,8 @@ export interface DrawInput {
   readonly reducedMotion: boolean;
 }
 
-/** When, within one attack, its shot starts, lands, and has emptied its defender, as fractions of the attack. */
-const T_AIM = 0.18;
-const T_HIT = 0.55;
-const T_DRAIN = 0.85;
+/** How long, within one attack, its attacker stays marked, as a fraction of the attack. */
+const T_MARK = 0.28;
 const TAU = Math.PI * 2;
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -413,67 +428,45 @@ function besideDefender(from: Point, to: Point, sign: number, cell: number): Poi
   return [to[0] + px * sign * cell * 0.95, to[1] + py * sign * cell * 0.95];
 }
 
-/** CRPLAY, Shots, Blade: how far along its way to the defender a lunging attacker is. */
-function lunge(t: number): number {
-  if (t < T_AIM) {
-    return 0;
+/** Where one attack is drawn: from its attacker to its defender, or, for a miss, to the point beside it. */
+function geometryOf(input: DrawInput, attack: ReplayAttack, sign: number): ShotGeometry | null {
+  const cell = input.size / BATTLEFIELD_COLUMNS;
+  const attacker = input.replay.figures[attack.attacker];
+  const defender = input.replay.figures[attack.defender];
+  if (attacker === undefined || defender === undefined) {
+    return null;
   }
-  if (t < T_HIT) {
-    return ease((t - T_AIM) / (T_HIT - T_AIM));
-  }
-  return t < 0.7 ? 1 : 1 - ease((t - 0.7) / 0.25);
+  const from = centre(attacker, cell);
+  const to = centre(defender, cell);
+  return {
+    from,
+    to,
+    aim: attack.hit ? to : besideDefender(from, to, sign, cell),
+    r: bodyRadius(cell),
+    cell,
+    far: input.size,
+    sign,
+  };
 }
 
-function tracer(
-  ctx: CanvasRenderingContext2D,
-  from: Point,
-  to: Point,
-  head: number,
-  length: number,
-  width: number,
-  colour: string,
-  alpha: number,
-): void {
-  const total = Math.hypot(to[0] - from[0], to[1] - from[1]) || 1;
-  const ux = (to[0] - from[0]) / total;
-  const uy = (to[1] - from[1]) / total;
-  const tail = Math.max(0, head - length);
-  ctx.save();
-  ctx.globalAlpha = clamp(alpha, 0, 1);
-  ctx.strokeStyle = colour;
-  ctx.lineWidth = width;
-  ctx.lineCap = 'round';
-  ctx.shadowColor = colour;
-  ctx.shadowBlur = 8;
-  ctx.beginPath();
-  ctx.moveTo(from[0] + ux * tail, from[1] + uy * tail);
-  ctx.lineTo(from[0] + ux * head, from[1] + uy * head);
-  ctx.stroke();
-  ctx.restore();
-}
-
-/** CRPLAY, Shots: one attack's marking of its attacker, its crossing, and, for a miss, the word that says so. */
+/** CRPLAY, Shots: one attack's marking of its attacker, its shot, and, for a miss, the word that says so. */
 function drawShot(
   ctx: CanvasRenderingContext2D,
   input: DrawInput,
   attack: ReplayAttack,
   t: number,
   sign: number,
+  seed: number,
 ): void {
-  const { palette, replay } = input;
-  const cell = input.size / BATTLEFIELD_COLUMNS;
-  const attacker = replay.figures[attack.attacker];
-  const defender = replay.figures[attack.defender];
-  if (attacker === undefined || defender === undefined) {
+  const { palette } = input;
+  const geometry = geometryOf(input, attack, sign);
+  if (geometry === null) {
     return;
   }
-  const from = centre(attacker, cell);
-  const to = centre(defender, cell);
-  const r = bodyRadius(cell);
-  const beside = besideDefender(from, to, sign, cell);
+  const { from, to, r, cell } = geometry;
 
-  if (t < T_AIM + 0.1) {
-    const k = t / (T_AIM + 0.1);
+  if (t < T_MARK) {
+    const k = t / T_MARK;
     ctx.save();
     ctx.globalAlpha = 1 - k;
     ctx.strokeStyle = palette.text;
@@ -484,101 +477,31 @@ function drawShot(
     ctx.restore();
   }
 
-  // Where the shot ends: at the defender, or, for a miss, well past the point beside it.
-  let end: Point = to;
-  let flightEnd = T_HIT;
-  let passAt = 1;
-  if (!attack.hit) {
-    const length = Math.hypot(beside[0] - from[0], beside[1] - from[1]) || 1;
-    const extra = cell * 4;
-    end = [
-      from[0] + ((beside[0] - from[0]) / length) * (length + extra),
-      from[1] + ((beside[1] - from[1]) / length) * (length + extra),
-    ];
-    flightEnd = T_HIT + (T_DRAIN - T_HIT) * 0.9;
-    passAt = length / (length + extra);
-  }
-  const reach = Math.hypot(end[0] - from[0], end[1] - from[1]);
-  const flight = (t - T_AIM) / (flightEnd - T_AIM);
-  // CRPLAY, Shots: a tracer or a beam is the longer and thicker the higher the attacker's effective weapon damage.
-  const weight = clamp(attack.strength / 10, 0.6, 3.2);
+  drawShotEffect(ctx, palette, geometry, {
+    shot: attack.shot,
+    hit: attack.hit,
+    strength: attack.strength,
+    seed,
+    t,
+    still: input.reducedMotion,
+  });
 
-  if (attack.shot === 'bullet' || attack.shot === 'burst') {
-    const rounds = attack.shot === 'burst' ? 3 : 1;
-    const lag = 0.09;
-    for (let k = 0; k < rounds; k += 1) {
-      const f = (flight - k * lag) / (1 - (rounds - 1) * lag);
-      if (f < 0 || f > 1) {
-        continue;
-      }
-      const head = r + (reach - r - (attack.hit ? r : 0)) * f;
-      const length = cell * (attack.shot === 'burst' ? 0.5 : 0.7) * (0.6 + weight * 0.4);
-      tracer(
-        ctx,
-        from,
-        end,
-        head,
-        length,
-        1.2 + weight * 0.9,
-        palette.tracer,
-        attack.hit ? 1 : (1 - f) * 3.5,
-      );
-    }
-  } else if (attack.shot === 'beam') {
-    const rise = clamp((t - T_AIM) / 0.05, 0, 1);
-    const fade = 1 - clamp((t - T_HIT) / 0.16, 0, 1);
-    const alpha = Math.min(rise, fade);
-    if (alpha > 0) {
-      const ux = (end[0] - from[0]) / (reach || 1);
-      const uy = (end[1] - from[1]) / (reach || 1);
-      const stop = reach - (attack.hit ? r : 0);
-      const width = 1.5 + weight * 1.3;
-      for (const [colour, share, blur] of [
-        [palette.beam, 1, 14],
-        [palette.text, 0.35, 0],
-      ] as const) {
-        ctx.save();
-        ctx.globalAlpha = alpha * (blur > 0 ? 0.85 : 1);
-        ctx.strokeStyle = colour;
-        ctx.lineWidth = width * share;
-        ctx.lineCap = 'round';
-        ctx.shadowColor = palette.beam;
-        ctx.shadowBlur = blur;
-        ctx.beginPath();
-        ctx.moveTo(from[0] + ux * r, from[1] + uy * r);
-        ctx.lineTo(from[0] + ux * stop, from[1] + uy * stop);
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-  } else {
-    // CRPLAY, Shots, Blade: a slash across the defender, or beside it for a miss.
-    const k = (t - T_HIT + 0.04) / 0.2;
-    if (k > 0 && k < 1.6) {
-      const at = attack.hit ? to : beside;
-      const span = r * 1.5;
-      const shown = clamp(k, 0, 1);
-      ctx.save();
-      ctx.globalAlpha = clamp(1.6 - k, 0, 1);
-      ctx.strokeStyle = palette.text;
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(at[0] - span * sign, at[1] - span);
-      ctx.quadraticCurveTo(
-        at[0] + span * 0.5 * sign,
-        at[1] - span * 0.5,
-        at[0] - span * sign + 2 * span * sign * shown,
-        at[1] - span + 2 * span * shown,
-      );
-      ctx.stroke();
-      ctx.restore();
-    }
+  // CRPLAY, Energy shots: the strongest leaves the defender outlined in Beam while its hit fades.
+  const glow = attack.hit ? outlineGlow(attack.shot, t) : 0;
+  const defender = input.replay.figures[attack.defender];
+  if (glow > 0 && defender !== undefined) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = glow;
+    ctx.strokeStyle = palette.beam;
+    ctx.lineWidth = 1.2;
+    ctx.lineJoin = 'round';
+    outline(ctx, defender.look, to[0], to[1], r, cell * 0.16);
+    ctx.stroke();
+    ctx.restore();
   }
 
-  const missed =
-    attack.shot === 'blade' ? t >= T_HIT : attack.shot === 'beam' ? t >= T_AIM + 0.1 : flight >= passAt;
-  if (!attack.hit && missed) {
+  if (!attack.hit && t >= missShownAt(attack.shot)) {
     ctx.save();
     ctx.globalAlpha = clamp((1 - (t - T_HIT) / (1 - T_HIT)) * 2, 0, 1);
     ctx.fillStyle = palette.muted;
@@ -591,7 +514,7 @@ function drawShot(
   }
 }
 
-/** CRPLAY, Shots: what the hits of one step do to each defender: the effect of each shot, then the damage, as one sum. */
+/** CRPLAY, Shots: the damage outcome above each defender that the hits of one step hit, as one sum. */
 function drawHits(ctx: CanvasRenderingContext2D, input: DrawInput, step: PlaybackStep): void {
   if (step.t < T_HIT) {
     return;
@@ -600,17 +523,13 @@ function drawHits(ctx: CanvasRenderingContext2D, input: DrawInput, step: Playbac
   const cell = input.size / BATTLEFIELD_COLUMNS;
   const r = bodyRadius(cell);
   const k = (step.t - T_HIT) / (1 - T_HIT);
-  const hits = new Map<
-    number,
-    { damage: number; side: 'agent' | 'enemy'; shots: Set<ReplayAttack['shot']> }
-  >();
+  const hits = new Map<number, { damage: number; side: 'agent' | 'enemy' }>();
   for (const attack of replay.attacks.slice(step.a, step.b)) {
     if (!attack.hit) {
       continue;
     }
-    const hit = hits.get(attack.defender) ?? { damage: 0, side: attack.side, shots: new Set() };
+    const hit = hits.get(attack.defender) ?? { damage: 0, side: attack.side };
     hit.damage += attack.damage;
-    hit.shots.add(attack.shot);
     hits.set(attack.defender, hit);
   }
   for (const [index, hit] of hits) {
@@ -619,50 +538,6 @@ function drawHits(ctx: CanvasRenderingContext2D, input: DrawInput, step: Playbac
       continue;
     }
     const [x, y] = centre(defender, cell);
-    const sparks = (delay: number, scale: number) => {
-      const q = (k - delay) * 1.4;
-      if (q < 0 || q > 0.6) {
-        return;
-      }
-      ctx.save();
-      ctx.globalAlpha = clamp(1 - q * 2.2, 0, 1);
-      ctx.strokeStyle = palette.tracer;
-      ctx.lineWidth = 2 * scale;
-      ctx.beginPath();
-      ctx.arc(x, y, r + q * cell * 1.4 * scale, 0, TAU);
-      ctx.stroke();
-      ctx.beginPath();
-      for (let spark = 0; spark < 7; spark += 1) {
-        const angle = (spark * TAU) / 7 + step.a + delay * 9;
-        const inner = r + q * cell * 0.9 * scale;
-        const outer = inner + cell * 0.35 * scale;
-        ctx.moveTo(x + Math.cos(angle) * inner, y + Math.sin(angle) * inner);
-        ctx.lineTo(x + Math.cos(angle) * outer, y + Math.sin(angle) * outer);
-      }
-      ctx.stroke();
-      ctx.restore();
-    };
-    if (hit.shots.has('bullet')) {
-      sparks(0, 1);
-    }
-    if (hit.shots.has('burst')) {
-      sparks(0, 0.6);
-      sparks(0.1, 0.6);
-      sparks(0.2, 0.6);
-    }
-    if (hit.shots.has('beam')) {
-      // CRPLAY, Shots, beam: a glow in Beam that spreads over the defender.
-      const glow = ctx.createRadialGradient(x, y, 0, x, y, r * (1.2 + k * 2.2));
-      glow.addColorStop(0, palette.beam);
-      glow.addColorStop(1, 'transparent');
-      ctx.save();
-      ctx.globalAlpha = clamp(0.8 - k * 1.6, 0, 1);
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(x, y, r * (1.2 + k * 2.2), 0, TAU);
-      ctx.fill();
-      ctx.restore();
-    }
     ctx.save();
     ctx.globalAlpha = clamp((1 - k) * 2.5, 0, 1);
     ctx.fillStyle = hit.side === 'agent' ? palette.positive : palette.danger;
@@ -722,26 +597,17 @@ export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): voi
 
   // Each figure shows its settled values, less what every step still playing has taken from it so far.
   const offsets = new Map<number, [number, number]>();
-  const r = bodyRadius(cell);
   for (const step of playback.active) {
     replay.attacks.slice(step.a, step.b).forEach((attack, k) => {
-      if (attack.shot !== 'blade') {
+      const geometry = geometryOf(input, attack, (step.a + k) % 2 === 0 ? -1 : 1);
+      if (geometry === null) {
         return;
       }
-      const attacker = replay.figures[attack.attacker];
-      const defender = replay.figures[attack.defender];
-      if (attacker === undefined || defender === undefined) {
-        return;
-      }
-      const start = centre(attacker, cell);
-      const aim = attack.hit
-        ? centre(defender, cell)
-        : besideDefender(start, centre(defender, cell), (step.a + k) % 2 === 0 ? -1 : 1, cell);
-      const length = Math.hypot(aim[0] - start[0], aim[1] - start[1]) || 1;
-      const share = (Math.max(0, length - r * 2.6) / length) * lunge(step.t);
+      // CRPLAY, Shots: a blade lunges to the defender and returns, and a kinetic shot that recoils kicks back.
+      const moved = attackerOffset(geometry, attack.shot, step.t, input.reducedMotion);
       const offset = offsets.get(attack.attacker) ?? [0, 0];
-      offset[0] += (aim[0] - start[0]) * share;
-      offset[1] += (aim[1] - start[1]) * share;
+      offset[0] += moved[0];
+      offset[1] += moved[1];
       offsets.set(attack.attacker, offset);
     });
   }
@@ -784,7 +650,7 @@ export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): voi
 
   for (const step of playback.active) {
     replay.attacks.slice(step.a, step.b).forEach((attack, k) => {
-      drawShot(ctx, input, attack, step.t, (step.a + k) % 2 === 0 ? -1 : 1);
+      drawShot(ctx, input, attack, step.t, (step.a + k) % 2 === 0 ? -1 : 1, step.a + k + 1);
     });
     drawHits(ctx, input, step);
   }

@@ -423,8 +423,13 @@ export function applyAdvanceTurn(
           id: agent.id,
           state: agentCombatantState(agent.state, bonus),
           ammoType: gdrs.weapons.get(agent.state.weapon)?.ammoType ?? null,
+          weapon: agent.state.weapon,
         })),
-        enemies: siteEnemies.map((enemy) => ({ id: enemy.id, state: enemyCombatantState(enemy.state) })),
+        enemies: siteEnemies.map((enemy) => ({
+          id: enemy.id,
+          state: enemyCombatantState(enemy.state),
+          weapon: enemy.state.weapon,
+        })),
         combat: gdrs.combatParameters,
         agentParameters,
         // COMBAT, Ammo in a Combat: the rounds in Storage as the Missions resolved before this one left them.

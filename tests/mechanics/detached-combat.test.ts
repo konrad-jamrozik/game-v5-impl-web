@@ -161,8 +161,15 @@ describe('REUSE: Agreement test of developer.tools.fightCombat', () => {
     // Combat had rounds enough that no Agent ran out.
     expect(played.log.some((attack) => attack.outOfAmmo !== null)).toBe(false);
     const { ammo: _ammo, ...withoutAmmo } = byPosition(played);
+    // COMBAT, Combat report, Starting values: a participant given as explicit values has no Weapon, and the played
+    // Combat holds the Weapon of each of its participants.
+    expect(played.participants.every((participant) => participant.start.weapon !== undefined)).toBe(true);
     expect(fromValues.combatReport).toEqual({
       ...withoutAmmo,
+      participants: withoutAmmo.participants.map((participant) => {
+        const { weapon: _weapon, ...start } = participant.start;
+        return { ...participant, start };
+      }),
       ammo: [],
       log: withoutAmmo.log.map((attack) => ({ ...attack, ammoSpent: null })),
     });

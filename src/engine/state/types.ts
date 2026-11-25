@@ -234,6 +234,11 @@ export interface CombatParticipantReport {
     readonly exhaustion: number;
     /** The effective weapon damage. */
     readonly weaponDamage: number;
+    /**
+     * COMBAT, Combat report, Starting values: the Weapon it is equipped with. A participant given as explicit values
+     * has none, and neither has a Combat report written before the Combat report held it.
+     */
+    readonly weapon?: string;
     /** The effective armor, which is also the current armor at Combat start. */
     readonly armor: number;
     readonly effectiveSkill: number;

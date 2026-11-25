@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { EngineDefect, Rational, q } from '../kernel/index.ts';
 import { parseCompendiumArticle, validateCompendiumArticles, type RawGdr } from './compendium-articles.ts';
+import { WEAPON_SHOTS } from './types.ts';
 import type {
   AgentParametersGdr,
   AnyGdr,
@@ -286,6 +287,7 @@ const schemas = {
       type: z.literal('Weapon'),
       name,
       base_weapon_damage: whole(1),
+      shot: z.enum(WEAPON_SHOTS),
       price: whole(1).optional(),
       ammo_type: id.optional(),
       unlocked_by: z.array(id).min(1).optional(),
@@ -298,6 +300,7 @@ const schemas = {
       id: g.id,
       name: g.name,
       damage: g.base_weapon_damage,
+      shot: g.shot,
       price: g.price ?? null,
       ammoType: g.ammo_type ?? null,
       unlockedBy: g.unlocked_by ?? null,
@@ -326,7 +329,6 @@ const schemas = {
     type: z.literal('AmmoType'),
     name,
     price: whole(1),
-    shot: z.enum(['bullet', 'burst', 'beam']),
   }),
   EquipmentParameters: z
     .strictObject({

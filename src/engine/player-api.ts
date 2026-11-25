@@ -3,6 +3,7 @@
  * value here is Player-visible information, and no Type has a property for a hidden value, e.g. the Campaign seed
  * or a Faction's countdowns; see PAPI, Player-visible information.
  */
+import type { WeaponShot } from '../gdr/types.ts';
 import type { ProbabilityPair } from '../kernel/index.ts';
 import type { Result } from './result.ts';
 import type { CommitOutcome } from './session/core.ts';
@@ -555,6 +556,8 @@ export interface GameDataView {
     readonly damageOfAHit: { readonly min: number; readonly max: number };
     readonly price: number | null;
     readonly ammoType: string | null;
+    /** Display content: how an attack with it looks and sounds, which the Combat replay draws. */
+    readonly shot: WeaponShot;
   }[];
   /** COMBAT, Armor: every Armor GDR, with its `base_armor` as `armor`. */
   readonly armors: readonly {
@@ -568,8 +571,6 @@ export interface GameDataView {
     readonly id: string;
     readonly name: string;
     readonly price: number;
-    /** Display content: how firing one round looks, which the Combat replay draws. */
-    readonly shot: 'bullet' | 'burst' | 'beam';
   }[];
   readonly enemyArchetypes: readonly {
     readonly id: string;

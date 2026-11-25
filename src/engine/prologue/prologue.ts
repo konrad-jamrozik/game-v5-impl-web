@@ -621,6 +621,7 @@ class PrologueTurn {
       id: agent.id,
       state: { ...this.combatantOf(agent), weaponDamage: worn.damage },
       ammoType: worn.ammoType,
+      weapon: worn.id,
     };
   }
 
@@ -637,7 +638,11 @@ class PrologueTurn {
         enemies: site.state.enemies
           .map((id) => must(this.world.enemies[id], `Enemy ${id}`))
           .sort(byInstanceId)
-          .map((enemy) => ({ id: enemy.id, state: enemyCombatantState(enemy.state) })),
+          .map((enemy) => ({
+            id: enemy.id,
+            state: enemyCombatantState(enemy.state),
+            weapon: enemy.state.weapon,
+          })),
         combat: this.gdrs.combatParameters,
         agentParameters: this.gdrs.agentParameters,
         ammo: new Map([...this.gdrs.ammoTypes.keys()].map((id) => [id, storageCount(this.world, id)])),

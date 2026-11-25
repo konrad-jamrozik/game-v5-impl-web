@@ -33,7 +33,8 @@ import { drawReplay, figureAt, readPalette, type ReplayPalette } from '../combat
 import { hitChanceText, wholeText } from '../format.ts';
 import { replayOptionsShown } from '../replay-options.ts';
 import { sliderFill } from '../slider.ts';
-import { playSound } from '../sound-player.ts';
+import { heardBetween } from '../combat-replay-shots.ts';
+import { playReplaySound, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { Button, typingIn } from '../ui.tsx';
 
@@ -271,12 +272,20 @@ export function CombatReplay(props: {
   };
 
   const loop = (time: number) => {
+    // SOUNDS, Combat replay Sounds: each moment of a shot is heard as the playing passes it.
+    const before = playback.active.map((step) => ({ step, from: step.t }));
     advance(
       playback,
       live.current.replay,
       Math.min(MAX_STEP_MS, time - lastTime.current),
       live.current.settings,
     );
+    for (const heard of heardBetween(
+      live.current.replay,
+      before.map(({ step, from }) => ({ a: step.a, b: step.b, from, to: step.t })),
+    )) {
+      playReplaySound(heard.sound, heard.attack);
+    }
     lastTime.current = time;
     paint();
     frame.current = playback.playing ? requestAnimationFrame(loop) : 0;

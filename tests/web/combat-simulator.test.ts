@@ -68,7 +68,8 @@ describe('COMBAT: Detached Combat without a Current campaign', () => {
     const got = ok(engine.session.combatSimulator.getContent());
     expect(got.weapons.map((weapon) => weapon.id)).toContain('laser_rifle');
     expect(got.armors.map((armor) => armor.id)).toContain('battle_suit');
-    expect(got.ammoTypes.every((ammo) => ['bullet', 'burst', 'beam'].includes(ammo.shot))).toBe(true);
+    expect(got.weapons.find((weapon) => weapon.id === 'laser_rifle')?.shot).toBe('laser_rifle');
+    expect(got.weapons.find((weapon) => weapon.id === 'knife')?.shot).toBe('blade');
     expect(got.enemyArchetypes[0]?.id).toBe('initiate');
     expect(got.agentArchetype.weapon).toBe('combat_pistol');
     // MISSION, Enemy creation: the Enemies of a new Mission site, in their creation order.
@@ -290,10 +291,11 @@ describe('CSIM: Fighting the Combat', () => {
           .map((attack) => attack.shot),
       );
     // An Agent of explicit values spends no round, so its shot follows the Weapon of its row.
-    expect([...shotsOf('agent-1')]).toEqual(['beam']);
-    expect([...shotsOf('agent-2')]).toEqual(['burst']);
+    expect([...shotsOf('agent-1')]).toEqual(['laser_rifle']);
+    expect([...shotsOf('agent-2')]).toEqual(['machine_gun']);
     expect([...shotsOf('agent-3')]).toEqual(['blade']);
-    expect([...shotsOf('sold-1')]).toEqual(['bullet']);
+    // An Enemy of an EnemyArchetype carries its Weapon, which the Combat report holds.
+    expect([...shotsOf('sold-1')]).toEqual(['rifle']);
   });
 
   it('makes a seed the engine takes from any chance', async () => {

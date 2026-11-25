@@ -165,8 +165,6 @@ export function replaySourceOf(
 ): ReplaySource {
   const archetypeOf = (id: string) =>
     content.enemyArchetypes.find((item) => item.id === enemies[positionOf(id) - 1]?.archetype);
-  const ammoTypeOf = (weapon: string | undefined) =>
-    content.weapons.find((item) => item.id === weapon)?.ammoType ?? null;
   const labelled = enemies.map((row, index) => {
     const archetype = content.enemyArchetypes.find((item) => item.id === row.archetype);
     return {
@@ -183,9 +181,12 @@ export function replaySourceOf(
     nameOf: (id) => (id.startsWith('agent#') ? agentName(id) : (labels.get(id) ?? id)),
     fullNameOf: (id) => (id.startsWith('agent#') ? agentName(id) : (fullLabels.get(id) ?? id)),
     enemyOrder: (id) => content.enemyArchetypes.findIndex((item) => item.id === archetypeOf(id)?.id),
-    enemyAmmoType: (id) => ammoTypeOf(archetypeOf(id)?.weapon),
-    agentAmmoType: (id) => ammoTypeOf(agents[positionOf(id) - 1]?.weapon),
-    shotOfAmmoType: (ammoType) => content.ammoTypes.find((item) => item.id === ammoType)?.shot,
+    // An Agent is given as explicit values, so the Combat report does not hold its Weapon: its row does.
+    weaponOf: (id) =>
+      (id.startsWith('agent#') ? agents[positionOf(id) - 1]?.weapon : archetypeOf(id)?.weapon) ?? null,
+    shotOfWeapon: (weapon) => content.weapons.find((item) => item.id === weapon)?.shot,
+    // COMBAT, Detached Combat: an Agent of explicit values attacks with no `ammo_type`, so its Ammo never runs out.
+    fallbackWeapon: null,
     ranks: content.ranks,
     seed,
   };

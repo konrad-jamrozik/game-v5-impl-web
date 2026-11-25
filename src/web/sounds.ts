@@ -13,6 +13,39 @@ export const SOUND = {
 
 export type SoundName = (typeof SOUND)[keyof typeof SOUND];
 
+/**
+ * SOUNDS, Sound set: the Combat replay Sounds: `shot-` followed by a shot with a hyphen for each underscore, the
+ * three hit Sounds, and `miss-kinetic`.
+ */
+export const REPLAY_SOUNDS: ReadonlySet<string> = new Set([
+  'shot-blade',
+  'shot-light-pistol',
+  'shot-heavy-pistol',
+  'shot-rifle',
+  'shot-sighted-rifle',
+  'shot-machine-gun',
+  'shot-laser-pistol',
+  'shot-laser-rifle',
+  'shot-focused-laser-rifle',
+  'hit-blade',
+  'hit-kinetic',
+  'hit-energy',
+  'miss-kinetic',
+]);
+
+/** SOUNDS, Combat replay Sounds: at most this many Combat replay Sounds play at the same time. */
+export const REPLAY_SOUND_LIMIT = 6;
+
+/**
+ * SOUNDS, Combat replay Sounds: the rate the Sounds of one attack are played at, up to 6% lower or higher in pitch
+ * than authored, which follows from the attack's place in the Combat log, so that the same attack always sounds the
+ * same.
+ */
+export function replaySoundRate(attack: number): number {
+  const s = Math.sin((attack + 1) * 12.9898) * 43758.5453;
+  return 0.94 + (s - Math.floor(s)) * 0.12;
+}
+
 /** SOUNDS, Glossary, Sound name: the file name without its extension, e.g. `main-click.wav` is `main-click`. */
 export function soundName(path: string): string {
   const base = path.slice(path.lastIndexOf('/') + 1);

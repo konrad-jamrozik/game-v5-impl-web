@@ -2,7 +2,7 @@
  * CRPLAY: what the Combat replay shows of one Combat report and how its playback moves through the Combat log. Pure
  * presentation: it reads only the Combat report and fights nothing again, and where a figure stands decides nothing.
  */
-import type { CombatReport } from '../engine/index.ts';
+import type { CombatReport, GameDataView } from '../engine/index.ts';
 
 type Participant = CombatReport['participants'][number];
 type AttackRecord = CombatReport['log'][number];
@@ -56,8 +56,20 @@ export function enemyLook(order: number): EnemyLook {
 
 // ---- Shots ---------------------------------------------------------------------------------------
 
-/** CRPLAY, Shots: the `shot` of an AmmoType, or a blade for a Weapon that has no `ammo_type`. */
-export type ShotKind = 'bullet' | 'burst' | 'beam' | 'blade';
+/** CRPLAY, Shots: the `shot` of a Weapon. */
+export type ShotKind = GameDataView['weapons'][number]['shot'];
+
+/** CRPLAY, Shots: the three kinds of shot: a blade, the kinetic shots of guns, and the energy shots of lasers. */
+export type ShotFamily = 'blade' | 'kinetic' | 'energy';
+
+export function shotFamily(shot: ShotKind): ShotFamily {
+  if (shot === 'blade') {
+    return 'blade';
+  }
+  return shot === 'laser_pistol' || shot === 'laser_rifle' || shot === 'focused_laser_rifle'
+    ? 'energy'
+    : 'kinetic';
+}
 
 /** What the Combat replay reads beside the Combat report: names, and the Display content of the Game build. */
 export interface ReplaySource {
@@ -67,15 +79,15 @@ export interface ReplaySource {
   readonly fullNameOf: (id: string) => string;
   /** The place of an Enemy's EnemyArchetype in the EnemyArchetype order, counted from 0, or -1 when unknown. */
   readonly enemyOrder: (id: string) => number;
-  /** The AmmoType of an Enemy's Weapon, or null when the Weapon has no `ammo_type`. */
-  readonly enemyAmmoType: (id: string) => string | null;
   /**
-   * The AmmoType of an Agent's Weapon, or null when it has none, for a Combat report whose Agents spend no round, i.e.
-   * that of a Detached Combat on explicit values; absent for a Combat of a Campaign, whose Combat log says it.
+   * The Weapon of a Combatant whose Weapon the Combat report does not hold, i.e. one given as explicit values or one
+   * of a Combat report written before it held the Weapon, or null when it is not known.
    */
-  readonly agentAmmoType?: (id: string) => string | null;
-  /** The `shot` of an AmmoType. */
-  readonly shotOfAmmoType: (ammoType: string) => Exclude<ShotKind, 'blade'> | undefined;
+  readonly weaponOf: (id: string) => string | null;
+  /** The `shot` of a Weapon. */
+  readonly shotOfWeapon: (weapon: string) => ShotKind | undefined;
+  /** COMBAT, Ammo in a Combat: the Fallback Weapon, which an Agent attacks with once its Ammo has run out. */
+  readonly fallbackWeapon: string | null;
   /** GUI, Ranks: every Rank GDR of the Game build. */
   readonly ranks: readonly RankThreshold[];
   /** What the positions are derived from, so that one Combat always looks the same: the Mission's Instance ID. */
@@ -83,18 +95,18 @@ export interface ReplaySource {
 }
 
 /**
- * CRPLAY, Shots: the shot of one attack. An Agent's attack that spent a round follows that round's AmmoType, and one
- * that spent none was made with a Weapon without `ammo_type`, e.g. the Fallback Weapon after its Ammo ran out, so it
- * is a blade. An Enemy spends no round, so its shot follows the AmmoType of its Weapon.
+ * CRPLAY, Shots: the shot of one attack: the `shot` of the Weapon it is made with, whichever side the attacker is on.
+ * That is the Fallback Weapon for an Agent's attack after its Ammo has run out, and otherwise the Weapon the attacker
+ * is equipped with, which the Combat report holds as `weapon`. A Weapon the Game build does not hold is a blade.
  */
-export function shotOfAttack(attack: AttackRecord, side: 'agent' | 'enemy', source: ReplaySource): ShotKind {
-  const ammoType =
-    side === 'enemy'
-      ? source.enemyAmmoType(attack.attacker)
-      : source.agentAmmoType === undefined
-        ? attack.ammoSpent
-        : source.agentAmmoType(attack.attacker);
-  return ammoType === null ? 'blade' : (source.shotOfAmmoType(ammoType) ?? 'bullet');
+export function shotOfAttack(
+  attack: AttackRecord,
+  weapon: string | undefined,
+  source: ReplaySource,
+): ShotKind {
+  const madeWith =
+    attack.outOfAmmo !== null ? source.fallbackWeapon : (weapon ?? source.weaponOf(attack.attacker));
+  return madeWith === null ? 'blade' : (source.shotOfWeapon(madeWith) ?? 'blade');
 }
 
 // ---- The replay of one Combat report -------------------------------------------------------------
@@ -406,7 +418,7 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
       defender,
       hit: record.hit,
       damage: record.damage ?? 0,
-      shot: shotOfAttack(record, side, source),
+      shot: shotOfAttack(record, byId.get(record.attacker)?.start.weapon, source),
       strength: figures[attacker]?.weaponDamage ?? 0,
     });
     current = current.map((values, index) => {

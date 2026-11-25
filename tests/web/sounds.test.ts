@@ -2,7 +2,14 @@
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vite-plus/test';
 import { SETTINGS } from '../../src/engine/session/global-configuration.ts';
-import { buttonSound, SOUND, soundGain, soundName, soundSettings } from '../../src/web/sounds.ts';
+import {
+  buttonSound,
+  REPLAY_SOUNDS,
+  SOUND,
+  soundGain,
+  soundName,
+  soundSettings,
+} from '../../src/web/sounds.ts';
 
 describe('SOUNDS: Sound set', () => {
   it('names a Sound by its file name without the extension', () => {
@@ -15,7 +22,7 @@ describe('SOUNDS: Sound set', () => {
     const files = readdirSync(new URL('../../assets/sounds/', import.meta.url));
     expect(files.every((file) => /\.(wav|opus|mp3)$/.test(file))).toBe(true);
     expect(new Set(files.map(soundName)).size).toBe(files.length);
-    expect(new Set(files.map(soundName))).toEqual(new Set(Object.values(SOUND)));
+    expect(new Set(files.map(soundName))).toEqual(new Set([...Object.values(SOUND), ...REPLAY_SOUNDS]));
   });
 });
 

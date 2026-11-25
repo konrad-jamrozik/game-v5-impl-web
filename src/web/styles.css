@@ -37,7 +37,11 @@
   --enemy-red: #d93a3a;
   --enemy-violet: #a35ce0;
   --tracer: #ffe9a8;
+  --muzzle: #fffaf0;
+  --tracer-red: #ff5236;
+  --brass: #c9a24a;
   --beam: #7fd8f0;
+  --beam-fringe: #b99cff;
   /* VIS, Colours: the fills of a Combat log row by its attacker's side. */
   --agent-attack-tint: rgb(183 199 122 / 7%);
   --enemy-attack-tint: rgb(255 127 120 / 7%);

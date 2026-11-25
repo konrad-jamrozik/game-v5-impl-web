@@ -4,7 +4,16 @@
  * over the music and over any Sound already playing. Every failure is silent: a missing file, a file that cannot be
  * played, and a Sound the browser withholds before the first interaction, which is never played later.
  */
-import { buttonSound, SOUND, soundGain, soundName, type SoundName } from './sounds.ts';
+import {
+  buttonSound,
+  REPLAY_SOUND_LIMIT,
+  REPLAY_SOUNDS,
+  replaySoundRate,
+  SOUND,
+  soundGain,
+  soundName,
+  type SoundName,
+} from './sounds.ts';
 
 /** PLACE, Sounds in an Implementation: the copy of the Sound set in assets/sounds/, served by the Game build. */
 const FILES = import.meta.glob<string>('../../assets/sounds/*.{wav,opus,mp3}', {
@@ -41,6 +50,37 @@ export function playSound(name: SoundName, at?: { readonly volume: number }): vo
   audio.play().catch(() => {
     // SOUNDS, Playing a Sound: a Sound that cannot play is silent.
   });
+}
+
+/** The Combat replay Sounds that are playing. */
+const replaySounds = new Set<HTMLAudioElement>();
+
+/**
+ * SOUNDS, Combat replay Sounds: plays one Sound of an attack that the Combat replay plays, at the pitch of that
+ * attack, unless as many Combat replay Sounds as may play at the same time are playing already.
+ */
+export function playReplaySound(name: string, attack: number): void {
+  const url = REPLAY_SOUNDS.has(name) ? URLS.get(name) : undefined;
+  if (
+    !soundsOn ||
+    url === undefined ||
+    typeof Audio === 'undefined' ||
+    replaySounds.size >= REPLAY_SOUND_LIMIT
+  ) {
+    return;
+  }
+  const audio = new Audio(url);
+  audio.volume = soundGain(soundsVolume);
+  // A changed rate changes the pitch with it, as a Sound played faster on tape would.
+  audio.preservesPitch = false;
+  audio.playbackRate = replaySoundRate(attack);
+  const done = () => {
+    replaySounds.delete(audio);
+  };
+  audio.addEventListener('ended', done);
+  audio.addEventListener('error', done);
+  replaySounds.add(audio);
+  audio.play().catch(done);
 }
 
 /**

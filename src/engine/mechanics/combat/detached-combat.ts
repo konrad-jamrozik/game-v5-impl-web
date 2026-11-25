@@ -288,6 +288,7 @@ export function buildDetachedCombat(
       const kind = entry['kind'];
       let state: CombatantState;
       let ammoType: string | null = null;
+      let weaponId: string | null = null;
       let entryName: DetachedCombatParticipant['named'] = null;
       if (kind === 'explicit') {
         const explicit = explicitState(entry, side);
@@ -310,6 +311,7 @@ export function buildDetachedCombat(
         }
         state = agentCombatantState(agent.state, bonus);
         ammoType = gdrs.weapons.get(agent.state.weapon)?.ammoType ?? null;
+        weaponId = agent.state.weapon;
         entryName = { kind: 'agent', id: agent.id };
       } else if (side === 'enemy' && kind === 'enemy') {
         if (world === null) {
@@ -320,6 +322,7 @@ export function buildDetachedCombat(
           return reject('unknown_enemy', `${where}: there is no Enemy ${entry['id']}.`);
         }
         state = enemyCombatantState(enemy.state);
+        weaponId = enemy.state.weapon;
         entryName = { kind: 'enemy', id: enemy.id };
       } else if (side === 'enemy' && kind === 'enemyArchetype') {
         const archetype = gdrs.enemyArchetypes.get(entry['id']);
@@ -330,6 +333,7 @@ export function buildDetachedCombat(
         const weapon = must(gdrs.weapons.get(archetype.weapon), `Weapon ${archetype.weapon}`);
         const armor = must(gdrs.armors.get(archetype.armor), `Armor ${archetype.armor}`);
         state = enemyCombatantState(createEnemy(id, '', archetype, weapon, armor).state);
+        weaponId = weapon.id;
         entryName = { kind: 'enemyArchetype', id: archetype.id };
       } else {
         return malformed(`${where} has the kind ${kind}, which its side does not take.`);
@@ -341,7 +345,7 @@ export function buildDetachedCombat(
         named.add(entryName.id);
       }
       participants.push({ id, side, position, named: entryName });
-      (side === 'agent' ? agents : enemies).push({ id, state, ammoType });
+      (side === 'agent' ? agents : enemies).push({ id, state, ammoType, weapon: weaponId });
     }
   }
 

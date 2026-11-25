@@ -44,6 +44,8 @@ export interface WeaponGdr {
   readonly id: string;
   readonly name: string;
   readonly damage: number;
+  /** Display content: how an attack with it looks and sounds to the Player, which the Combat replay draws. */
+  readonly shot: WeaponShot;
   /** EQUIP, Item: the money one costs; null for a Weapon that is no Item, e.g. the Fallback Weapon. */
   readonly price: number | null;
   /** COMBAT, Ammo in a Combat: the AmmoType one Agent attack with it spends; present exactly when `price` is. */
@@ -52,6 +54,21 @@ export interface WeaponGdr {
   readonly unlockedBy: readonly string[] | null;
 }
 
+/** COMBAT, Weapon; CRPLAY, Shots: the values of `shot`: a blade, the kinetic shots, and the energy shots. */
+export const WEAPON_SHOTS = [
+  'blade',
+  'light_pistol',
+  'heavy_pistol',
+  'rifle',
+  'sighted_rifle',
+  'machine_gun',
+  'laser_pistol',
+  'laser_rifle',
+  'focused_laser_rifle',
+] as const;
+
+export type WeaponShot = (typeof WEAPON_SHOTS)[number];
+
 /** COMBAT, AmmoType: one kind of round a Weapon spends. */
 export interface AmmoTypeGdr {
   readonly type: 'AmmoType';
@@ -59,12 +76,7 @@ export interface AmmoTypeGdr {
   readonly name: string;
   /** The money one round costs: a whole number of at least 1. */
   readonly price: number;
-  /** Display content: how firing one round looks to the Player. */
-  readonly shot: AmmoShot;
 }
-
-/** COMBAT, AmmoType: the values of `shot`. */
-export type AmmoShot = 'bullet' | 'burst' | 'beam';
 
 /** EQUIP, EquipmentParameters. */
 export interface EquipmentParametersGdr {

@@ -171,9 +171,14 @@ export function TurnReportView(props: {
         // GUI, EnemyArchetype order: the authored order of the EnemyArchetypes, which the game data keeps.
         enemyOrder: (id) =>
           gameData?.enemyArchetypes.findIndex((archetype) => archetype.id === enemyOf(id)?.archetype) ?? -1,
-        enemyAmmoType: (id) =>
-          gameData?.weapons.find((weapon) => weapon.id === enemyOf(id)?.weapon)?.ammoType ?? null,
-        shotOfAmmoType: (ammoType) => gameData?.ammoTypes.find((item) => item.id === ammoType)?.shot,
+        // A Combat report written before it held each Weapon: an Enemy's Weapon never changes, and an Agent's is the
+        // one it is equipped with now.
+        weaponOf: (id) =>
+          enemyOf(id)?.weapon ??
+          [...state.agents, ...(snapshot.retired?.agents ?? [])].find((agent) => agent.id === id)?.weapon ??
+          null,
+        shotOfWeapon: (weapon) => gameData?.weapons.find((item) => item.id === weapon)?.shot,
+        fallbackWeapon: state.agency.equipment.fallbackWeapon,
         ranks: gameData?.ranks ?? [],
         seed: shownCombat.mission,
       });

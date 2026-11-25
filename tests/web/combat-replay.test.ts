@@ -134,8 +134,16 @@ const source: ReplaySource = {
   nameOf: (id) => id.toUpperCase(),
   fullNameOf: (id) => `full-${id}`,
   enemyOrder: (id) => (id === 'enemy-1' ? 0 : 4),
-  enemyAmmoType: (id) => (id === 'enemy-1' ? 'cells' : null),
-  shotOfAmmoType: (ammoType) => (ammoType === 'cells' ? 'beam' : ammoType === 'rounds' ? 'burst' : undefined),
+  weaponOf: (id) => (id === 'enemy-1' ? 'laser' : id === 'enemy-2' ? null : 'gun'),
+  shotOfWeapon: (weapon) =>
+    weapon === 'laser'
+      ? 'laser_rifle'
+      : weapon === 'gun'
+        ? 'machine_gun'
+        : weapon === 'knife'
+          ? 'blade'
+          : undefined,
+  fallbackWeapon: 'knife',
   ranks: [
     { name: 'Rank I', abbreviation: 'R I', minBaseSkill: 0, mark: null, count: null },
     { name: 'Rank II', abbreviation: 'R II', minBaseSkill: 100, mark: 'chevron', count: 1 },
@@ -431,25 +439,40 @@ describe('CRPLAY: Combat ratings', () => {
 });
 
 describe('CRPLAY: Shots', () => {
-  it("follows the AmmoType of the round an Agent spent, and of an Enemy's Weapon", () => {
+  it('gives an attack the shot of the Weapon it is made with, whichever side the attacker is on', () => {
     const { attacks } = buildReplay(report(), source);
-    // agent-1 spent a round of `rounds`, then one of `cells`; enemy-1's Weapon fires `cells`.
-    expect(attacks.map((item) => item.shot)).toEqual(['burst', 'blade', 'beam', 'blade', 'beam']);
+    // agent-1 and agent-2 carry the gun and enemy-1 the laser; the Weapon of enemy-2 is not known.
+    expect(attacks.map((item) => item.shot)).toEqual([
+      'machine_gun',
+      'blade',
+      'laser_rifle',
+      'blade',
+      'machine_gun',
+    ]);
   });
 
-  it('makes an attack with a Weapon that has no ammo_type a blade', () => {
-    const { attacks } = buildReplay(report(), source);
-    // agent-2 had run out of Ammo and fought with the Fallback Weapon; enemy-2's Weapon has no ammo_type.
-    expect(attacks[1]?.shot).toBe('blade');
-    expect(attacks[3]?.shot).toBe('blade');
-  });
-
-  it("follows the AmmoType of an Agent's Weapon when the source names it, e.g. for a Detached Combat", () => {
-    const { attacks } = buildReplay(report(), {
+  it("gives an Agent's attack after its Ammo has run out the shot of the Fallback Weapon", () => {
+    // agent-2 carries the gun, had run out of Ammo, and fought with the Fallback Weapon.
+    expect(buildReplay(report(), source).attacks[1]?.shot).toBe('blade');
+    const pistol: ReplaySource = {
       ...source,
-      agentAmmoType: (id) => (id === 'agent-2' ? 'cells' : null),
-    });
-    expect(attacks.map((item) => item.shot)).toEqual(['blade', 'beam', 'beam', 'blade', 'blade']);
+      fallbackWeapon: 'sidearm',
+      shotOfWeapon: (weapon) => (weapon === 'sidearm' ? 'light_pistol' : source.shotOfWeapon(weapon)),
+    };
+    expect(buildReplay(report(), pistol).attacks[1]?.shot).toBe('light_pistol');
+  });
+
+  it('reads the Weapon the Combat report holds before the one its source names', () => {
+    const fought = report();
+    const held: CombatReport = {
+      ...fought,
+      participants: fought.participants.map((who) =>
+        who.id === 'agent-1' ? { ...who, start: { ...who.start, weapon: 'laser' } } : who,
+      ),
+    };
+    const { attacks } = buildReplay(held, source);
+    expect(attacks[0]?.shot).toBe('laser_rifle');
+    expect(attacks[4]?.shot).toBe('laser_rifle');
   });
 });
 
