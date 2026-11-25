@@ -3562,9 +3562,22 @@ label:has(> input[type='checkbox']:disabled) {
 /* CSIM, Layout: the Teams pane alone; the Combat replay covers it once a Combat has been fought. */
 .simulator-columns {
   display: grid;
-  grid-template-columns: minmax(0, 548px);
+  grid-template-columns: minmax(0, 1120px);
   gap: 16px;
   align-items: start;
+}
+
+/* CSIM, Teams: the Agents' side and, to its right, the Enemies' side. */
+.simulator-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.simulator-fight,
+.simulator-ratings {
+  max-width: 548px;
 }
 
 .simulator-teams {
@@ -3607,7 +3620,7 @@ label:has(> input[type='checkbox']:disabled) {
 
 /* CSIM, Teams: each side scrolls on its own, so that both stay in sight with many Combatants. */
 .simulator-rows {
-  max-height: calc(var(--screen-h) / 2 - 210px);
+  max-height: calc(var(--screen-h) - 400px);
   min-height: 120px;
   overflow-y: auto;
   border-top: 1px solid var(--border);

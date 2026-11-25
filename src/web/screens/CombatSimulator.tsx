@@ -179,7 +179,16 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                 <h2>
                   Combat replay
                   <span className="detail-aside">
-                    {fought.agents.length} Agents vs {fought.enemies.length} Enemies · seed {fought.seed}
+                    {/* CSIM, Fighting the Combat: the Combat outcome and its Combat rounds, as a Combat report gives them. */}
+                    {fought.agents.length} Agents vs {fought.enemies.length} Enemies ·{' '}
+                    <span
+                      className={fought.report.outcome === 'Won' ? 'tone-good' : 'tone-bad'}
+                      data-testid="sim-replay-outcome"
+                    >
+                      {fought.report.outcome}
+                    </span>{' '}
+                    in {fought.report.rounds} {fought.report.rounds === 1 ? 'round' : 'rounds'} · seed{' '}
+                    {fought.seed}
                   </span>
                 </h2>
               </div>
@@ -239,11 +248,10 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
             </Button>
             <Button
               testId="sim-new-seed"
-              tooltip="Fight the same teams with a new seed, chosen at random"
+              tooltip="Put a new seed, chosen at random, into the field; Fight then shows the teams fighting another way"
               onClick={() => {
-                const next = seedFrom(Math.random());
-                setSeed(next);
-                fight(next);
+                // CSIM, Fighting the Combat, New seed: it changes the seed and fights nothing.
+                setSeed(seedFrom(Math.random()));
               }}
             >
               New seed
@@ -283,203 +291,206 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
             )}
           </div>
 
-          <div className="simulator-side">
-            <header className="simulator-side-head">
-              <h3>
-                Agents <span className="figure muted">{agents.length}</span>
-              </h3>
-              <select
-                aria-label="Agents' side preset"
-                data-testid="sim-team"
-                value={team}
-                onChange={(event) => {
-                  playSound(SOUND.select);
-                  setTeam(event.target.value);
-                  setAgents(agentRowsOfTeam(content, event.target.value));
-                }}
-              >
-                {content.teams.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-              <Button
-                testId="sim-add-agent"
-                sound="select"
-                onClick={() => {
-                  setAgents([...agents, agents[agents.length - 1] ?? newAgentRow(content)]);
-                }}
-              >
-                Add
-              </Button>
-            </header>
-            <div className="simulator-rows" data-testid="sim-agents">
-              <table className="simulator-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Weapon</th>
-                    <th>Armor</th>
-                    <ValueHeads />
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {agents.map((row, index) => (
-                    <tr key={index}>
-                      <td className="figure muted">{index + 1}</td>
-                      <td>
-                        <select
-                          aria-label={`Weapon of agent ${index + 1}`}
-                          data-testid={`sim-agent-${index + 1}-weapon`}
-                          value={row.weapon}
-                          onChange={(event) => {
-                            setAgent(index, withWeapon(content, row, event.target.value));
-                          }}
-                        >
-                          {content.weapons.map((weapon) => (
-                            <option key={weapon.id} value={weapon.id}>
-                              {weapon.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          aria-label={`Armor of agent ${index + 1}`}
-                          data-testid={`sim-agent-${index + 1}-armor-item`}
-                          value={row.armorItem}
-                          onChange={(event) => {
-                            setAgent(index, withArmor(content, row, event.target.value));
-                          }}
-                        >
-                          {content.armors.map((armor) => (
-                            <option key={armor.id} value={armor.id}>
-                              {armor.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <ValueFields
-                        side="agent"
-                        index={index}
-                        values={row.values}
-                        onChange={(values) => {
-                          setAgent(index, { ...row, values });
-                        }}
-                      />
-                      <td>
-                        <button
-                          type="button"
-                          className="btn btn-plain simulator-remove"
-                          aria-label={`Remove agent ${index + 1}`}
-                          title="Remove"
-                          data-sound="select"
-                          onClick={() => {
-                            setAgents(agents.filter((_, at) => at !== index));
-                          }}
-                        >
-                          ×
-                        </button>
-                      </td>
-                    </tr>
+          {/* CSIM, Teams: the Enemies' side stands to the right of the Agents' side. */}
+          <div className="simulator-sides">
+            <div className="simulator-side">
+              <header className="simulator-side-head">
+                <h3>
+                  Agents <span className="figure muted">{agents.length}</span>
+                </h3>
+                <select
+                  aria-label="Agents' side preset"
+                  data-testid="sim-team"
+                  value={team}
+                  onChange={(event) => {
+                    playSound(SOUND.select);
+                    setTeam(event.target.value);
+                    setAgents(agentRowsOfTeam(content, event.target.value));
+                  }}
+                >
+                  {content.teams.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
                   ))}
-                </tbody>
-              </table>
+                </select>
+                <Button
+                  testId="sim-add-agent"
+                  sound="select"
+                  onClick={() => {
+                    setAgents([...agents, agents[agents.length - 1] ?? newAgentRow(content)]);
+                  }}
+                >
+                  Add
+                </Button>
+              </header>
+              <div className="simulator-rows" data-testid="sim-agents">
+                <table className="simulator-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Weapon</th>
+                      <th>Armor</th>
+                      <ValueHeads />
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agents.map((row, index) => (
+                      <tr key={index}>
+                        <td className="figure muted">{index + 1}</td>
+                        <td>
+                          <select
+                            aria-label={`Weapon of agent ${index + 1}`}
+                            data-testid={`sim-agent-${index + 1}-weapon`}
+                            value={row.weapon}
+                            onChange={(event) => {
+                              setAgent(index, withWeapon(content, row, event.target.value));
+                            }}
+                          >
+                            {content.weapons.map((weapon) => (
+                              <option key={weapon.id} value={weapon.id}>
+                                {weapon.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <select
+                            aria-label={`Armor of agent ${index + 1}`}
+                            data-testid={`sim-agent-${index + 1}-armor-item`}
+                            value={row.armorItem}
+                            onChange={(event) => {
+                              setAgent(index, withArmor(content, row, event.target.value));
+                            }}
+                          >
+                            {content.armors.map((armor) => (
+                              <option key={armor.id} value={armor.id}>
+                                {armor.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <ValueFields
+                          side="agent"
+                          index={index}
+                          values={row.values}
+                          onChange={(values) => {
+                            setAgent(index, { ...row, values });
+                          }}
+                        />
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btn-plain simulator-remove"
+                            aria-label={`Remove agent ${index + 1}`}
+                            title="Remove"
+                            data-sound="select"
+                            onClick={() => {
+                              setAgents(agents.filter((_, at) => at !== index));
+                            }}
+                          >
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
 
-          <div className="simulator-side">
-            <header className="simulator-side-head">
-              <h3>
-                Enemies <span className="figure muted">{enemies.length}</span>
-              </h3>
-              <select
-                aria-label="Enemies' side preset"
-                data-testid="sim-site"
-                value={site}
-                onChange={(event) => {
-                  playSound(SOUND.select);
-                  setSite(event.target.value);
-                  setEnemies(enemyRowsOfSite(content, event.target.value));
-                }}
-              >
-                {content.missionSiteArchetypes.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-              <Button
-                testId="sim-add-enemy"
-                sound="select"
-                onClick={() => {
-                  setEnemies([
-                    ...enemies,
-                    enemies[enemies.length - 1] ?? enemyRow(content, content.enemyArchetypes[0]?.id ?? ''),
-                  ]);
-                }}
-              >
-                Add
-              </Button>
-            </header>
-            <div className="simulator-rows" data-testid="sim-enemies">
-              <table className="simulator-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th colSpan={2}>EnemyArchetype</th>
-                    <ValueHeads />
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {enemies.map((row, index) => (
-                    <tr key={index}>
-                      <td className="figure muted">{index + 1}</td>
-                      <td colSpan={2}>
-                        <select
-                          aria-label={`EnemyArchetype of enemy ${index + 1}`}
-                          data-testid={`sim-enemy-${index + 1}-archetype`}
-                          value={row.archetype}
-                          onChange={(event) => {
-                            setEnemy(index, enemyRow(content, event.target.value));
-                          }}
-                        >
-                          {content.enemyArchetypes.map((archetype) => (
-                            <option key={archetype.id} value={archetype.id}>
-                              {archetype.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <ValueFields
-                        side="enemy"
-                        index={index}
-                        values={row.values}
-                        onChange={(values) => {
-                          setEnemy(index, { ...row, values });
-                        }}
-                      />
-                      <td>
-                        <button
-                          type="button"
-                          className="btn btn-plain simulator-remove"
-                          aria-label={`Remove enemy ${index + 1}`}
-                          title="Remove"
-                          data-sound="select"
-                          onClick={() => {
-                            setEnemies(enemies.filter((_, at) => at !== index));
-                          }}
-                        >
-                          ×
-                        </button>
-                      </td>
-                    </tr>
+            <div className="simulator-side">
+              <header className="simulator-side-head">
+                <h3>
+                  Enemies <span className="figure muted">{enemies.length}</span>
+                </h3>
+                <select
+                  aria-label="Enemies' side preset"
+                  data-testid="sim-site"
+                  value={site}
+                  onChange={(event) => {
+                    playSound(SOUND.select);
+                    setSite(event.target.value);
+                    setEnemies(enemyRowsOfSite(content, event.target.value));
+                  }}
+                >
+                  {content.missionSiteArchetypes.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
                   ))}
-                </tbody>
-              </table>
+                </select>
+                <Button
+                  testId="sim-add-enemy"
+                  sound="select"
+                  onClick={() => {
+                    setEnemies([
+                      ...enemies,
+                      enemies[enemies.length - 1] ?? enemyRow(content, content.enemyArchetypes[0]?.id ?? ''),
+                    ]);
+                  }}
+                >
+                  Add
+                </Button>
+              </header>
+              <div className="simulator-rows" data-testid="sim-enemies">
+                <table className="simulator-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th colSpan={2}>EnemyArchetype</th>
+                      <ValueHeads />
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {enemies.map((row, index) => (
+                      <tr key={index}>
+                        <td className="figure muted">{index + 1}</td>
+                        <td colSpan={2}>
+                          <select
+                            aria-label={`EnemyArchetype of enemy ${index + 1}`}
+                            data-testid={`sim-enemy-${index + 1}-archetype`}
+                            value={row.archetype}
+                            onChange={(event) => {
+                              setEnemy(index, enemyRow(content, event.target.value));
+                            }}
+                          >
+                            {content.enemyArchetypes.map((archetype) => (
+                              <option key={archetype.id} value={archetype.id}>
+                                {archetype.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <ValueFields
+                          side="enemy"
+                          index={index}
+                          values={row.values}
+                          onChange={(values) => {
+                            setEnemy(index, { ...row, values });
+                          }}
+                        />
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btn-plain simulator-remove"
+                            aria-label={`Remove enemy ${index + 1}`}
+                            title="Remove"
+                            data-sound="select"
+                            onClick={() => {
+                              setEnemies(enemies.filter((_, at) => at !== index));
+                            }}
+                          >
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>

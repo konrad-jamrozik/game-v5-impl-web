@@ -210,10 +210,20 @@ test('the Main menu and the Combat simulator fit the Reference window', async ({
   await page.goto('/?combat-simulator');
   await expect(id(page, 'combat-simulator')).toBeVisible();
   await expectFits(page, 'the Combat simulator');
+  // CSIM, Teams: the Enemies' side stands to the right of the Agents' side.
+  const agentsBox = await id(page, 'sim-agents').boundingBox();
+  const enemiesBox = await id(page, 'sim-enemies').boundingBox();
+  expect(enemiesBox!.x).toBeGreaterThanOrEqual(agentsBox!.x + agentsBox!.width);
+  // CSIM, Fighting the Combat, New seed: it changes the seed and fights nothing.
+  await id(page, 'sim-new-seed').click();
+  await expect(id(page, 'sim-seed')).not.toHaveValue('combat-simulator');
+  await expect(id(page, 'combat-replay')).toHaveCount(0);
   // CSIM, Layout: the Combat replay covers the Teams pane, and its close control shows the Teams pane again.
   await id(page, 'sim-fight').click();
   await expect(id(page, 'combat-replay')).toBeVisible();
   await expect(id(page, 'sim-fight')).toHaveCount(0);
+  // CSIM, Fighting the Combat: the title row gives the Combat outcome.
+  await expect(id(page, 'sim-replay-outcome')).toHaveText(/\S/);
   await expectFits(page, 'the Combat replay of the Combat simulator');
   await id(page, 'replay-options').click();
   await expectFits(page, 'the Combat replay of the Combat simulator with its options shown');
