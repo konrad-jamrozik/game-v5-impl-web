@@ -1798,6 +1798,20 @@ summary {
   gap: 8px;
 }
 
+/* CSCR, Autopilot controls: One action and Turn actions share one row of the Side panel's width. */
+.autopilot-pair {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.autopilot-pair .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+
 .autopilot input[type='number'] {
   width: 80px;
 }

@@ -182,24 +182,28 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
           </option>
         ))}
       </select>
-      <Button
-        testId="autopilot-single"
-        disabledReason={reason}
-        onClick={() => {
-          engage({ kind: 'singleAction' });
-        }}
-      >
-        One action
-      </Button>
-      <Button
-        testId="autopilot-turn"
-        disabledReason={reason}
-        onClick={() => {
-          engage({ kind: 'turnActions' });
-        }}
-      >
-        This Turn&apos;s actions
-      </Button>
+      {/* CSCR, Autopilot controls: One action and Turn actions side by side on one row. */}
+      <div className="autopilot-pair">
+        <Button
+          testId="autopilot-single"
+          disabledReason={reason}
+          onClick={() => {
+            engage({ kind: 'singleAction' });
+          }}
+        >
+          One action
+        </Button>
+        <Button
+          testId="autopilot-turn"
+          disabledReason={reason}
+          tooltip="Engage the Autopilot AI for this Turn's actions"
+          onClick={() => {
+            engage({ kind: 'turnActions' });
+          }}
+        >
+          Turn actions
+        </Button>
+      </div>
       <label className="inline">
         <input
           type="number"

@@ -114,6 +114,22 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
   await expectFits(page, 'the Campaign screen');
 
+  // CSCR, Autopilot controls: expanded, One action and Turn actions share one row of the Side panel.
+  await id(page, 'open-settings').click();
+  await id(page, 'open-developer').click();
+  await id(page, 'dev-show-autopilot').click();
+  await expect(id(page, 'dev-show-autopilot')).toBeChecked();
+  await id(page, 'close-developer').click();
+  await id(page, 'autopilot-toggle').click();
+  await expect(id(page, 'autopilot-turn')).toBeVisible();
+  await expectFits(page, 'the expanded Autopilot controls');
+  const singleBox = await id(page, 'autopilot-single').boundingBox();
+  const turnBox = await id(page, 'autopilot-turn').boundingBox();
+  expect(Math.round(turnBox?.y ?? -1), 'Turn actions on the row of One action').toBe(
+    Math.round(singleBox?.y ?? -2),
+  );
+  await id(page, 'autopilot-toggle').click();
+
   await open(page, 'agents');
   await expectFits(page, 'the Agents View');
   await id(page, 'filter-memorial').click();
