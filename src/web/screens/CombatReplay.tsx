@@ -638,7 +638,8 @@ export function CombatReplay(props: {
               disabledReason={total === 0 ? 'This Combat had no attack.' : null}
               hint="Ctrl+click also sets the Options to this pace"
               onClick={(event) => {
-                if (event.ctrlKey) {
+                // GUI, Glossary, Ctrl: on a Mac the Command key works in its place.
+                if (event.ctrlKey || event.metaKey) {
                   setOptionsTo(pace);
                 }
                 playAt(pace);
