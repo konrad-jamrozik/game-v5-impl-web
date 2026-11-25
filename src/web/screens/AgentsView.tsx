@@ -45,6 +45,8 @@ import { pressHeader, pressHeaderUnderLock, sortRows, withLockedTier, type SortT
 import { Button, Grid, SortMark, ariaSort, withShortcut } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { EquipmentPicker } from './EquipmentPicker.tsx';
+import { EquipTable } from './EquipTable.tsx';
+import { FullScreenButton, FullScreenFrame, useFullScreen } from './ChartFullScreen.tsx';
 import type { ReportTarget } from './TurnReportView.tsx';
 import { rankOf, type RankThreshold } from '../rank.ts';
 import { RankText } from '../rank-insignia.tsx';
@@ -52,37 +54,13 @@ import { RankText } from '../rank-insignia.tsx';
 /** AVIEW, Row filters: the checkboxes are unchecked whenever the Agents View opens. */
 const NO_HIDING: HideChecks = { hideRecovering: false, hideExhausted: false };
 
-/**
- * AVIEW, Agent table: with Details checked, the Equip. cell shows the Equipment Combat rating with its sign, in
- * Positive above 0, in Danger below 0, and in Text muted at 0.
- */
-function EquipmentCombatRatingCell({ agent }: { agent: AgentView }) {
-  const equipment = agent.equipmentCombatRating ?? 0;
-  const tone = equipment > 0 ? 'tone-good' : equipment < 0 ? 'tone-bad' : 'muted';
-  return (
-    <span className={tone} data-testid={`equipment-cr-${agent.id}`}>
-      {equipment > 0 ? `+${equipment}` : equipment < 0 ? `−${-equipment}` : '0'}
-    </span>
-  );
-}
 /** A stable empty list of Ranks while the game data is not yet read. */
 const NO_RANKS: readonly RankThreshold[] = [];
 
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
-const NUMERIC = new Set([
-  'combatRating',
-  'equipmentCombatRating',
-  'effectiveSkill',
-  'skillHundredths',
-  'experience',
-  'currentHealthHundredths',
-  'exhaustion',
-]);
+const NUMERIC = new Set(['combatRating', 'currentHealthHundredths', 'exhaustion']);
 /** VIS, Tables: the columns whose header sorts descending first, because they sort by a number. */
-const DESCENDING_FIRST = new Set([...NUMERIC, 'rank', 'weapon', 'armor']);
-/** AVIEW, Agent table: the columns that only the Details checkbox shows, and those that it leaves out. */
-const DETAILS_ONLY = ['equipmentCombatRating', 'effectiveSkill', 'skillHundredths', 'experience'];
-const WEAR_ONLY = ['weapon', 'armor'];
+const DESCENDING_FIRST = new Set([...NUMERIC, 'rank']);
 
 /**
  * AVIEW, Agent table: the locked first sort tier while an Assignment filter is on. It puts the Agents that can be
@@ -91,30 +69,12 @@ const WEAR_ONLY = ['weapon', 'armor'];
 const SELECTABLE_FIRST = 'selectable';
 
 /**
- * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first, 1068 px in all, so that the
- * table fits its view in the Reference window. CR holds four digits and Exh. three after the warning triangle, each
- * with its sort arrow; Rank holds the abbreviation "Hi Cmdr" and three stars; Weapon and Armor hold the longest Item `name` of the GDRs with
- * its number and icon. AVIEW, Agent table: Assignment names no Lead or Mission site and marks In transit with an icon,
- * so it holds its widest value, "Recovery · 99 T left" and the In transit icon.
+ * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. AVIEW, Agent table: the
+ * Instance ID holds 30 characters, for the Agents' full names to come. CR holds four digits and Exh. three after the
+ * warning triangle, each with its sort arrow; Rank holds the abbreviation "Hi Cmdr" and three stars; Assignment names
+ * no Lead or Mission site and marks In transit with an icon, so it holds "Recovery · 99 T left" and the icon.
  */
-const SERVING_WIDTHS = ['36px', '96px', '64px', '116px', '84px', '72px', '200px', '220px', '176px'];
-/**
- * VIS, Tables: the widths with Details checked. CR holds four digits, and Equip. four after its sign, e.g. "+1234";
- * Skill and Base hold four digits and Exp. three, each with its sort arrow.
- */
-const DETAILS_WIDTHS = [
-  '36px',
-  '96px',
-  '64px',
-  '80px',
-  '116px',
-  '80px',
-  '80px',
-  '64px',
-  '84px',
-  '72px',
-  '176px',
-];
+const SERVING_WIDTHS = ['36px', '274px', '64px', '116px', '84px', '72px', '176px'];
 /**
  * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
  * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by hcmd-12". Where is the
@@ -214,14 +174,8 @@ export function AgentsView(props: {
   const [tiers, setTiers] = usePlaceState<SortTier<string>[]>('tiers', []);
   const [rowFilter, setRowFilter] = usePlaceState<RowFilter>('rowFilter', 'all');
   const [hideChecks, setHideChecks] = usePlaceState<HideChecks>('hideChecks', NO_HIDING);
-  // AVIEW, Row filters: Details is unchecked whenever the Agents View opens.
-  const [showDetails, setDetailsColumns] = usePlaceState('detailsColumns', false);
-  // AVIEW, Agent table: a sort tier on a column that Details leaves out is dropped.
-  const setDetailsChecked = (checked: boolean) => {
-    const leftOut = checked ? WEAR_ONLY : DETAILS_ONLY;
-    setTiers(tiers.filter((tier) => !leftOut.includes(tier.key)));
-    setDetailsColumns(checked);
-  };
+  // AVIEW, Equip table: closed whenever the Agents View opens; ✕, Escape, or a press on the Scrim closes it.
+  const equip = useFullScreen();
   // AVIEW, Row filters: Hide too exhausted to start work reads `exhaustion_work_start_max` of AgentParameters.
   const workStartMax = snapshot.gameData?.agentParameters['exhaustionWorkStartMax'] ?? 30;
   // AVIEW, Assignment filters: none is on whenever the Agents View opens.
@@ -363,13 +317,8 @@ export function AgentsView(props: {
           </button>
         ),
       }),
-      // AVIEW, Agent table: the Combat rating alone, and with Details checked the Equipment Combat rating after it.
+      // AVIEW, Agent table: the Combat rating alone.
       helper.accessor((agent) => agent.combatRating ?? 0, { id: 'combatRating', header: 'CR' }),
-      helper.accessor((agent) => agent.equipmentCombatRating ?? 0, {
-        id: 'equipmentCombatRating',
-        header: 'Equip.',
-        cell: (cell) => <EquipmentCombatRatingCell agent={cell.row.original} />,
-      }),
       // AVIEW, Agent table: the Rank's `name` followed by its Rank insignia; the column sorts by base skill.
       helper.accessor('skillHundredths', {
         id: 'rank',
@@ -379,10 +328,6 @@ export function AgentsView(props: {
           return rank === null ? null : <RankText rank={rank} abbreviated />;
         },
       }),
-      // AVIEW, Agent table, with Details checked: effective skill headed Skill, base skill Base, and Experience Exp.
-      helper.accessor('effectiveSkill', { header: 'Skill' }),
-      helper.accessor('skillHundredths', { header: 'Base', cell: (cell) => wholeText(cell.getValue()) }),
-      helper.accessor('experience', { header: 'Exp.' }),
       helper.accessor('currentHealthHundredths', {
         header: 'Health',
         cell: (cell) => (
@@ -393,33 +338,6 @@ export function AgentsView(props: {
         // VIS, Tables: exhaustion is headed Exh.
         header: 'Exh.',
         cell: (cell) => <Exhaustion value={cell.getValue()} levels={levels} />,
-      }),
-      // AVIEW, Weapon and Armor cells: each sorts by its number and opens the Equipment picker, which selects no row.
-      helper.accessor('baseWeaponDamage', {
-        id: 'weapon',
-        header: 'Weapon',
-        cell: (cell) => (
-          <EquipmentPicker
-            agent={cell.row.original}
-            kind="weapon"
-            state={state}
-            locked={locked}
-            testId={`weapon-${cell.row.original.id}`}
-          />
-        ),
-      }),
-      helper.accessor('baseArmor', {
-        id: 'armor',
-        header: 'Armor',
-        cell: (cell) => (
-          <EquipmentPicker
-            agent={cell.row.original}
-            kind="armor"
-            state={state}
-            locked={locked}
-            testId={`armor-${cell.row.original.id}`}
-          />
-        ),
       }),
       helper.accessor((agent) => assignmentText(agent, state, snapshot.retired), {
         id: 'assignment',
@@ -437,18 +355,10 @@ export function AgentsView(props: {
       // the Agents that can be selected, whose `blockedBy` is empty, first.
       helper.accessor((agent) => (agent.blockedBy === '' ? 0 : 1), { id: SELECTABLE_FIRST }),
     ],
-    [state, snapshot.retired, levels, ranks, locked, showDetails, onShow],
+    [state, snapshot.retired, levels, ranks, onShow],
   );
 
-  // AVIEW, Agent table: Details trades Weapon and Armor for Skill, Base, and Exp.
-  const columnVisibility = useMemo(
-    () => ({
-      [SELECTABLE_FIRST]: false,
-      ...Object.fromEntries(DETAILS_ONLY.map((key) => [key, showDetails])),
-      ...Object.fromEntries(WEAR_ONLY.map((key) => [key, !showDetails])),
-    }),
-    [showDetails],
-  );
+  const columnVisibility = useMemo(() => ({ [SELECTABLE_FIRST]: false }), []);
   const table = useReactTable({
     data: rows,
     columns,
@@ -610,31 +520,59 @@ export function AgentsView(props: {
           {rowFilterButton('fit', 'Fit', state.agents.filter(fitToStartWorkNow).length)}
           {rowFilterButton('inBase', 'In base', state.agents.filter((agent) => agent.inBase).length)}
           {rowFilterButton('away', 'Away', state.agents.filter((agent) => agent.away).length)}
-          {rowFilterButton('memorial', 'Memorial', terminated.length)}
         </div>
       }
       onClose={props.onClose}
     >
-      {/* VIS, Detail views and navigation, Rows of controls: the checkboxes take a row of their own under the title's
-          row, and the buttons the next one. AVIEW, Row filters: the two Hide checkboxes and Details stand on a Control
-          backdrop (VIS, Colours), and are disabled for the Memorial. */}
-      <div className="control-row control-backdrop agents-filters hide-checks">
-        {hideCheck('hideExhausted', 'Hide too exhausted to start work')}
-        {hideCheck('hideRecovering', 'Hide recovering')}
-        <label className="inline hide-check">
-          <input
-            type="checkbox"
-            data-testid="show-details"
-            checked={showDetails}
+      {/* VIS, Detail views and navigation, Rows of controls: the row under the title's row holds the two Hide
+          checkboxes at its left, on a Control backdrop (VIS, Colours) and disabled for the Memorial, and the Equip
+          button and the Memorial row filter at its right; the buttons take the next row. */}
+      <div className="agents-second-row">
+        <div className="control-row control-backdrop agents-filters hide-checks">
+          {hideCheck('hideExhausted', 'Hide too exhausted to start work')}
+          {hideCheck('hideRecovering', 'Hide recovering')}
+        </div>
+        <div className="chips agents-row-filters">
+          {/* AVIEW, Equip table: the Equip button shows it over the whole screen; disabled while Memorial is on. */}
+          <button
+            type="button"
+            className="chip"
+            data-testid="open-equip"
             disabled={memorial}
-            onChange={() => {
-              playSound(SOUND.select);
-              setDetailsChecked(!showDetails);
-            }}
-          />
-          Details
-        </label>
+            title={memorial ? 'The Memorial shows no Agent to equip.' : 'Show the Equip table'}
+            onClick={equip.toggle}
+          >
+            Equip
+          </button>
+          {rowFilterButton('memorial', 'Memorial', terminated.length)}
+        </div>
       </div>
+      {equip.full && !memorial ? (
+        <FullScreenFrame screen={equip}>
+          <section className="panel equip-panel" data-testid="equip-view" aria-label="Equip">
+            <div className="equip-head">
+              <h2>Equip</h2>
+              <FullScreenButton screen={equip} testId="equip" />
+            </div>
+            <EquipTable
+              agents={rows}
+              state={state}
+              retired={snapshot.retired}
+              ranks={ranks}
+              levels={levels}
+              locked={locked}
+              onOpenDetails={(id) => {
+                equip.close();
+                openDetails(id);
+              }}
+              onShow={(target) => {
+                equip.close();
+                onShow(target);
+              }}
+            />
+          </section>
+        </FullScreenFrame>
+      ) : null}
       <div className="toolbar agents-toolbar">
         <Button
           shortcut="H"
@@ -727,12 +665,7 @@ export function AgentsView(props: {
         />
       ) : (
         <div className="table-scroll">
-          <Grid
-            widths={showDetails ? DETAILS_WIDTHS : SERVING_WIDTHS}
-            className="agents-grid"
-            testId="agents-grid"
-            scroll={false}
-          >
+          <Grid widths={SERVING_WIDTHS} className="agents-grid" testId="agents-grid" scroll={false}>
             <thead>
               {table.getHeaderGroups().map((group) => (
                 <tr key={group.id}>

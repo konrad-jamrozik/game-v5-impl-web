@@ -565,6 +565,46 @@ input::placeholder {
   white-space: nowrap;
 }
 
+/* AVIEW, Row filters, and Equip table: the row under the title row holds the Hide checkboxes at its left and the
+   Equip button and Memorial at its right. */
+.agents-second-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.agents-second-row > .agents-filters {
+  margin-bottom: 0;
+}
+
+/* AVIEW, Equip table: over the whole screen, inset 24 px, its title row ended by the close control; the table takes
+   the rest of the height and scrolls, sideways too while it is wider than the screen. */
+.equip-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px;
+  background: var(--surface);
+  border-top: 2px solid var(--accent);
+}
+
+.equip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.equip-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
 .toolbar.agents-toolbar {
   align-items: center;
 }
