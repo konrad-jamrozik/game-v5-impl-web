@@ -85,24 +85,28 @@ export function SeriesChart(props: {
     <figcaption>
       <h4>{props.title}</h4>
       <LastTurnsCheckbox chart={props.testId ?? props.title} on={lastOnly} onChange={setLastOnly} />
-      <ul className="chart-legend">
-        {legend.map((series) => (
-          <li key={series.name}>
-            <span
-              className={series.line ? 'chart-key chart-key-line' : 'chart-key'}
-              style={{ background: series.color }}
-            />
-            {series.name}
-          </li>
-        ))}
-      </ul>
       <FullScreenButton screen={screen} {...(props.testId === undefined ? {} : { testId: props.testId })} />
     </figcaption>
+  );
+  // VIS, Charts: a chart with several series has its legend on a row of its own under the title row.
+  const legendRow = (
+    <ul className="chart-legend">
+      {legend.map((series) => (
+        <li key={series.name}>
+          <span
+            className={series.line ? 'chart-key chart-key-line' : 'chart-key'}
+            style={{ background: series.color }}
+          />
+          {series.name}
+        </li>
+      ))}
+    </ul>
   );
   if (turns.length === 0) {
     return (
       <figure className="chart chart-wide" data-testid={props.testId}>
         {caption}
+        {legendRow}
         <p className="muted small">No ended Turn yet.</p>
       </figure>
     );
@@ -146,6 +150,7 @@ export function SeriesChart(props: {
     <FullScreenFrame screen={screen}>
       <figure className={className} data-testid={props.testId}>
         {caption}
+        {legendRow}
         <div className="chart-plot" ref={plotRef}>
           <svg
             viewBox={`0 0 ${width} ${height}`}

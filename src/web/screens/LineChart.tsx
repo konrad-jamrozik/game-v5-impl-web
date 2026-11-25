@@ -98,7 +98,6 @@ export function LineChart(props: {
       <figure className={className} data-testid={props.testId}>
         <figcaption>
           <h4>{props.title}</h4>
-          {checkbox}
           <span className="chart-value">
             {shown === null ? (
               <>
@@ -114,6 +113,7 @@ export function LineChart(props: {
               </>
             )}
           </span>
+          {checkbox}
           <FullScreenButton
             screen={screen}
             {...(props.testId === undefined ? {} : { testId: props.testId })}

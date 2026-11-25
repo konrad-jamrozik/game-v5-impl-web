@@ -1597,7 +1597,10 @@ summary {
   margin-bottom: 8px;
 }
 
+/* VIS, Charts: the title takes the free room of the title row, so that the current value, the Last 100 Turns
+   checkbox, and the Full screen button stand together at its right end. */
 .chart figcaption h4 {
+  margin-right: auto;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -1739,7 +1742,6 @@ summary {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
   font-size: 12px;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -1777,12 +1779,13 @@ summary {
   color: var(--text);
 }
 
+/* VIS, Charts: a legend has a row of its own under the title row, starting at the left. */
 .chart-legend {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px 16px;
-  margin: 0;
+  margin: 0 0 8px;
   padding: 0;
   list-style: none;
   font: 11px var(--font-figure);
