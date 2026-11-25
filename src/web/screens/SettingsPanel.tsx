@@ -194,10 +194,11 @@ function SettingsRows(props: {
         <div className="settings-row">
           <div>Tools</div>
           <div className="actions">
-            <Button testId="open-shortcuts" onClick={tools.onShortcuts}>
+            {/* VIS, Buttons: the ? and ` keys open the same views from the Campaign screen. */}
+            <Button testId="open-shortcuts" keyHint="?" onClick={tools.onShortcuts}>
               Keyboard shortcuts
             </Button>
-            <Button testId="open-developer" onClick={tools.onDeveloper}>
+            <Button testId="open-developer" keyHint="`" onClick={tools.onDeveloper}>
               Developer tools
             </Button>
           </div>

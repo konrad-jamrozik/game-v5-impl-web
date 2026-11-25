@@ -157,8 +157,17 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
     await open(page, viewId);
     await expectFits(page, `the Detail view ${viewId}`);
   }
+  // COMPV, Panes: Enter shows the first match and leaves the search field; Escape then clears the search text and
+  // keeps the Compendium View open, and only an Escape with the field empty closes it.
+  await page.keyboard.press('s');
+  await page.keyboard.type('agent');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'compendium-search')).toHaveValue('');
+  await expect(view(page, 'compendium')).toBeVisible();
   // CSCR, Hiding the Side panel: the Compendium View leaves the status bar out, so it is closed first.
   await page.keyboard.press('Escape');
+  await expect(view(page, 'compendium')).toHaveCount(0);
 
   await id(page, 'open-settings').click();
   await expectFits(page, 'the Settings panel');

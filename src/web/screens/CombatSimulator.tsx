@@ -194,7 +194,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
               </div>
               <CloseControl
                 testId="sim-replay-close"
-                title="Back to the teams (Esc)"
+                title="Back to the teams"
                 onClose={() => {
                   setReplayShown(false);
                 }}
@@ -216,7 +216,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
 
   return (
     <main className="simulator" data-testid="combat-simulator">
-      <CloseControl testId="simulator-close" title="Back to the Main menu (Esc)" onClose={onClose} />
+      <CloseControl testId="simulator-close" title="Back to the Main menu" onClose={onClose} />
       <header className="simulator-head">
         <h1>Combat simulator</h1>
         <p className="secondary">

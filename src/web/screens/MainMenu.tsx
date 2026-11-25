@@ -128,7 +128,7 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
       {left === null ? null : (
         <CloseControl
           testId="menu-close"
-          title="Back to the Campaign (Esc)"
+          title="Back to the Campaign"
           onClose={() => {
             resume(left);
           }}

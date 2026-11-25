@@ -6,6 +6,16 @@ import { showsSortArrow, type SortTier } from './table-sort.ts';
 import { tallySquares } from './tally.ts';
 
 /**
+ * VIS, Buttons: the tooltip of a control that a key presses names that key after what it says otherwise, e.g. "Next
+ * article · Shortcut: W", or names the key alone when it says nothing else.
+ */
+export function withShortcut(text: string | null | undefined, key: string): string {
+  return text === undefined || text === null || text === ''
+    ? `Shortcut: ${key}`
+    : `${text} · Shortcut: ${key}`;
+}
+
+/**
  * VIS, Close controls: a square neutral 36 px button holding a ✕ that ends its view's title row, inset by the view's
  * inner padding. In a title row with no other control it sits at the upper right corner, centred on the title's
  * 36 px line; the view sets the inset through the `--close-inset-top` and `--close-inset-right` custom properties and
@@ -18,13 +28,19 @@ export function CloseControl(props: {
   testId?: string;
   /** SOUNDS, Turn summary: `main` when closing shows the Turn summary again; a Go back otherwise. */
   sound?: 'main' | 'back';
+  /**
+   * VIS, Buttons: whether the Escape key presses this control now, so that its tooltip names the key. False e.g. while
+   * a Back control takes the Escape key.
+   */
+  escape?: boolean;
 }) {
+  const name = props.title ?? 'Close';
   return (
     <button
       type="button"
       className="btn btn-plain close-control"
       aria-label="Close"
-      title={props.title ?? 'Close (Esc)'}
+      title={props.escape === false ? name : withShortcut(name, 'Esc')}
       data-sound={props.sound ?? 'back'}
       data-testid={props.testId}
       onClick={props.onClose}
@@ -81,7 +97,10 @@ export function Button(props: {
   kind?: 'primary' | 'danger' | 'plain' | 'weighty' | 'autopilot';
   /** VIS, Buttons: the main action of a screen is taller and set larger. */
   main?: boolean;
+  /** The key that presses the button, shown on it in a keycap and named in its tooltip. */
   shortcut?: string;
+  /** A key that presses the button, named in its tooltip only, e.g. Esc for a Back control. */
+  keyHint?: string;
   /** A tooltip for the enabled button, before its shortcut. */
   tooltip?: string | undefined;
   testId?: string;
@@ -90,18 +109,16 @@ export function Button(props: {
   sound?: ButtonSound;
 }) {
   const disabled = props.disabledReason !== undefined && props.disabledReason !== null;
-  const enabledTitle = [
-    props.tooltip,
-    props.shortcut === undefined ? undefined : `Shortcut: ${props.shortcut}`,
-  ]
-    .filter((part) => part !== undefined)
-    .join(' · ');
+  // VIS, Buttons: the tooltip names the key that presses the button, whether it is enabled or disabled.
+  const key = props.shortcut ?? props.keyHint;
+  const text = disabled ? props.disabledReason : props.tooltip;
+  const title = key === undefined ? text : withShortcut(text, key);
   return (
     <button
       type="button"
       className={`btn btn-${props.kind ?? 'plain'}${props.main === true ? ' btn-main' : ''}${props.className === undefined ? '' : ` ${props.className}`}`}
       disabled={disabled}
-      title={disabled ? (props.disabledReason ?? '') : enabledTitle === '' ? undefined : enabledTitle}
+      title={title === undefined || title === null || title === '' ? undefined : title}
       onClick={props.onClick}
       data-testid={props.testId}
       data-sound={props.sound}

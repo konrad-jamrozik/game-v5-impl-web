@@ -12,6 +12,7 @@ import { SOUND } from '../sounds.ts';
 import { GainLineText, toneClass } from '../consequences.tsx';
 import type { GainLine } from '../mission-gains.ts';
 import type { TurnSummaryModel } from '../turn-summary.ts';
+import { withShortcut } from '../ui.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -267,6 +268,8 @@ export function TurnSummary(props: {
             type="button"
             className="btn btn-primary"
             data-testid="turn-summary-continue"
+            // VIS, Buttons: the Escape key dismisses the Turn summary as Continue does.
+            title={withShortcut(undefined, 'Esc')}
             data-sound="back"
             onClick={props.onDismiss}
           >

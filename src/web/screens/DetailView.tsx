@@ -91,6 +91,11 @@ export function DetailView(props: {
    * summary button (TRVIEW, Turn summary button).
    */
   backInLead?: boolean;
+  /**
+   * VIS, Close controls, Escape: true while the view gives the Escape key another use first, e.g. clearing the search
+   * field of the Compendium View (COMPV), so that neither the Back control nor the close control names the key.
+   */
+  escapeTaken?: boolean;
   actions?: ReactNode;
   onClose: () => void;
   children: ReactNode;
@@ -110,7 +115,14 @@ export function DetailView(props: {
   }, [titleKey, place.restoredScrollTop]);
   const backControl =
     place.back === null ? null : (
-      <Button testId="view-back" sound={place.back.toSummary ? 'main' : 'back'} onClick={place.back.go}>
+      // VIS, Buttons: the Escape key does what the Back control does, so its tooltip names the key.
+      <Button
+        testId="view-back"
+        sound={place.back.toSummary ? 'main' : 'back'}
+        tooltip={place.back.label}
+        {...(props.escapeTaken === true ? {} : { keyHint: 'Esc' })}
+        onClick={place.back.go}
+      >
         {place.back.label}
       </Button>
     );
@@ -157,6 +169,7 @@ export function DetailView(props: {
         <CloseControl
           testId="close-view"
           sound={place.closeShowsSummary ? 'main' : 'back'}
+          escape={backControl === null && props.escapeTaken !== true}
           onClose={props.onClose}
         />
       </header>

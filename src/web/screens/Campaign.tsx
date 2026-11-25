@@ -24,7 +24,7 @@ import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '..
 import { activeInvestigationRows, leadsToInvestigate, lostMissionSites } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
-import { Button, CloseControl, Fact, Meter, typingIn } from '../ui.tsx';
+import { Button, CloseControl, Fact, Meter, typingIn, withShortcut } from '../ui.tsx';
 import { turnsSinceLastFactionActivity } from '../faction-activity.ts';
 import { decimalText, panicText } from '../format.ts';
 import { AgentsView } from './AgentsView.tsx';
@@ -692,7 +692,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
               type="button"
               className="btn side-toggle"
               aria-label="Show the Side panel"
-              title="Show the Side panel (V)"
+              title={withShortcut('Show the Side panel', 'V')}
               data-testid="show-side-panel"
               data-sound="select"
               onClick={() => {
@@ -717,7 +717,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                         type="button"
                         className="btn side-toggle"
                         aria-label="Hide the Side panel"
-                        title="Hide the Side panel (V)"
+                        title={withShortcut('Hide the Side panel', 'V')}
                         data-testid="hide-side-panel"
                         data-sound="select"
                         onClick={() => {

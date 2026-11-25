@@ -151,7 +151,11 @@ function SymbolButton(props: {
       className={`btn btn-plain replay-symbol${props.pressed === true ? ' pressed' : ''}`}
       aria-label={props.name}
       aria-pressed={props.pressed}
-      title={disabled ? `${props.name}: ${props.disabledReason ?? ''}` : title}
+      title={
+        disabled
+          ? `${props.name}: ${props.disabledReason ?? ''}${props.shortcut === undefined ? '' : ` · Shortcut: ${props.shortcut}`}`
+          : title
+      }
       disabled={disabled}
       data-testid={props.testId}
       data-sound="select"

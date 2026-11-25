@@ -35,7 +35,7 @@ import { usePlaceState } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { theEngine, type Snapshot } from '../store.ts';
-import { typingIn } from '../ui.tsx';
+import { typingIn, withShortcut } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
 /**
@@ -76,6 +76,33 @@ function useCompendiumKeys(search: RefObject<HTMLInputElement | null>): void {
       window.removeEventListener('keydown', onKey);
     };
   }, [search]);
+}
+
+/**
+ * COMPV, Panes: while the search field holds text, the Escape key clears it, wherever the keyboard focus is, and keeps
+ * the article shown; it then neither closes the Compendium View nor goes back. It listens before the Campaign screen
+ * does, so that the Campaign screen never sees that Escape. A key pressed while a dialog covers the view does nothing
+ * here. SOUNDS, Go back: the Escape key cancelling the search plays `go-back-click`.
+ */
+function useEscapeClearsSearch(search: string, clear: () => void): void {
+  useEffect(() => {
+    if (search === '') {
+      return undefined;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || document.querySelector('.scrim') !== null) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      playSound(SOUND.back);
+      clear();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [search, clear]);
 }
 
 /**
@@ -153,6 +180,9 @@ export function CompendiumView(props: {
   useCompendiumKeys(searchField);
   // CSCR, View trail: the search text and the Article history are part of the place of the Compendium View.
   const [search, setSearch] = usePlaceState('search', '');
+  useEscapeClearsSearch(search, () => {
+    setSearch('');
+  });
   const [stored, setHistory] = usePlaceState<ArticleHistory>('history', openHistory(firstArticle(all)));
   // COMPV, Following links, No longer Player-visible: e.g. after an undo, an article leaves the Article history.
   const history = visibleHistory(stored, new Set(all.map((item) => item.id)), firstArticle(all));
@@ -211,6 +241,7 @@ export function CompendiumView(props: {
     <DetailView
       id="compendium"
       title="Compendium"
+      escapeTaken={search !== ''}
       lead={
         // COMPV, Panes, Category tabs: one row in the title row, between the title and the search field, without
         // counts; it scrolls sideways when it is wider than its room and never wraps.
@@ -300,7 +331,7 @@ export function CompendiumView(props: {
                     type="button"
                     className="btn btn-plain icon-button"
                     aria-label="Previous article"
-                    title="Previous article"
+                    title={withShortcut('Previous article', 'Q')}
                     data-testid="article-previous"
                     data-sound="select"
                     disabled={!hasPreviousArticle(history)}
@@ -314,7 +345,7 @@ export function CompendiumView(props: {
                     type="button"
                     className="btn btn-plain icon-button"
                     aria-label="Next article"
-                    title="Next article"
+                    title={withShortcut('Next article', 'W')}
                     data-testid="article-next"
                     data-sound="select"
                     disabled={!hasNextArticle(history)}
