@@ -7,7 +7,7 @@ import { detailViewName, fileName } from '../artwork-names.ts';
 import { IMAGE_PATHS, resetTuning, shownTuning, tune, useTunings } from '../artwork.ts';
 import { autopilotSettings } from '../autopilot-controls.ts';
 import { sliderFill } from '../slider.ts';
-import { act, setRevealHiddenContent, theEngine, type Snapshot } from '../store.ts';
+import { act, setDevMode, setRevealHiddenContent, theEngine, type Snapshot } from '../store.ts';
 import { Button, CloseControl, Section } from '../ui.tsx';
 import { DETAIL_VIEWS } from './DetailView.tsx';
 
@@ -22,10 +22,12 @@ function parse(text: string): string | number | boolean {
 const VIEW_NAMES = new Map(DETAIL_VIEWS.map((view) => [detailViewName(view.id), view.name]));
 
 /**
- * VIS, Artwork tuning: pick the Detail view, then tune its opacity and image; available whether or not Dev mode is
- * enabled, because it neither reveals hidden information nor changes Campaign state.
+ * VIS, Artwork tuning: pick the Detail view, then tune its opacity and image; like every control of the developer
+ * tools, available only while Dev mode is enabled, so `gate` holds the reason it is not.
  */
-function ArtworkTuning({ snapshot }: { snapshot: Snapshot }) {
+function ArtworkTuning({ snapshot, gate }: { snapshot: Snapshot; gate: string | null }) {
+  const blocked = gate !== null;
+  const tip = gate ?? undefined;
   const tunings = useTunings();
   const artworks = snapshot.gameData?.backgroundArtworks ?? [];
   const [picked, setPicked] = useState<string | null>(null);
@@ -45,6 +47,8 @@ function ArtworkTuning({ snapshot }: { snapshot: Snapshot }) {
           <span>Detail view</span>
           <select
             data-testid="tuning-view"
+            disabled={blocked}
+            title={tip}
             value={artwork.detailView}
             onChange={(event) => {
               setPicked(event.target.value);
@@ -72,6 +76,8 @@ function ArtworkTuning({ snapshot }: { snapshot: Snapshot }) {
                 value={shown.opacityPct}
                 aria-label={`${name} artwork opacity`}
                 data-testid="tuning-opacity"
+                disabled={blocked}
+                title={tip}
                 onChange={(event) => {
                   tune(artwork, { opacityPct: Number(event.target.value) });
                 }}
@@ -85,6 +91,8 @@ function ArtworkTuning({ snapshot }: { snapshot: Snapshot }) {
           <select
             aria-label={`${name} artwork image`}
             data-testid="tuning-image"
+            disabled={blocked}
+            title={tip}
             value={shown.image}
             onChange={(event) => {
               tune(artwork, { image: event.target.value });
@@ -98,7 +106,7 @@ function ArtworkTuning({ snapshot }: { snapshot: Snapshot }) {
           </select>
         </label>
         <div>
-          <Button testId="tuning-reset" onClick={resetTuning}>
+          <Button testId="tuning-reset" disabledReason={gate} onClick={resetTuning}>
             Reset
           </Button>
         </div>
@@ -115,12 +123,11 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
   const [outcome, setOutcome] = useState('');
   const [value, setValue] = useState('');
   const [inspecting, setInspecting] = useState(false);
-  const off = devMode
-    ? snapshot.status.autopilot === null
-      ? null
-      : 'Unavailable while Autopilot is engaged.'
-    : 'Enable Dev mode first.';
   const engaged = snapshot.status.autopilot === null ? null : 'Unavailable while Autopilot is engaged.';
+  // GUI, Developer tools, Gated by Dev mode: every control but the "Dev mode" checkbox is disabled while Dev mode is
+  // disabled, and a checkbox among them keeps its value.
+  const gate = devMode ? null : 'Enable Dev mode first.';
+  const off = gate ?? engaged;
   const inspection = devMode && inspecting ? developer.queries.getCampaignState() : null;
 
   return (
@@ -129,20 +136,23 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
         <h3>Developer tools</h3>
       </header>
       <CloseControl testId="close-developer" onClose={onClose} />
-      <label className="inline">
+      {/* GUI, Developer tools, Fixed during an engagement: Dev mode cannot change while Autopilot is engaged. */}
+      <label className="inline" title={engaged ?? undefined}>
         <input
           type="checkbox"
           data-testid="dev-mode"
           checked={devMode}
+          disabled={engaged !== null}
           onChange={() => {
-            act(() => (devMode ? session.developer.disable() : session.developer.enable()));
+            setDevMode(!devMode);
           }}
         />
         Dev mode
       </label>
       <p className="muted small">
-        Dev mode gives access to cheats and to hidden values. It is off whenever a Session starts. Campaign
-        seed: {devMode ? (snapshot.status.campaignSeed ?? '-') : 'hidden'}.
+        Dev mode gives access to cheats, to hidden values, and to every tool below. It is off when a Session
+        starts, and stays as you leave it for the rest of the Session. Campaign seed:{' '}
+        {devMode ? (snapshot.status.campaignSeed ?? '-') : 'hidden'}.
       </p>
       {/* GUI, Reveal hidden content: disabled while Dev mode is disabled or Autopilot is engaged. */}
       <label className="inline" title={off ?? undefined}>
@@ -157,25 +167,26 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
         />
         Reveal hidden content
       </label>
-      {/* CSCR, Autopilot settings: Dev mode does not gate it; it is disabled while an Autopilot engagement is active, so
+      {/* CSCR, Autopilot settings: Dev mode gates it, and it is disabled while an Autopilot engagement is active, so
           that the Stop button never leaves the screen while it is needed. */}
-      <label className="inline" title={engaged ?? undefined}>
+      <label className="inline" title={off ?? undefined}>
         <input
           type="checkbox"
           data-testid="dev-show-autopilot"
           checked={autopilotSettings(snapshot.configuration.settings).shown}
-          disabled={engaged !== null}
+          disabled={off !== null}
           onChange={(event) => {
             act(() => session.globalConfiguration.set('autopilotControlsShown', event.target.checked));
           }}
         />
         Show Autopilot controls
       </label>
-      {/* CSIM, Opening the Combat simulator: Dev mode does not gate it. */}
-      <label className="inline">
+      {/* CSIM, Opening the Combat simulator: Dev mode gates it. */}
+      <label className="inline" title={gate ?? undefined}>
         <input
           type="checkbox"
           data-testid="dev-show-simulator"
+          disabled={gate !== null}
           checked={
             snapshot.configuration.settings.find((setting) => setting.setting === 'combatSimulatorShown')
               ?.effectiveValue === true
@@ -193,6 +204,8 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
             type="number"
             aria-label="Money to add"
             data-testid="dev-money"
+            disabled={off !== null}
+            title={off ?? undefined}
             value={money}
             onChange={(event) => {
               setMoney(Number(event.target.value));
@@ -213,6 +226,8 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
             type="number"
             aria-label="Agents to add"
             data-testid="dev-agents"
+            disabled={off !== null}
+            title={off ?? undefined}
             value={agents}
             onChange={(event) => {
               setAgents(Number(event.target.value));
@@ -241,6 +256,8 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
           <span>Random outcome</span>
           <input
             data-testid="dev-outcome"
+            disabled={off !== null}
+            title={off ?? undefined}
             value={outcome}
             onChange={(event) => {
               setOutcome(event.target.value);
@@ -251,6 +268,8 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
           <span>Value (true, false, a whole number, or an identifier)</span>
           <input
             data-testid="dev-value"
+            disabled={off !== null}
+            title={off ?? undefined}
             value={value}
             onChange={(event) => {
               setValue(event.target.value);
@@ -271,12 +290,12 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
         </Button>
       </Section>
 
-      <ArtworkTuning snapshot={snapshot} />
+      <ArtworkTuning snapshot={snapshot} gate={gate} />
 
       <Section title="Campaign state">
         <Button
           testId="dev-inspect"
-          disabledReason={devMode ? null : 'Enable Dev mode first.'}
+          disabledReason={gate}
           onClick={() => {
             setInspecting((open) => !open);
           }}

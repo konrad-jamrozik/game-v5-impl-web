@@ -117,6 +117,8 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   // CSCR, Autopilot controls: expanded, One action and Turn actions share one row of the Side panel.
   await id(page, 'open-settings').click();
   await id(page, 'open-developer').click();
+  // GUI, Developer tools, Gated by Dev mode: every other control waits for the "Dev mode" checkbox.
+  await id(page, 'dev-mode').check();
   await id(page, 'dev-show-autopilot').click();
   await expect(id(page, 'dev-show-autopilot')).toBeChecked();
   await id(page, 'close-developer').click();

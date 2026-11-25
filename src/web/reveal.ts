@@ -11,18 +11,10 @@ export function canReveal(status: Pick<SessionStatus, 'devMode' | 'autopilot'>):
 }
 
 /**
- * DEV, Revealed presentation, Dev mode only: the setting after the Session status changed to `status`. It is turned
- * off whenever Dev mode is disabled, including when a Campaign is created, loaded, or closed; Autopilot leaves it as it
- * is.
- */
-export function revealSettingAfter(setting: boolean, status: Pick<SessionStatus, 'devMode'>): boolean {
-  return setting && status.devMode;
-}
-
-/**
- * DEV, Revealed presentation: whether the GUI presents the Current campaign under Revealed presentation. While
- * Autopilot is engaged it presents only Player-visible information, because Developer API is unavailable, and it
- * presents revealed values again once Autopilot is disengaged.
+ * DEV, Revealed presentation: whether the GUI presents the Current campaign under Revealed presentation. The setting
+ * is in effect only while Dev mode is enabled, and the GUI keeps it while Dev mode is disabled, e.g. across a load
+ * (GUI, Developer tools, Kept for the Session). While Autopilot is engaged it presents only Player-visible information,
+ * because Developer API is unavailable, and it presents revealed values again once Autopilot is disengaged.
  */
 export function revealInEffect(
   setting: boolean,

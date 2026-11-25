@@ -341,6 +341,8 @@ async function capture(page: Page): Promise<void> {
   // The Autopilot controls, which a Global configuration setting of the Developer tools shows. The setting is stored
   // asynchronously, so the checkbox is checked once Game storage holds it.
   await openDeveloperTools(page);
+  // GUI, Developer tools, Gated by Dev mode: every other control waits for the "Dev mode" checkbox.
+  await id(page, 'dev-mode').check();
   await id(page, 'dev-show-autopilot').click();
   await expect(id(page, 'dev-show-autopilot')).toBeChecked();
   await id(page, 'close-developer').click();

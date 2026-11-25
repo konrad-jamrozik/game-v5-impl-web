@@ -22,7 +22,7 @@ import {
   type TimelineStatus,
   type TurnReport,
 } from '../engine/index.ts';
-import { canReveal, revealInEffect, revealSettingAfter } from './reveal.ts';
+import { canReveal, revealInEffect } from './reveal.ts';
 
 export interface Notice {
   readonly id: number;
@@ -83,8 +83,16 @@ let nextNoticeId = 1;
 let pending = 0;
 let lastEngagementId: string | null = null;
 let leftCampaign: string | null = null;
-/** GUI, Reveal hidden content: the Session setting; it starts off and no Campaign save holds it. */
+/**
+ * GUI, Reveal hidden content: the Session setting; it starts off and no Campaign save holds it. GUI, Developer tools,
+ * Kept for the Session: it stays as the Game designer left it while Dev mode is disabled, e.g. across a load.
+ */
 let revealHiddenContent = false;
+/**
+ * GUI, Developer tools, Kept for the Session: whether the Game designer left Dev mode enabled. A create or a load
+ * disables Dev mode, and the GUI then enables it again; a new Session starts with it off.
+ */
+let devModeKept = false;
 const listeners = new Set<() => void>();
 
 /**
@@ -93,17 +101,44 @@ const listeners = new Set<() => void>();
  */
 export function setRevealHiddenContent(on: boolean): void {
   const status = engine === null ? null : valueOf(engine.session.getStatus());
-  const next = on && status !== null && canReveal(status);
-  if (next !== revealHiddenContent) {
-    revealHiddenContent = next;
+  if (status === null || !canReveal(status)) {
+    return;
+  }
+  if (on !== revealHiddenContent) {
+    revealHiddenContent = on;
     changed();
   }
 }
 
-/** DEV, Revealed presentation, Dev mode only: clears the setting once Dev mode is disabled. */
-function syncReveal(): void {
+/**
+ * GUI, Developer tools, Gated by Dev mode: the "Dev mode" checkbox enables or disables Dev mode, and the GUI keeps the
+ * choice for the rest of the Session.
+ */
+export function setDevMode(on: boolean): void {
+  act(() => {
+    const result = on ? theEngine().session.developer.enable() : theEngine().session.developer.disable();
+    if (result.ok) {
+      devModeKept = on;
+    }
+    return result;
+  });
+}
+
+/**
+ * GUI, Developer tools, Kept for the Session: enables Dev mode again once a create or a load has disabled it, when the
+ * Game designer left it enabled. Autopilot cannot be engaged then, so this never waits for one.
+ */
+function restoreDevMode(): void {
   const status = engine === null ? null : valueOf(engine.session.getStatus());
-  revealHiddenContent = status !== null && revealSettingAfter(revealHiddenContent, status);
+  if (
+    devModeKept &&
+    status !== null &&
+    status.hasCurrentCampaign &&
+    !status.devMode &&
+    status.autopilot === null
+  ) {
+    theEngine().session.developer.enable();
+  }
 }
 
 /** MENU, Layout: leaves the Current campaign for the Main menu from the Campaign screen, which then offers to close. */
@@ -193,10 +228,12 @@ export async function boot(storage: GameStorage): Promise<void> {
     },
     { autopilotAis: [...AUTOPILOT_AIS] },
   );
-  // DEV, Revealed presentation, Session setting: a new Session starts with Reveal hidden content off.
+  // DEV, Revealed presentation, Session setting, and GUI, Developer tools, Kept for the Session: a new Session starts
+  // with Dev mode and Reveal hidden content off.
   revealHiddenContent = false;
+  devModeKept = false;
   engine.subscribe(() => {
-    syncReveal();
+    restoreDevMode();
     changed();
   });
   let resume: string | null = null;
@@ -236,7 +273,6 @@ export function snapshot(): Snapshot {
   if (status.autopilot !== null) {
     lastEngagementId = status.autopilot.engagementId;
   }
-  revealHiddenContent = revealSettingAfter(revealHiddenContent, status);
   // DEV, Revealed presentation, Read through Developer API: every revealed value comes from `developer.queries`.
   const revealed = revealInEffect(revealHiddenContent, status);
   const compendium = revealed ? valueOf(game.developer.queries.getRevealedCompendium()) : null;

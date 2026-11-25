@@ -128,12 +128,15 @@ async function selectOnly(page: Page, agents: readonly string[]): Promise<void> 
 
 /**
  * CSCR, Autopilot settings: the Autopilot controls stay hidden until the "Show Autopilot controls" checkbox of the
- * developer tools, which Dev mode does not gate, turns Autopilot controls shown on.
+ * developer tools, which Dev mode gates, turns Autopilot controls shown on; the controls show only while Dev mode is
+ * enabled.
  */
 async function showAutopilotControls(page: Page): Promise<void> {
   await id(page, 'open-settings').click();
   await id(page, 'open-developer').click();
   // The setting is stored asynchronously, so the checkbox is checked once Game storage holds it.
+  // GUI, Developer tools, Gated by Dev mode: every other control waits for the "Dev mode" checkbox.
+  await id(page, 'dev-mode').check();
   await id(page, 'dev-show-autopilot').click();
   await expect(id(page, 'dev-show-autopilot')).toBeChecked();
   await id(page, 'close-developer').click();
@@ -231,6 +234,16 @@ test('Global configuration survives a reload of the browser', async ({ page }) =
   await id(page, 'close-settings').click();
 
   await page.reload();
+  // GUI, Developer tools, Kept for the Session: a reload starts a new Session, so Dev mode is disabled and the
+  // Autopilot controls stay hidden until it is enabled again; Autopilot controls shown itself survived.
+  await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
+  await expect(id(page, 'autopilot-bar')).toHaveCount(0);
+  await id(page, 'open-settings').click();
+  await id(page, 'open-developer').click();
+  await expect(id(page, 'dev-show-autopilot')).toBeChecked();
+  await expect(id(page, 'dev-show-autopilot')).toBeDisabled();
+  await id(page, 'dev-mode').check();
+  await id(page, 'close-developer').click();
   await expect(id(page, 'autopilot-bar')).toBeVisible();
   await id(page, 'autopilot-toggle').click();
   await expect(id(page, 'autopilot-turns')).toHaveValue(turns);

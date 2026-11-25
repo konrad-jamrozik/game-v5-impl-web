@@ -763,8 +763,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             />
 
             <footer className="side-footer">
-              {/* CSCR, Autopilot settings: while Autopilot controls shown is off, the footer holds only its bottom row. */}
-              {autopilotSettings(snapshot.configuration.settings).shown ? (
+              {/* CSCR, Side panel: the Autopilot controls stand in the footer only while Dev mode is enabled and
+                  Autopilot controls shown is on; otherwise the footer holds only its bottom row. */}
+              {snapshot.status.devMode && autopilotSettings(snapshot.configuration.settings).shown ? (
                 <AutopilotBar snapshot={snapshot} />
               ) : null}
               {/* CSCR, Side panel: the footer always holds the Music control. */}
