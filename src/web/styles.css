@@ -29,10 +29,13 @@
   /* VIS, Colours: Notice, welcome news that asks for no action, and Autopilot, for an Autopilot button. */
   --notice: #8fb8d6;
   --autopilot: #b4a0e5;
-  /* VIS, Colours: Enemy amber and Enemy violet, which with Danger tell the Enemies of the Combat replay apart, and
-     Tracer and Beam, for its shots. */
-  --enemy-amber: #f2b34c;
-  --enemy-violet: #b58cff;
+  /* VIS, Colours: the five Enemy colours, which tell the Enemies of the Combat replay apart, from the weakest shape to
+     the strongest, and Tracer and Beam, for its shots. */
+  --enemy-yellow: #e6d54a;
+  --enemy-amber: #f2a93b;
+  --enemy-orange: #f06a32;
+  --enemy-red: #d93a3a;
+  --enemy-violet: #a35ce0;
   --tracer: #ffe9a8;
   --beam: #7fd8f0;
   /* VIS, Colours: the fills of a Combat log row by its attacker's side. */

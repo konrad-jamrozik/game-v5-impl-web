@@ -42,30 +42,39 @@ export function rankInsignia(baseSkillHundredths: number): RankInsignia | null {
 
 // ---- Enemy looks ---------------------------------------------------------------------------------
 
-export type EnemyShape = 'triangle' | 'square' | 'pentagon' | 'hexagon';
-export type EnemyColour = 'amber' | 'danger' | 'violet';
+export type EnemyShape = 'triangle' | 'square' | 'pentagon' | 'hexagon' | 'heptagon';
+export type EnemyColour = 'yellow' | 'amber' | 'orange' | 'red' | 'violet';
 export interface EnemyLook {
   readonly shape: EnemyShape;
   readonly colour: EnemyColour;
+  /** How many upward chevrons stand inside the shape. */
+  readonly chevrons: number;
 }
 
-const SHAPES: readonly EnemyShape[] = ['triangle', 'square', 'pentagon', 'hexagon'];
-const COLOURS: readonly EnemyColour[] = ['amber', 'danger', 'violet'];
+/** CRPLAY, Enemy figures: the look of each place of the EnemyArchetype order, counted from 0. */
+const LOOKS: readonly EnemyLook[] = [
+  { shape: 'triangle', colour: 'yellow', chevrons: 0 },
+  { shape: 'triangle', colour: 'yellow', chevrons: 1 },
+  { shape: 'triangle', colour: 'yellow', chevrons: 2 },
+  { shape: 'square', colour: 'amber', chevrons: 0 },
+  { shape: 'square', colour: 'amber', chevrons: 1 },
+  { shape: 'pentagon', colour: 'orange', chevrons: 0 },
+  { shape: 'pentagon', colour: 'orange', chevrons: 1 },
+  { shape: 'hexagon', colour: 'red', chevrons: 0 },
+  { shape: 'heptagon', colour: 'violet', chevrons: 0 },
+];
+const LAST_LOOK: EnemyLook = { shape: 'heptagon', colour: 'violet', chevrons: 0 };
 
 /**
- * CRPLAY, Figures: the shape and colour of an Enemy, by the place of its EnemyArchetype in the EnemyArchetype order,
- * counted from 0: every three share a shape, and within a shape the colour steps amber, Danger, violet. The specification
- * names four shapes; past them the code starts over, and an EnemyArchetype the Game build does not hold is a square in
- * Danger.
+ * CRPLAY, Enemy figures: the shape, colour, and chevrons of an Enemy, by the place of its EnemyArchetype in the
+ * EnemyArchetype order, counted from 0; every place past the table is a heptagon, and an EnemyArchetype the Game build
+ * does not hold is a plain square.
  */
 export function enemyLook(order: number): EnemyLook {
   if (order < 0) {
-    return { shape: 'square', colour: 'danger' };
+    return { shape: 'square', colour: 'amber', chevrons: 0 };
   }
-  return {
-    shape: SHAPES[Math.floor(order / COLOURS.length) % SHAPES.length] ?? 'square',
-    colour: COLOURS[order % COLOURS.length] ?? 'danger',
-  };
+  return LOOKS[order] ?? LAST_LOOK;
 }
 
 // ---- Shots ---------------------------------------------------------------------------------------

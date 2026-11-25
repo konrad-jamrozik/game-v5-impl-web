@@ -8,6 +8,7 @@ import {
   sideNamed,
   settledIndex,
   shownRange,
+  type EnemyColour,
   type EnemyLook,
   type FigureValues,
   type Playback,
@@ -27,8 +28,9 @@ export interface ReplayPalette {
   readonly muted: string;
   readonly positive: string;
   readonly danger: string;
-  readonly amber: string;
-  readonly violet: string;
+  readonly background: string;
+  /** VIS, Colours: the five Enemy colours of CRPLAY, Enemy figures. */
+  readonly enemy: Readonly<Record<EnemyColour, string>>;
   readonly tracer: string;
   readonly beam: string;
   readonly figureFont: string;
@@ -45,8 +47,14 @@ export function readPalette(element: Element): ReplayPalette {
     muted: token('--text-muted'),
     positive: token('--positive'),
     danger: token('--danger'),
-    amber: token('--enemy-amber'),
-    violet: token('--enemy-violet'),
+    background: token('--background'),
+    enemy: {
+      yellow: token('--enemy-yellow'),
+      amber: token('--enemy-amber'),
+      orange: token('--enemy-orange'),
+      red: token('--enemy-red'),
+      violet: token('--enemy-violet'),
+    },
     tracer: token('--tracer'),
     beam: token('--beam'),
     figureFont: token('--font-figure'),
@@ -101,6 +109,7 @@ const SIDES: Readonly<Record<EnemyLook['shape'], number>> = {
   square: 4,
   pentagon: 5,
   hexagon: 6,
+  heptagon: 7,
 };
 /** How far each shape reaches past the body radius, so that the shapes look alike in size. */
 const REACH: Readonly<Record<EnemyLook['shape'], number>> = {
@@ -108,6 +117,7 @@ const REACH: Readonly<Record<EnemyLook['shape'], number>> = {
   square: 1.28,
   pentagon: 1.16,
   hexagon: 1.1,
+  heptagon: 1.07,
 };
 
 /** The corners of an Enemy's shape, grown outward by `grow`; a flat side is down, so that it reads as standing. */
@@ -154,11 +164,31 @@ function colourOf(figure: ReplayFigure, palette: ReplayPalette): string {
   if (figure.look === null) {
     return palette.positive;
   }
-  return figure.look.colour === 'amber'
-    ? palette.amber
-    : figure.look.colour === 'violet'
-      ? palette.violet
-      : palette.danger;
+  return palette.enemy[figure.look.colour];
+}
+
+/**
+ * CRPLAY, Enemy figures: the upward chevrons inside an Enemy's shape, alike in shape and size and stacked centred on
+ * the shape, a triangle's on its centre of weight, where it is wide enough to hold them.
+ */
+function chevronsPath(
+  ctx: CanvasRenderingContext2D,
+  look: EnemyLook,
+  cx: number,
+  cy: number,
+  r: number,
+): void {
+  const half = r * 0.42;
+  const rise = r * 0.3;
+  const pitch = r * 0.38;
+  const middle = cy + (look.shape === 'triangle' ? r * 0.2 : 0);
+  ctx.beginPath();
+  for (let k = 0; k < look.chevrons; k += 1) {
+    const top = middle - rise / 2 + (k - (look.chevrons - 1) / 2) * pitch;
+    ctx.moveTo(cx - half, top + rise);
+    ctx.lineTo(cx, top);
+    ctx.lineTo(cx + half, top + rise);
+  }
 }
 
 /** CRPLAY, Figures, Armor: the thickness of the rim, the thicker the more current armor, and none without armor. */
@@ -260,11 +290,11 @@ function drawFigure(
   const box = outline(ctx, figure.look, cx, cy, r, 0);
   ctx.fillStyle = palette.surface;
   ctx.fill();
+  const share = dead ? 0 : clamp(shown.health / (figure.maxHealth * 100), 0, 1);
+  const height = (box.bottom - box.top) * share;
   if (!dead) {
     ctx.save();
     ctx.clip();
-    const share = clamp(shown.health / (figure.maxHealth * 100), 0, 1);
-    const height = (box.bottom - box.top) * share;
     ctx.globalAlpha = out ? 0.35 : 0.85;
     ctx.fillStyle = colour;
     ctx.fillRect(cx - cell, box.bottom - height, cell * 2, height);
@@ -279,6 +309,28 @@ function drawFigure(
   }
   ctx.stroke();
   ctx.setLineDash([]);
+
+  // CRPLAY, Enemy figures: the chevrons, in the figure's colour where it is empty and in Background where it is filled.
+  if (figure.look !== null && figure.look.chevrons > 0) {
+    ctx.lineWidth = Math.max(1.2, r * 0.16);
+    ctx.lineJoin = 'miter';
+    ctx.lineCap = 'butt';
+    ctx.globalAlpha = out ? 0.5 : 1;
+    chevronsPath(ctx, figure.look, cx, cy, r);
+    ctx.strokeStyle = dead ? palette.border : colour;
+    ctx.stroke();
+    if (height > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(cx - cell, box.bottom - height, cell * 2, height);
+      ctx.clip();
+      chevronsPath(ctx, figure.look, cx, cy, r);
+      ctx.strokeStyle = palette.background;
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
 
   // CRPLAY, Figures, Armor: a rim in Text muted, the thicker the more current armor.
   const rim = dead ? 0 : rimWidth(shown.armor, input.armorScale, cell);
