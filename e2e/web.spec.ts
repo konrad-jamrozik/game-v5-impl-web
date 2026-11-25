@@ -303,7 +303,7 @@ test('VIS, Tables: pressing a group row of the Storage View folds its group, and
   await expect(weapons.locator('tr')).toHaveCount(unfoldedRows);
 });
 
-test('VIS, Charts: the Full screen button shows a chart alone over a Scrim, and Escape returns it', async ({
+test('VIS, Charts: the Full screen button shows a chart alone over the whole screen, and Escape returns', async ({
   page,
 }) => {
   await newCampaign(page, 'full-screen-chart');
@@ -315,10 +315,31 @@ test('VIS, Charts: the Full screen button shows a chart alone over a Scrim, and 
   const chart = id(page, 'money-flow-chart');
   const before = await chart.locator('svg').boundingBox();
   await id(page, 'money-flow-chart-full-screen').click();
-  await expect(id(page, 'chart-scrim')).toBeVisible();
-  const full = await id(page, 'chart-scrim').getByTestId('money-flow-chart').locator('svg').boundingBox();
+  // The chart covers the status bar, the Side panel, and the Globe stage, and the other charts are not shown.
+  const whole = page.locator('.whole-screen');
+  await expect(whole).toBeVisible();
+  await expect(whole.getByTestId('panic-chart')).toHaveCount(0);
+  const full = await whole.getByTestId('money-flow-chart').locator('svg').boundingBox();
   expect(full?.height ?? 0).toBeGreaterThan((before?.height ?? 0) * 1.5);
+  const box = await whole.boundingBox();
+  expect(box?.y ?? 1).toBeLessThanOrEqual(0);
   await page.keyboard.press('Escape');
-  await expect(id(page, 'chart-scrim')).toHaveCount(0);
+  await expect(whole).toHaveCount(0);
   await expect(id(page, 'view-charts')).toBeVisible();
+  await expect(id(page, 'panic-chart')).toBeVisible();
+});
+
+test('AVIEW, Equip table: Equip works from the Memorial, covers the whole screen, and Escape returns', async ({
+  page,
+}) => {
+  await newCampaign(page, 'equip-from-memorial');
+  await openAgents(page);
+  await id(page, 'filter-inBase').click();
+  await id(page, 'filter-memorial').click();
+  await id(page, 'open-equip').click();
+  const whole = page.locator('.whole-screen');
+  await expect(whole.getByTestId('equip-view')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(whole).toHaveCount(0);
+  await expect(id(page, 'agents-grid')).toBeVisible();
 });

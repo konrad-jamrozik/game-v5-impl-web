@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { readoutText, type Bar, type Series } from '../agency-charts.ts';
 import { lastTurnsFrom, useLastTurns } from '../chart-range.ts';
 import { LastTurnsCheckbox } from './LastTurnsCheckbox.tsx';
-import { FullScreenButton, FullScreenFrame, useFullScreen, usePlotSize } from './ChartFullScreen.tsx';
+import { FullScreenButton, useChartFullScreen, usePlotSize } from './ChartFullScreen.tsx';
 
 export interface LineSeries extends Series {
   readonly points: readonly { readonly turn: number; readonly value: number }[];
@@ -71,8 +71,12 @@ export function SeriesChart(props: {
   }));
   const [hover, setHover] = useState<number | null>(null);
   // VIS, Charts: while the chart is shown full screen, its plot is drawn at the size it takes on screen.
-  const screen = useFullScreen();
+  const screen = useChartFullScreen(props.testId ?? props.title);
   const [plotRef, plotSize] = usePlotSize(screen.full);
+  // VIS, Charts: while another chart of the view is shown full screen, this one is not shown.
+  if (screen.hidden) {
+    return null;
+  }
   const width = plotSize?.width ?? WIDTH;
   const height = plotSize?.height ?? HEIGHT;
   const className = `chart chart-wide${screen.full ? ' chart-full' : ''}`;
@@ -85,7 +89,12 @@ export function SeriesChart(props: {
     <figcaption>
       <h4>{props.title}</h4>
       <LastTurnsCheckbox chart={props.testId ?? props.title} on={lastOnly} onChange={setLastOnly} />
-      <FullScreenButton screen={screen} {...(props.testId === undefined ? {} : { testId: props.testId })} />
+      {screen.full ? null : (
+        <FullScreenButton
+          onPress={screen.open}
+          {...(props.testId === undefined ? {} : { testId: props.testId })}
+        />
+      )}
     </figcaption>
   );
   // VIS, Charts: a chart with several series has its legend on a row of its own under the title row.
@@ -147,7 +156,7 @@ export function SeriesChart(props: {
   });
 
   return (
-    <FullScreenFrame screen={screen}>
+    <>
       <figure className={className} data-testid={props.testId}>
         {caption}
         {legendRow}
@@ -281,6 +290,6 @@ export function SeriesChart(props: {
         </div>
         <p className="chart-details small muted">{detailText}</p>
       </figure>
-    </FullScreenFrame>
+    </>
   );
 }

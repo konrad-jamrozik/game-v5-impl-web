@@ -372,7 +372,12 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       }
       // CRPLAY, Whole screen: while the Combat replay covers the screen, the Campaign screen takes no shortcut but
       // Escape, because the Player would not see what the key did.
-      if (key !== 'escape' && document.querySelector('[data-testid="combat-replay"]') !== null) {
+      // AVIEW, Equip table, and VIS, Charts: so too while the Equip table or a chart covers the whole screen.
+      if (
+        key !== 'escape' &&
+        (document.querySelector('[data-testid="combat-replay"]') !== null ||
+          document.querySelector('.whole-screen') !== null)
+      ) {
         return;
       }
       const numbered = detailViewOfKey(key);

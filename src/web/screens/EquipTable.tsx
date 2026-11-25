@@ -156,7 +156,11 @@ export function EquipTable(props: {
           <tr>
             {header('id', 'Agent')}
             {header('combatRating', 'CR', 'Combat rating')}
-            {header('equipmentCombatRating', 'Equip.', 'Equipment Combat rating')}
+            {header(
+              'equipmentCombatRating',
+              'Equip.',
+              "Equipment Combat rating: the part of CR that the Agent's Weapon and Armor add over the issued kit. It is already counted in CR, not added to it.",
+            )}
             {header('rank', 'Rank')}
             {header('effectiveSkill', 'Skill', 'Effective skill')}
             {header('baseSkill', 'Base', 'Base skill')}

@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { lastTurnsFrom, useLastTurns } from '../chart-range.ts';
 import { LastTurnsCheckbox } from './LastTurnsCheckbox.tsx';
 import { ChartDot } from './SeriesChart.tsx';
-import { FullScreenButton, FullScreenFrame, useFullScreen, usePlotSize } from './ChartFullScreen.tsx';
+import { FullScreenButton, useChartFullScreen, usePlotSize } from './ChartFullScreen.tsx';
 
 export interface Point {
   readonly turn: number;
@@ -55,8 +55,12 @@ export function LineChart(props: {
   const [hover, setHover] = useState<number | null>(null);
   const headline = props.headline === true;
   // VIS, Charts: while the chart is shown full screen, its plot is drawn at the size it takes on screen.
-  const screen = useFullScreen();
+  const screen = useChartFullScreen(props.testId ?? props.title);
   const [plotRef, plotSize] = usePlotSize(screen.full);
+  // VIS, Charts: while another chart of the view is shown full screen, this one is not shown.
+  if (screen.hidden) {
+    return null;
+  }
   const width = plotSize?.width ?? (headline ? 760 : 300);
   const height = plotSize?.height ?? (headline ? 230 : 170);
   const first = points[0];
@@ -94,7 +98,7 @@ export function LineChart(props: {
   const middle = top / 2;
 
   return (
-    <FullScreenFrame screen={screen}>
+    <>
       <figure className={className} data-testid={props.testId}>
         <figcaption>
           <h4>{props.title}</h4>
@@ -114,10 +118,12 @@ export function LineChart(props: {
             )}
           </span>
           {checkbox}
-          <FullScreenButton
-            screen={screen}
-            {...(props.testId === undefined ? {} : { testId: props.testId })}
-          />
+          {screen.full ? null : (
+            <FullScreenButton
+              onPress={screen.open}
+              {...(props.testId === undefined ? {} : { testId: props.testId })}
+            />
+          )}
         </figcaption>
         <div className="chart-plot" ref={plotRef}>
           <svg
@@ -218,6 +224,6 @@ export function LineChart(props: {
           </svg>
         </div>
       </figure>
-    </FullScreenFrame>
+    </>
   );
 }

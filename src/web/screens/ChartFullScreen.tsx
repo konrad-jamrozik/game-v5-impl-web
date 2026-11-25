@@ -1,90 +1,55 @@
 /**
- * VIS, Charts, Full screen: the ⤢ button at the right end of a chart's title row shows the chart alone over a Scrim,
- * inset 24 px, with its plot taking the rest of the height and drawn at the size it takes on screen, so that its lines,
- * dots, and labels keep their usual size. The button is then a close control, ✕, and it, the Escape key, and a press
- * on the Scrim each return the chart to its place.
+ * VIS, Charts, Full screen, and CRPLAY, Whole screen: a chart's ⤢ button shows the chart alone, one step away as a
+ * Follow, and its view then covers the whole screen as the Combat replay does; the Back control and Escape return.
+ * The Equip table of AVIEW covers the whole screen the same way.
  */
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { createContext, use, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { playSound } from '../sound-player.ts';
-import { SOUND } from '../sounds.ts';
 
-export interface FullScreen {
-  readonly full: boolean;
-  readonly toggle: () => void;
-  readonly close: () => void;
+/** CRPLAY, Whole screen: its content covers the status bar, the Side panel, and the Globe stage while `active`. */
+export function WholeScreen(props: { active: boolean; children: ReactNode }) {
+  if (!props.active) {
+    return props.children;
+  }
+  return createPortal(<div className="whole-screen">{props.children}</div>, document.body);
 }
 
-/** Whether a chart is shown full screen; Escape closes it before any other use of the key. */
-export function useFullScreen(): FullScreen {
-  const [full, setFull] = useState(false);
-  useEffect(() => {
-    if (!full) {
-      return undefined;
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      playSound(SOUND.back);
-      setFull(false);
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => {
-      window.removeEventListener('keydown', onKey, true);
-    };
-  }, [full]);
+/** VIS, Charts, Full screen: the chart of a view shown full screen, by its key, or null when none is. */
+export interface ChartsFullScreen {
+  readonly fullKey: string | null;
+  readonly open: (key: string) => void;
+}
+
+export const ChartsFullScreenContext = createContext<ChartsFullScreen>({
+  fullKey: null,
+  open: () => undefined,
+});
+
+/** Whether this chart is the one shown full screen, or is hidden because another one is. */
+export function useChartFullScreen(key: string): { full: boolean; hidden: boolean; open: () => void } {
+  const { fullKey, open } = use(ChartsFullScreenContext);
   return {
-    full,
-    toggle: () => {
-      setFull(!full);
-    },
-    close: () => {
-      setFull(false);
+    full: fullKey === key,
+    hidden: fullKey !== null && fullKey !== key,
+    open: () => {
+      open(key);
     },
   };
 }
 
-/** The ⤢ button of a chart's title row, or ✕ while the chart is shown full screen. */
-export function FullScreenButton(props: { screen: FullScreen; testId?: string }) {
-  const { full, toggle } = props.screen;
-  const label = full ? 'Close (Esc)' : 'Show full screen';
+/** VIS, Charts: the ⤢ button at the very right end of a chart's title row. */
+export function FullScreenButton(props: { onPress: () => void; testId?: string }) {
   return (
     <button
       type="button"
       className="chart-full-button"
-      title={label}
-      aria-label={full ? 'Close' : 'Show full screen'}
+      title="Show full screen"
+      aria-label="Show full screen"
       data-testid={props.testId === undefined ? undefined : `${props.testId}-full-screen`}
-      data-sound={full ? 'back' : 'main'}
-      onClick={toggle}
+      onClick={props.onPress}
     >
-      {full ? '✕' : '⤢'}
+      ⤢
     </button>
-  );
-}
-
-/** The chart in its place, or alone over a Scrim while it is shown full screen. */
-export function FullScreenFrame(props: { screen: FullScreen; children: ReactNode }) {
-  if (!props.screen.full) {
-    return props.children;
-  }
-  return createPortal(
-    <div
-      className="scrim chart-scrim"
-      data-testid="chart-scrim"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          playSound(SOUND.back);
-          props.screen.close();
-        }
-      }}
-    >
-      {props.children}
-    </div>,
-    document.body,
   );
 }
 

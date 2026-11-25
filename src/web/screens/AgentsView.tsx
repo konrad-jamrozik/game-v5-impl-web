@@ -46,7 +46,7 @@ import { Button, Grid, SortMark, ariaSort, withShortcut } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { EquipmentPicker } from './EquipmentPicker.tsx';
 import { EquipTable } from './EquipTable.tsx';
-import { FullScreenButton, FullScreenFrame, useFullScreen } from './ChartFullScreen.tsx';
+import { WholeScreen } from './ChartFullScreen.tsx';
 import type { ReportTarget } from './TurnReportView.tsx';
 import { rankOf, type RankThreshold } from '../rank.ts';
 import { RankText } from '../rank-insignia.tsx';
@@ -174,8 +174,9 @@ export function AgentsView(props: {
   const [tiers, setTiers] = usePlaceState<SortTier<string>[]>('tiers', []);
   const [rowFilter, setRowFilter] = usePlaceState<RowFilter>('rowFilter', 'all');
   const [hideChecks, setHideChecks] = usePlaceState<HideChecks>('hideChecks', NO_HIDING);
-  // AVIEW, Equip table: closed whenever the Agents View opens; ✕, Escape, or a press on the Scrim closes it.
-  const equip = useFullScreen();
+  // AVIEW, Equip table: shown one step away, as a Follow; the row filter on before Memorial, which Equip turns back on.
+  const [equipOpen, setEquipOpen] = usePlaceState('equip', false);
+  const [rosterFilter, setRosterFilter] = usePlaceState<RowFilter>('rosterFilter', 'all');
   // AVIEW, Row filters: Hide too exhausted to start work reads `exhaustion_work_start_max` of AgentParameters.
   const workStartMax = snapshot.gameData?.agentParameters['exhaustionWorkStartMax'] ?? 30;
   // AVIEW, Assignment filters: none is on whenever the Agents View opens.
@@ -202,6 +203,7 @@ export function AgentsView(props: {
   /** AVIEW, Agent details: they open one step away, in place of the table, as a Follow. */
   const openDetails = (id: string) => {
     place.follow();
+    setEquipOpen(false);
     setDetails(id);
   };
 
@@ -409,7 +411,9 @@ export function AgentsView(props: {
       ? undefined
       : (state.agents.find((agent) => agent.id === details) ??
         terminated.find((agent) => agent.id === details));
-  usePlaceName(shownDetails === undefined ? null : `Agent ${shownDetails.id}`);
+  usePlaceName(
+    shownDetails !== undefined ? `Agent ${shownDetails.id}` : equipOpen && !memorial ? 'Equip' : null,
+  );
   if (shownDetails !== undefined) {
     return (
       <DetailView id="agents" title={`Agent ${shownDetails.id}`} onClose={props.onClose}>
@@ -421,6 +425,29 @@ export function AgentsView(props: {
           onShow={props.onShow}
         />
       </DetailView>
+    );
+  }
+
+  // AVIEW, Equip table: one step away, in place of the Agent table, covering the whole screen as the Combat replay
+  // does; the Back control and Escape return to the Agent table.
+  if (equipOpen && !memorial) {
+    return (
+      <WholeScreen active>
+        <DetailView id="agents" title="Equip" onClose={props.onClose}>
+          <div className="equip-view" data-testid="equip-view">
+            <EquipTable
+              agents={rows}
+              state={state}
+              retired={snapshot.retired}
+              ranks={ranks}
+              levels={levels}
+              locked={locked}
+              onOpenDetails={openDetails}
+              onShow={onShow}
+            />
+          </div>
+        </DetailView>
+      </WholeScreen>
     );
   }
 
@@ -473,6 +500,9 @@ export function AgentsView(props: {
       data-sound="select"
       onClick={() => {
         setRowFilter(which);
+        if (which !== 'memorial') {
+          setRosterFilter(which);
+        }
       }}
     >
       {label} {shown}
@@ -515,7 +545,7 @@ export function AgentsView(props: {
       }
       // AVIEW, Row filters: the five row filters stand in the title row after the places free, without a Label.
       lead={
-        <div className="chips agents-row-filters" role="group" aria-label="Show agents">
+        <div className="chips agents-row-filters control-backdrop" role="group" aria-label="Show agents">
           {rowFilterButton('all', 'All', state.agents.length)}
           {rowFilterButton('fit', 'Fit', state.agents.filter(fitToStartWorkNow).length)}
           {rowFilterButton('inBase', 'In base', state.agents.filter((agent) => agent.inBase).length)}
@@ -532,47 +562,30 @@ export function AgentsView(props: {
           {hideCheck('hideExhausted', 'Hide too exhausted to start work')}
           {hideCheck('hideRecovering', 'Hide recovering')}
         </div>
-        <div className="chips agents-row-filters">
-          {/* AVIEW, Equip table: the Equip button shows it over the whole screen; disabled while Memorial is on. */}
+        <div className="chips agents-row-filters control-backdrop">
+          {/* AVIEW, Equip table: the Equip button shows it one step away; while Memorial is on, it first turns back
+              on the row filter that was on before Memorial. */}
           <button
             type="button"
             className="chip"
             data-testid="open-equip"
-            disabled={memorial}
-            title={memorial ? 'The Memorial shows no Agent to equip.' : 'Show the Equip table'}
-            onClick={equip.toggle}
+            title="Show the Equip table"
+            onClick={() => {
+              if (memorial) {
+                // AVIEW, Equip table: the place left behind is the roster under the row filter that was on before
+                // Memorial, so that going back from the Equip table shows it rather than the Memorial.
+                setRowFilter(rosterFilter);
+                place.live.current['rowFilter'] = rosterFilter;
+              }
+              place.follow();
+              setEquipOpen(true);
+            }}
           >
             Equip
           </button>
           {rowFilterButton('memorial', 'Memorial', terminated.length)}
         </div>
       </div>
-      {equip.full && !memorial ? (
-        <FullScreenFrame screen={equip}>
-          <section className="panel equip-panel" data-testid="equip-view" aria-label="Equip">
-            <div className="equip-head">
-              <h2>Equip</h2>
-              <FullScreenButton screen={equip} testId="equip" />
-            </div>
-            <EquipTable
-              agents={rows}
-              state={state}
-              retired={snapshot.retired}
-              ranks={ranks}
-              levels={levels}
-              locked={locked}
-              onOpenDetails={(id) => {
-                equip.close();
-                openDetails(id);
-              }}
-              onShow={(target) => {
-                equip.close();
-                onShow(target);
-              }}
-            />
-          </section>
-        </FullScreenFrame>
-      ) : null}
       <div className="toolbar agents-toolbar">
         <Button
           shortcut="H"

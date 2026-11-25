@@ -579,24 +579,13 @@ input::placeholder {
   margin-bottom: 0;
 }
 
-/* AVIEW, Equip table: over the whole screen, inset 24 px, its title row ended by the close control; the table takes
-   the rest of the height and scrolls, sideways too while it is wider than the screen. */
-.equip-panel {
+/* AVIEW, Equip table: it fills the body of the Agents View covering the whole screen, and scrolls, sideways too
+   while it is wider than the screen. */
+.equip-view {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-width: 0;
   min-height: 0;
-  padding: 18px;
-  background: var(--surface);
-  border-top: 2px solid var(--accent);
-}
-
-.equip-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
 }
 
 .equip-scroll {
@@ -1699,11 +1688,24 @@ summary {
   color: var(--text);
 }
 
-/* VIS, Charts: a chart shown full screen fills the Scrim inside its 24 px inset, and its plot takes the height that
-   its title row, legend, and readout leave. */
-.chart-scrim {
-  align-items: stretch;
-  justify-content: stretch;
+/* VIS, Charts: a chart shown full screen fills the body of the Charts View, which covers the whole screen, and its
+   plot takes the height that its title row, legend, and readout leave. */
+.whole-screen .detail-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.charts-full {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The rows of smaller charts take no room of their own, so that the one chart shown takes all of it. */
+.charts-full .charts {
+  display: contents;
 }
 
 .chart.chart-full {
@@ -3533,7 +3535,8 @@ label:has(> input[type='checkbox']:disabled) {
 
 /* CRPLAY, Whole screen: the Combat replay covers the whole screen it was opened on, as a Detail view without the inset
    and without the Accent top edge. It sits above the screen and below the Scrim of a dialog. */
-.replay-whole-screen {
+.replay-whole-screen,
+.whole-screen {
   /* The height the Combat replay takes above and below the Battlefield: its title row and the padding around it. */
   --replay-chrome: 116px;
   position: fixed;
@@ -3544,7 +3547,8 @@ label:has(> input[type='checkbox']:disabled) {
   height: var(--screen-h);
 }
 
-.replay-whole-screen > .detail-view {
+.replay-whole-screen > .detail-view,
+.whole-screen > .detail-view {
   inset: 0;
   border-top: none;
 }
