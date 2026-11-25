@@ -50,7 +50,7 @@ async function viaApi(): Promise<unknown> {
   const engine = await startEngine();
   const { player, session } = engine;
   committed('new', await session.campaign.create({ seed: SEED }));
-  committed('assign', await player.actions.assignAgents(['agent-2', 'agent-3'], 'Contracting'));
+  committed('assign', await player.actions.assignAgents(['agent-2', 'agent-3'], 'Training'));
   committed('investigate', await player.actions.startInvestigation('criminal_organizations', ['agent-4']));
   committed('hire', await player.actions.hireAgents(1));
   committed('next', await player.actions.advanceTurn());
@@ -68,7 +68,7 @@ async function viaCli(): Promise<unknown> {
   const cli = createCli(engine, { json: true, write: () => undefined });
   for (const command of [
     `new ${SEED}`,
-    'assign Contracting agent-2 agent-3',
+    'assign Training agent-2 agent-3',
     'investigate criminal_organizations agent-4',
     'hire',
     'next',
@@ -144,7 +144,7 @@ async function viaWeb(page: Page): Promise<unknown> {
   await newCampaign(page, SEED);
   await openAgents(page);
   await selectOnly(page, ['agent-2', 'agent-3']);
-  await id(page, 'order-contracting').click();
+  await id(page, 'order-training').click();
   await id(page, 'nav-leads').click();
   await id(page, 'lead-criminal_organizations').click();
   await id(page, 'team-pick-agent-4').check();
@@ -196,11 +196,11 @@ test('a reload continues the Campaign from its Current Autosave, with its Undone
   await afterAdvance(page, '2');
   await openAgents(page);
   await selectOnly(page, ['agent-1']);
-  await id(page, 'order-contracting').click();
-  await expect(id(page, 'agent-agent-1')).toContainText('Contracting');
+  await id(page, 'order-training').click();
+  await expect(id(page, 'agent-agent-1')).toContainText('Training');
   await selectOnly(page, ['agent-2']);
-  await id(page, 'order-contracting').click();
-  await expect(id(page, 'agent-agent-2')).toContainText('Contracting');
+  await id(page, 'order-training').click();
+  await expect(id(page, 'agent-agent-2')).toContainText('Training');
   const beforeUndo = await shown();
   await id(page, 'undo').click();
   await expect(id(page, 'redo')).toBeEnabled();
