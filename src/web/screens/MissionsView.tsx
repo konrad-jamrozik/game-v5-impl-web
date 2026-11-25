@@ -578,7 +578,7 @@ function Deployment(props: {
       ) : (
         <>
           {/* MVIEW, Deployment: the note above the table says which Agents it lists. */}
-          <p className="muted small deploy-note" data-testid="deploy-note">
+          <p className="muted small table-note" data-testid="deploy-note">
             Showing deployable agents
           </p>
           <Grid

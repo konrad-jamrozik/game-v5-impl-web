@@ -19,7 +19,6 @@ import { act, theEngine, type Snapshot } from '../store.ts';
 import { useRowSelection } from '../row-selection.ts';
 import { pressHeader, sortRows, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
-import { assignmentText } from '../assignment.ts';
 import { InTransitIcon } from '../assignment-cell.tsx';
 import { DetailView } from './DetailView.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
@@ -27,7 +26,8 @@ import { ProgressBar } from './ProgressBar.tsx';
 const TONES = { next: 'tone-accent', plain: 'secondary', muted: 'muted' } as const;
 
 /** LVIEW, Team: the sortable columns of the Agents to add table. */
-type CandidateKey = 'id' | 'assignment' | 'effectiveSkill' | 'skillHundredths' | 'exhaustion';
+/** LVIEW, Team, Agents to add: the sortable columns; the table shows no Assignment. */
+type CandidateKey = 'id' | 'effectiveSkill' | 'skillHundredths' | 'exhaustion';
 
 /** LVIEW, Selected Lead: the Lead status with what it means, and no condition or cause. */
 const STATUS_TEXT = {
@@ -287,8 +287,7 @@ function Team(props: {
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
   // VIS, Tables: up to four sort tiers over the default order of LVIEW, Team.
   const [tiers, setTiers] = useState<SortTier<CandidateKey>[]>([]);
-  const value = (agent: AgentView, key: CandidateKey): number | string =>
-    key === 'assignment' ? assignmentText(agent, state) : agent[key];
+  const value = (agent: AgentView, key: CandidateKey): number | string => agent[key];
   const rows = sortRows(agentsToAddOrder(candidates), tiers, value);
   const selection = useRowSelection({
     order: rows.map((agent) => agent.id),
@@ -371,47 +370,51 @@ function Team(props: {
       {candidates.length === 0 ? (
         <p className="muted small">No Agent that is Fit to start work can take orders now.</p>
       ) : (
-        <Grid
-          widths={['36px', '104px', '170px', '84px', '80px', '76px']}
-          className="compact pick-grid"
-          testId="agents-to-add"
-        >
-          <thead>
-            <tr>
-              <th className="check" />
-              {header('id', 'Agent', false)}
-              {header('assignment', 'Assignment', false)}
-              {/* VIS, Tables: effective skill is headed Skill, base skill Base, and exhaustion Exh. */}
-              {header('effectiveSkill', 'Skill', true)}
-              {header('skillHundredths', 'Base', true)}
-              {header('exhaustion', 'Exh.', true)}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((agent) => {
-              const on = team.includes(agent.id);
-              return (
-                <tr key={agent.id} className={on ? 'row-selected' : ''} {...selection.row(agent.id)}>
-                  <td className="check">
-                    <input
-                      type="checkbox"
-                      aria-label={`Add ${agent.id}`}
-                      data-testid={`team-pick-${agent.id}`}
-                      {...selection.checkbox(agent.id)}
-                    />
-                  </td>
-                  <td className="figure">{agent.id}</td>
-                  <td className="secondary">{assignmentText(agent, state)}</td>
-                  <td className="num">{agent.effectiveSkill}</td>
-                  <td className="num">{wholeText(agent.skillHundredths)}</td>
-                  <td className="num">
-                    <Exhaustion value={agent.exhaustion} levels={levels} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Grid>
+        <>
+          {/* LVIEW, Team, Agents to add: the note above the table says which Agents it lists. */}
+          <p className="muted small table-note" data-testid="agents-to-add-note">
+            Showing agents fit to start work
+          </p>
+          <Grid
+            widths={['36px', '104px', '84px', '80px', '76px']}
+            className="compact pick-grid"
+            testId="agents-to-add"
+          >
+            <thead>
+              <tr>
+                <th className="check" />
+                {header('id', 'Agent', false)}
+                {/* VIS, Tables: effective skill is headed Skill, base skill Base, and exhaustion Exh. */}
+                {header('effectiveSkill', 'Skill', true)}
+                {header('skillHundredths', 'Base', true)}
+                {header('exhaustion', 'Exh.', true)}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((agent) => {
+                const on = team.includes(agent.id);
+                return (
+                  <tr key={agent.id} className={on ? 'row-selected' : ''} {...selection.row(agent.id)}>
+                    <td className="check">
+                      <input
+                        type="checkbox"
+                        aria-label={`Add ${agent.id}`}
+                        data-testid={`team-pick-${agent.id}`}
+                        {...selection.checkbox(agent.id)}
+                      />
+                    </td>
+                    <td className="figure">{agent.id}</td>
+                    <td className="num">{agent.effectiveSkill}</td>
+                    <td className="num">{wholeText(agent.skillHundredths)}</td>
+                    <td className="num">
+                      <Exhaustion value={agent.exhaustion} levels={levels} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Grid>
+        </>
       )}
       <div className="pane-actions">
         {estimate === null ? null : (
