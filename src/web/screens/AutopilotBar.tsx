@@ -121,7 +121,8 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
       className="autopilot-toggle"
       aria-expanded={expanded}
       data-testid="autopilot-toggle"
-      data-sound="none"
+      // SOUNDS, Select click, Expand or collapse: as the Collapse button of the Music control.
+      data-sound="select"
       onClick={() => {
         keep({ expanded: !expanded });
       }}
