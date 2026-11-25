@@ -168,26 +168,27 @@ function colourOf(figure: ReplayFigure, palette: ReplayPalette): string {
 }
 
 /**
- * CRPLAY, Enemy figures: the upward chevrons inside an Enemy's shape, alike in shape and size and stacked centred on
- * the shape, a triangle's on its centre of weight, where it is wide enough to hold them.
+ * CRPLAY, Enemy figures: the diamonds inside an Enemy's shape, squares turned 45 degrees, alike in size and side by
+ * side centred on the shape, a triangle's on its centre of weight, where it is wide enough to hold them.
  */
-function chevronsPath(
+function diamondsPath(
   ctx: CanvasRenderingContext2D,
   look: EnemyLook,
   cx: number,
   cy: number,
   r: number,
 ): void {
-  const half = r * 0.42;
-  const rise = r * 0.3;
-  const pitch = r * 0.38;
+  const half = r * 0.26;
+  const pitch = r * 0.66;
   const middle = cy + (look.shape === 'triangle' ? r * 0.2 : 0);
   ctx.beginPath();
-  for (let k = 0; k < look.chevrons; k += 1) {
-    const top = middle - rise / 2 + (k - (look.chevrons - 1) / 2) * pitch;
-    ctx.moveTo(cx - half, top + rise);
-    ctx.lineTo(cx, top);
-    ctx.lineTo(cx + half, top + rise);
+  for (let k = 0; k < look.diamonds; k += 1) {
+    const x = cx + (k - (look.diamonds - 1) / 2) * pitch;
+    ctx.moveTo(x, middle - half);
+    ctx.lineTo(x + half, middle);
+    ctx.lineTo(x, middle + half);
+    ctx.lineTo(x - half, middle);
+    ctx.closePath();
   }
 }
 
@@ -310,23 +311,20 @@ function drawFigure(
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // CRPLAY, Enemy figures: the chevrons, in the figure's colour where it is empty and in Background where it is filled.
-  if (figure.look !== null && figure.look.chevrons > 0) {
-    ctx.lineWidth = Math.max(1.2, r * 0.16);
-    ctx.lineJoin = 'miter';
-    ctx.lineCap = 'butt';
+  // CRPLAY, Enemy figures: the diamonds, in the figure's colour where it is empty and in Background where it is filled.
+  if (figure.look !== null && figure.look.diamonds > 0) {
     ctx.globalAlpha = out ? 0.5 : 1;
-    chevronsPath(ctx, figure.look, cx, cy, r);
-    ctx.strokeStyle = dead ? palette.border : colour;
-    ctx.stroke();
+    diamondsPath(ctx, figure.look, cx, cy, r);
+    ctx.fillStyle = dead ? palette.border : colour;
+    ctx.fill();
     if (height > 0) {
       ctx.save();
       ctx.beginPath();
       ctx.rect(cx - cell, box.bottom - height, cell * 2, height);
       ctx.clip();
-      chevronsPath(ctx, figure.look, cx, cy, r);
-      ctx.strokeStyle = palette.background;
-      ctx.stroke();
+      diamondsPath(ctx, figure.look, cx, cy, r);
+      ctx.fillStyle = palette.background;
+      ctx.fill();
       ctx.restore();
     }
     ctx.globalAlpha = 1;
