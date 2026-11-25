@@ -765,14 +765,6 @@ const schemas = {
       image: g.image,
       opacityPct: g.opacity_pct,
     })),
-  // MUSIC, Soundtrack: the exhaustive properties of a MusicParameters. A name that matches no file is allowed.
-  MusicParameters: z
-    .strictObject({
-      id,
-      type: z.literal('MusicParameters'),
-      excluded_tracks: z.array(z.string().min(1)),
-    })
-    .transform((g) => ({ type: g.type, id: g.id, excludedTracks: g.excluded_tracks })),
 } as const;
 
 /** VIS, Background artwork: the Detail views of CSCR, by their names in lowercase words joined by underscores. */
@@ -1016,7 +1008,6 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const missionArchetype = single<GdrCatalog['missionArchetype']>('MissionArchetype');
   const endingParameters = single<GdrCatalog['endingParameters']>('EndingParameters');
   const configurationParameters = single<GdrCatalog['configurationParameters']>('ConfigurationParameters');
-  const music = single<GdrCatalog['music']>('MusicParameters');
   const equipment = single<GdrCatalog['equipment']>('EquipmentParameters');
 
   const weapons = mapOf<ReturnType<GdrCatalog['weapons']['get']> & AnyGdr>('Weapon');
@@ -1280,7 +1271,6 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     !missionArchetype ||
     !endingParameters ||
     !configurationParameters ||
-    !music ||
     !equipment
   ) {
     throw new EngineDefect(`The GDRs of the Game build are defective: ${[...new Set(problems)].join('; ')}`);
@@ -1313,7 +1303,6 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     compendiumArticles,
     backgroundArtworks,
     detachedCombatTeams,
-    music,
   };
 }
 

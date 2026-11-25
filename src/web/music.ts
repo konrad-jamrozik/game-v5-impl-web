@@ -16,13 +16,10 @@ export function trackTitle(fileName: string): string {
   return dot > 0 ? base.slice(0, dot) : base;
 }
 
-/**
- * MUSIC, Soundtrack: whether the file is a Track: an Ogg Opus or MP3 file whose name, with its extension, the GDR
- * `music` does not exclude.
- */
-export function isTrack(fileName: string, excluded: readonly string[]): boolean {
+/** MUSIC, Soundtrack: whether the file is a Track: every Ogg Opus or MP3 file is one. */
+export function isTrack(fileName: string): boolean {
   const base = fileName.slice(fileName.lastIndexOf('/') + 1);
-  return (base.endsWith('.opus') || base.endsWith('.mp3')) && !excluded.includes(base);
+  return base.endsWith('.opus') || base.endsWith('.mp3');
 }
 
 /**

@@ -324,7 +324,6 @@ describe('COMP: Placeholders', () => {
       ['{locate_red_dawn_member.description}', /Placeholder sources does not allow in that form/],
       // Placeholder sources: no row for the Type.
       ['{agency.name}', /Placeholder sources does not allow in that form/],
-      ['{music.excluded_tracks.1}', /Placeholder sources does not allow in that form/],
       // `subject` in an article that has no subject.
       ['{subject.name}', /names no GDR/],
       // An index exactly when the value is a list, and then one from 1 to the number of entries.

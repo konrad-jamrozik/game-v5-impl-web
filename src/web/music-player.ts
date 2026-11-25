@@ -4,7 +4,6 @@
  * The player lives for the whole page, so changing screen never restarts the Current Track. It reads no game state and
  * draws its playing order from Math.random, never from a Campaign.
  */
-import { excludedTracks } from '../engine/index.ts';
 import { drawRound, gain, isTrack, stepToggleFade, trackFade, trackTitle } from './music.ts';
 
 interface Track {
@@ -19,10 +18,8 @@ const FILES = import.meta.glob<string>('../../assets/music/tracks/*.{opus,mp3}',
   import: 'default',
 });
 
-const EXCLUDED = excludedTracks();
-
 const TRACKS: readonly Track[] = Object.entries(FILES)
-  .filter(([path]) => isTrack(path, EXCLUDED))
+  .filter(([path]) => isTrack(path))
   .map(([path, url]) => ({ title: trackTitle(path), url }))
   .sort((a, b) => a.title.localeCompare(b.title));
 

@@ -135,15 +135,13 @@ export function articleVisible(
     case 'EndingParameters':
     case 'BackgroundArtwork':
       return true;
-    // No Player API value includes a Campaign configuration preset or the default-preset choice, nor the GDR
-    // `music`, which the Graphical User Interface reads from the Game build. FACTION, Player-visible information: no
-    // FactionActivityLevel is Player-visible.
+    // No Player API value includes a Campaign configuration preset or the default-preset choice. FACTION,
+    // Player-visible information: no FactionActivityLevel is Player-visible.
     // No Player API value includes a DetachedCombatTeam either: `session.combatSimulator.getContent()` returns them.
     case 'DetachedCombatTeam':
     case 'FactionActivityLevel':
     case 'CampaignConfiguration':
     case 'ConfigurationParameters':
-    case 'MusicParameters':
       return false;
   }
 }

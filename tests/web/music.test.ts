@@ -1,8 +1,6 @@
 /** MUSIC: Track titles, the playing order in rounds, the fades, and the gain. */
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vite-plus/test';
-import { excludedTracks } from '../../src/engine/index.ts';
-import { RAW_GDR_FILES } from '../../src/gdr/index.ts';
 import { drawRound, gain, isTrack, stepToggleFade, trackFade, trackTitle } from '../../src/web/music.ts';
 
 /** A random source that returns the given numbers in turn. */
@@ -32,22 +30,11 @@ describe('MUSIC: Soundtrack', () => {
     expect(new Set(files.map(trackTitle)).size).toBe(files.length);
   });
 
-  it('takes the excluded files from the GDR `music`, in its order', () => {
-    const music = RAW_GDR_FILES.flatMap((file) => file.gdrs as readonly Record<string, unknown>[]).find(
-      (gdr) => gdr['type'] === 'MusicParameters' && gdr['id'] === 'music',
-    );
-    expect(music).toBeDefined();
-    expect(excludedTracks()).toEqual(music!['excluded_tracks']);
-  });
-
-  it('plays no file that the GDR `music` excludes, nor any file that is not Ogg Opus or MP3', () => {
-    const excluded = ['EL-M2.5 XCOM+Var X1.opus', 'V3A-S5 XCOM+Var X1.mp3'];
-    expect(isTrack('../../assets/music/tracks/EL-M2.5 XCOM+Var X1.opus', excluded)).toBe(false);
-    expect(isTrack('V3A-S5 XCOM+Var X1.mp3', excluded)).toBe(false);
-    expect(isTrack('../../assets/music/tracks/EL-M2.5 XCOM+TFTD+NoPulse A.opus', excluded)).toBe(true);
-    expect(isTrack('EL-M2.5 XCOM+Var X1.mp3', excluded)).toBe(true);
-    expect(isTrack('EL-M2 XCOM+TFTD.yaml', excluded)).toBe(false);
-    expect(isTrack('README.md', excluded)).toBe(false);
+  it('plays every Ogg Opus or MP3 file, and no other file', () => {
+    expect(isTrack('../../assets/music/tracks/Descent to Earth.opus')).toBe(true);
+    expect(isTrack('The Reports Keep Coming.mp3')).toBe(true);
+    expect(isTrack('Descent to Earth.yaml')).toBe(false);
+    expect(isTrack('README.md')).toBe(false);
   });
 });
 

@@ -367,14 +367,6 @@ export type TemplatePart =
 
 export type ArticleTemplate = readonly TemplatePart[];
 
-/** MUSIC, Soundtrack: Display content only; no game behavior reads it. */
-export interface MusicParametersGdr {
-  readonly type: 'MusicParameters';
-  readonly id: string;
-  /** The files of `assets/music/tracks/` that are not Tracks, each by its file name with its extension. */
-  readonly excludedTracks: readonly string[];
-}
-
 /** VIS, Background artwork: Display content only; no game behavior reads it. */
 export interface BackgroundArtworkGdr {
   readonly type: 'BackgroundArtwork';
@@ -433,8 +425,7 @@ export type AnyGdr =
   | EndingParametersGdr
   | CompendiumArticleGdr
   | BackgroundArtworkGdr
-  | DetachedCombatTeamGdr
-  | MusicParametersGdr;
+  | DetachedCombatTeamGdr;
 
 /**
  * A Compendium article as the catalog holds it: with its displayed title, the Type of its subject, and every
@@ -494,6 +485,4 @@ export interface GdrCatalog {
   readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
   /** COMBAT, DetachedCombatTeam: every DetachedCombatTeam, in Game build order. */
   readonly detachedCombatTeams: readonly DetachedCombatTeamGdr[];
-  /** MUSIC, Soundtrack: the GDR `music`. */
-  readonly music: MusicParametersGdr;
 }

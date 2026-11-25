@@ -95,11 +95,6 @@ export { MemoryStorage } from './saves/storage.ts';
 export type * from './state/types.ts';
 export { GAME_BUILD };
 
-/** MUSIC, Soundtrack: the files the GDR `music` of this Game build excludes from the Soundtrack. */
-export function excludedTracks(): readonly string[] {
-  return bootstrapGdrCatalog().music.excludedTracks;
-}
-
 export interface Engine {
   /** Session API: for the Session controller. */
   readonly session: {
