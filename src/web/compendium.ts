@@ -16,12 +16,16 @@ export const MECHANICS = 'Mechanics';
 /** COMPV, Subject data sheets: the category of a Subject article whose subject has a Type without a Data sheet. */
 export const OTHER = 'Other';
 
-/** COMPV, Subject data sheets: the category name and the Data sheet heading of each subject Type. */
+/**
+ * COMPV, Subject data sheets: the category name and the Data sheet heading of each subject Type, in the table's order,
+ * which orders the Subject articles of one category, e.g. Weapons before AmmoTypes.
+ */
 const SUBJECT_TYPES: Readonly<Record<string, { readonly category: string; readonly heading: string }>> = {
   AgentArchetype: { category: 'Agents', heading: 'New Agent' },
   EnemyArchetype: { category: 'Enemies', heading: 'Enemy' },
   Weapon: { category: 'Weapons', heading: 'Weapon' },
   Armor: { category: 'Armor', heading: 'Armor' },
+  AmmoType: { category: 'Weapons', heading: 'Ammo' },
   Upgrade: { category: 'Upgrades', heading: 'Upgrade' },
   FactionArchetype: { category: 'Factions', heading: 'Faction' },
   Lead: { category: 'Leads', heading: 'Lead' },
@@ -37,8 +41,14 @@ function byTitle(a: Article, b: Article): number {
   return left < right ? -1 : left > right ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-/** COMPV, Panes: the category an article is listed under. */
+/**
+ * COMPV, Panes: the category an article is listed under: a Guide or Mechanics article with a `listed_under` is in the
+ * category of that Type.
+ */
 export function categoryOf(article: Article): string {
+  if (article.listedUnder !== null) {
+    return SUBJECT_TYPES[article.listedUnder]?.category ?? OTHER;
+  }
   if (article.category === 'guide') {
     return GUIDE;
   }
@@ -46,6 +56,19 @@ export function categoryOf(article: Article): string {
     return MECHANICS;
   }
   return SUBJECT_TYPES[article.subjectType ?? '']?.category ?? OTHER;
+}
+
+/**
+ * COMPV, Panes: the group of an article within its category: its Subject articles first, by the order of their
+ * subjects' Types in the Subject data sheets table, then the articles listed under it.
+ */
+const TYPE_ORDER = Object.keys(SUBJECT_TYPES);
+function groupOf(article: Article): number {
+  if (article.subjectType === null) {
+    return TYPE_ORDER.length + 1;
+  }
+  const index = TYPE_ORDER.indexOf(article.subjectType);
+  return index === -1 ? TYPE_ORDER.length : index;
 }
 
 /** COMPV, Panes: the articles whose displayed title contains the search text, ignoring case. */
@@ -71,9 +94,14 @@ export function compendiumCategories(
     .sort((a, b) => rank(a.name) - rank(b.name) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
-/** COMPV, Panes: the articles of one category, sorted by displayed title ignoring case. */
+/**
+ * COMPV, Panes: the articles of one category, in their groups, each sorted by displayed title ignoring case, e.g. every
+ * Weapon, then every AmmoType.
+ */
 export function articlesOf(articles: readonly Article[], category: string): Article[] {
-  return articles.filter((article) => categoryOf(article) === category).sort(byTitle);
+  return articles
+    .filter((article) => categoryOf(article) === category)
+    .sort((a, b) => groupOf(a) - groupOf(b) || byTitle(a, b));
 }
 
 /** COMPV, Panes: the article selected when the Compendium View opens: the first article of the Guide category. */
@@ -361,12 +389,32 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
       if (weapon !== undefined) {
         rows.push(['Damage', [figure(weapon.damage)]]);
         rows.push(['Damage of a hit', [figure(`${weapon.damageOfAHit.min}–${weapon.damageOfAHit.max}`)]]);
+        // COMPV, Weapon data sheet: the AmmoType it spends, or "None".
+        const ammo = gameData.ammoTypes.find((item) => item.id === weapon.ammoType);
+        rows.push([
+          'Ammo',
+          ammo === undefined ? [{ text: 'None' }] : [reference('AmmoType', ammo.id, ammo.name)],
+        ]);
         rows.push([
           'Carried by',
           listed(['AgentArchetype', 'EnemyArchetype'], (id) =>
             [gameData.agentArchetype, ...gameData.enemyArchetypes].some(
               (carrier) => carrier.id === id && carrier.weapon === subject,
             ),
+          ),
+        ]);
+      }
+      break;
+    }
+    case 'AmmoType': {
+      // COMPV, Ammo data sheet: what a round costs and which Weapons spend it.
+      const ammo = gameData.ammoTypes.find((item) => item.id === subject);
+      if (ammo !== undefined) {
+        rows.push(['Price', [figure(ammo.price)]]);
+        rows.push([
+          'Used by',
+          listed('Weapon', (id) =>
+            gameData.weapons.some((weapon) => weapon.id === id && weapon.ammoType === subject),
           ),
         ]);
       }

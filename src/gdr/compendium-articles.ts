@@ -26,6 +26,7 @@ const PROPERTIES = [
   'formulas',
   'terms',
   'see_also',
+  'listed_under',
   'visible_when',
 ];
 
@@ -140,6 +141,16 @@ export function parseCompendiumArticle(
       problems.push('See also is valid');
     }
   }
+  // COMP, CompendiumArticle: `listed_under`, only for a Guide article or a Mechanics article, is a Type name; that the
+  // subject of some Subject article has that Type is checked across the Game build.
+  let listedUnder: string | null = null;
+  if (raw['listed_under'] !== undefined) {
+    if (category === 'subject' || !isText(raw['listed_under'])) {
+      problems.push('Listed under is valid');
+    } else {
+      listedUnder = raw['listed_under'];
+    }
+  }
   // Visibility Condition is valid: a valid Condition of the Condition kind `lead_completed` only. That the
   // Lead it names exists is checked across the Game build.
   let visibleWhen: Condition | null = null;
@@ -163,6 +174,7 @@ export function parseCompendiumArticle(
       formulas,
       terms,
       seeAlso,
+      listedUnder,
       visibleWhen,
     },
   };
@@ -403,11 +415,24 @@ export function validateCompendiumArticles(
   const titles = new Set<string>();
   const subjects = new Set<string>();
   const terms = new Set<string>();
+  // COMP, CompendiumArticle: the Types that the subject of some Subject article has, which `listed_under` may name.
+  const subjectTypes = new Set(
+    articles.flatMap((article) =>
+      article.subject === null
+        ? []
+        : (byId.get(article.subject) ?? [])
+            .filter((gdr) => gdr['type'] !== 'CompendiumArticle')
+            .map((gdr) => String(gdr['type'])),
+    ),
+  );
 
   return articles.map((article) => {
     const report = (message: string) => {
       problems.push(`CompendiumArticle ${article.id}: ${message}`);
     };
+    if (article.listedUnder !== null && !subjectTypes.has(article.listedUnder)) {
+      report(`Listed under is valid (${article.listedUnder})`);
+    }
     // Subject exists, is not a CompendiumArticle, and has a `name` that is non-empty text.
     let subject: RawGdr | null = null;
     let title = article.title ?? '';
@@ -487,6 +512,7 @@ export function validateCompendiumArticles(
       formulas: article.formulas.map((row) => ({ label: template(row.label), text: template(row.text) })),
       terms: article.terms,
       seeAlso: article.seeAlso,
+      listedUnder: article.listedUnder,
       visibleWhen: article.visibleWhen,
     };
   });

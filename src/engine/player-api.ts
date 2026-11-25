@@ -648,6 +648,8 @@ export interface CompendiumArticleView {
   readonly subject: string | null;
   /** The Type of the subject GDR, e.g. `EnemyArchetype`; absent for a Guide article or a Mechanics article. */
   readonly subjectType: string | null;
+  /** COMP, CompendiumArticle: the subject Type a Guide or Mechanics article is listed under, e.g. `AgentArchetype`. */
+  readonly listedUnder: string | null;
   readonly body: readonly ArticleSegmentView[];
   /** The resolved formula rows in authored order; empty unless the article is a Mechanics article. */
   readonly formulas: readonly {

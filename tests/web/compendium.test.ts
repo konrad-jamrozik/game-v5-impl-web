@@ -55,6 +55,7 @@ const article = (
   title,
   subject: null,
   subjectType: null,
+  listedUnder: null,
   body: [],
   formulas: [],
   seeAlso: [],
@@ -151,6 +152,43 @@ describe('COMPV: Panes', () => {
     // When the Compendium View opens, the Guide category and its first article are selected.
     expect(firstArticle(articles)).toBe('guide_a');
     expect(firstArticle([])).toBeNull();
+  });
+
+  it('lists every Weapon, then every AmmoType, under Weapons', () => {
+    const weapons = [
+      subject('rifle_ammo', 'Rifle ammo', 'AmmoType'),
+      subject('rifle', 'Rifle', 'Weapon'),
+      subject('pistol_ammo', 'Pistol ammo', 'AmmoType'),
+      subject('basic_pistol', 'Basic pistol', 'Weapon'),
+    ];
+    expect(categoryOf(weapons[0]!)).toBe('Weapons');
+    expect(articlesOf(weapons, 'Weapons').map((item) => item.title)).toEqual([
+      'Basic pistol',
+      'Rifle',
+      'Pistol ammo',
+      'Rifle ammo',
+    ]);
+  });
+
+  it('lists a Mechanics article with listed_under in that Type category, after its Subject articles', () => {
+    const agents = [
+      article('mechanics_deployable_agent', 'Deployable Agent', {
+        category: 'mechanics',
+        listedUnder: 'AgentArchetype',
+      }),
+      subject('field_agent', 'Field agent', 'AgentArchetype'),
+      article('mechanics_away_agent', 'Away Agent', { category: 'mechanics', listedUnder: 'AgentArchetype' }),
+      article('mechanics_combat', 'Combat', { category: 'mechanics' }),
+    ];
+    expect(compendiumCategories(agents)).toEqual([
+      { name: 'Mechanics', count: 1 },
+      { name: 'Agents', count: 3 },
+    ]);
+    expect(articlesOf(agents, 'Agents').map((item) => item.title)).toEqual([
+      'Field agent',
+      'Away Agent',
+      'Deployable Agent',
+    ]);
   });
 
   it('searches the displayed titles of every category, ignoring case, and leaves out an empty category', () => {

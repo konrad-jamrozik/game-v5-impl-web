@@ -117,6 +117,7 @@ const entry = (
   formulas: [],
   terms,
   seeAlso,
+  listedUnder: null,
   visibleWhen: null,
 });
 const bodyOf = (list: readonly CatalogCompendiumArticle[], id: string) =>
@@ -803,7 +804,17 @@ describe('COMP: Article visibility and Player-visible information', () => {
     // An article is reported in its resolved form, never as authored.
     const initiate = articles(state).find((article) => article.id === 'initiate_article')!;
     expect(Object.keys(initiate).sort()).toEqual(
-      ['body', 'category', 'formulas', 'id', 'seeAlso', 'subject', 'subjectType', 'title'].sort(),
+      [
+        'body',
+        'category',
+        'formulas',
+        'id',
+        'listedUnder',
+        'seeAlso',
+        'subject',
+        'subjectType',
+        'title',
+      ].sort(),
     );
     expect(initiate).toMatchObject({
       category: 'subject',

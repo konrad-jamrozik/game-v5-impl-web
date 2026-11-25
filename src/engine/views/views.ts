@@ -1115,6 +1115,7 @@ function articleView({ article, body, formulas, seeAlso }: ResolvedArticle): Com
     title: article.title,
     subject: article.subject,
     subjectType: article.subjectType,
+    listedUnder: article.listedUnder,
     body: body.map((segment) => ({ ...segment })),
     formulas: formulas.map((row) => ({
       label: row.label.map((segment) => ({ ...segment })),
