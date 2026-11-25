@@ -224,8 +224,12 @@ describe('AGENT: examples', () => {
     state = act(state, 'hireAgents', { count: 1 });
     const a5 = agentIds(state).at(-1)!;
     expect(agent(state, a5).constants.turnHired).toBe(1);
+    // EQUIP, Equipment of new and departing Agents: a hired Agent wears the Fallback Weapon.
+    const fallback = gdrs.combatParameters.fallbackWeapon;
     expect(units(agent(state, a5).state)).toMatchObject({
       ...newAgent,
+      weapon: fallback,
+      baseWeaponDamage: gdrs.weapons.get(fallback)!.damage,
       exhaustion: 0,
       assignment: { kind: 'Standby' },
       status: 'InTransit',

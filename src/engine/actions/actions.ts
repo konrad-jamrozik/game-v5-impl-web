@@ -249,14 +249,17 @@ function bonusOf(world: CurrentWorldState, gdrs: GdrCatalog): AgentUpgradeBonus 
   return agentUpgradeBonus(gdrs.upgrades, world.agency.state.acquisitions);
 }
 
-function addAgent(world: CurrentWorldState, gdrs: GdrCatalog): void {
+function addAgent(world: CurrentWorldState, gdrs: GdrCatalog, hired: boolean): void {
+  // EQUIP, Equipment of new and departing Agents: an Agent that hireAgents hires wears the Fallback Weapon in place of
+  // the AgentArchetype's `weapon`, so that the Agency arms it from Storage.
+  const weapon = hired ? gdrs.combatParameters.fallbackWeapon : gdrs.agentArchetype.weapon;
   const agent = createAgent({
     id: newInstanceId(world, 'agent'),
     agencyId: world.agency.id,
     turn: world.turn,
     initialRoster: false,
     archetype: gdrs.agentArchetype,
-    weapon: must(gdrs.weapons.get(gdrs.agentArchetype.weapon), 'Weapon of the AgentArchetype'),
+    weapon: must(gdrs.weapons.get(weapon), 'Weapon of a new Agent'),
     armor: must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype'),
   });
   world.agents[agent.id] = agent;
@@ -354,13 +357,9 @@ function hireAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rej
   }
   world.agency.state.money -= cost;
   for (let i = 0; i < count; i += 1) {
-    addAgent(world, gdrs);
+    addAgent(world, gdrs, true);
   }
-  // EQUIP, Equipment of new and departing Agents: each hired Agent brings the rounds `hire_ammo` lists into Storage.
-  const storage = world.agency.state.storage;
-  for (const [ammoType, rounds] of Object.entries(gdrs.equipment.hireAmmo)) {
-    storage[ammoType] = (storage[ammoType] ?? 0) + rounds * count;
-  }
+  // EQUIP, Equipment of new and departing Agents: a hired Agent brings no Ammo.
   return null;
 }
 
@@ -719,7 +718,7 @@ function addAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Reje
     );
   }
   for (let i = 0; i < count; i += 1) {
-    addAgent(world, gdrs);
+    addAgent(world, gdrs, false);
   }
   return null;
 }

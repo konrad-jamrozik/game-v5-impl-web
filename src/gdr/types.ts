@@ -86,8 +86,6 @@ export interface EquipmentParametersGdr {
   readonly fallbackArmor: string;
   /** The rounds of each AmmoType in the Storage of a new Campaign; an AmmoType absent starts at 0. */
   readonly startingAmmo: Readonly<Record<string, number>>;
-  /** The rounds of each AmmoType that each Agent `hireAgents` hires brings into Storage; an AmmoType absent gains none. */
-  readonly hireAmmo: Readonly<Record<string, number>>;
   readonly salePriceFraction: Rational;
   readonly spoilsAmmoMax: number;
   readonly ammoShortRoundsPerAgent: number;

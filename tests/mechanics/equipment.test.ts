@@ -65,20 +65,23 @@ describe('EQUIP: Storage and equipping', () => {
     );
   });
 
-  it('each Agent hireAgents hires brings the rounds hire_ammo lists into Storage', () => {
+  it('a hired Agent wears the Fallback Weapon and the AgentArchetype armor, and brings no Ammo', () => {
     let state = newCampaign({ money: 100 * gdrs.economy.hireCost });
     const before = { ...storage(state) };
+    const roster = new Set(Object.keys(state.world.current.agents));
     state = act(state, 'hireAgents', { count: 3 });
-    const ammoTypes = new Set([...Object.keys(before), ...Object.keys(gdrs.equipment.hireAmmo)]);
-    for (const ammoType of ammoTypes) {
-      expect(storage(state)[ammoType] ?? 0).toBe(
-        (before[ammoType] ?? 0) + 3 * (gdrs.equipment.hireAmmo[ammoType] ?? 0),
-      );
+    const hired = Object.values(state.world.current.agents).filter((item) => !roster.has(item.id));
+    expect(hired).toHaveLength(3);
+    for (const item of hired) {
+      expect(item.state.weapon).toBe(gdrs.combatParameters.fallbackWeapon);
+      expect(item.state.armor).toBe(gdrs.agentArchetype.armor);
     }
-    // EQUIP, Equipment of new and departing Agents: a rejected hire hires nobody and brings no rounds.
-    const afterHire = { ...storage(state) };
-    expectRejected(state, 'hireAgents', { count: 1000 }, 'not_enough_money');
-    expect(storage(state)).toEqual(afterHire);
+    // The Initial roster still wears the issued kit.
+    for (const id of roster) {
+      expect(agent(state, id).state.weapon).toBe(gdrs.agentArchetype.weapon);
+    }
+    // EQUIP, Equipment of new and departing Agents: what a new Agent wears comes from no Storage, and it brings no Ammo.
+    expect(storage(state)).toEqual(before);
   });
 
   it('a Dismissed Agent leaves its Items in Storage', () => {

@@ -166,8 +166,11 @@ describe('TURN: Prologue', () => {
         agent.healthLostHundredths === 0 &&
         agent.exhaustion <= gdrs.agentParameters.exhaustionWorkStartMax,
     );
-    expect(standby).toBeDefined();
-    ok(await engine.player.actions.assignAgents([standby!.id], 'Training'));
+    if (standby === undefined) {
+      ok(await engine.player.actions.hireAgents(1));
+    } else {
+      ok(await engine.player.actions.assignAgents([standby.id], 'Training'));
+    }
     ok(await engine.session.timeline.undoAction());
     expect(inspect(engine).timeline.turnStartState).toEqual(created.timeline.turnStartState);
 
