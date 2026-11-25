@@ -2935,6 +2935,13 @@ label:has(> input[type='checkbox']:disabled) {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-secondary);
+  /* VIS, Reference window: no heading wraps onto a second line. */
+  white-space: nowrap;
+}
+
+/* LVIEW, Team: the team pane is as narrow as its tables, which stand at its right edge. */
+.pane[data-testid='team'] .grid {
+  margin-left: auto;
 }
 
 .pane-sub {

@@ -303,6 +303,20 @@ function Team(props: {
   });
   const none = team.length === 0 ? 'Check the Agents to add first.' : null;
   const agentById = (id: string) => state.agents.find((agent) => agent.id === id);
+  // LVIEW, Team, Current team: members are checked to be recalled; a member In transit, or one that cannot take
+  // orders, cannot be checked.
+  const members = investigation?.currentTeam ?? [];
+  const recallable = (id: string) => actions?.agentsThatCanTakeOrders.includes(id) === true;
+  const [recallChecked, setRecallChecked] = useState<readonly string[]>([]);
+  const toRecall = recallChecked.filter(
+    (id) => members.some((member) => member.agent === id) && recallable(id),
+  );
+  const recallSelection = useRowSelection({
+    order: members.map((member) => member.agent),
+    selected: toRecall,
+    selectable: recallable,
+    onChange: setRecallChecked,
+  });
   const levels = exhaustionLevels(snapshot.gameData);
   // LVIEW, Team, Team progress estimate: the engine's estimate of the team the primary button would make; for Assign,
   // the Current team together with the checked Agents.
@@ -338,72 +352,78 @@ function Team(props: {
             <span className="label">Current team</span>
             <span className="figure tone-accent">{investigation.currentTeam.length}</span>
           </div>
-          {/* LVIEW, Team, Current team: headed Agent, Status, and Skill; Status holds "In transit" and the icon. */}
+          {/* LVIEW, Team, Current team: a selection checkbox, the Instance ID with the In transit icon for a member In
+              transit, and the effective skill; the Recall button under the table recalls the checked members. */}
           <Grid
-            widths={[AGENT_COLUMN_WIDTH, '120px', '64px', '110px']}
-            className="compact"
+            widths={['36px', AGENT_COLUMN_WIDTH, '64px']}
+            className="compact pick-grid"
             testId="current-team"
           >
             <thead>
               <tr>
+                <th className="check" />
                 <th>Agent</th>
-                <th>Status</th>
                 <th className="num" title="Effective skill">
                   Skill
                 </th>
-                <th />
               </tr>
             </thead>
             <tbody>
-              {investigation.currentTeam.map((member) => (
-                <tr key={member.agent}>
-                  <td>
-                    {/* LVIEW, Team: an Instance ID opens the Agent's details in the Agents View as a Follow, without
-                        checking or unchecking its row, since the row ignores clicks on a button. */}
-                    <button
-                      type="button"
-                      className="history-link figure"
-                      data-testid={`team-agent-${member.agent}`}
-                      data-sound="main"
-                      onClick={() => {
-                        props.onShow({ kind: 'agent', agent: member.agent });
-                      }}
-                    >
-                      {member.agent}
-                    </button>
-                  </td>
-                  <td className="muted">
-                    {member.agentStatus === 'InTransit' ? (
-                      <span className="assignment-cell">
-                        In transit
-                        <InTransitIcon />
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="num">{agentById(member.agent)?.effectiveSkill ?? '-'}</td>
-                  <td>
-                    <Button
-                      testId={`recall-${member.agent}`}
-                      disabledReason={
-                        locked ??
-                        (actions?.agentsThatCanTakeOrders.includes(member.agent) === true
-                          ? null
-                          : member.agentStatus === 'InTransit'
-                            ? 'An Agent In transit cannot take orders until it arrives.'
-                            : 'This Agent cannot take orders now.')
-                      }
-                      onClick={() => {
-                        // LVIEW, Team: at once, without a confirmation, because Undo Action takes it back.
-                        act(() => player.actions.assignAgents([member.agent], 'Standby'));
-                      }}
-                    >
-                      Recall
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {members.map((member) => {
+                const on = toRecall.includes(member.agent);
+                const inTransit = member.agentStatus === 'InTransit';
+                return (
+                  <tr
+                    key={member.agent}
+                    className={on ? 'row-selected' : ''}
+                    {...recallSelection.row(member.agent)}
+                  >
+                    <td className="check" title={inTransit ? 'In transit' : undefined}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Recall ${member.agent}`}
+                        data-testid={`recall-pick-${member.agent}`}
+                        {...recallSelection.checkbox(member.agent)}
+                      />
+                    </td>
+                    <td>
+                      {/* LVIEW, Team: an Instance ID opens the Agent's details in the Agents View as a Follow, without
+                          checking or unchecking its row, since the row ignores clicks on a button. */}
+                      <button
+                        type="button"
+                        className="history-link figure"
+                        data-testid={`team-agent-${member.agent}`}
+                        data-sound="main"
+                        onClick={() => {
+                          props.onShow({ kind: 'agent', agent: member.agent });
+                        }}
+                      >
+                        {member.agent}
+                      </button>
+                      {inTransit ? <InTransitIcon /> : null}
+                    </td>
+                    <td className="num">{agentById(member.agent)?.effectiveSkill ?? '-'}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </Grid>
+          <div className="pane-actions">
+            {/* LVIEW, Team, Current team: one Player action for every checked member, at once and without a
+                confirmation, because Undo Action takes it back. */}
+            <Button
+              kind="danger"
+              testId="recall"
+              disabledReason={locked ?? (toRecall.length === 0 ? 'Check the members to recall first.' : null)}
+              onClick={() => {
+                const agents = [...toRecall];
+                act(() => player.actions.assignAgents(agents, 'Standby'));
+                setRecallChecked([]);
+              }}
+            >
+              Recall · {toRecall.length}
+            </Button>
+          </div>
         </>
       )}
       <div className="sit-group-head pane-sub">

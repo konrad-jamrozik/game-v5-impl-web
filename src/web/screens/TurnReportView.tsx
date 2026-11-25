@@ -639,17 +639,17 @@ function Sections(props: {
  * VIS, Tables: the fixed widths of the participants table, the Combat log, and the Combat ratings table, each column
  * wide enough for the widest value of its quantity, e.g. "1234 → 1234" in Skill, "123 → 123/123" in Health,
  * "123 → 123" in Armor, and "99.9% (1234 vs 1234)" in Hit chance; a participant, an attacker, and a defender hold the
- * longest Enemy label, e.g. "high-commander-12". The participants table is 1068 px in all, so that it fits its pane in
+ * longest Enemy label, e.g. "high-commander-12". The participants table is 1044 px in all, so that it fits its pane in
  * the Reference window.
  */
 const PARTICIPANT_WIDTHS = [
-  '160px',
+  '148px',
   '64px',
   '120px',
   '140px',
   '104px',
   '104px',
-  '72px',
+  '60px',
   '64px',
   '64px',
   '60px',
