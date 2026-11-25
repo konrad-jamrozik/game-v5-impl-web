@@ -38,46 +38,51 @@ export function exhaustionTone(
   return { tone: '', triangle: false };
 }
 
-/** The current health scale's stops, from 100% down to 0%, as colour tokens. */
-const HEALTH_STOPS: readonly (readonly [number, string])[] = [
-  // The row's own text colour: Text, or Text muted in a muted row under AVIEW, Agent table.
-  [100, 'currentColor'],
-  [75, 'var(--warning)'],
+/** VIS, Danger scale: its stops, from 0%, nothing wrong, to 100%, the worst, as colour tokens after the neutral one. */
+const DANGER_STOPS: readonly (readonly [number, string])[] = [
+  [25, 'var(--warning)'],
   [50, 'var(--accent-text)'],
-  [25, 'var(--danger)'],
-  [0, 'var(--danger-deep)'],
+  [75, 'var(--danger)'],
+  [100, 'var(--danger-deep)'],
 ];
 
 /**
- * The colour of a current health value: a smooth scale over the share of effective max health, mixing the two neighbouring
- * stops in sRGB in proportion, e.g. 15 of 30 is Accent text.
+ * VIS, Danger scale: the colour of a severity from 0% to 100%, mixing the two neighbouring stops in sRGB in proportion,
+ * e.g. 12.5% is halfway between Text and Warning. Its 0% stop is `neutral`, Text unless a use says otherwise.
  */
-export function healthColor(current: number, base: number): string {
-  const pct = base <= 0 ? 0 : Math.max(0, Math.min(100, (current / base) * 100));
-  for (let i = 0; i < HEALTH_STOPS.length - 1; i += 1) {
-    const [hi, hiColor] = HEALTH_STOPS[i] ?? [100, 'currentColor'];
-    const [lo, loColor] = HEALTH_STOPS[i + 1] ?? [0, 'var(--danger-deep)'];
-    if (pct >= lo) {
-      const weight = Math.round(((pct - lo) / (hi - lo)) * 1000) / 10;
-      if (weight >= 100) {
-        return hiColor;
-      }
+export function dangerScaleColor(severityPct: number, neutral = 'var(--text)'): string {
+  const severity = Math.max(0, Math.min(100, severityPct));
+  const stops: readonly (readonly [number, string])[] = [[0, neutral], ...DANGER_STOPS];
+  for (let i = 1; i < stops.length; i += 1) {
+    const [hi, hiColor] = stops[i] ?? [100, 'var(--danger-deep)'];
+    const [lo, loColor] = stops[i - 1] ?? [0, neutral];
+    if (severity <= hi) {
+      // The share of the higher stop, rounded to a tenth of a percent.
+      const weight = Math.round(((severity - lo) / (hi - lo)) * 1000) / 10;
       if (weight <= 0) {
         return loColor;
       }
-      return `color-mix(in srgb, ${hiColor} ${weight}%, ${loColor})`;
+      if (weight >= 100) {
+        return hiColor;
+      }
+      return `color-mix(in srgb, ${loColor} ${Math.round((100 - weight) * 10) / 10}%, ${hiColor})`;
     }
   }
   return 'var(--danger-deep)';
 }
 
 /**
- * VIS, Meters: the colour of a value against its limit, on the current health scale run the other way: Text at 0% of
- * the limit, Warning at 25%, Accent text at 50%, Danger at 75%, and Danger deep at 100%, mixed in sRGB in between.
+ * VIS, Agent condition, Current health: the Danger scale, with the share of effective max health that current health
+ * falls short of as its severity, e.g. 15 of 30 is Accent text. Its neutral end is the row's own text colour: Text, or
+ * Text muted in a muted row under AVIEW, Agent table.
  */
+export function healthColor(current: number, base: number): string {
+  const pct = base <= 0 ? 0 : Math.max(0, Math.min(100, (current / base) * 100));
+  return dangerScaleColor(100 - pct, 'currentColor');
+}
+
+/** VIS, Meters: the Danger scale, with the share of the limit reached as its severity. */
 export function nearLimitColor(value: number, limit: number): string {
-  const pct = limit <= 0 ? 100 : Math.max(0, Math.min(100, (value / limit) * 100));
-  // The health scale reads its share from the top down, so the share left below the limit takes the same stops.
-  const color = healthColor(100 - pct, 100);
-  return color === 'currentColor' ? 'var(--text)' : color.replace('currentColor', 'var(--text)');
+  const pct = limit <= 0 ? 100 : (value / limit) * 100;
+  return dangerScaleColor(pct);
 }
