@@ -98,6 +98,8 @@ export interface EnemyArchetypeGdr {
   readonly type: 'EnemyArchetype';
   readonly id: string;
   readonly name: string;
+  /** COMBAT, EnemyArchetype: the short name, one to four lowercase letters, e.g. `init`. */
+  readonly abbreviation: string;
   readonly skill: number;
   readonly baseHealth: number;
   readonly weapon: string;
@@ -379,6 +381,17 @@ export interface BackgroundArtworkGdr {
   readonly opacityPct: number;
 }
 
+/** CRPLAY, Rank insignia thresholds: the mark beside an Agent's figure; Display content only. */
+export interface RankInsigniaGdr {
+  readonly type: 'RankInsignia';
+  readonly id: string;
+  /** The least base skill that earns the mark, a whole number of at least 0. */
+  readonly minBaseSkill: number;
+  readonly mark: 'chevron' | 'bar' | 'star';
+  /** A whole number from 1 to 3. */
+  readonly count: 1 | 2 | 3;
+}
+
 /** COMBAT, DetachedCombatTeam: a ready-made team of Agents for a Detached Combat; Display content, read by no rule. */
 export interface DetachedCombatTeamGdr {
   readonly type: 'DetachedCombatTeam';
@@ -425,6 +438,7 @@ export type AnyGdr =
   | EndingParametersGdr
   | CompendiumArticleGdr
   | BackgroundArtworkGdr
+  | RankInsigniaGdr
   | DetachedCombatTeamGdr;
 
 /**
@@ -483,6 +497,8 @@ export interface GdrCatalog {
   readonly compendiumArticles: readonly CatalogCompendiumArticle[];
   /** VIS, Background artwork: every BackgroundArtwork, in Game build order. */
   readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
+  /** CRPLAY, Rank insignia thresholds: every RankInsignia, highest `min_base_skill` first. */
+  readonly rankInsignias: readonly RankInsigniaGdr[];
   /** COMBAT, DetachedCombatTeam: every DetachedCombatTeam, in Game build order. */
   readonly detachedCombatTeams: readonly DetachedCombatTeamGdr[];
 }

@@ -341,6 +341,7 @@ function enemyView(enemy: Enemy, gdrs: GdrCatalog): EnemyView {
     id: enemy.id,
     archetype: enemy.archetype,
     archetypeName: gdrs.enemyArchetypes.get(enemy.archetype)?.name ?? enemy.archetype,
+    archetypeAbbreviation: gdrs.enemyArchetypes.get(enemy.archetype)?.abbreviation ?? enemy.archetype,
     missionSite: enemy.constants.missionSite,
     skill: s.skill,
     effectiveSkill: effectiveSkill(enemyCombatantValues(s), gdrs.agentParameters),
@@ -1253,6 +1254,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
       enemyArchetypes: [...gdrs.enemyArchetypes.values()].map((enemy) => ({
         id: enemy.id,
         name: enemy.name,
+        abbreviation: enemy.abbreviation,
         skill: enemy.skill,
         baseHealth: enemy.baseHealth,
         weapon: enemy.weapon,
@@ -1288,6 +1290,12 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         image: artwork.image,
         opacityPct: artwork.opacityPct,
       })),
+      rankInsignias: gdrs.rankInsignias.map((insignia) => ({
+        id: insignia.id,
+        minBaseSkill: insignia.minBaseSkill,
+        mark: insignia.mark,
+        count: insignia.count,
+      })),
     });
     gameDataCache.set(gdrs, view);
   }
@@ -1303,6 +1311,7 @@ export function combatSimulatorContentView(gdrs: GdrCatalog): CombatSimulatorCon
     armors: data.armors,
     ammoTypes: data.ammoTypes,
     enemyArchetypes: data.enemyArchetypes,
+    rankInsignias: data.rankInsignias,
     missionSiteArchetypes: gdrs.missionSiteArchetypes.map((archetype) => ({
       id: archetype.id,
       name: archetype.name,

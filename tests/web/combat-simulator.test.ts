@@ -241,7 +241,7 @@ describe('CSIM: Fighting the Combat', () => {
     const enemies = [enemyRow(got, 'soldier'), enemyRow(got, 'initiate'), enemyRow(got, 'soldier')];
     const source = replaySourceOf(got, agents, enemies, 'looks');
     expect(source.nameOf('agent#2')).toBe('agent-2');
-    expect(source.nameOf('enemy#3')).toBe('soldier-2');
+    expect(source.nameOf('enemy#3')).toBe('sold-2');
     expect(source.enemyOrder('enemy#2')).toBe(0);
     expect(source.enemyOrder('enemy#1')).toBe(got.enemyArchetypes.findIndex((item) => item.id === 'soldier'));
 
@@ -257,7 +257,7 @@ describe('CSIM: Fighting the Combat', () => {
     expect([...shotsOf('agent-1')]).toEqual(['beam']);
     expect([...shotsOf('agent-2')]).toEqual(['burst']);
     expect([...shotsOf('agent-3')]).toEqual(['blade']);
-    expect([...shotsOf('soldier-1')]).toEqual(['bullet']);
+    expect([...shotsOf('sold-1')]).toEqual(['bullet']);
   });
 
   it('makes a seed the engine takes from any chance', async () => {

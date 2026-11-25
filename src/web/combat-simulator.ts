@@ -171,7 +171,8 @@ export function replaySourceOf(
     enemies.map((row, index) => ({
       id: `enemy#${index + 1}`,
       archetype: row.archetype,
-      archetypeName: content.enemyArchetypes.find((item) => item.id === row.archetype)?.name ?? row.archetype,
+      archetypeAbbreviation:
+        content.enemyArchetypes.find((item) => item.id === row.archetype)?.abbreviation ?? row.archetype,
     })),
   );
   return {
@@ -180,6 +181,7 @@ export function replaySourceOf(
     enemyAmmoType: (id) => ammoTypeOf(archetypeOf(id)?.weapon),
     agentAmmoType: (id) => ammoTypeOf(agents[positionOf(id) - 1]?.weapon),
     shotOfAmmoType: (ammoType) => content.ammoTypes.find((item) => item.id === ammoType)?.shot,
+    rankInsignias: content.rankInsignias,
     seed,
   };
 }

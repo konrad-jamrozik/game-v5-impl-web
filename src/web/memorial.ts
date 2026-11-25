@@ -18,7 +18,7 @@ export interface MemorialWhere {
 }
 
 export interface MemorialDeath {
-  /** The Enemy label of the Enemy its Killed by references, e.g. "initiate-2". */
+  /** The Enemy label of the Enemy its Killed by references, e.g. "init-2". */
   readonly killedBy: string;
   readonly where: MemorialWhere;
 }
@@ -31,7 +31,7 @@ export function instanceNumber(id: string): string {
 
 /**
  * AVIEW, Memorial, Killed by and Where: for a Killed Agent, the Enemy by its Enemy label and the Mission site by its
- * `name` and number, e.g. "initiate-2" and "Apprehend member #5"; null for a Dismissed Agent, whose cells are empty.
+ * `name` and number, e.g. "init-2" and "Apprehend member #5"; null for a Dismissed Agent, whose cells are empty.
  */
 export function memorialDeath(
   killedBy: { readonly enemy: string; readonly missionSite: string } | null,

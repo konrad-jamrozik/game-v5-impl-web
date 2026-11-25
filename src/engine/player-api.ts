@@ -133,6 +133,8 @@ export interface EnemyView {
   readonly id: string;
   readonly archetype: string;
   readonly archetypeName: string;
+  /** COMBAT, EnemyArchetype: the `abbreviation` of its EnemyArchetype, e.g. `init`. */
+  readonly archetypeAbbreviation: string;
   readonly missionSite: string;
   readonly skill: number;
   readonly effectiveSkill: number;
@@ -502,6 +504,7 @@ export interface CombatSimulatorContent {
   readonly armors: GameDataView['armors'];
   readonly ammoTypes: GameDataView['ammoTypes'];
   readonly enemyArchetypes: GameDataView['enemyArchetypes'];
+  readonly rankInsignias: GameDataView['rankInsignias'];
   /** Every MissionSiteArchetype, with the EnemyArchetype of each Enemy a new Mission site of it would have, in creation order. */
   readonly missionSiteArchetypes: readonly {
     readonly id: string;
@@ -571,6 +574,7 @@ export interface GameDataView {
   readonly enemyArchetypes: readonly {
     readonly id: string;
     readonly name: string;
+    readonly abbreviation: string;
     readonly skill: number;
     readonly baseHealth: number;
     readonly weapon: string;
@@ -612,6 +616,13 @@ export interface GameDataView {
     /** The image path relative to the Spec repo root, e.g. `assets/images/chatgpt-agents-i2.png`. */
     readonly image: string;
     readonly opacityPct: number;
+  }[];
+  /** CRPLAY, Rank insignia thresholds: every RankInsignia GDR, highest `min_base_skill` first; display content. */
+  readonly rankInsignias: readonly {
+    readonly id: string;
+    readonly minBaseSkill: number;
+    readonly mark: 'chevron' | 'bar' | 'star';
+    readonly count: 1 | 2 | 3;
   }[];
 }
 

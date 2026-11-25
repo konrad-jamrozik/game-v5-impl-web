@@ -18,6 +18,7 @@ import type {
   GdrCatalog,
   LeadGdr,
   MissionSiteArchetypeGdr,
+  RankInsigniaGdr,
 } from './types.ts';
 
 export interface RawGdrFile {
@@ -353,6 +354,7 @@ const schemas = {
       id,
       type: z.literal('EnemyArchetype'),
       name,
+      abbreviation: z.string().regex(/^[a-z]{1,4}$/),
       base_skill: whole(0),
       base_health: whole(1),
       weapon: id,
@@ -362,6 +364,7 @@ const schemas = {
       type: g.type,
       id: g.id,
       name: g.name,
+      abbreviation: g.abbreviation,
       skill: g.base_skill,
       baseHealth: g.base_health,
       weapon: g.weapon,
@@ -765,6 +768,22 @@ const schemas = {
       image: g.image,
       opacityPct: g.opacity_pct,
     })),
+  // CRPLAY, Rank insignia thresholds: the exhaustive properties of a RankInsignia.
+  RankInsignia: z
+    .strictObject({
+      id,
+      type: z.literal('RankInsignia'),
+      min_base_skill: whole(0),
+      mark: z.enum(['chevron', 'bar', 'star']),
+      count: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    })
+    .transform((g) => ({
+      type: g.type,
+      id: g.id,
+      minBaseSkill: g.min_base_skill,
+      mark: g.mark,
+      count: g.count,
+    })),
 } as const;
 
 /** VIS, Background artwork: the Detail views of CSCR, by their names in lowercase words joined by underscores. */
@@ -1024,6 +1043,28 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const articles = all<CompendiumArticleGdr>('CompendiumArticle');
   const backgroundArtworks = all<BackgroundArtworkGdr>('BackgroundArtwork');
   const detachedCombatTeams = all<DetachedCombatTeamGdr>('DetachedCombatTeam');
+  const rankInsignias = [...all<RankInsigniaGdr>('RankInsignia')].sort(
+    (a, b) => b.minBaseSkill - a.minBaseSkill,
+  );
+
+  // CRPLAY, Rank insignia thresholds: no two RankInsignias share a `min_base_skill`.
+  rankInsignias.forEach((insignia, index) => {
+    if (rankInsignias[index + 1]?.minBaseSkill === insignia.minBaseSkill) {
+      problems.push(
+        `RankInsignia ${insignia.id}: another RankInsignia has min_base_skill ${insignia.minBaseSkill}`,
+      );
+    }
+  });
+  // COMBAT, EnemyArchetype: no two EnemyArchetypes share an `abbreviation`.
+  const abbreviations = new Set<string>();
+  for (const enemy of enemyArchetypes.values()) {
+    if (abbreviations.has(enemy.abbreviation)) {
+      problems.push(
+        `EnemyArchetype ${enemy.id}: another EnemyArchetype has abbreviation ${enemy.abbreviation}`,
+      );
+    }
+    abbreviations.add(enemy.abbreviation);
+  }
 
   // VIS, Background artwork: each names a Detail view, and no two name one Detail view.
   const shownIn = new Set<string>();
@@ -1302,6 +1343,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     missionSiteArchetypes,
     compendiumArticles,
     backgroundArtworks,
+    rankInsignias,
     detachedCombatTeams,
   };
 }

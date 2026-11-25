@@ -171,6 +171,7 @@ export function TurnReportView(props: {
         enemyAmmoType: (id) =>
           gameData?.weapons.find((weapon) => weapon.id === enemyOf(id)?.weapon)?.ammoType ?? null,
         shotOfAmmoType: (ammoType) => gameData?.ammoTypes.find((item) => item.id === ammoType)?.shot,
+        rankInsignias: gameData?.rankInsignias ?? [],
         seed: shownCombat.mission,
       });
       // CRPLAY, Whole screen: the Combat replay covers the status bar, the Side panel, and the Globe stage, and stays

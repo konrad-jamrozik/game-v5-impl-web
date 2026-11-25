@@ -73,7 +73,7 @@ const SELECTABLE_FIRST = 'selectable';
 const SERVING_WIDTHS = ['36px', '104px', '84px', '84px', '64px', '96px', '76px', '200px'];
 /**
  * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
- * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by high-commander-12". Where is the
+ * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by hcmd-12". Where is the
  * table's one column of free text: it takes the width the others leave, and a longer value ends in "…".
  */
 const MEMORIAL_WIDTHS = ['104px', '84px', '64px', '76px', '236px', '100px', '76px', '76px', '252px'];

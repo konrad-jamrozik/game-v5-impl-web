@@ -131,23 +131,27 @@ const source: ReplaySource = {
   enemyOrder: (id) => (id === 'enemy-1' ? 0 : 4),
   enemyAmmoType: (id) => (id === 'enemy-1' ? 'cells' : null),
   shotOfAmmoType: (ammoType) => (ammoType === 'cells' ? 'beam' : ammoType === 'rounds' ? 'burst' : undefined),
+  rankInsignias: [
+    { minBaseSkill: 100, mark: 'chevron', count: 1 },
+    { minBaseSkill: 300, mark: 'star', count: 1 },
+  ],
   seed: 'mission-7',
 };
 
 describe('CRPLAY: Rank insignia thresholds', () => {
   it('takes the Rank insignia from base skill rounded down, and none below the first threshold', () => {
-    expect(rankInsignia(9999)).toBeNull();
-    expect(rankInsignia(10000)).toEqual({ kind: 'chevron', count: 1 });
-    expect(rankInsignia(11999)).toEqual({ kind: 'chevron', count: 1 });
-    expect(rankInsignia(12000)).toEqual({ kind: 'chevron', count: 2 });
-    expect(rankInsignia(14500)).toEqual({ kind: 'chevron', count: 3 });
-    expect(rankInsignia(17500)).toEqual({ kind: 'bar', count: 1 });
-    expect(rankInsignia(21000)).toEqual({ kind: 'bar', count: 2 });
-    expect(rankInsignia(25000)).toEqual({ kind: 'bar', count: 3 });
-    expect(rankInsignia(30000)).toEqual({ kind: 'star', count: 1 });
-    expect(rankInsignia(45000)).toEqual({ kind: 'star', count: 2 });
-    expect(rankInsignia(69999)).toEqual({ kind: 'star', count: 2 });
-    expect(rankInsignia(70000)).toEqual({ kind: 'star', count: 3 });
+    // The thresholds in any order: the highest one reached wins.
+    const thresholds = [
+      { minBaseSkill: 350, mark: 'bar', count: 1 },
+      { minBaseSkill: 150, mark: 'chevron', count: 1 },
+      { minBaseSkill: 1000, mark: 'star', count: 3 },
+    ] as const;
+    expect(rankInsignia(14999, thresholds)).toBeNull();
+    expect(rankInsignia(15000, thresholds)).toEqual({ kind: 'chevron', count: 1 });
+    expect(rankInsignia(34999, thresholds)).toEqual({ kind: 'chevron', count: 1 });
+    expect(rankInsignia(35000, thresholds)).toEqual({ kind: 'bar', count: 1 });
+    expect(rankInsignia(100000, thresholds)).toEqual({ kind: 'star', count: 3 });
+    expect(rankInsignia(50000, [])).toBeNull();
   });
 });
 
@@ -170,7 +174,7 @@ describe('CRPLAY: Figures', () => {
     expect(enemyLook(-1)).toEqual({ shape: 'square', colour: 'amber', chevrons: 0 });
   });
 
-  it('names each figure, ranks it, and gives only an Enemy a look', () => {
+  it('names each figure, ranks only an Agent, and gives only an Enemy a look', () => {
     const replay = buildReplay(report(), source);
     expect(replay.figures.map((figure) => figure.name)).toEqual(['AGENT-1', 'AGENT-2', 'ENEMY-1', 'ENEMY-2']);
     expect(replay.figures.map((figure) => figure.look)).toEqual([
@@ -179,11 +183,12 @@ describe('CRPLAY: Figures', () => {
       { shape: 'triangle', colour: 'yellow', chevrons: 0 },
       { shape: 'square', colour: 'amber', chevrons: 1 },
     ]);
+    // An Enemy has no Rank insignia, however skilled, e.g. ENEMY-2 at a base skill past the star threshold.
     expect(replay.figures.map((figure) => figure.rank?.kind ?? null)).toEqual([
       'chevron',
       'chevron',
       null,
-      'star',
+      null,
     ]);
   });
 });

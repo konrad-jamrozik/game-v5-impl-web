@@ -18,26 +18,26 @@ export interface RankInsignia {
   readonly count: 1 | 2 | 3;
 }
 
-/** CRPLAY, Rank insignia thresholds: the least base skill of each Rank insignia, highest first. */
-const RANKS: readonly (readonly [number, RankInsignia])[] = [
-  [700, { kind: 'star', count: 3 }],
-  [450, { kind: 'star', count: 2 }],
-  [300, { kind: 'star', count: 1 }],
-  [250, { kind: 'bar', count: 3 }],
-  [210, { kind: 'bar', count: 2 }],
-  [175, { kind: 'bar', count: 1 }],
-  [145, { kind: 'chevron', count: 3 }],
-  [120, { kind: 'chevron', count: 2 }],
-  [100, { kind: 'chevron', count: 1 }],
-];
+/** CRPLAY, Rank insignia thresholds: a RankInsignia GDR, as the game data reports it. */
+export interface RankThreshold {
+  readonly minBaseSkill: number;
+  readonly mark: RankInsignia['kind'];
+  readonly count: RankInsignia['count'];
+}
 
 /**
- * CRPLAY, Rank insignia thresholds: the Rank insignia of a Combatant, from its base skill at Combat start rounded
- * down, or null below the first threshold.
+ * CRPLAY, Rank insignia thresholds: the Rank insignia of an Agent, from its base skill at Combat start rounded down:
+ * that of the RankInsignia with the highest `min_base_skill` it reaches, or null when it reaches none.
  */
-export function rankInsignia(baseSkillHundredths: number): RankInsignia | null {
+export function rankInsignia(
+  baseSkillHundredths: number,
+  thresholds: readonly RankThreshold[],
+): RankInsignia | null {
   const skill = Math.floor(baseSkillHundredths / 100);
-  return RANKS.find(([least]) => skill >= least)?.[1] ?? null;
+  const reached = thresholds
+    .filter((threshold) => skill >= threshold.minBaseSkill)
+    .sort((a, b) => b.minBaseSkill - a.minBaseSkill)[0];
+  return reached === undefined ? null : { kind: reached.mark, count: reached.count };
 }
 
 // ---- Enemy looks ---------------------------------------------------------------------------------
@@ -97,6 +97,8 @@ export interface ReplaySource {
   readonly agentAmmoType?: (id: string) => string | null;
   /** The `shot` of an AmmoType. */
   readonly shotOfAmmoType: (ammoType: string) => Exclude<ShotKind, 'blade'> | undefined;
+  /** CRPLAY, Rank insignia thresholds: every RankInsignia GDR of the Game build. */
+  readonly rankInsignias: readonly RankThreshold[];
   /** What the positions are derived from, so that one Combat always looks the same: the Mission's Instance ID. */
   readonly seed: string;
 }
@@ -330,7 +332,8 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
         maxHealth: who.start.maxHealth,
         baseSkillHundredths: who.start.skillHundredths,
         weaponDamage: who.start.weaponDamage,
-        rank: rankInsignia(who.start.skillHundredths),
+        // CRPLAY, Rank insignia thresholds: an Enemy's shape says how strong its kind is, so it has no Rank insignia.
+        rank: side === 'agent' ? rankInsignia(who.start.skillHundredths, source.rankInsignias) : null,
         look: side === 'enemy' ? enemyLook(source.enemyOrder(id)) : null,
       });
     });
