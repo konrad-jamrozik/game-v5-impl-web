@@ -4,7 +4,7 @@ import { historyView } from '../../src/engine/views/views.ts';
 import { act, addMissionSite, advance, agentIds, gdrs, newCampaign } from '../helpers/game.ts';
 
 describe('WHIST: History entry values for the Agency charts', () => {
-  it('example: holds the Turn-end activity and effective skills, the Turn-start caps, and the funding used', () => {
+  it('example: holds the Turn-end activity and base skills, the Turn-start caps, and the funding used', () => {
     const start = newCampaign({ money: 500 });
     const { state: withSite, site } = addMissionSite(start, 'apprehend_member');
     const [a1, a2, a3] = agentIds(withSite) as [string, string, string];
@@ -20,7 +20,7 @@ describe('WHIST: History entry values for the Agency charts', () => {
         0,
       ),
     ).toBe(open.servingAgents);
-    expect(open.effectiveSkills).toHaveLength(open.servingAgents);
+    expect(open.baseSkills).toHaveLength(open.servingAgents);
 
     const fundingBefore = state.world.current.agency.state.funding;
     const ended = advance(state);
@@ -30,8 +30,8 @@ describe('WHIST: History entry values for the Agency charts', () => {
     expect(
       Object.values(activity as unknown as Record<string, number>).reduce((sum, count) => sum + count, 0),
     ).toBe(entry.turnEnd.servingAgents);
-    expect(entry.turnEnd.effectiveSkills).toHaveLength(entry.turnEnd.servingAgents);
-    expect(entry.turnEnd.effectiveSkills.every((skill) => Number.isInteger(skill) && skill >= 0)).toBe(true);
+    expect(entry.turnEnd.baseSkills).toHaveLength(entry.turnEnd.servingAgents);
+    expect(entry.turnEnd.baseSkills.every((skill) => Number.isInteger(skill) && skill >= 0)).toBe(true);
     expect(entry.turnStart.caps).toEqual({
       agentCap: gdrs.economy.baseAgentCap,
       transportCap: gdrs.economy.baseTransportCap,

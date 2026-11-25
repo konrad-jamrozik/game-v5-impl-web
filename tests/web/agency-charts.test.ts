@@ -12,7 +12,7 @@ import {
   wornLines,
 } from '../../src/web/agency-charts.ts';
 
-describe('CVIEW: the lines over Agents by effective skill', () => {
+describe('CVIEW: the lines over Agents by base skill', () => {
   it('count the Agents recovering and above each exhaustion threshold, named with the thresholds', () => {
     const worn = (recovering: number, aboveWorkLimit: number, aboveFreePoints: number) =>
       summary({ wornAgents: { recovering, aboveWorkLimit, aboveFreePoints } });
@@ -51,7 +51,7 @@ const summary = (over: Partial<StateSummary> = {}): StateSummary => ({
     recovering: 0,
     inTransit: 0,
   },
-  effectiveSkills: [],
+  baseSkills: [],
   servingCombatRating: 0,
   deployableCombatRating: 0,
   wornAgents: { recovering: 0, aboveWorkLimit: 0, aboveFreePoints: 0 },
@@ -98,7 +98,7 @@ describe('CVIEW: Agency charts', () => {
     const open: OpenHistoryEntry = {
       turn: 7,
       turnStart: summary(),
-      turnEnd: summary({ effectiveSkills: skills }),
+      turnEnd: summary({ baseSkills: skills }),
       actions: [],
     };
     const { series, bars } = skillBands([], open, ranks);
@@ -111,11 +111,11 @@ describe('CVIEW: Agency charts', () => {
     expect(bars).toEqual([{ turn: 7, above: [5, 7, 0, 1], below: [] }]);
   });
 
-  it('puts every effective skill from the highest Rank up in its open-ended band, with the colours in order', () => {
+  it('puts every base skill from the highest Rank up in its open-ended band, with the colours in order', () => {
     const open: OpenHistoryEntry = {
       turn: 3,
       turnStart: summary(),
-      turnEnd: summary({ effectiveSkills: [749, 750, 2000] }),
+      turnEnd: summary({ baseSkills: [749, 750, 2000] }),
       actions: [],
     };
     const { series, bars } = skillBands([], open, ranks);

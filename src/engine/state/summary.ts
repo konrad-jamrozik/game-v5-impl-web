@@ -1,5 +1,5 @@
 import type { GdrCatalog } from '../../gdr/index.ts';
-import { agentCombatantValues, effectiveSkill, exhaustionOf } from '../mechanics/agents/agents.ts';
+import { exhaustionOf } from '../mechanics/agents/agents.ts';
 import { agentCombatantState, combatRating } from '../mechanics/combat/combat.ts';
 import { agencyCaps, agentUpgradeBonus } from '../mechanics/economy/economy.ts';
 import { currentContractingCap } from '../mechanics/leads/leads.ts';
@@ -15,7 +15,7 @@ import {
 
 /**
  * The reduced form of one World state that a History entry keeps. It also holds the Serving Agents by
- * activity and their effective skills, which AGENT, Turn report, requires of the Turn-end state, the Combat ratings of
+ * activity and their base skills, which AGENT, Turn report, requires of the Turn-end state, the Combat ratings of
  * the Serving and the Deployable Agents, which MISSION, Turn report, requires of it, and the Agency caps,
  * which ECON, Turn report, requires of the Turn-start state; every summary holds all of them, so the Turn-start and
  * Turn-end summaries share one shape.
@@ -54,9 +54,8 @@ export function summarize(world: CurrentWorldState, gdrs: GdrCatalog): StateSumm
     activeMissionSites: Object.values(world.missionSites).filter((site) => site.state.lifecycle === 'Active')
       .length,
     agentActivity: activity,
-    effectiveSkills: serving.map((agent) =>
-      effectiveSkill(agentCombatantValues(agent.state, bonus), gdrs.agentParameters),
-    ),
+    // AGENT, Turn report: the base skill of each Serving Agent, rounded down.
+    baseSkills: serving.map((agent) => Math.floor(agent.state.skillHundredths / 100)),
     servingCombatRating: rate(serving),
     deployableCombatRating: rate(
       serving.filter((agent) =>

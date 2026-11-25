@@ -531,8 +531,8 @@ export interface StateSummary {
   readonly activeMissionSites: number;
   /** AGENT, Turn report: the Serving Agents by activity; together they are every Serving Agent. */
   readonly agentActivity: AgentActivityCounts;
-  /** AGENT, Turn report: the effective skill of each Serving Agent, without its Instance ID. */
-  readonly effectiveSkills: readonly number[];
+  /** AGENT, Turn report: the base skill of each Serving Agent, rounded down, without its Instance ID. */
+  readonly baseSkills: readonly number[];
   /** MISSION, Turn report: the Combat rating of every Serving Agent taken as one side. */
   readonly servingCombatRating: number;
   /** MISSION, Turn report: the Combat rating of every Deployable Agent taken as one side. */

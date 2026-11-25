@@ -143,7 +143,7 @@ export interface BandRank {
 }
 
 /**
- * CVIEW, Agency charts, Agents by effective skill: the Serving Agents of each Turn-end state in the bands of the
+ * CVIEW, Agency charts, Agents by base skill: the Serving Agents of each Turn-end state, by base skill rounded down, in the bands of the
  * Ranks: a first band from 0 up to below the lowest `min_base_skill`, then one band for each Rank up to below the
  * next, the highest open-ended, each named by its range and a Rank's by its `name` in parentheses, e.g. "0–99",
  * "100–149 (Rookie)", and "750+ (Commander)", from the first band up to the highest that holds an Agent in any Turn
@@ -170,7 +170,7 @@ export function skillBands(
     });
     return band;
   };
-  const highest = Math.max(0, ...ends.flatMap(({ summary }) => summary.effectiveSkills.map(bandOf)));
+  const highest = Math.max(0, ...ends.flatMap(({ summary }) => summary.baseSkills.map(bandOf)));
   const count = highest + 1;
   const series = starts.slice(0, count).map((start, band) => {
     const next = starts[band + 1];
@@ -183,7 +183,7 @@ export function skillBands(
   });
   const bars = ends.map(({ turn, summary }) => {
     const above = Array.from({ length: count }, () => 0);
-    for (const skill of summary.effectiveSkills) {
+    for (const skill of summary.baseSkills) {
       const band = bandOf(skill);
       above[band] = (above[band] ?? 0) + 1;
     }
@@ -192,11 +192,11 @@ export function skillBands(
   return { series, bars };
 }
 
-/** VIS, Chart series colours: the three lines over the Agents by effective skill chart. */
+/** VIS, Chart series colours: the three lines over the Agents by base skill chart. */
 const WORN_COLORS = { recovering: '#FF4D4D', aboveWorkLimit: '#FF9A2E', aboveFreePoints: '#FFE14D' } as const;
 
 /**
- * CVIEW, Agency charts, Agents by effective skill: the lines over the bars, of the Serving Agents of each Turn-end
+ * CVIEW, Agency charts, Agents by base skill: the lines over the bars, of the Serving Agents of each Turn-end
  * state that are recovering, whose exhaustion is above `exhaustion_work_limit`, and whose exhaustion is above
  * `exhaustion_free_points`, named with those thresholds, e.g. "Exhaustion > 70" and "Exhaustion > 30".
  */
