@@ -405,7 +405,7 @@ export function CombatReplay(props: {
     playTo(playback, replay, total, false);
     refresh();
   };
-  /** CRPLAY, Transport buttons: a pace button pressed with Ctrl held also sets the Options to the values of its pace. */
+  /** CRPLAY, Transport buttons: a pace button pressed with Ctrl held only sets the Options to the values of its pace. */
   const setOptionsTo = (next: Pace) => {
     setSpeedMs(next.speedMs);
     if (next.delayMs !== null) {
