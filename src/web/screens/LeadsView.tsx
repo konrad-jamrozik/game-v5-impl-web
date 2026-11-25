@@ -331,12 +331,30 @@ function Team(props: {
             <span className="label">Current team</span>
             <span className="figure tone-accent">{investigation.currentTeam.length}</span>
           </div>
-          <Grid widths={['110px', '32px', '64px', '110px']} className="compact">
+          {/* LVIEW, Team, Current team: headed Agent, Status, and Skill; Status holds "In transit" and the icon. */}
+          <Grid widths={['110px', '120px', '64px', '110px']} className="compact" testId="current-team">
+            <thead>
+              <tr>
+                <th>Agent</th>
+                <th>Status</th>
+                <th className="num" title="Effective skill">
+                  Skill
+                </th>
+                <th />
+              </tr>
+            </thead>
             <tbody>
               {investigation.currentTeam.map((member) => (
                 <tr key={member.agent}>
                   <td className="figure">{member.agent}</td>
-                  <td className="muted">{member.agentStatus === 'InTransit' ? <InTransitIcon /> : null}</td>
+                  <td className="muted">
+                    {member.agentStatus === 'InTransit' ? (
+                      <span className="assignment-cell">
+                        In transit
+                        <InTransitIcon />
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="num">{agentById(member.agent)?.effectiveSkill ?? '-'}</td>
                   <td>
                     <Button
