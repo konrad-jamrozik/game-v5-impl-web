@@ -2342,7 +2342,8 @@ label:has(> input[type='checkbox']:disabled) {
   text-align: left;
 }
 
-/* AVIEW, Agent table: "Investigating" or "Deployed" leads to the Lead or Mission site; a dotted line shows it does. */
+/* AVIEW, Agent table: "Investigating" or "Deployed" leads to the Lead or Mission site; it reads as plain text and is
+   underlined only while the pointer rests on it or it has the keyboard focus. */
 .assignment-link {
   padding: 0;
   border: 0;
@@ -2350,8 +2351,6 @@ label:has(> input[type='checkbox']:disabled) {
   color: inherit;
   font: inherit;
   cursor: pointer;
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
 }
 
 .assignment-link:hover,
