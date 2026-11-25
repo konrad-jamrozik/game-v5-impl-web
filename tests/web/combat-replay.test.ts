@@ -2,8 +2,10 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { CombatReport } from '../../src/engine/index.ts';
 import {
-  BATTLEFIELD_CELLS,
+  BATTLEFIELD_COLUMNS,
+  BATTLEFIELD_ROWS,
   PACES,
+  RATINGS_CORNER,
   advance,
   buildReplay,
   enemyLook,
@@ -17,6 +19,7 @@ import {
   rankInsignia,
   ratingRanks,
   ratingsAt,
+  ratingsRatioText,
   roundEnd,
   settledIndex,
   shownRange,
@@ -184,11 +187,11 @@ describe('CRPLAY: Battlefield layout', () => {
     const { figures } = buildReplay(report(), source);
     const agents = figures.filter((figure) => figure.side === 'agent');
     const enemies = figures.filter((figure) => figure.side === 'enemy');
-    expect(Math.max(...agents.map((figure) => figure.x))).toBeLessThan(BATTLEFIELD_CELLS / 2);
-    expect(Math.min(...enemies.map((figure) => figure.x))).toBeGreaterThanOrEqual(BATTLEFIELD_CELLS / 2);
+    expect(Math.max(...agents.map((figure) => figure.x))).toBeLessThan(BATTLEFIELD_COLUMNS / 2);
+    expect(Math.min(...enemies.map((figure) => figure.x))).toBeGreaterThanOrEqual(BATTLEFIELD_COLUMNS / 2);
     for (const figure of figures) {
       expect(figure.y).toBeGreaterThanOrEqual(0);
-      expect(figure.y).toBeLessThan(BATTLEFIELD_CELLS);
+      expect(figure.y).toBeLessThan(BATTLEFIELD_ROWS);
     }
   });
 
@@ -253,7 +256,44 @@ describe('CRPLAY: Battlefield layout', () => {
         .sort((a, b) => a - b);
       const gaps = rows.slice(1).map((y, at) => y - (rows[at] ?? 0));
       expect(new Set(gaps).size).toBeLessThanOrEqual(1);
-      expect(Math.abs(mean(rows) - BATTLEFIELD_CELLS / 2)).toBeLessThanOrEqual(2);
+      expect(Math.abs(mean(rows) - BATTLEFIELD_ROWS / 2)).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('leaves the eight cells around every figure free, and the ratings corner too, even for the largest sides', () => {
+    for (const [agents, enemies] of [
+      [4, 12],
+      [24, 30],
+      [129, 129],
+    ] as const) {
+      const crowd: CombatReport = {
+        ...report(),
+        agents: Array.from({ length: agents }, (_, k) => `agent-${k}`),
+        enemies: Array.from({ length: enemies }, (_, k) => `enemy-${k}`),
+        participants: [
+          ...Array.from({ length: agents }, (_, k) => participant(`agent-${k}`, 'agent', 40 + (k % 7) * 60)),
+          ...Array.from({ length: enemies }, (_, k) => participant(`enemy-${k}`, 'enemy', 40 + (k % 9) * 50)),
+        ],
+        log: [],
+      };
+      const { figures } = buildReplay(crowd, source);
+      expect(figures).toHaveLength(agents + enemies);
+      figures.forEach((a, i) => {
+        expect(a.x).toBeGreaterThanOrEqual(0);
+        expect(a.x).toBeLessThan(BATTLEFIELD_COLUMNS);
+        expect(a.y).toBeGreaterThanOrEqual(0);
+        expect(a.y).toBeLessThan(BATTLEFIELD_ROWS);
+        expect(
+          a.x >= BATTLEFIELD_COLUMNS - RATINGS_CORNER.columns && a.y < RATINGS_CORNER.rows,
+          `${a.id} stands under the Combat ratings`,
+        ).toBe(false);
+        for (const b of figures.slice(i + 1)) {
+          expect(
+            Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)),
+            `${a.id} beside ${b.id}`,
+          ).toBeGreaterThanOrEqual(2);
+        }
+      });
     }
   });
 
@@ -270,6 +310,15 @@ describe('CRPLAY: Battlefield layout', () => {
     };
     const cells = buildReplay(horde, source).figures.map((figure) => `${figure.x},${figure.y}`);
     expect(new Set(cells).size).toBe(cells.length);
+  });
+});
+
+describe('CRPLAY: Combat ratings', () => {
+  it("gives the Agents' Combat rating as a whole percent of the Enemies', or a dash against none", () => {
+    expect(ratingsRatioText({ agents: 115, enemies: 100 })).toBe('115%');
+    expect(ratingsRatioText({ agents: 554, enemies: 112 })).toBe('495%');
+    expect(ratingsRatioText({ agents: 1, enemies: 3 })).toBe('33%');
+    expect(ratingsRatioText({ agents: 50, enemies: 0 })).toBe('–');
   });
 });
 

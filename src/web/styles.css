@@ -3351,9 +3351,8 @@ label:has(> input[type='checkbox']:disabled) {
 /* CRPLAY, Whole screen: the Combat replay covers the whole screen it was opened on, as a Detail view without the inset
    and without the Accent top edge. It sits above the screen and below the Scrim of a dialog. */
 .replay-whole-screen {
-  /* The height the Combat replay takes above and below the Battlefield: its title row, the Combat ratings bar, and the
-     padding around them. */
-  --replay-chrome: 150px;
+  /* The height the Combat replay takes above and below the Battlefield: its title row and the padding around it. */
+  --replay-chrome: 116px;
   position: fixed;
   left: var(--screen-x);
   top: var(--screen-y);
@@ -3425,22 +3424,36 @@ label:has(> input[type='checkbox']:disabled) {
   line-height: 1;
 }
 
-/* CRPLAY, Playback: the Combat ratings of the two sides, the Agents' share in Positive against the Enemies' in Danger. */
-.replay-balance {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.replay-bar {
+/* CRPLAY, Attack being played: the Combat ratings of the two sides as a pie chart in the top right corner of the
+   Battlefield, the Agents' share in Positive against the Enemies' in Danger, with their values and ratio under it,
+   all sized in cells so that they keep to the corner the figures leave free. */
+.replay-ratings {
+  position: absolute;
+  top: 0;
+  right: 0;
   display: flex;
-  height: 8px;
-  background: var(--danger);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(var(--replay-cell) * 0.15);
+  padding: calc(var(--replay-cell) * 0.35);
+  font-size: max(9px, calc(var(--replay-cell) * 0.7));
+  line-height: 1.1;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
-.replay-bar > i {
-  background: var(--positive);
+.replay-pie {
+  width: calc(var(--replay-cell) * 3);
+  height: calc(var(--replay-cell) * 3);
+  margin-bottom: calc(var(--replay-cell) * 0.15);
+}
+
+.replay-pie .pie-agents {
+  fill: var(--positive);
+}
+
+.replay-pie .pie-enemies {
+  fill: var(--danger);
 }
 
 /* CSIM, Layout: the Combat simulator gives its whole width to the Teams pane and the Combat replay to its right. */
@@ -3575,9 +3588,10 @@ label:has(> input[type='checkbox']:disabled) {
   position: relative;
   /* CRPLAY, Battlefield layout: centred in the width it is given. */
   margin: 0 auto;
-  width: min(100%, calc(var(--screen-h) - var(--replay-chrome, 316px)));
+  /* As wide as the height left over holds 32 rows of the 40 columns. */
+  width: min(100%, calc((var(--screen-h) - var(--replay-chrome, 282px)) * 40 / 32));
   min-width: 320px;
-  aspect-ratio: 1;
+  aspect-ratio: 40 / 32;
 }
 
 .replay-canvas canvas {

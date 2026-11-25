@@ -6,8 +6,11 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import type { CombatReport } from '../../engine/index.ts';
 import { attackResultText, combatLogRow } from '../combat-log.ts';
 import {
+  BATTLEFIELD_COLUMNS,
+  BATTLEFIELD_ROWS,
   DELAYS_MS,
   PACES,
+  RATINGS_CORNER,
   SPEEDS_MS,
   advance,
   jumpTo,
@@ -17,6 +20,7 @@ import {
   playAttack,
   playTo,
   ratingsAt,
+  ratingsRatioText,
   roundEnd,
   settledIndex,
   shownRange,
@@ -108,6 +112,29 @@ function BackOneSymbol() {
 }
 
 /** CRPLAY: a button that shows a symbol and no label; its name is its tooltip and its accessible name. */
+/** CRPLAY, Attack being played: the Agents' share of the two Combat ratings in Positive, the rest in Danger. */
+function RatingsPie({ share }: { share: number }) {
+  const angle = share * 2 * Math.PI;
+  const x = 50 + 50 * Math.sin(angle);
+  const y = 50 - 50 * Math.cos(angle);
+  return (
+    <svg
+      className="replay-pie"
+      viewBox="0 0 100 100"
+      role="img"
+      aria-label={`Agents' share of the Combat ratings: ${Math.round(share * 100)}%`}
+    >
+      <circle cx="50" cy="50" r="50" className={share >= 1 ? 'pie-agents' : 'pie-enemies'} />
+      {share <= 0 || share >= 1 ? null : (
+        <path
+          className="pie-agents"
+          d={`M50 50 L50 0 A50 50 0 ${share > 0.5 ? 1 : 0} 1 ${x.toFixed(3)} ${y.toFixed(3)} Z`}
+        />
+      )}
+    </svg>
+  );
+}
+
 function SymbolButton(props: {
   name: string;
   testId: string;
@@ -198,7 +225,7 @@ export function CombatReplay(props: {
       const pixels = Math.round(now.size * ratio);
       if (canvas.width !== pixels) {
         canvas.width = pixels;
-        canvas.height = pixels;
+        canvas.height = Math.round((now.size * BATTLEFIELD_ROWS * ratio) / BATTLEFIELD_COLUMNS);
       }
       const ctx = canvas.getContext('2d');
       paletteRef.current ??= readPalette(canvas);
@@ -381,7 +408,9 @@ export function CombatReplay(props: {
   const several = combat.log.slice(from, to);
   const ratings = ratingsAt(combat, replay, settled);
   const share =
-    ratings.agents + ratings.enemies === 0 ? 50 : (100 * ratings.agents) / (ratings.agents + ratings.enemies);
+    ratings.agents + ratings.enemies === 0 ? 0.5 : ratings.agents / (ratings.agents + ratings.enemies);
+  const cell = size / BATTLEFIELD_COLUMNS;
+  const height = cell * BATTLEFIELD_ROWS;
   const hoveredFigure = hovered === null ? undefined : replay.figures[hovered.index];
   const hoveredValues = hovered === null ? undefined : replay.frames[settled]?.[hovered.index];
   const shownRow = shownAttack === undefined ? null : combatLogRow(shownAttack, sideOf);
@@ -432,20 +461,12 @@ export function CombatReplay(props: {
   return (
     <div className="replay" data-testid="combat-replay">
       <section className="pane replay-field">
-        {/* CRPLAY, Attack being played: the Combat ratings of the two sides as of the last Combat round completed. */}
-        <div className="replay-balance" data-testid="replay-ratings">
-          <span className="figure tone-good">{ratings.agents}</span>
-          <div className="replay-bar" role="img" aria-label="Combat rating of the Agents against the Enemies">
-            <i style={{ width: `${share}%` }} />
-          </div>
-          <span className="figure tone-bad">{ratings.enemies}</span>
-        </div>
         <div className="replay-canvas" ref={wrapRef}>
           <canvas
             ref={canvasRef}
             data-testid="replay-battlefield"
             aria-label="Battlefield: the Agents on the left and the Enemies on the right"
-            style={{ width: size, height: size }}
+            style={{ width: size, height }}
             onMouseMove={(event) => {
               const box = event.currentTarget.getBoundingClientRect();
               const x = event.clientX - box.left;
@@ -457,6 +478,26 @@ export function CombatReplay(props: {
               setHovered(null);
             }}
           />
+          {/* CRPLAY, Attack being played: the Combat ratings of the two sides as of the last Combat round completed,
+              as a pie chart in the top right corner of the Battlefield, with their values and ratio under it. */}
+          <div
+            className="replay-ratings"
+            data-testid="replay-ratings"
+            style={
+              {
+                width: cell * RATINGS_CORNER.columns,
+                height: cell * RATINGS_CORNER.rows,
+                '--replay-cell': `${cell}px`,
+              } as CSSProperties
+            }
+          >
+            <RatingsPie share={share} />
+            <div className="figure">
+              <span className="tone-good">{ratings.agents}</span> :{' '}
+              <span className="tone-bad">{ratings.enemies}</span>
+            </div>
+            <div className="figure">{ratingsRatioText(ratings)}</div>
+          </div>
           {hovered === null || hoveredFigure === undefined || hoveredValues === undefined ? null : (
             <div
               className="replay-tip small"

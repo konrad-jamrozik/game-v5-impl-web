@@ -3,7 +3,9 @@
  * steps being played, so that going back, the slider, and a paused step need no clean-up.
  */
 import {
-  BATTLEFIELD_CELLS,
+  BATTLEFIELD_COLUMNS,
+  BATTLEFIELD_ROWS,
+  sideNamed,
   settledIndex,
   shownRange,
   type EnemyLook,
@@ -54,7 +56,7 @@ export function readPalette(element: Element): ReplayPalette {
 export interface DrawInput {
   readonly replay: Replay;
   readonly playback: Playback;
-  /** The side of the square canvas, in CSS pixels. */
+  /** The width of the canvas, in CSS pixels; its height holds as many rows of cells of the same size. */
   readonly size: number;
   readonly palette: ReplayPalette;
   readonly instant: boolean;
@@ -86,7 +88,7 @@ const bodyRadius = (cell: number) => cell * 0.38;
 
 /** The index of the figure under a point of the canvas, or null. */
 export function figureAt(replay: Replay, size: number, x: number, y: number): number | null {
-  const cell = size / BATTLEFIELD_CELLS;
+  const cell = size / BATTLEFIELD_COLUMNS;
   const index = replay.figures.findIndex((figure) => {
     const [cx, cy] = centre(figure, cell);
     return Math.hypot(cx - x, cy - y) <= cell * 0.6;
@@ -244,7 +246,7 @@ function drawFigure(
   named: boolean,
 ): void {
   const { palette } = input;
-  const cell = input.size / BATTLEFIELD_CELLS;
+  const cell = input.size / BATTLEFIELD_COLUMNS;
   const [homeX, homeY] = centre(figure, cell);
   const cx = homeX + offset[0];
   const cy = homeY + offset[1];
@@ -376,7 +378,7 @@ function drawShot(
   sign: number,
 ): void {
   const { palette, replay } = input;
-  const cell = input.size / BATTLEFIELD_CELLS;
+  const cell = input.size / BATTLEFIELD_COLUMNS;
   const attacker = replay.figures[attack.attacker];
   const defender = replay.figures[attack.defender];
   if (attacker === undefined || defender === undefined) {
@@ -512,7 +514,7 @@ function drawHits(ctx: CanvasRenderingContext2D, input: DrawInput, step: Playbac
     return;
   }
   const { palette, replay } = input;
-  const cell = input.size / BATTLEFIELD_CELLS;
+  const cell = input.size / BATTLEFIELD_COLUMNS;
   const r = bodyRadius(cell);
   const k = (step.t - T_HIT) / (1 - T_HIT);
   const hits = new Map<
@@ -592,28 +594,27 @@ function drawHits(ctx: CanvasRenderingContext2D, input: DrawInput, step: Playbac
 /** Draws the Battlefield as it is right now. The context is scaled so that one unit is one CSS pixel. */
 export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): void {
   const { replay, playback, palette, size } = input;
-  const cell = size / BATTLEFIELD_CELLS;
-  ctx.clearRect(0, 0, size, size);
+  const cell = size / BATTLEFIELD_COLUMNS;
+  const height = cell * BATTLEFIELD_ROWS;
+  ctx.clearRect(0, 0, size, height);
   ctx.strokeStyle = palette.divider;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let k = 1; k < BATTLEFIELD_CELLS; k += 1) {
+  for (let k = 1; k < BATTLEFIELD_COLUMNS; k += 1) {
     const p = Math.round(k * cell) + 0.5;
     ctx.moveTo(p, 0);
-    ctx.lineTo(p, size);
+    ctx.lineTo(p, height);
+  }
+  for (let k = 1; k < BATTLEFIELD_ROWS; k += 1) {
+    const p = Math.round(k * cell) + 0.5;
     ctx.moveTo(0, p);
     ctx.lineTo(size, p);
   }
   ctx.stroke();
 
-  // CRPLAY, Figures, Name: a side with more Combatants than the Battlefield has rows shows no names, which would
-  // lie over one another.
   const sideCount = (side: 'agent' | 'enemy') =>
     replay.figures.filter((figure) => figure.side === side).length;
-  const crowded = {
-    agent: sideCount('agent') > BATTLEFIELD_CELLS,
-    enemy: sideCount('enemy') > BATTLEFIELD_CELLS,
-  };
+  const named = { agent: sideNamed(sideCount('agent')), enemy: sideNamed(sideCount('enemy')) };
   const settled = settledIndex(playback);
   const base = replay.frames[settled] ?? [];
   const playing = playback.active.length > 0;
@@ -697,7 +698,7 @@ export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): voi
         condition = after.condition;
       }
     }
-    drawFigure(ctx, input, figure, { health, armor, condition }, offset, !crowded[figure.side]);
+    drawFigure(ctx, input, figure, { health, armor, condition }, offset, named[figure.side]);
   });
 
   for (const step of playback.active) {

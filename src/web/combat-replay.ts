@@ -7,8 +7,14 @@ import type { CombatReport } from '../engine/index.ts';
 type Participant = CombatReport['participants'][number];
 type AttackRecord = CombatReport['log'][number];
 
-/** CRPLAY, Battlefield layout: the Battlefield is a grid of this many cells by as many. */
-export const BATTLEFIELD_CELLS = 30;
+/** CRPLAY, Battlefield layout: the Battlefield is a grid this many cells wide and this many high. */
+export const BATTLEFIELD_COLUMNS = 40;
+export const BATTLEFIELD_ROWS = 32;
+/**
+ * CRPLAY, Battlefield layout: the top right corner of the Battlefield that the Combat ratings stand in, in cells, kept
+ * free of figures and of their names.
+ */
+export const RATINGS_CORNER = { columns: 7, rows: 6 } as const;
 
 // ---- Rank insignia -------------------------------------------------------------------------------
 
@@ -170,12 +176,17 @@ function seeded(seed: string): () => number {
 
 /**
  * The columns of the Battlefield each side stands in, from its front column, the one nearest the other side, away from
- * it: room is left outside them for names and between them for shots.
+ * it, two cells apart so that no figure has another beside it: room is left outside them for names and between the
+ * two sides for shots.
  */
-const SIDE_COLUMNS = { agent: { front: 11, away: -1 }, enemy: { front: 18, away: 1 } } as const;
+const SIDE_COLUMNS = { agent: { front: 17, away: -2 }, enemy: { front: 22, away: 2 } } as const;
 /** How many columns deep a side stands, and the most it may take when it has more Combatants than those hold. */
 const SIDE_DEPTH = 7;
 const SIDE_DEPTH_MAX = 9;
+/** The fewest rows apart two neighbours of one column stand, so that no figure has another above or below it. */
+const ROW_GAP_MIN = 2;
+/** How many cells a name and a Rank insignia reach from the cell of their figure, to keep out of the ratings corner. */
+const NAME_REACH = 5;
 /** How far chance moves a figure from the depth its Combat rating alone gives it, as a share of the side's depth. */
 const DEPTH_CHANCE = 0.3;
 /**
@@ -183,6 +194,14 @@ const DEPTH_CHANCE = 0.3;
  * are staggered, each one row below the column before it, so that a name beside a figure has that many cells free.
  */
 const ROW_GAP_MAX = 4;
+
+/**
+ * CRPLAY, Figures, Name: a side with more Combatants than the Battlefield has rows shows no names, which would lie over
+ * one another.
+ */
+export function sideNamed(count: number): boolean {
+  return count <= BATTLEFIELD_ROWS;
+}
 
 /**
  * CRPLAY, Battlefield layout: where among the Combat ratings of its side each one stands, from 0 for the lowest to 1
@@ -210,7 +229,21 @@ function sideCells(
 ): { x: number; y: number }[] {
   const count = ratings.length;
   const columns = SIDE_COLUMNS[side];
-  const depth = Math.min(SIDE_DEPTH_MAX, Math.max(SIDE_DEPTH, Math.ceil(count / BATTLEFIELD_CELLS)));
+  const named = sideNamed(count);
+  const xOf = (back: number) => columns.front + columns.away * back;
+  // The first row a column may use: below the ratings corner when its figures, or the names the Enemies have on their
+  // right, would reach into it.
+  const topOf = (back: number) => {
+    const reach = xOf(back) + (side === 'enemy' && named ? NAME_REACH : 0);
+    return reach >= BATTLEFIELD_COLUMNS - RATINGS_CORNER.columns ? RATINGS_CORNER.rows : 0;
+  };
+  const holds = (back: number, gap: number) => Math.floor((BATTLEFIELD_ROWS - topOf(back) - 1) / gap) + 1;
+  const room = (depth: number, gap: number) =>
+    Array.from({ length: depth }, (_, back) => holds(back, gap)).reduce((sum, places) => sum + places, 0);
+  // A side stands with free neighbours whenever its columns hold it so; a side larger than that, which no Combat has,
+  // stands closer rather than two figures in one cell.
+  const minGap = count <= room(SIDE_DEPTH_MAX, ROW_GAP_MIN) ? ROW_GAP_MIN : 1;
+  const depth = count <= room(SIDE_DEPTH, minGap) ? SIDE_DEPTH : SIDE_DEPTH_MAX;
   const ranks = ratingRanks(ratings);
   // Who stands in each column, from the front one. A column that is full sends a Combatant to the nearest with room.
   const members: number[][] = Array.from({ length: depth }, () => []);
@@ -219,23 +252,26 @@ function sideCells(
     const wanted = Math.min(depth - 1, Math.max(0, Math.floor(place * depth)));
     const roomy = members
       .map((_, column) => column)
-      .filter((column) => (members[column]?.length ?? 0) < BATTLEFIELD_CELLS)
+      .filter((column) => (members[column]?.length ?? 0) < holds(column, minGap))
       .sort((a, b) => Math.abs(a - wanted) - Math.abs(b - wanted) || b - a);
     members[roomy[0] ?? wanted]?.push(k);
   }
   const cells: { x: number; y: number }[] = Array.from({ length: count }, () => ({ x: 0, y: 0 }));
   members.forEach((column, back) => {
-    const gap = Math.min(ROW_GAP_MAX, BATTLEFIELD_CELLS / Math.max(1, column.length));
-    const middle = BATTLEFIELD_CELLS / 2 - ((column.length - 1) / 2) * gap;
+    const top = topOf(back);
+    let gap = Math.min(ROW_GAP_MAX, BATTLEFIELD_ROWS / Math.max(1, column.length));
+    const middle = BATTLEFIELD_ROWS / 2 - ((column.length - 1) / 2) * gap;
     const stagger = back % ROW_GAP_MAX;
-    const top =
+    let first =
       gap === ROW_GAP_MAX ? stagger + ROW_GAP_MAX * Math.round((middle - stagger) / ROW_GAP_MAX) : middle;
+    // A column that would reach into the ratings corner stands lower, closer when it must.
+    if (first < top) {
+      gap = Math.min(gap, (BATTLEFIELD_ROWS - top) / Math.max(1, column.length));
+      first = top;
+    }
     column.forEach((k, place) => {
-      const y = Math.floor(top + place * gap);
-      cells[k] = {
-        x: columns.front + columns.away * back,
-        y: Math.min(BATTLEFIELD_CELLS - 1, Math.max(0, y)),
-      };
+      const y = Math.floor(first + place * gap);
+      cells[k] = { x: xOf(back), y: Math.min(BATTLEFIELD_ROWS - 1, Math.max(0, y)) };
     });
   });
   return cells;
@@ -351,6 +387,14 @@ export function ratingsAt(
   const last = report.ratings[report.ratings.length - 1];
   const found = next === undefined ? last : report.ratings.find((rating) => rating.round === next.round - 1);
   return { agents: (found ?? last)?.agents ?? 0, enemies: (found ?? last)?.enemies ?? 0 };
+}
+
+/**
+ * CRPLAY, Attack being played: the Agents' Combat rating as a percentage of the Enemies', rounded to a whole percent,
+ * or "–" when the Enemies' Combat rating is 0.
+ */
+export function ratingsRatioText(ratings: { readonly agents: number; readonly enemies: number }): string {
+  return ratings.enemies === 0 ? '–' : `${Math.round((100 * ratings.agents) / ratings.enemies)}%`;
 }
 
 // ---- Stepping ------------------------------------------------------------------------------------
