@@ -73,7 +73,11 @@ export function LineChart(props: {
   const low = Math.min(0, ...values);
   const top = roundUp(Math.max(props.limit ?? 0, ...values, 1));
   const turnSpan = Math.max(1, last.turn - first.turn);
-  const x = (turn: number) => PAD.left + ((turn - first.turn) / turnSpan) * (width - PAD.left - PAD.right);
+  // VIS, Charts: the vertical axis labels its top and bottom values, so the plot starts after the widest of them,
+  // in the Axis style, 11 px JetBrains Mono, about 6.7 px a character, 6 px from the plot.
+  const widestLabel = Math.max(...[top, top / 2, low].map((value) => String(value).length));
+  const padLeft = Math.max(PAD.left, Math.ceil(widestLabel * 6.7) + 10);
+  const x = (turn: number) => padLeft + ((turn - first.turn) / turnSpan) * (width - padLeft - PAD.right);
   const y = (value: number) => PAD.top + ((top - value) / (top - low)) * (height - PAD.top - PAD.bottom);
   const line = points
     .map(
@@ -126,23 +130,23 @@ export function LineChart(props: {
         }}
       >
         {headline ? (
-          <line className="chart-grid" x1={PAD.left} x2={width - PAD.right} y1={y(middle)} y2={y(middle)} />
+          <line className="chart-grid" x1={padLeft} x2={width - PAD.right} y1={y(middle)} y2={y(middle)} />
         ) : null}
-        <line className="chart-grid" x1={PAD.left} x2={width - PAD.right} y1={y(top)} y2={y(top)} />
-        <line className="chart-base" x1={PAD.left} x2={width - PAD.right} y1={y(0)} y2={y(0)} />
-        <text className="chart-tick" x={PAD.left - 6} y={y(top) + 4} textAnchor="end">
+        <line className="chart-grid" x1={padLeft} x2={width - PAD.right} y1={y(top)} y2={y(top)} />
+        <line className="chart-base" x1={padLeft} x2={width - PAD.right} y1={y(0)} y2={y(0)} />
+        <text className="chart-tick" x={padLeft - 6} y={y(top) + 4} textAnchor="end">
           {top}
         </text>
         {headline ? (
-          <text className="chart-tick" x={PAD.left - 6} y={y(middle) + 4} textAnchor="end">
+          <text className="chart-tick" x={padLeft - 6} y={y(middle) + 4} textAnchor="end">
             {middle}
           </text>
         ) : null}
-        <text className="chart-tick" x={PAD.left - 6} y={y(0) + 4} textAnchor="end">
+        <text className="chart-tick" x={padLeft - 6} y={y(0) + 4} textAnchor="end">
           0
         </text>
         {low < 0 ? (
-          <text className="chart-tick" x={PAD.left - 6} y={y(low) + 4} textAnchor="end">
+          <text className="chart-tick" x={padLeft - 6} y={y(low) + 4} textAnchor="end">
             {low}
           </text>
         ) : null}
@@ -150,14 +154,14 @@ export function LineChart(props: {
           <>
             <rect
               className="chart-band"
-              x={PAD.left}
+              x={padLeft}
               y={y(props.limit)}
-              width={width - PAD.left - PAD.right}
+              width={width - padLeft - PAD.right}
               height={Math.min(14, y(0) - y(props.limit))}
             />
             <line
               className="chart-limit"
-              x1={PAD.left}
+              x1={padLeft}
               x2={width - PAD.right}
               y1={y(props.limit)}
               y2={y(props.limit)}
@@ -173,7 +177,7 @@ export function LineChart(props: {
             </text>
           </>
         )}
-        <text className="chart-tick" x={PAD.left} y={height - 6} textAnchor="start">
+        <text className="chart-tick" x={padLeft} y={height - 6} textAnchor="start">
           T{first.turn}
         </text>
         <text className="chart-tick" x={width - PAD.right} y={height - 6} textAnchor="end">
