@@ -1,5 +1,5 @@
 /**
- * COMPV: the Compendium View. Three panes narrow the Player-visible Compendium articles from a category to one
+ * COMPV: the Compendium View. Category tabs and two panes narrow the Player-visible Compendium articles from a category to one
  * article, a search field filters them by displayed title, and Article links lead from one article to the next, with
  * the Article history to return by. The engine returns only the Player-visible articles, each in its resolved form
  * (COMP); this view shows the segments as reported and adds the Data sheet of a Subject article. While Reveal hidden
@@ -162,11 +162,17 @@ export function CompendiumView(props: {
   const article = all.find((item) => item.id === currentArticle(history)) ?? null;
 
   const matching = searchArticles(all, search);
-  const categories = compendiumCategories(matching);
-  // The category of the article shown is selected; while the search leaves it out, the first category is listed.
+  // COMPV, Panes, Category tabs: a tab for every category with a Player-visible article, whatever the search text;
+  // while the search leaves a category without a match, its tab is disabled and dimmed but keeps its place.
+  const tabs = compendiumCategories(all);
+  const matched = new Set(compendiumCategories(matching).map((category) => category.name));
+  // The category of the article shown is selected; while the search leaves it without a match, the first category
+  // with a match is listed.
   const selected = article === null ? null : categoryOf(article);
   const shownCategory =
-    categories.find((category) => category.name === selected)?.name ?? categories[0]?.name ?? null;
+    selected !== null && matched.has(selected)
+      ? selected
+      : (tabs.find((category) => matched.has(category.name))?.name ?? null);
   const listed = shownCategory === null ? [] : articlesOf(matching, shownCategory);
 
   /** COMPV, Following links, Show another article. */
@@ -205,50 +211,20 @@ export function CompendiumView(props: {
     <DetailView
       id="compendium"
       title="Compendium"
-      actions={
-        <label className="search-field">
-          <span className="muted">Search</span>
-          <input
-            ref={searchField}
-            type="search"
-            className="search"
-            placeholder="Title (press S)"
-            aria-label="Search the Compendium by title"
-            data-testid="compendium-search"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-            }}
-            onKeyDown={(event) => {
-              // COMPV, Panes: Enter shows the first article listed under the search text and moves the keyboard focus
-              // out of the search field, keeping its text; with no match it does nothing. SOUNDS, Select click, Search.
-              if (event.key !== 'Enter') {
-                return;
-              }
-              event.preventDefault();
-              const first = firstMatchingArticle(all, search);
-              if (first === null) {
-                return;
-              }
-              playSound(SOUND.select);
-              show(first);
-              event.currentTarget.blur();
-            }}
-          />
-        </label>
-      }
-      onClose={props.onClose}
-    >
-      <div className="panes panes-compendium">
-        <div className="pane pane-list" data-testid="compendium-categories">
-          {categories.length === 0 ? <p className="muted">No article matches.</p> : null}
-          {categories.map((category) => (
+      lead={
+        // COMPV, Panes, Category tabs: one row in the title row, between the title and the search field, without
+        // counts; it scrolls sideways when it is wider than its room and never wraps.
+        <div className="compendium-tabs" role="tablist" data-testid="compendium-categories">
+          {tabs.map((category) => (
             <button
               key={category.name}
               type="button"
-              className={`list-row${category.name === shownCategory ? ' list-row-on' : ''}`}
+              role="tab"
+              aria-selected={category.name === shownCategory}
+              className={`compendium-tab${category.name === shownCategory ? ' compendium-tab-on' : ''}`}
               data-testid={`compendium-category-${category.name}`}
               data-sound="select"
+              disabled={!matched.has(category.name)}
               onClick={() => {
                 // Selecting a category shows the first article of that category.
                 const first = articlesOf(matching, category.name)[0];
@@ -257,12 +233,46 @@ export function CompendiumView(props: {
                 }
               }}
             >
-              <span className="list-name">{category.name}</span>
-              <span className="list-value figure muted">{category.count}</span>
+              {category.name}
             </button>
           ))}
         </div>
+      }
+      actions={
+        // COMPV, Panes: the search field has no visible label; its accessible name is "Search".
+        <input
+          ref={searchField}
+          type="search"
+          className="search"
+          placeholder="Search titles (S)"
+          aria-label="Search"
+          data-testid="compendium-search"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            // COMPV, Panes: Enter shows the first article listed under the search text and moves the keyboard focus
+            // out of the search field, keeping its text; with no match it does nothing. SOUNDS, Select click, Search.
+            if (event.key !== 'Enter') {
+              return;
+            }
+            event.preventDefault();
+            const first = firstMatchingArticle(all, search);
+            if (first === null) {
+              return;
+            }
+            playSound(SOUND.select);
+            show(first);
+            event.currentTarget.blur();
+          }}
+        />
+      }
+      onClose={props.onClose}
+    >
+      <div className="panes panes-compendium">
         <div className="pane pane-list" data-testid="compendium-articles">
+          {shownCategory === null ? <p className="muted">No article matches.</p> : null}
           {listed.map((item) => (
             <button
               key={item.id}
