@@ -37,10 +37,10 @@ import { SOUND } from '../sounds.ts';
 import { Button, typingIn } from '../ui.tsx';
 
 /**
- * CRPLAY, Rewind, Repeat, and Options buttons: the steps Repeat plays again: the three step buttons, and an attack
+ * CRPLAY, Rewind, Repeat, and Options buttons: the steps Repeat plays again: the four step buttons, and an attack
  * picked with the slider, a row of the Combat log, or Back one.
  */
-type StepKind = 'turn' | 'phase' | 'round' | 'pick';
+type StepKind = 'turn' | 'phase' | 'round' | 'combat' | 'pick';
 
 /** CRPLAY, Repeat: a step the Player took: the attacks it played, and the Combat it was taken in. */
 interface TakenStep {
@@ -54,6 +54,7 @@ const STEP_NAMES: Record<StepKind, string> = {
   turn: 'Combat turn',
   phase: 'Phase',
   round: 'Combat round',
+  combat: 'Combat',
   pick: 'Picked attack',
 };
 
@@ -322,10 +323,20 @@ export function CombatReplay(props: {
   const step = (kind: StepKind) => {
     // CRPLAY, Slider and Combat log: a step goes on from the attack the slider or the Combat log picked, also when it
     // is taken before the picked attack has started to play.
-    const start = playback.picked ? playback.target : playback.index;
+    // CRPLAY, Options, Steps: the Combat button plays the whole Combat, from Combat start wherever the replay stands.
+    const start = kind === 'combat' ? 0 : playback.picked ? playback.target : playback.index;
     const target =
-      kind === 'turn' ? start + 1 : kind === 'phase' ? phaseEnd(replay, start) : roundEnd(replay, start);
+      kind === 'turn'
+        ? start + 1
+        : kind === 'phase'
+          ? phaseEnd(replay, start)
+          : kind === 'round'
+            ? roundEnd(replay, start)
+            : total;
     withOptions();
+    if (kind === 'combat') {
+      jumpTo(playback, replay, 0);
+    }
     setTakenStep({
       kind,
       from: start,
@@ -749,6 +760,16 @@ export function CombatReplay(props: {
               }}
             >
               Round <Arrows count={1} />
+            </Button>
+            <Button
+              testId="replay-combat"
+              sound="select"
+              disabledReason={total === 0 ? 'This Combat had no attack.' : null}
+              onClick={() => {
+                step('combat');
+              }}
+            >
+              Combat <Arrows count={1} />
             </Button>
           </div>
         </div>
