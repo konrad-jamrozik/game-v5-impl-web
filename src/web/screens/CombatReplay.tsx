@@ -628,14 +628,14 @@ export function CombatReplay(props: {
             {select('replay-delay', 'Delay', delayMs, DELAYS_MS, setDelayMs, !overlap)}
           </div>
           <div className="replay-settings-row">
-            {check('replay-overlap', 'Overlap', overlap, () => {
-              setOverlap(!overlap);
+            {check('replay-aim-lines', 'Aim lines', aimLines, () => {
+              setAimLines(!aimLines);
             })}
             {check('replay-instant', 'Instant', instant, () => {
               setInstant(!instant);
             })}
-            {check('replay-aim-lines', 'Aim lines', aimLines, () => {
-              setAimLines(!aimLines);
+            {check('replay-overlap', 'Overlap', overlap, () => {
+              setOverlap(!overlap);
             })}
           </div>
           <div className="replay-settings-row">
