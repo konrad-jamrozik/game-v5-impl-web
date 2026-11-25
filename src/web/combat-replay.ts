@@ -602,7 +602,7 @@ export const PACES: readonly Pace[] = [
     id: 'very-fast',
     name: 'Very fast',
     arrows: 4,
-    speedMs: 1000,
+    speedMs: 1500,
     overlap: false,
     delayMs: null,
     instant: true,

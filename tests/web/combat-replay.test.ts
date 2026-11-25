@@ -646,7 +646,7 @@ describe('CRPLAY: Transport buttons', () => {
       ['Slow', 1, 2000, false, null, false, true],
       ['Medium', 2, 1500, true, 1000, false, true],
       ['Fast', 3, 1000, true, 250, false, false],
-      ['Very fast', 4, 1000, false, null, true, false],
+      ['Very fast', 4, 1500, false, null, true, false],
     ]);
   });
 
@@ -655,7 +655,7 @@ describe('CRPLAY: Transport buttons', () => {
       { speedMs: 2000, delayMs: 2000, overlap: false, instant: false },
       { speedMs: 1500, delayMs: 1000, overlap: true, instant: false },
       { speedMs: 1000, delayMs: 250, overlap: true, instant: false },
-      { speedMs: 1000, delayMs: 1000, overlap: false, instant: true },
+      { speedMs: 1500, delayMs: 1500, overlap: false, instant: true },
     ]);
   });
 });
