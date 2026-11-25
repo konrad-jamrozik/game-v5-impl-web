@@ -3546,7 +3546,9 @@ label:has(> input[type='checkbox']:disabled) {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: var(--screen-h);
+  /* CSIM, Teams: as tall as the screen, so that the rows of each side take all the height left below its head. */
+  height: var(--screen-h);
+  min-height: 360px;
   padding: 24px;
 }
 
@@ -3567,26 +3569,38 @@ label:has(> input[type='checkbox']:disabled) {
 .simulator-columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
   gap: 16px;
-  align-items: start;
 }
 
 /* CSIM, Teams: the Agents' side and, to its right, the Enemies' side, each as wide as its rows need. */
 .simulator-sides {
   display: grid;
   grid-template-columns: repeat(2, max-content);
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
   gap: 24px;
-  align-items: start;
 }
 
-.simulator-fight,
-.simulator-ratings {
-  max-width: 548px;
+/* CSIM, Combat ratings of the teams: the Fight controls and, to their right, the Combat ratings, on one row. */
+.simulator-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 40px;
+}
+
+.simulator-fight {
+  flex: 0 1 548px;
 }
 
 .simulator-teams {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   gap: 16px;
 }
 
@@ -3604,14 +3618,16 @@ label:has(> input[type='checkbox']:disabled) {
 .simulator-side {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   gap: 8px;
 }
 
-/* CSIM, Teams, Combat ratings: one line above the two sides. */
+/* CSIM, Teams, Combat ratings: one line above the two sides, centred on the height of the Seed field. */
 .simulator-ratings {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
+  min-height: 40px;
   gap: 4px 18px;
 }
 
@@ -3622,10 +3638,11 @@ label:has(> input[type='checkbox']:disabled) {
   align-items: center;
 }
 
-/* CSIM, Teams: each side scrolls on its own, so that both stay in sight with many Combatants. */
+/* CSIM, Teams: each side scrolls on its own, so that both stay in sight with many Combatants, and its rows take all
+   the height down to the bottom of the screen before they scroll. */
 .simulator-rows {
-  max-height: calc(var(--screen-h) - 400px);
-  min-height: 120px;
+  flex: 0 1 auto;
+  min-height: 0;
   overflow-y: auto;
   border-top: 1px solid var(--border);
 }

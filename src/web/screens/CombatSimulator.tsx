@@ -226,70 +226,75 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
 
       <div className="simulator-columns">
         <section className="pane simulator-teams" aria-label="Teams">
-          <div className="simulator-fight">
-            <label className="field">
-              <span>Seed</span>
-              <input
-                data-testid="sim-seed"
-                value={seed}
-                onChange={(event) => {
-                  setSeed(event.target.value);
+          {/* CSIM, Combat ratings of the teams: on the row of the Fight controls, to their right. */}
+          <div className="simulator-top">
+            <div className="simulator-fight">
+              <label className="field">
+                <span>Seed</span>
+                <input
+                  data-testid="sim-seed"
+                  value={seed}
+                  onChange={(event) => {
+                    setSeed(event.target.value);
+                  }}
+                />
+              </label>
+              <Button
+                kind="primary"
+                testId="sim-fight"
+                onClick={() => {
+                  fight(seed);
                 }}
-              />
-            </label>
-            <Button
-              kind="primary"
-              testId="sim-fight"
-              onClick={() => {
-                fight(seed);
-              }}
-            >
-              Fight
-            </Button>
-            <Button
-              testId="sim-new-seed"
-              tooltip="Put a new seed, chosen at random, into the field; Fight then shows the teams fighting another way"
-              onClick={() => {
-                // CSIM, Fighting the Combat, New seed: it changes the seed and fights nothing.
-                setSeed(seedFrom(Math.random()));
-              }}
-            >
-              New seed
-            </Button>
+              >
+                Fight
+              </Button>
+              <Button
+                testId="sim-new-seed"
+                tooltip="Put a new seed, chosen at random, into the field; Fight then shows the teams fighting another way"
+                onClick={() => {
+                  // CSIM, Fighting the Combat, New seed: it changes the seed and fights nothing.
+                  setSeed(seedFrom(Math.random()));
+                }}
+              >
+                New seed
+              </Button>
+            </div>
+
+            <div className="simulator-ratings" data-testid="sim-ratings">
+              <span className="label">Combat rating</span>
+              {ratings === null ? (
+                <span className="muted">None: the setup is not valid</span>
+              ) : (
+                <>
+                  <span>
+                    Agents{' '}
+                    <span className="figure tone-good" data-testid="sim-rating-agents">
+                      {ratings.agents}
+                    </span>
+                  </span>
+                  <span>
+                    Enemies{' '}
+                    <span className="figure tone-bad" data-testid="sim-rating-enemies">
+                      {ratings.enemies}
+                    </span>
+                  </span>
+                  <span>
+                    Agents / Enemies{' '}
+                    <span className="figure" data-testid="sim-rating-ratio">
+                      {ratings.enemies === 0
+                        ? '—'
+                        : `${Math.round((100 * ratings.agents) / ratings.enemies)}%`}
+                    </span>
+                  </span>
+                </>
+              )}
+            </div>
           </div>
           {problem === null ? null : (
             <p className="warning-text" data-testid="sim-problem">
               {problem}
             </p>
           )}
-
-          <div className="simulator-ratings" data-testid="sim-ratings">
-            <span className="label">Combat rating</span>
-            {ratings === null ? (
-              <span className="muted">None: the setup is not valid</span>
-            ) : (
-              <>
-                <span>
-                  Agents{' '}
-                  <span className="figure tone-good" data-testid="sim-rating-agents">
-                    {ratings.agents}
-                  </span>
-                </span>
-                <span>
-                  Enemies{' '}
-                  <span className="figure tone-bad" data-testid="sim-rating-enemies">
-                    {ratings.enemies}
-                  </span>
-                </span>
-                <span>
-                  Agents / Enemies{' '}
-                  <span className="figure" data-testid="sim-rating-ratio">
-                    {ratings.enemies === 0 ? '—' : `${Math.round((100 * ratings.agents) / ratings.enemies)}%`}
-                  </span>
-                </span>
-              </>
-            )}
-          </div>
 
           {/* CSIM, Teams: the Enemies' side stands to the right of the Agents' side. */}
           <div className="simulator-sides">
