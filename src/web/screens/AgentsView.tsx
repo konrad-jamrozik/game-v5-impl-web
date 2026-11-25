@@ -921,6 +921,12 @@ function AgentDetails(props: {
         <dd>{agent.archetypeName}</dd>
         <dt>Turn hired</dt>
         <dd className="figure">{agent.turnHired}</dd>
+        {/* AVIEW, Agent details: Turns served, the current Turn minus the Turn hired, or for a Terminated Agent its
+            Turns with the Agency as the Memorial counts them. */}
+        <dt>Turns served</dt>
+        <dd className="figure" data-testid="details-turns-served">
+          {(agent.turnTerminated ?? state.turn) - agent.turnHired}
+        </dd>
         <dt>Weapon</dt>
         <dd>
           {terminated ? (
@@ -957,9 +963,22 @@ function AgentDetails(props: {
           )}
         </dd>
         {/* GUI, Decimal quantities shown: the one place that shows these values with two decimals. */}
-        <dt>Skill</dt>
+        <dt>Base skill</dt>
         <dd className="figure" data-testid="details-skill">
           {decimalText(agent.skillHundredths)}
+        </dd>
+        {/* AVIEW, Agent details: effective skill under base skill, a whole number; a Terminated Agent has none. */}
+        {terminated ? null : (
+          <>
+            <dt>Effective skill</dt>
+            <dd className="figure" data-testid="details-effective-skill">
+              {agent.effectiveSkill}
+            </dd>
+          </>
+        )}
+        <dt>Experience</dt>
+        <dd className="figure" data-testid="details-experience">
+          {agent.experience}
         </dd>
         <dt>Health</dt>
         <dd className="figure" data-testid="details-health">
@@ -980,9 +999,9 @@ function AgentDetails(props: {
           <AssignmentCell agent={agent} state={state} retired={snapshot.retired} onShow={props.onShow} />
         </dd>
       </dl>
-      {/* AVIEW, Agent details: the one place that shows a base Combat rating, beside the Combat rating that the Weapon
-          damage and Armor Upgrades raise, in the shared Combat rating style, e.g. "COMBAT RATING 78 · base 76". A
-          Terminated Agent shows no Combat rating. */}
+      {/* AVIEW, Agent details: the Combat rating, its Rested Combat rating, and its Equipment Combat rating, in the
+          shared Combat rating style, e.g. "COMBAT RATING 136 · max 149 · equipment +56"; the effective skill, its base
+          Combat rating, is shown above instead. A Terminated Agent shows no Combat rating. */}
       {terminated ? null : (
         <span className="combat-rating" data-testid="details-combat-rating">
           <span className="label">Combat rating</span>
@@ -1004,8 +1023,7 @@ function AgentDetails(props: {
                   ? '−'
                   : ''}
               {Math.abs(agent.equipmentCombatRating ?? 0)}
-            </span>{' '}
-            · effective skill {agent.baseCombatRating}
+            </span>
           </span>
         </span>
       )}
