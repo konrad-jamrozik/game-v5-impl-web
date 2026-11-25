@@ -31,20 +31,21 @@ export function toneClass(line: GainLine): string {
 
 /**
  * VIS, Consequences: a line of the Turn summary or the Turn Report View; a joined line shows each Consequence in its
- * own tone and the separators between them in Text muted, which the caller's `muted` class gives.
+ * own tone and the separators between them in Text muted, which the caller's `muted` class gives. The parts share one
+ * span, so that a flex column parent, e.g. `.dialog-row`, keeps them on one line instead of stacking each separator.
  */
 export function GainLineText(props: { line: GainLine }) {
   const { parts } = props.line;
   return parts === undefined ? (
     props.line.text
   ) : (
-    <>
+    <span>
       {parts.map((part, index) => (
         <Fragment key={part.text}>
           {index === 0 ? null : ', '}
           <span className={toneClass(part)}>{part.text}</span>
         </Fragment>
       ))}
-    </>
+    </span>
   );
 }
