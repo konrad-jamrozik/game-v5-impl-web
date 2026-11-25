@@ -1,5 +1,6 @@
 /** Small presentational pieces shared by the screens. */
 import { useState, type CSSProperties, type ReactNode } from 'react';
+import { nearLimitColor } from './condition-scale.ts';
 import { sliderFill } from './slider.ts';
 import type { ButtonSound } from './sounds.ts';
 import { showsSortArrow, type SortTier } from './table-sort.ts';
@@ -136,8 +137,14 @@ export function Button(props: {
 export function Meter(props: { value: number; max: number; label?: string }) {
   const tenths = props.max <= 0 ? 0 : Math.max(0, Math.min(10, (props.value * 10) / props.max));
   const full = Math.floor(tenths);
+  // VIS, Meters: the segments take the colour of how near the limit the value is.
   return (
-    <span className="meter" role="img" aria-label={props.label ?? `${props.value} of ${props.max}`}>
+    <span
+      className="meter"
+      role="img"
+      aria-label={props.label ?? `${props.value} of ${props.max}`}
+      style={{ '--meter-colour': nearLimitColor(props.value, props.max) } as CSSProperties}
+    >
       {Array.from({ length: 10 }, (_, index) => (
         <span
           key={index}

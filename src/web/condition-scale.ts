@@ -70,3 +70,14 @@ export function healthColor(current: number, base: number): string {
   }
   return 'var(--danger-deep)';
 }
+
+/**
+ * VIS, Meters: the colour of a value against its limit, on the current health scale run the other way: Text at 0% of
+ * the limit, Warning at 25%, Accent text at 50%, Danger at 75%, and Danger deep at 100%, mixed in sRGB in between.
+ */
+export function nearLimitColor(value: number, limit: number): string {
+  const pct = limit <= 0 ? 100 : Math.max(0, Math.min(100, (value / limit) * 100));
+  // The health scale reads its share from the top down, so the share left below the limit takes the same stops.
+  const color = healthColor(100 - pct, 100);
+  return color === 'currentColor' ? 'var(--text)' : color.replace('currentColor', 'var(--text)');
+}

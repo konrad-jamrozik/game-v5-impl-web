@@ -397,12 +397,14 @@ input::placeholder {
   background: var(--divider);
 }
 
+/* VIS, Meters: a full tenth in the colour of how near the limit the value is, a part of a tenth in it at 50%. */
 .meter-segment.full {
-  background: var(--accent);
+  background: var(--meter-colour, var(--accent));
 }
 
 .meter-segment.part {
-  background: var(--accent-dim);
+  background: var(--meter-colour, var(--accent));
+  opacity: 0.5;
 }
 
 /* VIS, Tallies: 12 px Accent squares with 3 px gaps, filled left to right in rows of 10. */
@@ -1083,10 +1085,11 @@ input::placeholder {
   padding-top: 6px;
 }
 
+/* VIS, Meters: the value and the limit in the meter's colour. */
 .meter-figure > span {
   font-family: var(--font-figure);
   font-size: 13px;
-  color: var(--accent-text);
+  color: var(--meter-colour, var(--accent-text));
 }
 
 .ending {

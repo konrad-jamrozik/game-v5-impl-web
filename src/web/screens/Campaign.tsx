@@ -3,7 +3,8 @@
  * Detail view, the compact Situation panel, and the Autopilot footer; the Globe stage fills the rest, and the open
  * Detail view covers it. The globe, a decoration, is drawn in the Globe stage behind every Detail view.
  */
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { nearLimitColor } from '../condition-scale.ts';
 import type { AutosaveStatus, CurrentLiveWorldStateView } from '../../engine/index.ts';
 import { PLACE_NAME_KEY, PlaceContext, type PlaceContextValue } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
@@ -538,7 +539,15 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             </Fact>
             <div className="fact">
               <span className="fact-label">Panic</span>
-              <span className="meter-figure" data-testid="panic">
+              <span
+                className="meter-figure"
+                data-testid="panic"
+                style={
+                  {
+                    '--meter-colour': nearLimitColor(state.panicHundredths, state.panicLimit * 100),
+                  } as CSSProperties
+                }
+              >
                 <span>
                   {decimalText(state.panicHundredths)} / {state.panicLimit}%
                 </span>
