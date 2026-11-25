@@ -10,7 +10,6 @@ import {
   BATTLEFIELD_ROWS,
   DELAYS_MS,
   PACES,
-  RATINGS_CORNER,
   SPEEDS_MS,
   advance,
   jumpTo,
@@ -478,26 +477,6 @@ export function CombatReplay(props: {
               setHovered(null);
             }}
           />
-          {/* CRPLAY, Attack being played: the Combat ratings of the two sides as of the last Combat round completed,
-              as a pie chart in the top right corner of the Battlefield, with their values and ratio under it. */}
-          <div
-            className="replay-ratings"
-            data-testid="replay-ratings"
-            style={
-              {
-                width: cell * RATINGS_CORNER.columns,
-                height: cell * RATINGS_CORNER.rows,
-                '--replay-cell': `${cell}px`,
-              } as CSSProperties
-            }
-          >
-            <RatingsPie share={share} />
-            <div className="figure">
-              <span className="tone-good">{ratings.agents}</span> :{' '}
-              <span className="tone-bad">{ratings.enemies}</span>
-            </div>
-            <div className="figure">{ratingsRatioText(ratings)}</div>
-          </div>
           {hovered === null || hoveredFigure === undefined || hoveredValues === undefined ? null : (
             <div
               className="replay-tip small"
@@ -530,69 +509,83 @@ export function CombatReplay(props: {
       </section>
 
       <section className="pane replay-side">
-        {/* CRPLAY, Attack being played: the attack being played, and at the end the Combat outcome. */}
-        <div className="replay-readout" data-testid="replay-readout">
-          <span className="label">
-            {ended ? (
+        <div className="replay-head">
+          {/* CRPLAY, Attack being played: the Combat ratings of the two sides as of the last Combat round completed, as a
+            pie chart with their values and ratio under it, before the attack being played. */}
+          <div className="replay-ratings" data-testid="replay-ratings">
+            <RatingsPie share={share} />
+            <div className="figure">
+              <span className="tone-good">{ratings.agents}</span> :{' '}
+              <span className="tone-bad">{ratings.enemies}</span>
+            </div>
+            <div className="figure">{ratingsRatioText(ratings)}</div>
+          </div>
+          {/* CRPLAY, Attack being played: the attack being played, and at the end the Combat outcome. */}
+          <div className="replay-readout" data-testid="replay-readout">
+            <span className="label">
+              {ended ? (
+                <>
+                  Combat outcome:{' '}
+                  <span className={combat.outcome === 'Won' ? 'tone-good' : 'tone-bad'}>
+                    {combat.outcome}
+                  </span>{' '}
+                  after {combat.rounds} {combat.rounds === 1 ? 'Combat round' : 'Combat rounds'}
+                </>
+              ) : shownAttack === undefined ? (
+                'Combat start'
+              ) : (
+                `Combat round ${shownAttack.round} · ${shownSide === 'agent' ? "Agents' phase" : "Enemies' phase"}`
+              )}
+            </span>
+            {shownAttack === undefined || shownRow === null ? (
+              <span className="muted">No attack yet</span>
+            ) : several.length > 1 ? (
               <>
-                Combat outcome:{' '}
-                <span className={combat.outcome === 'Won' ? 'tone-good' : 'tone-bad'}>{combat.outcome}</span>{' '}
-                after {combat.rounds} {combat.rounds === 1 ? 'Combat round' : 'Combat rounds'}
-              </>
-            ) : shownAttack === undefined ? (
-              'Combat start'
-            ) : (
-              `Combat round ${shownAttack.round} · ${shownSide === 'agent' ? "Agents' phase" : "Enemies' phase"}`
-            )}
-          </span>
-          {shownAttack === undefined || shownRow === null ? (
-            <span className="muted">No attack yet</span>
-          ) : several.length > 1 ? (
-            <>
-              <span>
-                <span className={shownSide === 'agent' ? 'tone-good' : 'tone-bad'}>
-                  {shownSide === 'agent' ? 'Agents' : 'Enemies'}
-                </span>{' '}
-                attack together
-              </span>
-              <span className="figure secondary">
-                {several.length} attacks: {several.filter((attack) => attack.hit).length} hits,{' '}
-                {several.filter((attack) => !attack.hit).length} misses
-              </span>
-              <span className={`figure ${shownSide === 'agent' ? 'tone-good' : 'tone-bad'}`}>
-                {several.reduce((sum, attack) => sum + (attack.damage ?? 0), 0)} damage
-                {several.some((attack) => attack.defenderDead)
-                  ? ` · ${several.filter((attack) => attack.defenderDead).length} dead`
-                  : ''}
-              </span>
-            </>
-          ) : (
-            <>
-              <span>
-                <span className={shownSide === 'agent' ? 'tone-good' : 'tone-bad'}>
-                  {nameOf(shownAttack.attacker)}
-                </span>{' '}
-                →{' '}
-                <span className={shownSide === 'agent' ? 'tone-bad' : 'tone-good'}>
-                  {nameOf(shownAttack.defender)}
+                <span>
+                  <span className={shownSide === 'agent' ? 'tone-good' : 'tone-bad'}>
+                    {shownSide === 'agent' ? 'Agents' : 'Enemies'}
+                  </span>{' '}
+                  attack together
                 </span>
-              </span>
-              <span className="figure secondary">
-                Hit chance {hitChanceText(shownAttack.hitChance)} ({shownAttack.a} vs {shownAttack.d})
-              </span>
-              <span
-                className={`figure ${shownRow.tone === 'muted' ? 'muted' : `tone-${shownRow.tone}`}`}
-                data-testid="replay-result"
-              >
-                {attackResultText(shownAttack)}
-                {shownRow.decisive === null ? null : (
-                  <>
-                    , <strong>{shownRow.decisive}</strong>
-                  </>
-                )}
-              </span>
-            </>
-          )}
+                <span className="figure secondary">
+                  {several.length} attacks: {several.filter((attack) => attack.hit).length} hits,{' '}
+                  {several.filter((attack) => !attack.hit).length} misses
+                </span>
+                <span className={`figure ${shownSide === 'agent' ? 'tone-good' : 'tone-bad'}`}>
+                  {several.reduce((sum, attack) => sum + (attack.damage ?? 0), 0)} damage
+                  {several.some((attack) => attack.defenderDead)
+                    ? ` · ${several.filter((attack) => attack.defenderDead).length} dead`
+                    : ''}
+                </span>
+              </>
+            ) : (
+              <>
+                <span>
+                  <span className={shownSide === 'agent' ? 'tone-good' : 'tone-bad'}>
+                    {nameOf(shownAttack.attacker)}
+                  </span>{' '}
+                  →{' '}
+                  <span className={shownSide === 'agent' ? 'tone-bad' : 'tone-good'}>
+                    {nameOf(shownAttack.defender)}
+                  </span>
+                </span>
+                <span className="figure secondary">
+                  Hit chance {hitChanceText(shownAttack.hitChance)} ({shownAttack.a} vs {shownAttack.d})
+                </span>
+                <span
+                  className={`figure ${shownRow.tone === 'muted' ? 'muted' : `tone-${shownRow.tone}`}`}
+                  data-testid="replay-result"
+                >
+                  {attackResultText(shownAttack)}
+                  {shownRow.decisive === null ? null : (
+                    <>
+                      , <strong>{shownRow.decisive}</strong>
+                    </>
+                  )}
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* CRPLAY, Transport buttons: symbols like the keys of a tape player, in one row. */}

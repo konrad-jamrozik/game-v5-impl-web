@@ -10,11 +10,6 @@ type AttackRecord = CombatReport['log'][number];
 /** CRPLAY, Battlefield layout: the Battlefield is a grid this many cells wide and this many high. */
 export const BATTLEFIELD_COLUMNS = 40;
 export const BATTLEFIELD_ROWS = 32;
-/**
- * CRPLAY, Battlefield layout: the top right corner of the Battlefield that the Combat ratings stand in, in cells, kept
- * free of figures and of their names.
- */
-export const RATINGS_CORNER = { columns: 7, rows: 6 } as const;
 
 // ---- Rank insignia -------------------------------------------------------------------------------
 
@@ -185,8 +180,6 @@ const SIDE_DEPTH = 7;
 const SIDE_DEPTH_MAX = 9;
 /** The fewest rows apart two neighbours of one column stand, so that no figure has another above or below it. */
 const ROW_GAP_MIN = 2;
-/** How many cells a name and a Rank insignia reach from the cell of their figure, to keep out of the ratings corner. */
-const NAME_REACH = 5;
 /** How far chance moves a figure from the depth its Combat rating alone gives it, as a share of the side's depth. */
 const DEPTH_CHANCE = 0.3;
 /**
@@ -229,17 +222,10 @@ function sideCells(
 ): { x: number; y: number }[] {
   const count = ratings.length;
   const columns = SIDE_COLUMNS[side];
-  const named = sideNamed(count);
   const xOf = (back: number) => columns.front + columns.away * back;
-  // The first row a column may use: below the ratings corner when its figures, or the names the Enemies have on their
-  // right, would reach into it.
-  const topOf = (back: number) => {
-    const reach = xOf(back) + (side === 'enemy' && named ? NAME_REACH : 0);
-    return reach >= BATTLEFIELD_COLUMNS - RATINGS_CORNER.columns ? RATINGS_CORNER.rows : 0;
-  };
-  const holds = (back: number, gap: number) => Math.floor((BATTLEFIELD_ROWS - topOf(back) - 1) / gap) + 1;
-  const room = (depth: number, gap: number) =>
-    Array.from({ length: depth }, (_, back) => holds(back, gap)).reduce((sum, places) => sum + places, 0);
+  // How many figures one column holds with its neighbours the given number of rows apart, and so how many a side does.
+  const holds = (gap: number) => Math.floor((BATTLEFIELD_ROWS - 1) / gap) + 1;
+  const room = (depth: number, gap: number) => depth * holds(gap);
   // A side stands with free neighbours whenever its columns hold it so; a side larger than that, which no Combat has,
   // stands closer rather than two figures in one cell.
   const minGap = count <= room(SIDE_DEPTH_MAX, ROW_GAP_MIN) ? ROW_GAP_MIN : 1;
@@ -252,23 +238,17 @@ function sideCells(
     const wanted = Math.min(depth - 1, Math.max(0, Math.floor(place * depth)));
     const roomy = members
       .map((_, column) => column)
-      .filter((column) => (members[column]?.length ?? 0) < holds(column, minGap))
+      .filter((column) => (members[column]?.length ?? 0) < holds(minGap))
       .sort((a, b) => Math.abs(a - wanted) - Math.abs(b - wanted) || b - a);
     members[roomy[0] ?? wanted]?.push(k);
   }
   const cells: { x: number; y: number }[] = Array.from({ length: count }, () => ({ x: 0, y: 0 }));
   members.forEach((column, back) => {
-    const top = topOf(back);
-    let gap = Math.min(ROW_GAP_MAX, BATTLEFIELD_ROWS / Math.max(1, column.length));
+    const gap = Math.min(ROW_GAP_MAX, BATTLEFIELD_ROWS / Math.max(1, column.length));
     const middle = BATTLEFIELD_ROWS / 2 - ((column.length - 1) / 2) * gap;
     const stagger = back % ROW_GAP_MAX;
-    let first =
+    const first =
       gap === ROW_GAP_MAX ? stagger + ROW_GAP_MAX * Math.round((middle - stagger) / ROW_GAP_MAX) : middle;
-    // A column that would reach into the ratings corner stands lower, closer when it must.
-    if (first < top) {
-      gap = Math.min(gap, (BATTLEFIELD_ROWS - top) / Math.max(1, column.length));
-      first = top;
-    }
     column.forEach((k, place) => {
       const y = Math.floor(first + place * gap);
       cells[k] = { x: xOf(back), y: Math.min(BATTLEFIELD_ROWS - 1, Math.max(0, y)) };

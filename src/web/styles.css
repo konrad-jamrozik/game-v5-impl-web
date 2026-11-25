@@ -3410,7 +3410,11 @@ label:has(> input[type='checkbox']:disabled) {
 /* CRPLAY: the Battlefield beside the attack being played, the buttons, and the Combat log. */
 .replay {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 348px;
+  /* CRPLAY, Battlefield layout: the Battlefield as wide as the height left over lets it be, at the left, and the panel
+     beside it takes the rest of the width. */
+  grid-template-columns:
+    minmax(0, calc((var(--screen-h) - var(--replay-chrome, 282px)) * 40 / 32 + 24px))
+    minmax(348px, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -3465,28 +3469,38 @@ label:has(> input[type='checkbox']:disabled) {
   line-height: 1;
 }
 
-/* CRPLAY, Attack being played: the Combat ratings of the two sides as a pie chart in the top right corner of the
-   Battlefield, the Agents' share in Positive against the Enemies' in Danger, with their values and ratio under it,
-   all sized in cells so that they keep to the corner the figures leave free. */
+/* CRPLAY, Attack being played: the top of the panel beside the Battlefield, the Combat ratings before the attack
+   being played. */
+.replay-head {
+  flex: none;
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.replay-head .replay-readout {
+  flex: 1;
+  min-width: 0;
+}
+
+/* CRPLAY, Attack being played: the Combat ratings of the two sides as a pie chart, the Agents' share in Positive
+   against the Enemies' in Danger, with their values and ratio centred under it. */
 .replay-ratings {
-  position: absolute;
-  top: 0;
-  right: 0;
+  flex: none;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: calc(var(--replay-cell) * 0.15);
-  padding: calc(var(--replay-cell) * 0.35);
-  font-size: max(9px, calc(var(--replay-cell) * 0.7));
-  line-height: 1.1;
+  align-items: center;
+  gap: 2px;
+  min-width: 76px;
+  font-size: 13px;
+  line-height: 1.2;
   white-space: nowrap;
-  pointer-events: none;
 }
 
 .replay-pie {
-  width: calc(var(--replay-cell) * 3);
-  height: calc(var(--replay-cell) * 3);
-  margin-bottom: calc(var(--replay-cell) * 0.15);
+  width: 64px;
+  height: 64px;
+  margin-bottom: 4px;
 }
 
 .replay-pie .pie-agents {
@@ -3627,10 +3641,7 @@ label:has(> input[type='checkbox']:disabled) {
 /* CRPLAY, Battlefield layout: a square that fits the height of the window, so that all of it is seen at once. */
 .replay-canvas {
   position: relative;
-  /* CRPLAY, Battlefield layout: centred in the width it is given. */
-  margin: 0 auto;
-  /* As wide as the height left over holds 32 rows of the 40 columns. */
-  width: min(100%, calc((var(--screen-h) - var(--replay-chrome, 282px)) * 40 / 32));
+  width: 100%;
   min-width: 320px;
   aspect-ratio: 40 / 32;
 }

@@ -5,7 +5,6 @@ import {
   BATTLEFIELD_COLUMNS,
   BATTLEFIELD_ROWS,
   PACES,
-  RATINGS_CORNER,
   advance,
   buildReplay,
   enemyLook,
@@ -260,7 +259,7 @@ describe('CRPLAY: Battlefield layout', () => {
     }
   });
 
-  it('leaves the eight cells around every figure free, and the ratings corner too, even for the largest sides', () => {
+  it('leaves the eight cells around every figure free, even for the largest sides', () => {
     for (const [agents, enemies] of [
       [4, 12],
       [24, 30],
@@ -283,10 +282,6 @@ describe('CRPLAY: Battlefield layout', () => {
         expect(a.x).toBeLessThan(BATTLEFIELD_COLUMNS);
         expect(a.y).toBeGreaterThanOrEqual(0);
         expect(a.y).toBeLessThan(BATTLEFIELD_ROWS);
-        expect(
-          a.x >= BATTLEFIELD_COLUMNS - RATINGS_CORNER.columns && a.y < RATINGS_CORNER.rows,
-          `${a.id} stands under the Combat ratings`,
-        ).toBe(false);
         for (const b of figures.slice(i + 1)) {
           expect(
             Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)),
