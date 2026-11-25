@@ -85,30 +85,43 @@ const entry = (turn: number, over: Partial<HistoryEntry> = {}): HistoryEntry =>
   }) as unknown as HistoryEntry;
 
 describe('CVIEW: Agency charts', () => {
-  it('example: Turn 7 has 5 Agents at 0–49, none at 50–99, 7 at 100–149, none at 150–199, and 1 at 200–249', () => {
-    const skills = [10, 20, 30, 40, 49, 100, 110, 120, 130, 140, 149, 100, 210];
+  // GUI, Ranks: the Rank GDRs in any order.
+  const ranks = [
+    { name: 'Agent', minBaseSkill: 200 },
+    { name: 'Rookie', minBaseSkill: 100 },
+    { name: 'Junior Agent', minBaseSkill: 150 },
+    { name: 'Commander', minBaseSkill: 750 },
+  ];
+
+  it('example: Turn 7 has 5 Agents at 0–99, 7 Rookies, no Junior Agent, and 1 Agent', () => {
+    const skills = [10, 20, 30, 40, 99, 100, 110, 120, 130, 140, 149, 100, 210];
     const open: OpenHistoryEntry = {
       turn: 7,
       turnStart: summary(),
       turnEnd: summary({ effectiveSkills: skills }),
       actions: [],
     };
-    const { series, bars } = skillBands([], open);
-    expect(series.map((band) => band.name)).toEqual(['0–49', '50–99', '100–149', '150–199', '200–249']);
-    expect(bars).toEqual([{ turn: 7, above: [5, 0, 7, 0, 1], below: [] }]);
+    const { series, bars } = skillBands([], open, ranks);
+    expect(series.map((band) => band.name)).toEqual([
+      '0–99',
+      '100–149 (Rookie)',
+      '150–199 (Junior Agent)',
+      '200–749 (Agent)',
+    ]);
+    expect(bars).toEqual([{ turn: 7, above: [5, 7, 0, 1], below: [] }]);
   });
 
-  it('puts every effective skill from 550 up in the twelfth band, "550+", with the twelfth colour', () => {
+  it('puts every effective skill from the highest Rank up in its open-ended band, with the colours in order', () => {
     const open: OpenHistoryEntry = {
       turn: 3,
       turnStart: summary(),
-      turnEnd: summary({ effectiveSkills: [549, 550, 900] }),
+      turnEnd: summary({ effectiveSkills: [749, 750, 2000] }),
       actions: [],
     };
-    const { series, bars } = skillBands([], open);
-    expect(series).toHaveLength(12);
-    expect(series.at(-2)).toEqual({ name: '500–549', color: '#F2A6D8' });
-    expect(series.at(-1)).toEqual({ name: '550+', color: '#F4EFE6' });
+    const { series, bars } = skillBands([], open, ranks);
+    expect(series).toHaveLength(5);
+    expect(series.at(-2)).toEqual({ name: '200–749 (Agent)', color: '#45BF6E' });
+    expect(series.at(-1)).toEqual({ name: '750+ (Commander)', color: '#A3CC3F' });
     expect(bars[0]?.above.slice(-2)).toEqual([1, 2]);
   });
 

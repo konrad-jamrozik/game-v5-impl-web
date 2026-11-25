@@ -57,7 +57,7 @@ export const ASSET_SERIES = {
   contractingCap: { name: 'Contracting cap', color: '#C77DDB' },
 } as const;
 
-/** VIS, Chart series colours: skill bands 1 to 12, from the lowest. */
+/** VIS, Chart series colours: the skill bands from the lowest; the last colour stands for every band above the twelfth. */
 const BAND_COLORS = [
   '#6A5ACD',
   '#4A86D9',
@@ -72,9 +72,6 @@ const BAND_COLORS = [
   '#F2A6D8',
   '#F4EFE6',
 ];
-const BAND_WIDTH = 50;
-/** CVIEW, Agency charts: twelve bands, eleven 50 wide and a last one of every effective skill from 550 up. */
-const BAND_COUNT = BAND_COLORS.length;
 
 export const COMBAT_BAR_SERIES: readonly Series[] = [
   { name: 'Deployable Agents', color: '#4A86D9' },
@@ -139,25 +136,51 @@ export function activityBars(entries: readonly HistoryEntry[], open: OpenHistory
   }));
 }
 
+/** GUI, Ranks: the part of a Rank GDR that the skill bands read. */
+export interface BandRank {
+  readonly name: string;
+  readonly minBaseSkill: number;
+}
+
 /**
- * CVIEW, Agency charts, Agents by effective skill: the Serving Agents of each Turn-end state in twelve bands, eleven
- * 50 wide and a last one, "550+", from 0–49 up to the highest band that holds an Agent in any Turn shown.
+ * CVIEW, Agency charts, Agents by effective skill: the Serving Agents of each Turn-end state in the bands of the
+ * Ranks: a first band from 0 up to below the lowest `min_base_skill`, then one band for each Rank up to below the
+ * next, the highest open-ended, each named by its range and a Rank's by its `name` in parentheses, e.g. "0–99",
+ * "100–149 (Rookie)", and "750+ (Commander)", from the first band up to the highest that holds an Agent in any Turn
+ * shown.
  */
 export function skillBands(
   entries: readonly HistoryEntry[],
   open: OpenHistoryEntry | null,
+  ranks: readonly BandRank[],
 ): { series: Series[]; bars: Bar[] } {
   const ends = turnEnds(entries, open);
-  const bandOf = (skill: number) => Math.min(BAND_COUNT - 1, Math.floor(skill / BAND_WIDTH));
+  const ordered = [...ranks].sort((a, b) => a.minBaseSkill - b.minBaseSkill);
+  // The first band is below the lowest Rank, unless a Rank starts at 0.
+  const starts = [
+    ...(ordered[0]?.minBaseSkill === 0 ? [] : [{ name: null, minBaseSkill: 0 }]),
+    ...ordered.map((rank) => ({ name: rank.name as string | null, minBaseSkill: rank.minBaseSkill })),
+  ];
+  const bandOf = (skill: number) => {
+    let band = 0;
+    starts.forEach((start, index) => {
+      if (skill >= start.minBaseSkill) {
+        band = index;
+      }
+    });
+    return band;
+  };
   const highest = Math.max(0, ...ends.flatMap(({ summary }) => summary.effectiveSkills.map(bandOf)));
   const count = highest + 1;
-  const series = Array.from({ length: count }, (_, band) => ({
-    name:
-      band === BAND_COUNT - 1
-        ? `${band * BAND_WIDTH}+`
-        : `${band * BAND_WIDTH}–${band * BAND_WIDTH + BAND_WIDTH - 1}`,
-    color: BAND_COLORS[band] ?? '#F4EFE6',
-  }));
+  const series = starts.slice(0, count).map((start, band) => {
+    const next = starts[band + 1];
+    const range =
+      next === undefined ? `${start.minBaseSkill}+` : `${start.minBaseSkill}–${next.minBaseSkill - 1}`;
+    return {
+      name: start.name === null ? range : `${range} (${start.name})`,
+      color: BAND_COLORS[Math.min(band, BAND_COLORS.length - 1)] ?? '#F4EFE6',
+    };
+  });
   const bars = ends.map(({ turn, summary }) => {
     const above = Array.from({ length: count }, () => 0);
     for (const skill of summary.effectiveSkills) {

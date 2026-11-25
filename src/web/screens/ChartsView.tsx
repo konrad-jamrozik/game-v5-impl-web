@@ -38,7 +38,7 @@ function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
       .map((upgrade) => upgrade.id),
   );
   const flow = moneyFlow(entries, moneyAtStart, capUpgrades);
-  const skills = skillBands(entries, open);
+  const skills = skillBands(entries, open, snapshot.gameData?.ranks ?? []);
   // CVIEW, Agency charts, Agents by effective skill: the thresholds of its exhaustion lines come from AgentParameters.
   const parameters = snapshot.gameData?.agentParameters ?? {};
   const worn = wornLines(entries, open, {
