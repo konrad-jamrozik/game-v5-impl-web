@@ -33,8 +33,11 @@ import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { Button, typingIn } from '../ui.tsx';
 
-/** CRPLAY, Rewind, Repeat, and Options buttons: the three steps, which Repeat plays again. */
-type StepKind = 'turn' | 'phase' | 'round';
+/**
+ * CRPLAY, Rewind, Repeat, and Options buttons: the steps Repeat plays again: the three step buttons, and an attack
+ * picked with the slider, a row of the Combat log, or Back one.
+ */
+type StepKind = 'turn' | 'phase' | 'round' | 'pick';
 
 /** CRPLAY, Repeat: a step the Player took: the attacks it played, and the Combat it was taken in. */
 interface TakenStep {
@@ -44,7 +47,12 @@ interface TakenStep {
   combatKey: string | number | undefined;
 }
 
-const STEP_NAMES: Record<StepKind, string> = { turn: 'Combat turn', phase: 'Phase', round: 'Combat round' };
+const STEP_NAMES: Record<StepKind, string> = {
+  turn: 'Combat turn',
+  phase: 'Phase',
+  round: 'Combat round',
+  pick: 'Picked attack',
+};
 
 /** CRPLAY, Options: a Speed or a Delay as the Player reads it, e.g. "1.5 s". */
 const seconds = (ms: number) => `${ms / 1000} s`;
@@ -300,8 +308,13 @@ export function CombatReplay(props: {
   const repeat = () => {
     if (lastStep !== null) {
       withOptions();
-      jumpTo(playback, replay, lastStep.from);
-      playTo(playback, replay, lastStep.to, true);
+      if (lastStep.kind === 'pick') {
+        // A picked attack plays again as it was picked, with its aim line.
+        playAttack(playback, replay, lastStep.to);
+      } else {
+        jumpTo(playback, replay, lastStep.from);
+        playTo(playback, replay, lastStep.to, true);
+      }
       refresh();
     }
   };
@@ -352,6 +365,11 @@ export function CombatReplay(props: {
   /** CRPLAY, Slider and Combat log, and Back one: plays one picked attack with the Options. */
   const pick = (attack: number) => {
     withOptions();
+    // CRPLAY, Repeat: a picked attack is a step Repeat plays again; Combat start is none.
+    const picked = Math.min(total, attack);
+    if (picked > 0) {
+      setTakenStep({ kind: 'pick', from: picked - 1, to: picked, combatKey: props.combatKey });
+    }
     playAttack(playback, replay, attack);
     refresh();
   };
