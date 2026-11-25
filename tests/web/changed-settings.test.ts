@@ -42,6 +42,7 @@ describe('GUI: Changed settings', () => {
       'autopilotAutosaveLimit',
       'musicOn',
       'musicVolume',
+      'musicControlCollapsed',
       'soundsOn',
       'soundsVolume',
       'autopilotControlsShown',
@@ -52,6 +53,10 @@ describe('GUI: Changed settings', () => {
       'revealHiddenContentOn',
       'combatSimulatorShown',
       'screenLimit',
+      'sidePanelHidden',
+      'lastTurnsCharts',
+      'artworkTuning',
+      'combatReplayOptionsShown',
     ]);
   });
 });

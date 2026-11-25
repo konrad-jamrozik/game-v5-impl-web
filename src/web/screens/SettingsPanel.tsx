@@ -21,9 +21,8 @@ import { MusicControl, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
 const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume']);
 
 /**
- * GUI, Settings panel: the Autopilot settings have no row; the Player sets them where they are used. Nor has Combat
- * simulator shown, Dev mode on, or Reveal hidden content on, which the developer tools set (CSIM, Opening the Combat
- * simulator; GUI, Developer tools).
+ * GUI, Settings panel, Other settings: a setting that a control elsewhere sets where the Player uses it has no row,
+ * e.g. the Autopilot settings, the settings of the developer tools, or whether the Side panel is hidden.
  */
 const SET_ELSEWHERE = new Set([
   'autopilotControlsShown',
@@ -33,6 +32,11 @@ const SET_ELSEWHERE = new Set([
   'devModeOn',
   'revealHiddenContentOn',
   'combatSimulatorShown',
+  'musicControlCollapsed',
+  'sidePanelHidden',
+  'lastTurnsCharts',
+  'artworkTuning',
+  'combatReplayOptionsShown',
 ]);
 
 /** The label of the checkbox of a setting that is on or off; VIS, Screen limit names the Screen limit's. */

@@ -49,6 +49,14 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     isPermitted: (value): value is SettingValue =>
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 100,
   },
+  // MUSIC, Music control in the Side panel: whether the Music control is collapsed to its Track title.
+  {
+    setting: 'musicControlCollapsed',
+    name: 'Music control collapsed',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
   {
     setting: 'soundsOn',
     name: 'Sounds on',
@@ -126,7 +134,76 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     permitted: 'true or false',
     isPermitted: (value): value is SettingValue => typeof value === 'boolean',
   },
+  // CSCR, Hiding the Side panel: whether the Side panel is hidden.
+  {
+    setting: 'sidePanelHidden',
+    name: 'Side panel hidden',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
+  // VIS, Charts: the charts whose "Last 100 Turns" checkbox is checked, as a JSON array of chart names.
+  {
+    setting: 'lastTurnsCharts',
+    name: 'Last 100 Turns charts',
+    gameBuildDefault: '[]',
+    permitted: 'A JSON array of chart names',
+    isPermitted: (value): value is SettingValue => isJsonArrayOfText(value),
+  },
+  // VIS, Artwork tuning: the tuned values of each BackgroundArtwork, as a JSON object by BackgroundArtwork ID.
+  {
+    setting: 'artworkTuning',
+    name: 'Artwork tuning',
+    gameBuildDefault: '{}',
+    permitted:
+      'A JSON object of tuned values, each an opacity percentage and an image path, by BackgroundArtwork ID',
+    isPermitted: (value): value is SettingValue => isJsonTuning(value),
+  },
+  // CRPLAY, Options: whether the Options of the Combat replay are shown.
+  {
+    setting: 'combatReplayOptionsShown',
+    name: 'Combat replay Options shown',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
 ];
+
+function parsedJson(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function isJsonArrayOfText(value: unknown): boolean {
+  const parsed = parsedJson(value);
+  return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string');
+}
+
+function isJsonTuning(value: unknown): boolean {
+  const parsed = parsedJson(value);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return false;
+  }
+  return Object.values(parsed as Record<string, unknown>).every((tuning) => {
+    if (typeof tuning !== 'object' || tuning === null) {
+      return false;
+    }
+    const { opacityPct, image } = tuning as Record<string, unknown>;
+    return (
+      typeof opacityPct === 'number' &&
+      Number.isSafeInteger(opacityPct) &&
+      opacityPct >= 0 &&
+      opacityPct <= 100 &&
+      typeof image === 'string'
+    );
+  });
+}
 
 export interface SettingReport {
   readonly setting: string;

@@ -30,7 +30,7 @@ import {
 } from '../combat-replay.ts';
 import { drawReplay, figureAt, readPalette, type ReplayPalette } from '../combat-replay-draw.ts';
 import { hitChanceText, wholeText } from '../format.ts';
-import { replayOptionsShown } from '../session-value.ts';
+import { replayOptionsShown } from '../replay-options.ts';
 import { sliderFill } from '../slider.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';

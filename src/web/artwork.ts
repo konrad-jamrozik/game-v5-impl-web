@@ -1,14 +1,14 @@
 /**
  * VIS, Background artwork: the image each Detail view draws faintly behind its content, and how faintly, as the
- * BackgroundArtwork GDRs give them; VIS, Artwork tuning: the values the Game designer tunes for the Session.
+ * BackgroundArtwork GDRs give them; VIS, Artwork tuning: the values the Game designer tunes, kept across Sessions.
  * PLACE, Artwork in an Implementation: a GDR's image path names a file of the Spec repo, and the Game build serves
  * this Implementation's copy of that file, kept at the same path in assets/images/.
  */
-import { useSyncExternalStore } from 'react';
 import type { GameDataView } from '../engine/index.ts';
 import { detailViewName } from './artwork-names.ts';
+import { tuningsFrom, type Tuning } from './artwork-tuning.ts';
 import type { DetailViewId } from './screens/DetailView.tsx';
-import { useSnapshot } from './store.ts';
+import { resetSetting, setSetting, settingValue, snapshot, useSnapshot } from './store.ts';
 
 const FILES = import.meta.glob<string>('../../assets/images/*.{png,jpg}', {
   eager: true,
@@ -28,33 +28,19 @@ export const IMAGE_PATHS: readonly string[] = Object.keys(FILES)
   .map((key) => key.slice('../../'.length))
   .sort();
 
-/** VIS, Artwork tuning: the tuned values of one BackgroundArtwork. */
-export interface Tuning {
-  readonly opacityPct: number;
-  readonly image: string;
-}
-
-// VIS, Artwork tuning: tuned values are part of the Session, never saved, and last until the page is left.
-let tunings: ReadonlyMap<string, Tuning> = new Map();
-const listeners = new Set<() => void>();
-
-function changed(next: ReadonlyMap<string, Tuning>): void {
-  tunings = next;
-  for (const listener of listeners) {
-    listener();
-  }
-}
+export type { Tuning } from './artwork-tuning.ts';
 
 /** Sets the tuned values of the BackgroundArtwork with this identifier. */
 export function tune(artwork: BackgroundArtwork, change: Partial<Tuning>): void {
-  const next = new Map(tunings);
-  next.set(artwork.id, { ...tuningOf(artwork, tunings), ...change });
-  changed(next);
+  const tunings = tuningsFrom(settingValue(snapshot().configuration, 'artworkTuning'));
+  const next = Object.fromEntries(tunings);
+  next[artwork.id] = { ...tuningOf(artwork, tunings), ...change };
+  void setSetting('artworkTuning', JSON.stringify(next));
 }
 
 /** VIS, Artwork tuning, Reset: returns every row to the values of its GDR. */
 export function resetTuning(): void {
-  changed(new Map());
+  void resetSetting('artworkTuning');
 }
 
 function tuningOf(artwork: BackgroundArtwork, from: ReadonlyMap<string, Tuning>): Tuning {
@@ -62,15 +48,7 @@ function tuningOf(artwork: BackgroundArtwork, from: ReadonlyMap<string, Tuning>)
 }
 
 export function useTunings(): ReadonlyMap<string, Tuning> {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    () => tunings,
-  );
+  return tuningsFrom(settingValue(useSnapshot().configuration, 'artworkTuning'));
 }
 
 /** The values a BackgroundArtwork is shown with now: its tuned values, or those of its GDR. */

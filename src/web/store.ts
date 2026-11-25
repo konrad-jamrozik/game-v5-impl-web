@@ -16,6 +16,7 @@ import {
   type GameDataView,
   type GameStorage,
   type GlobalConfigurationReport,
+  type SettingValue,
   type HistoryView,
   type Result,
   type SessionStatus,
@@ -95,6 +96,59 @@ let lastDevModeOn: boolean | null = null;
 let devModeChoice: boolean | null = null;
 let revealChoice: boolean | null = null;
 const listeners = new Set<() => void>();
+/**
+ * The value of each Global configuration setting that the GUI is storing now, so that the control that set it follows
+ * at once: `snapshot().configuration` reports it until the store ends.
+ */
+const pendingSettings = new Map<string, SettingValue>();
+
+/**
+ * Stores a Global configuration setting that a control of the GUI sets where the Player uses it, e.g. whether the Side
+ * panel is hidden (GUI, Settings panel, Other settings).
+ */
+export async function setSetting(setting: string, value: SettingValue): Promise<void> {
+  pendingSettings.set(setting, value);
+  changed();
+  await run(() => theEngine().session.globalConfiguration.set(setting, value));
+  if (pendingSettings.get(setting) === value) {
+    pendingSettings.delete(setting);
+  }
+  changed();
+}
+
+/** Makes a Global configuration setting follow its Game build default again, as `setSetting` stores a value. */
+export async function resetSetting(setting: string): Promise<void> {
+  const report = valueOf(theEngine().session.globalConfiguration.get());
+  const fallback = report?.settings.find((item) => item.setting === setting)?.gameBuildDefault;
+  if (fallback !== undefined) {
+    pendingSettings.set(setting, fallback);
+    changed();
+  }
+  await run(() => theEngine().session.globalConfiguration.reset(setting));
+  if (pendingSettings.get(setting) === fallback) {
+    pendingSettings.delete(setting);
+  }
+  changed();
+}
+
+/** The Global configuration report with the values being stored in place of those stored before. */
+function withPending(report: GlobalConfigurationReport): GlobalConfigurationReport {
+  if (pendingSettings.size === 0) {
+    return report;
+  }
+  return {
+    ...report,
+    settings: report.settings.map((item) => {
+      const pending = pendingSettings.get(item.setting);
+      return pending === undefined ? item : { ...item, effectiveValue: pending };
+    }),
+  };
+}
+
+/** The effective value of a Global configuration setting, as `snapshot().configuration` reports it. */
+export function settingValue(configuration: GlobalConfigurationReport, setting: string): unknown {
+  return configuration.settings.find((item) => item.setting === setting)?.effectiveValue;
+}
 
 /** Whether the boolean Global configuration setting `setting` is on. */
 function settingOn(configuration: GlobalConfigurationReport | null, setting: string): boolean {
@@ -247,6 +301,7 @@ export async function boot(storage: GameStorage): Promise<void> {
   );
   // GUI, Developer tools, Kept across Sessions: Dev mode follows Dev mode on, which Global configuration keeps.
   lastDevModeOn = null;
+  pendingSettings.clear();
   devModeChoice = null;
   revealChoice = null;
   engine.subscribe(() => {
@@ -283,7 +338,9 @@ export function snapshot(): Snapshot {
   if (status === null) {
     throw new Error('The Session status is unavailable');
   }
-  const configuration = valueOf(game.session.globalConfiguration.get()) ?? { settings: [], problems: [] };
+  const configuration = withPending(
+    valueOf(game.session.globalConfiguration.get()) ?? { settings: [], problems: [] },
+  );
   const has = status.hasCurrentCampaign;
   if (has) {
     leftCampaign = null;
