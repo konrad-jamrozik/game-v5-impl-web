@@ -173,10 +173,8 @@ export function HistoryView({
               return (
                 <Fragment key={row.turn}>
                   <tr data-testid={row.now ? 'history-turn-now' : `history-turn-${row.turn}`}>
-                    <td className="num">
-                      {row.turn}
-                      {row.now ? <span className="muted"> now</span> : null}
-                    </td>
+                    {/* HVIEW: the current Turn's number in Notice, with no word after it. */}
+                    <td className={row.now ? 'num tone-notice' : 'num'}>{row.turn}</td>
                     <td className="num">{row.moneyStart}</td>
                     <td className={spent > 0 ? 'num tone-bad' : 'num muted'}>
                       {spent > 0 ? `−${spent}` : '0'}
