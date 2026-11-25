@@ -370,12 +370,23 @@ function Sections(props: {
       <span className="list-name">{leadName(lead)}</span>
     </button>
   );
-  const gainRows = (lines: readonly GainLine[]) =>
-    lines.map((line, index) => (
+  // TRVIEW, Sections, Benefits and Setbacks: a Mission's gains or losses joined on one line, e.g. "+50 money, +5
+  // funding", and its rise in the Contracting cap on a line of its own.
+  const gainRows = (lines: readonly GainLine[]) => {
+    const joined = lines.filter((line) => line.ownLine !== true);
+    const first = joined[0];
+    const rows = [
+      ...(first === undefined
+        ? []
+        : [{ text: joined.map((line) => line.text).join(', '), tone: first.tone }]),
+      ...lines.filter((line) => line.ownLine === true),
+    ];
+    return rows.map((line, index) => (
       <div key={index} className={`report-item ${line.tone === 'good' ? 'tone-good' : 'tone-bad'}`}>
         {line.text}
       </div>
     ));
+  };
   const equipmentList = (label: string, list: EquipmentList, tone: string) =>
     list.entries.length === 0 ? null : (
       <div className="report-item" data-testid={`equipment-${label.toLowerCase()}`}>

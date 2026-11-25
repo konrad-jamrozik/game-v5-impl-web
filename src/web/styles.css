@@ -1293,20 +1293,22 @@ input::placeholder {
   border-top: 1px solid var(--divider);
 }
 
-.summary-facts {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin: 10px 0;
+/* TSUM, Mission cards: one line, its Mission site title at the left and its outcome at the right, selectable whole. */
+.summary-mission-card {
+  width: 100%;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 
-.summary-facts dd {
-  margin: 2px 0 0;
+.summary-mission-card + .summary-mission-card {
+  margin-top: 4px;
 }
 
-/* TSUM, Mission cards: with no Consequences beside them, the Combat report and Visualize buttons sit at the right. */
-.summary-card-actions {
-  justify-content: flex-end;
+/* TSUM, Sources: a sourced line keeps its gain and its Mission site title on one row, though `.dialog-row` stacks. */
+.dialog-row.sit-line.summary-sourced {
+  flex-direction: row;
 }
 
 /* TSUM, Sources: the Mission site title at the right of a line may shrink and wrap, so the line keeps its text. */

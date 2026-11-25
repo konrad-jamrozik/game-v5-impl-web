@@ -29,13 +29,6 @@ export interface SummaryMission {
   readonly title: MissionSiteTitle;
   readonly result: 'Won' | 'Lost';
   readonly combatOutcome: string;
-  readonly teamSent: number;
-  /** TSUM, Groups: the number of Agents Killed; the card names no Agent. */
-  readonly killed: number;
-  /** The number of Agents of its Team sent whose Assignment is now Recovery. */
-  readonly toRecovery: number;
-  readonly enemiesDead: number;
-  readonly enemiesPresent: number;
 }
 
 /** TSUM, Sources: one line of Benefits, Setbacks, or Equipment recovered, with the Mission it came from. */
@@ -157,7 +150,6 @@ export function turnSummary(
   for (const item of [...(retired?.investigations ?? []), ...state.investigations]) {
     investigations.set(item.id, item);
   }
-  const missions = new Map((retired?.missions ?? []).map((mission) => [mission.id, mission]));
   const leads = new Map((retired?.leads ?? []).map((lead) => [lead.id, lead]));
   const factionName = (id: string) => state.factions.find((faction) => faction.id === id)?.name ?? id;
   const siteName = (id: string, archetype?: string) => {
@@ -180,19 +172,13 @@ export function turnSummary(
   const combatOf = (mission: string) => report.combatReports.find((item) => item.mission === mission);
 
   const summaryMissions = report.missions.map((mission): SummaryMission => {
-    const combat = combatOf(mission.mission);
-    const enemies = combat?.participants.filter((who) => who.side === 'enemy') ?? [];
+    // TSUM, Groups: a Mission card holds its Mission site title and outcome and nothing else.
     return {
       mission: mission.mission,
       missionSite: mission.missionSite,
       title: titleOf(mission.mission),
       result: mission.result,
-      combatOutcome: combat?.outcome ?? '',
-      teamSent: missions.get(mission.mission)?.teamSent.length ?? combat?.agents.length ?? 0,
-      killed: mission.killed.length,
-      toRecovery: mission.toRecovery.length,
-      enemiesDead: enemies.filter((who) => who.final.condition === 'dead').length,
-      enemiesPresent: enemies.length,
+      combatOutcome: combatOf(mission.mission)?.outcome ?? '',
     };
   });
 

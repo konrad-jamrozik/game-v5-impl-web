@@ -48,22 +48,12 @@ function SourcedGroup(props: { title: string; lines: readonly SourcedLine[]; tes
   );
 }
 
-/**
- * TSUM, Mission cards: a number of Agents, in its tone only when above 0. The card names no Agent: the Combat report
- * names each participant.
- */
-function AgentCount({ count, tone }: { count: number; tone: string }) {
-  return <span className={`figure${count > 0 ? ` ${tone}` : ''}`}>{count}</span>;
-}
-
 export function TurnSummary(props: {
   model: TurnSummaryModel;
   currentTurn: number;
   onDismiss: () => void;
   onOpenReport: () => void;
-  /** TSUM, Mission cards: the Combat report button opens that Mission's Combat report in the Turn Report View. */
-  onOpenCombat: (mission: string) => void;
-  /** CRPLAY, Visualize button: opens that Mission's Combat replay in the Turn Report View. */
+  /** TSUM, Mission cards: a Mission card opens that Mission's Combat replay in the Turn Report View. */
   onOpenReplay: (mission: string) => void;
   /** TSUM, Mission site links: a new or Expired Mission site item opens the Missions View with it selected. */
   onOpenSite: (missionSite: string) => void;
@@ -99,65 +89,28 @@ export function TurnSummary(props: {
         <div className="dialog-body">
           {model.missions.length === 0 ? null : (
             <Group title="Missions" count={model.missions.length} testId="summary-missions">
+              {/* TSUM, Mission cards: one line each, which opens that Mission's Combat replay when selected. */}
               {model.missions.map((mission) => (
-                <article key={mission.mission} className="dialog-card">
-                  <div className="sit-line">
-                    <MissionSiteTitleView title={mission.title} />
-                    <span className={`label ${mission.result === 'Won' ? 'tone-good' : 'tone-bad'}`}>
-                      {/* TSUM, Groups: a Won Mission says "Won" alone, as its Combat outcome is Won too. */}
-                      {mission.result === 'Won' ? 'Won' : `Lost · ${mission.combatOutcome}`}
-                    </span>
-                  </div>
-                  <dl className="summary-facts">
-                    <div>
-                      <dt className="label">Team sent</dt>
-                      <dd className="figure">{mission.teamSent}</dd>
-                    </div>
-                    <div>
-                      <dt className="label">Killed</dt>
-                      <dd>
-                        <AgentCount count={mission.killed} tone="tone-bad" />
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="label">To Recovery</dt>
-                      <dd>
-                        <AgentCount count={mission.toRecovery} tone="tone-accent" />
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="label">Enemies dead</dt>
-                      <dd className="figure">
-                        {mission.enemiesDead} / {mission.enemiesPresent}
-                      </dd>
-                    </div>
-                  </dl>
-                  {/* TSUM, Groups: the card lists no Consequence; Benefits and Setbacks below list them. */}
-                  <div className="sit-line summary-card-actions">
-                    <span className="trade-buttons">
-                      <button
-                        type="button"
-                        className="btn btn-plain"
-                        data-testid={`summary-combat-${mission.mission}`}
-                        onClick={() => {
-                          props.onOpenCombat(mission.mission);
-                        }}
-                      >
-                        Combat report
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-plain"
-                        data-testid={`summary-visualize-${mission.mission}`}
-                        onClick={() => {
-                          props.onOpenReplay(mission.mission);
-                        }}
-                      >
-                        Visualize
-                      </button>
-                    </span>
-                  </div>
-                </article>
+                <button
+                  key={mission.mission}
+                  type="button"
+                  className="dialog-card link-row sit-line summary-mission-card"
+                  data-testid={`summary-mission-${mission.mission}`}
+                  onClick={() => {
+                    props.onOpenReplay(mission.mission);
+                  }}
+                >
+                  <span>
+                    <span className="link-name">{mission.title.name}</span>
+                    {mission.title.details === '' ? null : (
+                      <span className="muted small"> · {mission.title.details}</span>
+                    )}
+                  </span>
+                  <span className={`label ${mission.result === 'Won' ? 'tone-good' : 'tone-bad'}`}>
+                    {/* TSUM, Groups: a Won Mission says "Won" alone, as its Combat outcome is Won too. */}
+                    {mission.result === 'Won' ? 'Won' : `Lost · ${mission.combatOutcome}`}
+                  </span>
+                </button>
               ))}
             </Group>
           )}

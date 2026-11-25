@@ -833,12 +833,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           onOpenReport={() => {
             openFromSummary(NOTHING_RESTORED);
           }}
-          onOpenCombat={(mission) => {
-            // TSUM, Mission cards: the Turn Report View opens with that Mission's Combat report one step away.
-            openFromSummary({ combat: mission, logOpen: false });
-          }}
           onOpenReplay={(mission) => {
-            // CRPLAY, Visualize button: the Turn Report View opens with that Mission's Combat replay one step away.
+            // TSUM, Mission cards: the Turn Report View opens with that Mission's Combat replay one step away.
             openFromSummary({ combat: mission, logOpen: false, replay: true });
           }}
           onOpenSite={(missionSite) => {

@@ -43,6 +43,8 @@ export function missionSiteTitleText(title: MissionSiteTitle): string {
 export interface GainLine {
   readonly text: string;
   readonly tone: 'good' | 'bad';
+  /** TRVIEW, Sections, Benefits: the rise in the Contracting cap takes a line of its own. */
+  readonly ownLine?: boolean;
 }
 
 function signed(value: number): string {
@@ -91,6 +93,7 @@ export function benefitLines(
     lines.push({
       text: `Reputation increased${reason}: our Contracting network expands by ${mission.contractingCapRise}`,
       tone: 'good',
+      ownLine: true,
     });
   }
   return lines;
