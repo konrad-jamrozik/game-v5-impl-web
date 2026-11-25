@@ -588,8 +588,21 @@ input::placeholder {
   margin-bottom: 0;
 }
 
-/* AVIEW, Equip table: it fills the body of the Agents View covering the whole screen, and scrolls, sideways too
-   while it is wider than the screen. */
+/* AVIEW, Equip table: condensed, its text a step smaller, 13 px, and its cells tighter, so that every column fits
+   the Reference window without scrolling sideways. */
+.equip-grid th,
+.equip-grid td {
+  padding: 4px 6px;
+}
+
+.equip-grid td,
+.equip-grid td .figure,
+.equip-grid td .equipment-cell,
+.equip-grid td .rank-text {
+  font-size: 13px;
+}
+
+/* AVIEW, Equip table: it fills the body of the Agents View covering the whole screen, and scrolls down. */
 .equip-view {
   display: flex;
   flex: 1;

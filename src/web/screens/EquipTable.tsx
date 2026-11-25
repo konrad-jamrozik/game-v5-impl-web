@@ -4,7 +4,6 @@
  * checkboxes, because the Player equips one Agent at a time; a Weapon or Armor cell opens the Equipment picker. Until
  * it is fitted it may scroll sideways in the Reference window (AVIEW, TODOs).
  */
-import { AGENT_COLUMN_WIDTH } from '../table-widths.ts';
 import type {
   AgentView,
   CurrentLiveWorldStateView,
@@ -37,23 +36,25 @@ type EquipKey =
   | 'assignment';
 
 /**
- * VIS, Tables: the fixed widths of the Equip table. The Instance ID holds 30 characters, as in the Agent table; CR and
- * Skill and Base hold four digits, Equip. four after its sign, Exp. three; Weapon and Armor hold the longest Item `name`
- * of the GDRs with its number and icon.
+ * VIS, Tables, and AVIEW, Equip table: the fixed widths of the condensed Equip table, its text 13 px and its cells 6 px
+ * from their sides, so that every column fits the Reference window without scrolling sideways. The Instance ID holds
+ * 30 characters; CR, Skill, and Base four digits, Equip. four after its sign, Exp. three, each with its sort arrow; Rank
+ * "Hi Cmdr" and three stars; Weapon and Armor the longest Item `name` of the GDRs with its number, icon, and caret; and
+ * Assignment "Recovery · 99 T left" with the In transit icon.
  */
 const EQUIP_WIDTHS = [
-  AGENT_COLUMN_WIDTH,
+  '246px',
+  '56px',
   '64px',
-  '80px',
-  '116px',
-  '80px',
-  '80px',
-  '64px',
-  '84px',
-  '72px',
+  '98px',
+  '56px',
+  '56px',
+  '52px',
+  '70px',
+  '56px',
   '200px',
-  '220px',
-  '176px',
+  '210px',
+  '144px',
 ];
 
 /** VIS, Tables: the columns that sort descending first, because they sort by a number. */

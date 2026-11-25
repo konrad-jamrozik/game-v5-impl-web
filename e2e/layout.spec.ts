@@ -140,12 +140,13 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   await id(page, 'agents-grid').locator('[data-testid^="agent-details-"]').first().click();
   await expectFits(page, 'the Agent details');
 
-  // AVIEW, Equip table: it may scroll sideways until it is fitted (AVIEW, TODOs), so it is opened and closed only.
+  // AVIEW, Equip table: condensed, it fits the Reference window without scrolling sideways.
   await open(page, 'storage');
   await open(page, 'agents');
   await id(page, 'open-equip').click();
   await expect(id(page, 'equip-view')).toBeVisible();
   await expect(id(page, 'equip-grid').locator('[data-testid^="weapon-"]').first()).toBeVisible();
+  await expectFits(page, 'the Equip table');
   await page.keyboard.press('Escape');
   await expect(id(page, 'equip-view')).toHaveCount(0);
   await expect(id(page, 'view-agents')).toBeVisible();
