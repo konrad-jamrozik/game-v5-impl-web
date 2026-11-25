@@ -71,7 +71,7 @@ export interface AgentView {
   readonly effectiveArmor: number;
   /** Absent for a Killed or Dismissed Agent. */
   readonly assignment: Assignment | null;
-  readonly canBeAssigned: boolean;
+  readonly canTakeOrders: boolean;
   /**
    * AGENT, Start-work gate: whether the Agent is Fit to start work, i.e. its exhaustion is at most
    * exhaustion_work_start_max and its health lost is 0.
@@ -470,7 +470,7 @@ export interface AvailableActionsView {
   readonly hireAgents: ActionAvailability;
   readonly purchaseUpgrade: readonly ({ readonly upgrade: string } & ActionAvailability)[];
   /** The Agents that can be ordered. */
-  readonly assignableAgents: readonly string[];
+  readonly agentsThatCanTakeOrders: readonly string[];
   readonly assignAgents: {
     readonly assignments: readonly SimpleAssignment[];
     /** How many more Agents can be ordered to Training under the Training cap. */

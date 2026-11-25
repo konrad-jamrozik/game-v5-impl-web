@@ -28,9 +28,9 @@ describe('AVIEW, Row filters: the Hide checkboxes', () => {
 
 describe('AVIEW, Row filters: Fit to start work', () => {
   it('shows an Agent only when it can take orders and is Fit to start work', () => {
-    expect(fitToStartWorkNow({ canBeAssigned: true, fitForWork: true })).toBe(true);
-    expect(fitToStartWorkNow({ canBeAssigned: false, fitForWork: true })).toBe(false);
-    expect(fitToStartWorkNow({ canBeAssigned: true, fitForWork: false })).toBe(false);
+    expect(fitToStartWorkNow({ canTakeOrders: true, fitForWork: true })).toBe(true);
+    expect(fitToStartWorkNow({ canTakeOrders: false, fitForWork: true })).toBe(false);
+    expect(fitToStartWorkNow({ canTakeOrders: true, fitForWork: false })).toBe(false);
   });
 });
 

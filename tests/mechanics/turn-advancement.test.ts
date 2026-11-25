@@ -163,9 +163,9 @@ describe('TURN: examples', () => {
       assignment: { kind: 'Standby' },
       status: 'InTransit',
     });
-    // In Turn 6 neither survivor can be assigned: both are In transit.
+    // In Turn 6 neither survivor can take orders: both are In transit.
     const survivors = currentLiveWorldStateView(state, gdrs).agents.filter((a) => a.id === a1 || a.id === a2);
-    expect(survivors.map((a) => a.canBeAssigned)).toEqual([false, false]);
+    expect(survivors.map((a) => a.canTakeOrders)).toEqual([false, false]);
     expect(report.recovery).toEqual([]);
     expect(state.world.current.missionSites[created.site]!.state.turnsUntilExpiration).toBe(4);
     // Each survivor gains 5 Mission exhaustion on top of what its Combat left.

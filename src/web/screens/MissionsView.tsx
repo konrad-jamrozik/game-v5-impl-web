@@ -30,7 +30,7 @@ import { useRowSelection } from '../row-selection.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { pressHeader, type SortTier } from '../table-sort.ts';
-import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
+import { Button, Grid, SortMark, ariaSort, withShortcut } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { instanceNumber } from '../memorial.ts';
 import type { ReportTarget } from './TurnReportView.tsx';
@@ -496,7 +496,7 @@ function Deployment(props: {
   // incapacitation condition.
   const candidates = state.agents.filter(
     (agent) =>
-      agent.canBeAssigned &&
+      agent.canTakeOrders &&
       agent.agentStatus === 'AtAssignment' &&
       (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
       // MISSION, Deploying Agents, precondition 9: an Agent that would be Incapacitated cannot be deployed.
@@ -592,6 +592,7 @@ function Deployment(props: {
                   <input
                     type="checkbox"
                     aria-label="Select all"
+                    title={withShortcut('Select all', 'A')}
                     data-testid="deploy-select-all"
                     checked={selectAll}
                     onChange={() => {

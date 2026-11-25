@@ -231,7 +231,7 @@ class Turn {
       .map((agent, index) => ({ agent, index }))
       .filter(
         ({ agent }) =>
-          agent.canBeAssigned &&
+          agent.canTakeOrders &&
           agent.fitForWork &&
           (agent.assignment?.kind === 'Standby' || agent.assignment?.kind === 'Training') &&
           !(muster?.agents.has(agent.id) ?? false),
@@ -485,7 +485,7 @@ class Turn {
       .filter((item): item is Candidate => item !== null);
     const contractors = state.agents
       .map((agent, index) => ({ agent, index }))
-      .filter(({ agent }) => agent.assignment?.kind === 'Contracting' && agent.canBeAssigned)
+      .filter(({ agent }) => agent.assignment?.kind === 'Contracting' && agent.canTakeOrders)
       .map(({ agent, index }) => this.contractor(agent, index));
     for (const site of this.sitesByUrgency(state)) {
       if (site.kind !== 'Initiative' || this.deployTeam(state, site) !== null) {
@@ -547,7 +547,7 @@ class Turn {
     }
     const candidates = state.agents
       .map((agent, index) => ({ agent, index }))
-      .filter(({ agent }) => agent.assignment?.kind === 'Contracting' && agent.canBeAssigned)
+      .filter(({ agent }) => agent.assignment?.kind === 'Contracting' && agent.canTakeOrders)
       .sort((a, b) => b.agent.effectiveSkill - a.agent.effectiveSkill || a.index - b.index)
       .map((item) => item.agent);
     for (const agent of candidates) {
@@ -675,7 +675,7 @@ class Turn {
       .map((agent, index) => ({ agent, index }))
       .filter(
         ({ agent }) =>
-          agent.canBeAssigned &&
+          agent.canTakeOrders &&
           agent.fitForWork &&
           agent.assignment?.kind === 'Standby' &&
           !(muster?.agents.has(agent.id) ?? false),

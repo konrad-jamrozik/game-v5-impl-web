@@ -287,7 +287,7 @@ function Team(props: {
   const actions = snapshot.actions;
   // LVIEW, Team: the Agents that can take orders, whose Assignment is a Base Assignment, and that are Fit to start work.
   const candidates = state.agents.filter(
-    (agent) => agent.canBeAssigned && isInBase(agent) && agent.fitForWork,
+    (agent) => agent.canTakeOrders && isInBase(agent) && agent.fitForWork,
   );
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
   // VIS, Tables: up to four sort tiers over the default order of LVIEW, Team.
@@ -366,7 +366,7 @@ function Team(props: {
                       testId={`recall-${member.agent}`}
                       disabledReason={
                         locked ??
-                        (actions?.assignableAgents.includes(member.agent) === true
+                        (actions?.agentsThatCanTakeOrders.includes(member.agent) === true
                           ? null
                           : member.agentStatus === 'InTransit'
                             ? 'An Agent In transit cannot take orders until it arrives.'

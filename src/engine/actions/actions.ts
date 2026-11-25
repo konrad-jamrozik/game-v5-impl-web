@@ -8,7 +8,7 @@ import { must } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import {
   agentCombatantValues,
-  canBeAssigned,
+  canTakeOrders,
   createAgent,
   effectiveSkill,
   effectiveWeaponDamage,
@@ -128,7 +128,7 @@ function isRejected(value: unknown): value is Rejection {
 }
 
 function requireOrderable(agents: readonly Agent[]): Rejection | null {
-  const blocked = agents.filter((agent) => !canBeAssigned(agent.state));
+  const blocked = agents.filter((agent) => !canTakeOrders(agent.state));
   return blocked.length > 0
     ? reject('agents_cannot_be_ordered', `These Agents cannot be ordered: ${list(blocked.map((a) => a.id))}.`)
     : null;
@@ -172,7 +172,7 @@ function requireNotIncapacitated(
 }
 
 /**
- * AGENT, Agents that can be assigned, From away: an Agent on Contracting or an Investigation can only be recalled to
+ * AGENT, Agents that can take orders, From away: an Agent on Contracting or an Investigation can only be recalled to
  * Standby, so Contracting, Training, an Investigation, and deployment each require a Base Assignment.
  */
 function requireInBase(agents: readonly Agent[]): Rejection | null {

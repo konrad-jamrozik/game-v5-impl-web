@@ -91,8 +91,8 @@ export function hiddenByChecks(
 
 /** AVIEW, Row filters, Fit to start work: an Agent that can take orders and is Fit to start work. */
 export function fitToStartWorkNow(agent: {
-  readonly canBeAssigned: boolean;
+  readonly canTakeOrders: boolean;
   readonly fitForWork: boolean;
 }): boolean {
-  return agent.canBeAssigned && agent.fitForWork;
+  return agent.canTakeOrders && agent.fitForWork;
 }

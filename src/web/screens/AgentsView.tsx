@@ -41,7 +41,7 @@ import { confirmOrGoBack, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { pressHeader, pressHeaderUnderLock, sortRows, withLockedTier, type SortTier } from '../table-sort.ts';
-import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
+import { Button, Grid, SortMark, ariaSort, withShortcut } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { EquipmentPicker } from './EquipmentPicker.tsx';
 import type { ReportTarget } from './TurnReportView.tsx';
@@ -213,7 +213,7 @@ export function AgentsView(props: {
     const result: Record<OrderAssignment, string[]> = { Standby: [], Contracting: [], Training: [] };
     for (const agent of state.agents) {
       // An Agent that cannot be assigned is rejected by every Assignment, so it needs no preview.
-      if (!agent.canBeAssigned) {
+      if (!agent.canTakeOrders) {
         continue;
       }
       for (const assignment of ASSIGNMENTS) {
@@ -625,6 +625,7 @@ export function AgentsView(props: {
                     <input
                       type="checkbox"
                       aria-label="Select all"
+                      title={withShortcut('Select all', 'A')}
                       data-testid="select-all"
                       checked={selectAll}
                       disabled={selectableIds.length === 0 && !selectAll}

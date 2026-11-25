@@ -1010,7 +1010,7 @@ describe('RECOVER: examples', () => {
     expect(view(state)).toMatchObject({
       healthRecoveryRateHundredths: 60,
       recoveryTurnsRemaining: 5,
-      canBeAssigned: false,
+      canTakeOrders: false,
     });
     state = advance(state); // arrives; no recovery
     expect(units(agent(state, a1).state)).toMatchObject({
@@ -1047,7 +1047,7 @@ describe('RECOVER: examples', () => {
       assignment: { kind: 'Standby' },
       status: 'AtAssignment',
     });
-    expect(view(state)).toMatchObject({ recoveryTurnsRemaining: null, canBeAssigned: true });
+    expect(view(state)).toMatchObject({ recoveryTurnsRemaining: null, canTakeOrders: true });
   });
 
   it('Standby recovers exhaustion only; Assignments and phases that do not recover', () => {

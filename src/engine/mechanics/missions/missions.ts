@@ -18,7 +18,7 @@ import {
   type MissionSite,
   type MissionSiteOrigin,
 } from '../../state/types.ts';
-import { canBeAssigned, isInBase, type AgentUpgradeBonus } from '../agents/agents.ts';
+import { canTakeOrders, isInBase, type AgentUpgradeBonus } from '../agents/agents.ts';
 import {
   agentCombatantState,
   combatRating,
@@ -54,7 +54,7 @@ export function isDeployableAgent(
   return (
     isServing(agent) &&
     isInBase(agent) &&
-    canBeAssigned(agent) &&
+    canTakeOrders(agent) &&
     isCapableForDeployment(agent, bonus, combat, agentParameters)
   );
 }

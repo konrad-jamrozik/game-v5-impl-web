@@ -88,8 +88,8 @@ for (let turn = 0; turn < stressTurns; turn += 1) {
   }
   await engine.developer.actions.addMoney(100000);
   const ids = engine.player.queries.getAvailableActions();
-  if (ids.ok && ids.value.assignableAgents.length > 0) {
-    await engine.player.actions.assignAgents(ids.value.assignableAgents, 'Contracting');
+  if (ids.ok && ids.value.agentsThatCanTakeOrders.length > 0) {
+    await engine.player.actions.assignAgents(ids.value.agentsThatCanTakeOrders, 'Contracting');
   }
   const began = performance.now();
   const advanced = await engine.player.actions.advanceTurn();

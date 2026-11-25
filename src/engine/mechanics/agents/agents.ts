@@ -266,9 +266,9 @@ export function clampHealth(value: number, maxHealth: number): number {
   return Math.min(maxHealth, Math.max(0, value));
 }
 
-/** AGENT, Agents that can be assigned. */
-export function canBeAssigned(agent: Pick<AgentState, 'status' | 'assignment'>): boolean {
-  // AGENT, Agents that can be assigned: At assignment, on Standby, Contracting, Training, or an Investigation. An
+/** AGENT, Agents that can take orders. */
+export function canTakeOrders(agent: Pick<AgentState, 'status' | 'assignment'>): boolean {
+  // AGENT, Agents that can take orders: At assignment, on Standby, Contracting, Training, or an Investigation. An
   // Agent In transit, whatever its Assignment, must arrive first; see AGENT, Transit rule, No orders in transit.
   if (agent.status !== 'AtAssignment' || agent.assignment === null) {
     return false;

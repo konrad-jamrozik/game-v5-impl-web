@@ -7,7 +7,7 @@ import { deepFreeze, detach, must, q } from '../../kernel/index.ts';
 import { GAME_BUILD, type GdrCatalog, type MissionSiteArchetypeGdr } from '../../gdr/index.ts';
 import { applyGameAction } from '../actions/actions.ts';
 import {
-  canBeAssigned,
+  canTakeOrders,
   effectiveSkill,
   enemyCombatantValues,
   type AgentUpgradeBonus,
@@ -262,7 +262,7 @@ function agentView(
     baseArmor: s.baseArmor,
     effectiveArmor: values.armor,
     assignment: s.assignment === null ? null : { ...s.assignment },
-    canBeAssigned: canBeAssigned(s),
+    canTakeOrders: canTakeOrders(s),
     fitForWork: isFitForWork(s, gdrs.agentParameters),
     inBase: isInBase(s),
     away: isAway(s),
@@ -930,9 +930,9 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
               : null,
           )),
     })),
-    assignableAgents: ended
+    agentsThatCanTakeOrders: ended
       ? []
-      : agents.filter((agent) => canBeAssigned(agent.state)).map((agent) => agent.id),
+      : agents.filter((agent) => canTakeOrders(agent.state)).map((agent) => agent.id),
     assignAgents: {
       assignments: ['Standby', 'Contracting', 'Training'],
       trainingPlacesLeft: ended ? 0 : Math.max(0, caps.trainingCap - countTraining(states)),

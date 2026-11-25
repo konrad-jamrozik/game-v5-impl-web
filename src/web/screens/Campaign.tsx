@@ -86,7 +86,10 @@ const SHORTCUTS: readonly {
   },
   { keys: ['H'], what: 'Hire an Agent' },
   { keys: ['S', 'C', 'T'], what: 'Assign the selected Agents to Standby, Contracting, or Training' },
-  { keys: ['A'], what: 'Select every Agent that can be assigned' },
+  {
+    keys: ['A'],
+    what: 'Check or uncheck Select all in the Agents View or the deployment table of the Missions View',
+  },
   { keys: ['Q', 'W'], what: 'Show the previous or next article of the Compendium Article history' },
   { keys: ['S'], what: 'Search article titles in the Compendium; Enter shows the first match' },
   { keys: ['`'], what: 'Developer tools' },
@@ -413,9 +416,14 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           setSidePanelHidden(!sidePanelHidden);
         }
       } else if (key === 'a') {
-        // SOUNDS, Select click: the key selects as Select all does, so it plays `select-click`.
-        playSound(SOUND.select);
-        setPicked(new Set(actions?.assignableAgents ?? []));
+        // The A key presses the Select all checkbox of the open Detail view's table, when it has an enabled one; the
+        // checkbox plays its own Sound (SOUNDS, Select click, Select all).
+        const selectAll = document.querySelector<HTMLInputElement>(
+          '[data-testid="select-all"], [data-testid="deploy-select-all"]',
+        );
+        if (selectAll !== null && !selectAll.disabled) {
+          selectAll.click();
+        }
       } else if (autopilotActive) {
         return;
       } else if (compendiumOpen && (key === 'n' || key === 'u' || key === 'r')) {

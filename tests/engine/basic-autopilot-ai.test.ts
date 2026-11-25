@@ -131,7 +131,7 @@ async function musterCampaign(
                 ...agent,
                 assignment: { kind: 'Recovery' as const },
                 agentStatus: 'Recovering' as const,
-                canBeAssigned: false,
+                canTakeOrders: false,
                 deployable: false,
                 fitForWork: false,
                 healthLostHundredths: 100,

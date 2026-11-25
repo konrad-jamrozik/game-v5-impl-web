@@ -87,7 +87,7 @@ describe('A Campaign is playable through Player API without Dev mode', () => {
       const live = ok(engine.player.queries.getCurrentLiveWorldState());
       const places = Math.max(0, live.agency.contractingCap - live.agency.contractingAgents);
       const rested = live.agents
-        .filter((agent) => agent.assignment?.kind === 'Standby' && agent.canBeAssigned && agent.fitForWork)
+        .filter((agent) => agent.assignment?.kind === 'Standby' && agent.canTakeOrders && agent.fitForWork)
         .slice(0, places)
         .map((agent) => agent.id);
       if (rested.length > 0) {
@@ -237,7 +237,7 @@ describe('DETERM and TIMELINE with the real game', () => {
           for (const step of steps) {
             const view = ok(engine.player.queries.getCurrentLiveWorldState());
             const available = ok(engine.player.queries.getAvailableActions());
-            const [agent] = available.assignableAgents;
+            const [agent] = available.agentsThatCanTakeOrders;
             let committed = false;
             if (step === 'undo') {
               const result = await engine.session.timeline.undoAction();

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
   applyMissionGrowth,
-  canBeAssigned,
+  canTakeOrders,
   clampExhaustion,
   clampHealth,
   effectiveSkill,
@@ -178,10 +178,10 @@ describe('AGENT: examples', () => {
       });
       expect(currentHealthOf(a.state)).toBe(archetype.baseHealth * 100);
       expect(effectiveSkill(valuesOf(a.state), p)).toBe(newAgent.skill);
-      expect(canBeAssigned(a.state)).toBe(true);
+      expect(canTakeOrders(a.state)).toBe(true);
     }
     const view = currentLiveWorldStateView(state, gdrs);
-    expect(view.agents.every((a) => a.canBeAssigned && a.effectiveSkill === newAgent.skill)).toBe(true);
+    expect(view.agents.every((a) => a.canTakeOrders && a.effectiveSkill === newAgent.skill)).toBe(true);
   });
 
   it('Transit: ordered to Contracting', () => {
@@ -212,7 +212,7 @@ describe('AGENT: examples', () => {
     expect(agent(state, a1).state.status).toBe('AtAssignment');
     // Income from funding 20 only; upkeep for every Serving Agent.
     expect(money(state)).toBe(before + 20 - upkeep);
-    expect(canBeAssigned(agent(state, a1).state)).toBe(true);
+    expect(canTakeOrders(agent(state, a1).state)).toBe(true);
     const second = money(state);
     state = advance(state);
     // Arrived, a1 earns: with effective skill 100 exactly `contracting_income_per_agent`.
@@ -237,7 +237,7 @@ describe('AGENT: examples', () => {
       { agents: [a5], assignment: 'Training' },
       'agents_cannot_be_ordered',
     );
-    expect(canBeAssigned(agent(state, a5).state)).toBe(false);
+    expect(canTakeOrders(agent(state, a5).state)).toBe(false);
     const before = money(state);
     state = advance(state);
     // The hired Agent In transit costs upkeep with the others.
@@ -246,7 +246,7 @@ describe('AGENT: examples', () => {
       assignment: { kind: 'Standby' },
       status: 'AtAssignment',
     });
-    expect(canBeAssigned(agent(state, a5).state)).toBe(true);
+    expect(canTakeOrders(agent(state, a5).state)).toBe(true);
   });
 
   it('Transit: returning survivors; Deployed at once', () => {
@@ -275,8 +275,8 @@ describe('AGENT: examples', () => {
       status: 'InTransit',
     });
     expect(agent(state, a1).state.participationHistory).toEqual([{ kind: 'Mission', id: mission }]);
-    // AGENT, Agents that can be assigned: In transit to Standby, it cannot be assigned.
-    expect(canBeAssigned(agent(state, a1).state)).toBe(false);
+    // AGENT, Agents that can take orders: In transit to Standby, it cannot take orders.
+    expect(canTakeOrders(agent(state, a1).state)).toBe(false);
     expectRejected(
       state,
       'assignAgents',
@@ -285,7 +285,7 @@ describe('AGENT: examples', () => {
     );
     state = advance(state);
     expect(agent(state, a1).state.status).toBe('AtAssignment');
-    expect(canBeAssigned(agent(state, a1).state)).toBe(true);
+    expect(canTakeOrders(agent(state, a1).state)).toBe(true);
   });
 
   it('Training growth', () => {
@@ -423,7 +423,7 @@ describe('AGENT: examples', () => {
     expect(agent(state, a2).state.exactExhaustionHundredths / 100).toBe(60);
     expect(agent(state, a3).state.exactExhaustionHundredths / 100).toBe(21);
     // a1 is In transit, so it cannot be assigned at all, whatever its exhaustion.
-    expect(canBeAssigned(agent(state, a1).state)).toBe(false);
+    expect(canTakeOrders(agent(state, a1).state)).toBe(false);
     expectRejected(
       state,
       'assignAgents',
@@ -506,7 +506,7 @@ describe('AGENT: examples', () => {
       assignment: { kind: 'Standby' },
       status: 'AtAssignment',
     });
-    // At assignment at once, so it can be assigned again in the same Turn.
+    // At assignment at once, so it can take orders again in the same Turn.
     const onward = act(withinBase, 'assignAgents', { agents: [a5], assignment: 'Contracting' });
     expect(units(agent(onward, a5).state)).toMatchObject({
       assignment: { kind: 'Contracting' },
