@@ -99,6 +99,82 @@ export function benefitLines(
   return lines;
 }
 
+/**
+ * TRVIEW, Sections and TSUM, Groups, Benefits and Setbacks: the lines that are not `ownLine` joined on one line, e.g.
+ * "+50 money, +5 funding", in the tone of the first, then each `ownLine` line, e.g. a rise in the Contracting cap.
+ */
+export function joinedLines(lines: readonly GainLine[]): GainLine[] {
+  const joined = lines.filter((line) => line.ownLine !== true);
+  const first = joined[0];
+  return [
+    ...(first === undefined ? [] : [{ text: joined.map((line) => line.text).join(', '), tone: first.tone }]),
+    ...lines.filter((line) => line.ownLine === true),
+  ];
+}
+
+/** The Consequences summed by kind, each as its own line; each Faction made Eliminated keeps a line of its own. */
+function summedConsequenceLines(
+  records: readonly ConsequenceRecord[],
+  factionName: (faction: string) => string,
+): GainLine[] {
+  const sum = (pick: (c: ConsequenceRecord) => number) => records.reduce((total, c) => total + pick(c), 0);
+  const total: ConsequenceRecord = {
+    money: sum((c) => c.money),
+    fundingChange: sum((c) => c.fundingChange),
+    panicIncreaseHundredths: sum((c) => c.panicIncreaseHundredths),
+    panicReductionHundredths: sum((c) => c.panicReductionHundredths),
+    eliminatedFaction: null,
+    defeat: records.some((c) => c.defeat),
+  };
+  const eliminated = records.flatMap((c) =>
+    c.eliminatedFaction === null
+      ? []
+      : [{ text: `${factionName(c.eliminatedFaction)} eliminated`, tone: 'good' as const }],
+  );
+  return [...consequenceLines(total, factionName), ...eliminated];
+}
+
+/**
+ * TSUM, Groups, Benefits: the gains of every Won Mission summed by kind on one line, e.g. "+120 money, +15 funding",
+ * then each rise in the Contracting cap on a line of its own.
+ */
+export function summedBenefitLines(
+  missions: readonly MissionResult[],
+  firstWinPhrase: (archetype: string) => string | null,
+  factionName: (faction: string) => string,
+): GainLine[] {
+  const won = missions.filter((mission) => mission.result === 'Won');
+  // Only gains count, as in benefitLines: a Won Mission's loss of money or funding, or Panic rise, is not a Benefit.
+  const gains = summedConsequenceLines(
+    won.map(({ consequence: c }) => ({
+      ...c,
+      money: Math.max(c.money, 0),
+      fundingChange: Math.max(c.fundingChange, 0),
+      panicIncreaseHundredths: 0,
+      defeat: false,
+    })),
+    factionName,
+  );
+  const caps = won.flatMap((mission) =>
+    benefitLines(mission, firstWinPhrase(mission.missionSiteArchetype), factionName).filter(
+      (line) => line.ownLine === true,
+    ),
+  );
+  return joinedLines([...gains, ...caps]);
+}
+
+/** TSUM, Groups, Setbacks: the Consequences of every Lost Mission summed by kind on one line, in Danger. */
+export function summedSetbackLines(
+  missions: readonly MissionResult[],
+  factionName: (faction: string) => string,
+): GainLine[] {
+  const lines = summedConsequenceLines(
+    missions.filter((mission) => mission.result === 'Lost').map((mission) => mission.consequence),
+    factionName,
+  );
+  return lines.length === 0 ? [] : [{ text: lines.map((line) => line.text).join(', '), tone: 'bad' }];
+}
+
 /** TSUM, Groups, Setbacks: each Consequence that a Lost Mission applied, e.g. "−30 funding" or "Panic +5.00". */
 export function setbackLines(mission: MissionResult, factionName: (faction: string) => string): GainLine[] {
   return mission.result === 'Lost' ? consequenceLines(mission.consequence, factionName) : [];
@@ -197,8 +273,21 @@ export function missionEquipment(
 
 const counted = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-/** TSUM, Groups, Equipment recovered: e.g. "3 Items, 11 rounds · worth 165". */
-export function recoveredText(list: EquipmentList): string {
+/**
+ * TSUM, Groups, Equipment: the lists of every Mission summed into one, by its number of Items, its number of rounds,
+ * and its Sale value, each the sum of the Missions' own, as the Turn Report View shows them.
+ */
+export function summedEquipmentList(lists: readonly EquipmentList[]): EquipmentList {
+  return {
+    entries: lists.flatMap((list) => list.entries),
+    items: lists.reduce((sum, list) => sum + list.items, 0),
+    rounds: lists.reduce((sum, list) => sum + list.rounds, 0),
+    value: lists.reduce((sum, list) => sum + list.value, 0),
+  };
+}
+
+/** TSUM, Groups, Equipment: e.g. "3 Items, 11 rounds · worth 165". */
+export function equipmentText(list: EquipmentList): string {
   const parts = [
     ...(list.items > 0 ? [counted(list.items, 'Item')] : []),
     ...(list.rounds > 0 ? [counted(list.rounds, 'round')] : []),

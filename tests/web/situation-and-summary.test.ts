@@ -16,8 +16,11 @@ import {
   missionEquipment,
   missionSiteTitle,
   missionSiteTitleText,
-  recoveredText,
+  equipmentText,
+  joinedLines,
   setbackLines,
+  summedBenefitLines,
+  summedSetbackLines,
 } from '../../src/web/mission-gains.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/web/turn-summary.ts';
 import type { CombatReport, TurnReport } from '../../src/engine/index.ts';
@@ -234,6 +237,37 @@ describe('GUI: Turn summary', () => {
     expect(benefitLines(lost, null, factionName)).toEqual([]);
   });
 
+  it('sums the Benefits and Setbacks of every Mission by kind on one line, each cap rise on its own', () => {
+    const missions = [
+      result({ consequence: { ...NONE, money: 50, fundingChange: 5 }, contractingCapRise: 4 }),
+      result({
+        mission: 'mission-2',
+        consequence: { ...NONE, money: 70, fundingChange: 10, eliminatedFaction: 'red_dawn' },
+      }),
+      result({ mission: 'mission-3', result: 'Lost', consequence: { ...NONE, fundingChange: -30 } }),
+      result({
+        mission: 'mission-4',
+        result: 'Lost',
+        consequence: { ...NONE, panicIncreaseHundredths: 500 },
+      }),
+    ];
+    expect(summedBenefitLines(missions, () => 'first apprehension', factionName)).toEqual([
+      { text: '+120 money, +15 funding, Red Dawn eliminated', tone: 'good' },
+      {
+        text: 'Reputation increased for first apprehension: our Contracting network expands by 4',
+        tone: 'good',
+        ownLine: true,
+      },
+    ]);
+    expect(summedSetbackLines(missions, factionName)).toEqual([
+      { text: '−30 funding, Panic +5.00', tone: 'bad' },
+    ]);
+    expect(joinedLines(benefitLines(missions[0]!, null, factionName)).map((line) => line.text)).toEqual([
+      '+50 money, +5 funding',
+      'Reputation increased: our Contracting network expands by 4',
+    ]);
+  });
+
   it('splits equipment into Recovered and Spent, each in authored order with its Sale value', () => {
     const catalog = {
       weapons: [
@@ -256,7 +290,7 @@ describe('GUI: Turn summary', () => {
     ]);
     // EQUIP, Sale value: round down(0.5 × (100 + 600 + 11)), rounded once.
     expect(recovered.value).toBe(355);
-    expect(recoveredText(recovered)).toBe('3 Items, 11 rounds · worth 355');
+    expect(equipmentText(recovered)).toBe('3 Items, 11 rounds · worth 355');
     expect(spent.entries.map((entry) => [entry.name, entry.count])).toEqual([
       ['Vest', 1],
       ['Rifle ammo', 9],

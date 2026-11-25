@@ -18,6 +18,7 @@ import { hitChanceText, progressGain, progressPoints, wholeText } from '../forma
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import {
   benefitLines,
+  joinedLines,
   missionEquipment,
   missionSiteTitle,
   missionSiteTitleText,
@@ -372,21 +373,12 @@ function Sections(props: {
   );
   // TRVIEW, Sections, Benefits and Setbacks: a Mission's gains or losses joined on one line, e.g. "+50 money, +5
   // funding", and its rise in the Contracting cap on a line of its own.
-  const gainRows = (lines: readonly GainLine[]) => {
-    const joined = lines.filter((line) => line.ownLine !== true);
-    const first = joined[0];
-    const rows = [
-      ...(first === undefined
-        ? []
-        : [{ text: joined.map((line) => line.text).join(', '), tone: first.tone }]),
-      ...lines.filter((line) => line.ownLine === true),
-    ];
-    return rows.map((line, index) => (
+  const gainRows = (lines: readonly GainLine[]) =>
+    joinedLines(lines).map((line, index) => (
       <div key={index} className={`report-item ${line.tone === 'good' ? 'tone-good' : 'tone-bad'}`}>
         {line.text}
       </div>
     ));
-  };
   const equipmentList = (label: string, list: EquipmentList, tone: string) =>
     list.entries.length === 0 ? null : (
       <div className="report-item" data-testid={`equipment-${label.toLowerCase()}`}>
