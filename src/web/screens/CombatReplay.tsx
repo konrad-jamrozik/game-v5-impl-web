@@ -619,7 +619,7 @@ export function CombatReplay(props: {
                 step('phase');
               }}
             >
-              Phase
+              Phase <Arrows count={1} />
             </Button>
             <Button
               testId="replay-round"
@@ -629,7 +629,7 @@ export function CombatReplay(props: {
                 step('round');
               }}
             >
-              Combat round
+              Round <Arrows count={1} />
             </Button>
           </div>
         </div>

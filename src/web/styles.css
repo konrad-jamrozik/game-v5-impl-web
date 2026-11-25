@@ -3599,12 +3599,23 @@ label:has(> input[type='checkbox']:disabled) {
   pointer-events: none;
 }
 
+/* CRPLAY, Attack being played: one height, that of its longest content, so that the buttons below never move; the
+   figures are small enough that the longest result takes two lines. */
 .replay-readout {
   flex: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-height: 100px;
+  height: 116px;
+  overflow: hidden;
+}
+
+.replay-readout .figure {
+  font-size: 13px;
+}
+
+.replay-settings-row .btn svg {
+  margin-left: 6px;
 }
 
 /* CRPLAY, Options: in few rows, each named by one or two words. */
