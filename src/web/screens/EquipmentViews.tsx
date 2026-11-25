@@ -258,8 +258,12 @@ export function StorageView(props: {
             <th>Item</th>
             <th>Stats</th>
             <th className="num">Owned</th>
-            <th className="num">Equip.</th>
-            <th className="num">Avail.</th>
+            <th className="num" title="Equipped count">
+              Equip.
+            </th>
+            <th className="num" title="Count in Storage">
+              Avail.
+            </th>
             <th className="num" title="Sale value of one">
               Unit
             </th>
@@ -451,8 +455,12 @@ export function AcquisitionsView(props: {
             <th>Stats</th>
             <th className="num">Price</th>
             <th className="num">Owned</th>
-            <th className="num">Equip.</th>
-            <th className="num">Avail.</th>
+            <th className="num" title="Equipped count">
+              Equip.
+            </th>
+            <th className="num" title="Count in Storage">
+              Avail.
+            </th>
             <th>Buy</th>
             <th className="num">Cost</th>
           </tr>

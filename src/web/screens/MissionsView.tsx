@@ -400,7 +400,9 @@ function Participants(props: {
           <thead>
             <tr>
               <th>{which === 'enemy' ? 'Enemy' : 'Agent'}</th>
-              <th className="num">Skill</th>
+              <th className="num" title="Effective skill">
+                Skill
+              </th>
               <th className="num">Health</th>
               <th>Condition</th>
             </tr>

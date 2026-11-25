@@ -706,7 +706,9 @@ function CombatReportDetails(props: {
               <th className="num">Dealt</th>
               <th className="num">Taken</th>
               {/* The header says "Exp" alone, because the "+" of each value already says that it was gained. */}
-              <th className="num">Exp</th>
+              <th className="num" title="Experience gained">
+                Exp
+              </th>
               <th>Condition</th>
             </tr>
           </thead>

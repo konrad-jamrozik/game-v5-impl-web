@@ -314,9 +314,10 @@ function Team(props: {
     return result.ok ? result.value : null;
     // The estimate depends on the World state, which the snapshot key names, and on the team.
   }, [player, snapshot.key, estimateTeam.join(',')]);
-  const header = (key: CandidateKey, label: string, numeric: boolean) => (
+  const header = (key: CandidateKey, label: string, numeric: boolean, title?: string) => (
     <th
       className={numeric ? 'sortable num' : 'sortable'}
+      title={title}
       aria-sort={ariaSort(tiers, key)}
       data-testid={`team-sort-${key}`}
       onClick={() => {
@@ -408,9 +409,9 @@ function Team(props: {
                 <th className="check" />
                 {header('id', 'Agent', false)}
                 {/* VIS, Tables: effective skill is headed Skill, base skill Base, and exhaustion Exh. */}
-                {header('effectiveSkill', 'Skill', true)}
-                {header('skillHundredths', 'Base', true)}
-                {header('exhaustion', 'Exh.', true)}
+                {header('effectiveSkill', 'Skill', true, 'Effective skill')}
+                {header('skillHundredths', 'Base', true, 'Base skill')}
+                {header('exhaustion', 'Exh.', true, 'Exhaustion')}
               </tr>
             </thead>
             <tbody>

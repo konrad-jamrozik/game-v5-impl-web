@@ -57,6 +57,12 @@ const NO_HIDING: HideChecks = { hideRecovering: false, hideExhausted: false };
 /** A stable empty list of Ranks while the game data is not yet read. */
 const NO_RANKS: readonly RankThreshold[] = [];
 
+/** VIS, Tables: a header shortened from the name of what its column shows has that name as its tooltip. */
+const HEADER_TOOLTIPS: Readonly<Record<string, string>> = {
+  combatRating: 'Combat rating',
+  exhaustion: 'Exhaustion',
+};
+
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
 const NUMERIC = new Set(['combatRating', 'currentHealthHundredths', 'exhaustion']);
 /** VIS, Tables: the columns whose header sorts descending first, because they sort by a number. */
@@ -707,6 +713,7 @@ export function AgentsView(props: {
                     <th
                       key={header.id}
                       className={NUMERIC.has(header.column.id) ? 'sortable num' : 'sortable'}
+                      title={HEADER_TOOLTIPS[header.column.id]}
                       aria-sort={ariaSort(sortTiers, header.column.id)}
                       data-testid={`agents-sort-${header.column.id}`}
                       onClick={() => {
