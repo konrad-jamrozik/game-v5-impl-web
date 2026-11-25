@@ -12,12 +12,15 @@ export interface SortTier<K extends string> {
 /** VIS, Tables: a table remembers up to four sort tiers. */
 export const MAX_SORT_TIERS = 4;
 
-/** VIS, Tables: the opacity of the direction arrow of the first, second, third, and fourth tier. */
-export const TIER_OPACITY: readonly number[] = [1, 0.7, 0.45, 0.25];
+/**
+ * VIS, Tables: the colour of the direction arrow of the first, second, third, and fourth tier: green, yellow, orange,
+ * and red, each less saturated and a little darker than the one before.
+ */
+export const TIER_COLOURS: readonly string[] = ['#86C26F', '#C8B35A', '#BD8752', '#A8675F'];
 
-/** VIS, Tables: the opacity of a tier's arrow; a locked tier counts as the first, and every tier past the fourth is 25%. */
-export function tierOpacity(index: number): number {
-  return TIER_OPACITY[Math.min(index, TIER_OPACITY.length - 1)] ?? 0.25;
+/** VIS, Tables: the colour of a tier's arrow; a locked tier counts as the first, and every tier past the fourth is red. */
+export function tierColour(index: number): string {
+  return TIER_COLOURS[Math.min(index, TIER_COLOURS.length - 1)] ?? '#A8675F';
 }
 
 /**

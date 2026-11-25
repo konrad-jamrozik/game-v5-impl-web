@@ -2,7 +2,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { sliderFill } from './slider.ts';
 import type { ButtonSound } from './sounds.ts';
-import { tierOpacity, type SortTier } from './table-sort.ts';
+import { tierColour, type SortTier } from './table-sort.ts';
 import { tallySquares } from './tally.ts';
 
 /**
@@ -265,8 +265,8 @@ export function Grid(props: {
 }
 
 /**
- * VIS, Tables: the direction of a column's sort tier after its header label, ▲ for ascending or ▼ for descending, at
- * the opacity of its tier; nothing for a column in no tier.
+ * VIS, Tables: the direction of a column's sort tier after its header label, ▲ for ascending or ▼ for descending, in
+ * the colour of its tier; nothing for a column in no tier.
  */
 export function SortMark<K extends string>(props: { tiers: readonly SortTier<K>[]; column: K }) {
   const index = props.tiers.findIndex((tier) => tier.key === props.column);
@@ -274,7 +274,7 @@ export function SortMark<K extends string>(props: { tiers: readonly SortTier<K>[
     return null;
   }
   return (
-    <span className="sort-mark" style={{ opacity: tierOpacity(index) }} aria-hidden="true">
+    <span className="sort-mark" style={{ color: tierColour(index) }} aria-hidden="true">
       {(props.tiers[index] as SortTier<K>).desc ? '▼' : '▲'}
     </span>
   );

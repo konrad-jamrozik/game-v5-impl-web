@@ -4,7 +4,7 @@ import {
   pressHeader,
   pressHeaderUnderLock,
   sortRows,
-  tierOpacity,
+  tierColour,
   withLockedTier,
   type SortTier,
 } from '../../src/web/table-sort.ts';
@@ -84,6 +84,7 @@ describe('VIS: Tables, sort tiers', () => {
     expect(withLockedTier(null, player)).toEqual(player);
     expect(pressHeaderUnderLock(player, 'a', false, 'a')).toEqual(player);
     expect(pressHeaderUnderLock(player, 'c', false, 'a')[0]).toEqual({ key: 'c', desc: false });
-    expect([0, 1, 2, 3, 4].map(tierOpacity)).toEqual([1, 0.7, 0.45, 0.25, 0.25]);
+    // VIS, Tables: green, yellow, orange, and red, and every tier past the fourth in the fourth's red.
+    expect([0, 1, 2, 3, 4].map(tierColour)).toEqual(['#86C26F', '#C8B35A', '#BD8752', '#A8675F', '#A8675F']);
   });
 });
