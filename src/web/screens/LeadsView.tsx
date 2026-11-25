@@ -352,7 +352,21 @@ function Team(props: {
             <tbody>
               {investigation.currentTeam.map((member) => (
                 <tr key={member.agent}>
-                  <td className="figure">{member.agent}</td>
+                  <td>
+                    {/* LVIEW, Team: an Instance ID opens the Agent's details in the Agents View as a Follow, without
+                        checking or unchecking its row, since the row ignores clicks on a button. */}
+                    <button
+                      type="button"
+                      className="history-link figure"
+                      data-testid={`team-agent-${member.agent}`}
+                      data-sound="main"
+                      onClick={() => {
+                        props.onShow({ kind: 'agent', agent: member.agent });
+                      }}
+                    >
+                      {member.agent}
+                    </button>
+                  </td>
                   <td className="muted">
                     {member.agentStatus === 'InTransit' ? (
                       <span className="assignment-cell">
@@ -427,7 +441,21 @@ function Team(props: {
                         {...selection.checkbox(agent.id)}
                       />
                     </td>
-                    <td className="figure">{agent.id}</td>
+                    <td>
+                      {/* LVIEW, Team: an Instance ID opens the Agent's details in the Agents View as a Follow, without
+                        checking or unchecking its row, since the row ignores clicks on a button. */}
+                      <button
+                        type="button"
+                        className="history-link figure"
+                        data-testid={`team-candidate-${agent.id}`}
+                        data-sound="main"
+                        onClick={() => {
+                          props.onShow({ kind: 'agent', agent: agent.id });
+                        }}
+                      >
+                        {agent.id}
+                      </button>
+                    </td>
                     <td className="num">{agent.effectiveSkill}</td>
                     <td className="num">{wholeText(agent.skillHundredths)}</td>
                     <td className="num">

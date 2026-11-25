@@ -343,3 +343,18 @@ test('AVIEW, Equip table: Equip works from the Memorial, covers the whole screen
   await expect(whole).toHaveCount(0);
   await expect(id(page, 'agents-grid')).toBeVisible();
 });
+
+test('LVIEW, Team: an Instance ID opens the Agent details, and Escape returns to the Leads View', async ({
+  page,
+}) => {
+  await newCampaign(page, 'leads-agent-details');
+  await id(page, 'nav-leads').click();
+  const candidate = page.locator('[data-testid^="team-candidate-"]').first();
+  const agentId = (await candidate.innerText()).trim();
+  await candidate.click();
+  await expect(id(page, `agent-details-view-${agentId}`)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'view-leads')).toBeVisible();
+  // Opening the details checked nothing.
+  await expect(id(page, `team-pick-${agentId}`)).not.toBeChecked();
+});
