@@ -3413,6 +3413,13 @@ label:has(> input[type='checkbox']:disabled) {
   font-weight: 700;
 }
 
+/* CRPLAY, Back one: the arrow and the digit side by side. */
+.replay-back-one {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
 .replay-repeat-symbol {
   font-size: 20px;
   line-height: 1;

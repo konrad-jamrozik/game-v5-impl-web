@@ -87,6 +87,18 @@ function RewindSymbol() {
   );
 }
 
+/** CRPLAY, Back one: a left-pointing arrow before the digit 1, the mirror of the Combat turn button. */
+function BackOneSymbol() {
+  return (
+    <span className="replay-back-one">
+      <svg width="8" height="12" viewBox="0 0 8 12" aria-hidden="true">
+        <path d="M8 0 L0 6 L8 12 Z" fill="currentColor" />
+      </svg>
+      <span className="replay-digit">1</span>
+    </span>
+  );
+}
+
 /** CRPLAY: a button that shows a symbol and no label; its name is its tooltip and its accessible name. */
 function SymbolButton(props: {
   name: string;
@@ -569,6 +581,18 @@ export function CombatReplay(props: {
             }}
           >
             <RewindSymbol />
+          </SymbolButton>
+          <SymbolButton
+            name="Back one attack"
+            testId="replay-back-one"
+            disabledReason={sliderAt === 0 ? 'This is Combat start.' : null}
+            onClick={() => {
+              // CRPLAY, Back one: as the slider does, it plays the previous attack again from right before it.
+              playAttack(playback, replay, sliderAt - 1);
+              refresh();
+            }}
+          >
+            <BackOneSymbol />
           </SymbolButton>
           <SymbolButton
             name={
