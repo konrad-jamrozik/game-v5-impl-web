@@ -469,15 +469,17 @@ export const PACES: readonly Pace[] = [
   },
 ];
 
-/** CRPLAY, Transport buttons: whether the Options have the values of a pace. */
-export function paceMatches(pace: Pace, settings: PlaybackSettings, aimLines: boolean): boolean {
-  return (
-    pace.speedMs === settings.speedMs &&
-    pace.overlap === settings.overlap &&
-    (pace.delayMs === null || pace.delayMs === settings.delayMs) &&
-    pace.instant === settings.instant &&
-    pace.aimLines === aimLines
-  );
+/**
+ * CRPLAY, Transport buttons: how a pace plays, whatever the Options hold. A pace without Overlap has no Delay; the next
+ * attack then waits for the Speed, so the Delay it is given is never read.
+ */
+export function paceSettings(pace: Pace): PlaybackSettings {
+  return {
+    speedMs: pace.speedMs,
+    delayMs: pace.delayMs ?? pace.speedMs,
+    overlap: pace.overlap,
+    instant: pace.instant,
+  };
 }
 
 export interface PlaybackSettings {

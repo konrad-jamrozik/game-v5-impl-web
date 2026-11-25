@@ -9,7 +9,7 @@ import {
   enemyLook,
   jumpTo,
   newPlayback,
-  paceMatches,
+  paceSettings,
   phaseEnd,
   phaseStart,
   playAttack,
@@ -486,14 +486,12 @@ describe('CRPLAY: Transport buttons', () => {
     ]);
   });
 
-  it('knows the pace whose values the Options have, and Slow whatever the Delay', () => {
-    const [slow, medium, fast, veryFast] = PACES;
-    const options = { speedMs: 2000, delayMs: 500, overlap: false, instant: false };
-    expect(slow !== undefined && paceMatches(slow, options, true)).toBe(true);
-    expect(slow !== undefined && paceMatches(slow, options, false)).toBe(false);
-    const quick = { speedMs: 1000, delayMs: 250, overlap: true, instant: true };
-    expect(veryFast !== undefined && paceMatches(veryFast, quick, false)).toBe(true);
-    expect(fast !== undefined && paceMatches(fast, quick, false)).toBe(false);
-    expect(medium !== undefined && paceMatches(medium, quick, false)).toBe(false);
+  it('plays each pace with its own values, whatever the Options hold', () => {
+    expect(PACES.map(paceSettings)).toEqual([
+      { speedMs: 2000, delayMs: 2000, overlap: false, instant: false },
+      { speedMs: 1500, delayMs: 1000, overlap: true, instant: false },
+      { speedMs: 1000, delayMs: 250, overlap: true, instant: false },
+      { speedMs: 1000, delayMs: 250, overlap: true, instant: true },
+    ]);
   });
 });

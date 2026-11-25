@@ -12,7 +12,7 @@ import {
   advance,
   jumpTo,
   newPlayback,
-  paceMatches,
+  paceSettings,
   phaseEnd,
   playAttack,
   playTo,
@@ -158,10 +158,20 @@ export function CombatReplay(props: {
     shownCombatKey.current = props.combatKey;
     jumpTo(playback, replay, 0);
   }
-  const settings: PlaybackSettings = { speedMs, delayMs, overlap, instant };
+  // CRPLAY, Transport buttons: the pace being played, or null while the Options govern the playing. A pace never
+  // reads or changes the Options.
+  const [activePace, setActivePace] = useState<Pace | null>(null);
+  const options: PlaybackSettings = { speedMs, delayMs, overlap, instant };
+  const settings: PlaybackSettings = activePace === null ? options : paceSettings(activePace);
+  const shownAimLines = activePace === null ? aimLines : activePace.aimLines;
   // What the drawing loop reads: it outlives the render that started it, so it reads the newest values from here.
-  const live = useRef({ replay, settings, size, aimLines, armorScale: props.armorScale });
-  live.current = { replay, settings, size, aimLines, armorScale: props.armorScale };
+  const live = useRef({ replay, settings, size, aimLines: shownAimLines, armorScale: props.armorScale });
+  live.current = { replay, settings, size, aimLines: shownAimLines, armorScale: props.armorScale };
+  /** CRPLAY, Options: every button but a pace plays with the Options; the drawing loop reads them from here at once. */
+  const withOptions = () => {
+    setActivePace(null);
+    live.current = { ...live.current, settings: options, aimLines };
+  };
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -249,7 +259,7 @@ export function CombatReplay(props: {
   // Every render draws: the size, a setting, or the Combat shown may have changed.
   useEffect(paint);
 
-  const [from, to] = shownRange(playback, replay, instant);
+  const [from, to] = shownRange(playback, replay, settings.instant);
   const settled = settledIndex(playback);
   const resting = playback.active.length === 0;
   const ended = playback.index >= total && resting;
@@ -275,6 +285,7 @@ export function CombatReplay(props: {
         : kind === 'phase'
           ? phaseEnd(replay, playback.index)
           : roundEnd(replay, playback.index);
+    withOptions();
     setTakenStep({
       kind,
       from: playback.index,
@@ -288,6 +299,7 @@ export function CombatReplay(props: {
   const lastStep = takenStep !== null && takenStep.combatKey === props.combatKey ? takenStep : null;
   const repeat = () => {
     if (lastStep !== null) {
+      withOptions();
       jumpTo(playback, replay, lastStep.from);
       playTo(playback, replay, lastStep.to, true);
       refresh();
@@ -324,30 +336,25 @@ export function CombatReplay(props: {
   }, []);
 
   /**
-   * CRPLAY, Transport buttons: a pace button sets the Options to its pace and plays to the end of the Combat, from
-   * Combat start when the Combat replay is at the end of the Combat.
+   * CRPLAY, Transport buttons: a pace button plays to the end of the Combat with the values of its pace, from Combat
+   * start when the Combat replay is at the end of the Combat, and leaves the Options as they are.
    */
-  const playAt = (pace: Pace) => {
-    const next: PlaybackSettings = {
-      speedMs: pace.speedMs,
-      delayMs: pace.delayMs ?? delayMs,
-      overlap: pace.overlap,
-      instant: pace.instant,
-    };
-    setSpeedMs(next.speedMs);
-    setDelayMs(next.delayMs);
-    setOverlap(next.overlap);
-    setInstant(next.instant);
-    setAimLines(pace.aimLines);
+  const playAt = (next: Pace) => {
+    setActivePace(next);
     // The drawing loop starts before the next render, so it reads the pace from here at once.
-    live.current = { ...live.current, settings: next, aimLines: pace.aimLines };
+    live.current = { ...live.current, settings: paceSettings(next), aimLines: next.aimLines };
     if (ended) {
       jumpTo(playback, replay, 0);
     }
     playTo(playback, replay, total, false);
     refresh();
   };
-  const playingToEnd = playback.playing && playback.target >= total && !playback.picked;
+  /** CRPLAY, Slider and Combat log, and Back one: plays one picked attack with the Options. */
+  const pick = (attack: number) => {
+    withOptions();
+    playAttack(playback, replay, attack);
+    refresh();
+  };
   // CRPLAY, Slider and Combat log: the attack picked, also in the moment before its step starts, so that the slider
   // does not jump back while it is dragged.
   const sliderAt = playback.picked ? playback.target : playback.index;
@@ -558,7 +565,7 @@ export function CombatReplay(props: {
               key={pace.id}
               name={pace.name}
               testId={`replay-${pace.id}`}
-              pressed={playingToEnd && paceMatches(pace, settings, aimLines)}
+              pressed={playback.playing && !playback.picked && activePace?.id === pace.id}
               disabledReason={total === 0 ? 'This Combat had no attack.' : null}
               onClick={() => {
                 playAt(pace);
@@ -576,6 +583,7 @@ export function CombatReplay(props: {
             testId="replay-rewind"
             disabledReason={atStart ? 'This is Combat start.' : null}
             onClick={() => {
+              withOptions();
               jumpTo(playback, replay, 0);
               refresh();
             }}
@@ -588,8 +596,7 @@ export function CombatReplay(props: {
             disabledReason={sliderAt === 0 ? 'This is Combat start.' : null}
             onClick={() => {
               // CRPLAY, Back one: as the slider does, it plays the previous attack again from right before it.
-              playAttack(playback, replay, sliderAt - 1);
-              refresh();
+              pick(sliderAt - 1);
             }}
           >
             <BackOneSymbol />
@@ -640,6 +647,16 @@ export function CombatReplay(props: {
           </div>
           <div className="replay-settings-row">
             <Button
+              testId="replay-options-turn"
+              sound="select"
+              disabledReason={playback.index >= total ? finished : null}
+              onClick={() => {
+                step('turn');
+              }}
+            >
+              Turn <Arrows count={1} />
+            </Button>
+            <Button
               testId="replay-phase"
               sound="select"
               disabledReason={playback.index >= total ? finished : null}
@@ -680,8 +697,7 @@ export function CombatReplay(props: {
               step={1}
               value={sliderAt}
               onChange={(event) => {
-                playAttack(playback, replay, Number(event.currentTarget.value));
-                refresh();
+                pick(Number(event.currentTarget.value));
               }}
             />
           </span>
@@ -697,8 +713,7 @@ export function CombatReplay(props: {
                 data-sound="select"
                 className={`replay-log-row log-${row.tint}${index >= from && index < to ? ' current' : ''}${index >= to ? ' ahead' : ''}`}
                 onClick={() => {
-                  playAttack(playback, replay, index + 1);
-                  refresh();
+                  pick(index + 1);
                 }}
               >
                 <span className="figure muted">{attack.round}</span>
