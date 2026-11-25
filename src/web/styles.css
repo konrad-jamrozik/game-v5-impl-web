@@ -2707,9 +2707,32 @@ label:has(> input[type='checkbox']:disabled) {
   align-items: start;
 }
 
-/* COMPV, Panes: the Articles pane and the Article pane, the categories being tabs in the title row. */
+/* COMPV, Panes: the Articles pane and the Article pane, the categories being tabs in the title row. The Articles pane
+   is as wide as its longest title, and the Article pane takes the rest. */
 .panes-compendium {
-  grid-template-columns: minmax(200px, 1fr) minmax(0, 2.6fr);
+  grid-template-columns: minmax(200px, max-content) minmax(0, 1fr);
+}
+
+/* COMPV, Panes: each pane scrolls on its own and the Compendium View as a whole does not, so the article stays in
+   view while the Player scrolls a long list of titles. */
+@media (min-width: 1101px) {
+  .detail-body:has(> .panes-compendium) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panes-compendium {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .panes-compendium > .pane {
+    max-height: 100%;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
 }
 
 /* COMPV, Panes, Category tabs: they take the room between the title and the search field, and their row scrolls
