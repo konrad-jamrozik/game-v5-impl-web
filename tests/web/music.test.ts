@@ -1,13 +1,38 @@
 /** MUSIC: Track titles, the playing order in rounds, the fades, and the gain. */
 import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vite-plus/test';
-import { drawRound, gain, isTrack, stepToggleFade, trackFade, trackTitle } from '../../src/web/music.ts';
+import {
+  drawRound,
+  gain,
+  isTrack,
+  MEDIA_ERR_NETWORK,
+  reloadsAfter,
+  stepToggleFade,
+  trackFade,
+  trackTitle,
+} from '../../src/web/music.ts';
 
 /** A random source that returns the given numbers in turn. */
 function fixed(...values: number[]): () => number {
   let index = 0;
   return () => values[index++ % values.length] ?? 0;
 }
+
+describe('MUSIC: Playback, Unplayable Track', () => {
+  it('loads a Track once more after the first failure to read its file', () => {
+    expect(reloadsAfter(MEDIA_ERR_NETWORK, false)).toBe(true);
+  });
+
+  it('skips a Track after a second failure to read its file', () => {
+    expect(reloadsAfter(MEDIA_ERR_NETWORK, true)).toBe(false);
+  });
+
+  it('skips a Track at once when it cannot be decoded or its error is unknown', () => {
+    expect(reloadsAfter(3, false)).toBe(false);
+    expect(reloadsAfter(4, false)).toBe(false);
+    expect(reloadsAfter(undefined, false)).toBe(false);
+  });
+});
 
 describe('MUSIC: Soundtrack', () => {
   it('titles a Track by its file name without the extension, unchanged', () => {

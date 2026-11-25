@@ -4,7 +4,7 @@
  * The player lives for the whole page, so changing screen never restarts the Current Track. It reads no game state and
  * draws its playing order from Math.random, never from a Campaign.
  */
-import { drawRound, gain, isTrack, stepToggleFade, trackFade, trackTitle } from './music.ts';
+import { drawRound, gain, isTrack, reloadsAfter, stepToggleFade, trackFade, trackTitle } from './music.ts';
 
 interface Track {
   readonly title: string;
@@ -46,6 +46,8 @@ class MusicPlayer {
   private configured = false;
   private waitingForInteraction = false;
   private consecutiveFailures = 0;
+  /** Whether the Current Track was loaded once more after a failure to read its file. */
+  private reloaded = false;
   private dead = false;
   /** Whether a Track has started playing in this Session; before that the Track title reads nothing. */
   private started = false;
@@ -64,7 +66,11 @@ class MusicPlayer {
       this.next();
     });
     audio.addEventListener('error', () => {
-      this.fail();
+      if (reloadsAfter(audio.error?.code, this.reloaded)) {
+        this.reload();
+      } else {
+        this.fail();
+      }
     });
     audio.addEventListener('playing', () => {
       this.consecutiveFailures = 0;
@@ -165,6 +171,7 @@ class MusicPlayer {
       return;
     }
     this.skipFade = null;
+    this.reloaded = false;
     this.current = track;
     this.paused = false;
     this.toggle = 1;
@@ -206,6 +213,24 @@ class MusicPlayer {
     };
     document.addEventListener('pointerdown', start, true);
     document.addEventListener('keydown', start, true);
+  }
+
+  /**
+   * MUSIC, Playback, Unplayable Track: after a failure to read its file, the Current Track loads once more and resumes
+   * from the point it reached, keeping its fades and pause.
+   */
+  private reload(): void {
+    const audio = this.audio;
+    if (audio === null || this.current === null) {
+      return;
+    }
+    this.reloaded = true;
+    const position = audio.currentTime;
+    audio.src = this.current.url;
+    audio.currentTime = position;
+    if (this.on && !this.paused) {
+      this.play();
+    }
   }
 
   /**

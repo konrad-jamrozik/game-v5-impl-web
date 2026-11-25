@@ -65,6 +65,17 @@ export function stepToggleFade(current: number, target: 0 | 1, seconds: number):
   return target === 1 ? Math.min(1, current + step) : Math.max(0, current - step);
 }
 
+/** The media error code of a failure to read the file, which the browser reports as a network error. */
+export const MEDIA_ERR_NETWORK = 2;
+
+/**
+ * MUSIC, Playback, Unplayable Track: whether a failed Track is loaded once more instead of skipped. A failure to read
+ * the file is often brief, so the first one reloads the Track; a decode failure or a second failure skips it.
+ */
+export function reloadsAfter(errorCode: number | undefined, reloaded: boolean): boolean {
+  return errorCode === MEDIA_ERR_NETWORK && !reloaded;
+}
+
 /** MUSIC, Loudness: gain = f × (v / 100)², without rounding. */
 export function gain(fade: number, volume: number): number {
   const v = Math.min(100, Math.max(0, volume)) / 100;
