@@ -52,16 +52,16 @@ import { RankText } from '../rank-insignia.tsx';
 /** AVIEW, Row filters: the checkboxes are unchecked whenever the Agents View opens. */
 const NO_HIDING: HideChecks = { hideRecovering: false, hideExhausted: false };
 
-/** AVIEW, Agent table: with Details checked, the CR cell adds the Equipment Combat rating with its sign. */
-function CombatRatingCell({ agent }: { agent: AgentView }) {
+/**
+ * AVIEW, Agent table: with Details checked, the Equip. cell shows the Equipment Combat rating with its sign, in
+ * Positive above 0, in Danger below 0, and in Text muted at 0.
+ */
+function EquipmentCombatRatingCell({ agent }: { agent: AgentView }) {
   const equipment = agent.equipmentCombatRating ?? 0;
   const tone = equipment > 0 ? 'tone-good' : equipment < 0 ? 'tone-bad' : 'muted';
   return (
-    <span data-testid={`cr-${agent.id}`}>
-      {agent.combatRating ?? 0}{' '}
-      <span className={tone}>
-        ({equipment > 0 ? `+${equipment}` : equipment < 0 ? `−${-equipment}` : '0'})
-      </span>
+    <span className={tone} data-testid={`equipment-cr-${agent.id}`}>
+      {equipment > 0 ? `+${equipment}` : equipment < 0 ? `−${-equipment}` : '0'}
     </span>
   );
 }
@@ -71,6 +71,7 @@ const NO_RANKS: readonly RankThreshold[] = [];
 /** VIS, Tables: the columns that hold numbers are right-aligned in the Figure style. */
 const NUMERIC = new Set([
   'combatRating',
+  'equipmentCombatRating',
   'effectiveSkill',
   'skillHundredths',
   'experience',
@@ -80,7 +81,7 @@ const NUMERIC = new Set([
 /** VIS, Tables: the columns whose header sorts descending first, because they sort by a number. */
 const DESCENDING_FIRST = new Set([...NUMERIC, 'rank', 'weapon', 'armor']);
 /** AVIEW, Agent table: the columns that only the Details checkbox shows, and those that it leaves out. */
-const DETAILS_ONLY = ['effectiveSkill', 'skillHundredths', 'experience'];
+const DETAILS_ONLY = ['equipmentCombatRating', 'effectiveSkill', 'skillHundredths', 'experience'];
 const WEAR_ONLY = ['weapon', 'armor'];
 
 /**
@@ -98,10 +99,22 @@ const SELECTABLE_FIRST = 'selectable';
  */
 const SERVING_WIDTHS = ['36px', '96px', '64px', '116px', '84px', '72px', '200px', '220px', '176px'];
 /**
- * VIS, Tables: the widths with Details checked. CR holds four digits and the Equipment Combat rating with its sign,
- * e.g. "1234 (+123)"; Skill and Base hold four digits and Exp. three, each with its sort arrow.
+ * VIS, Tables: the widths with Details checked. CR holds four digits, and Equip. four after its sign, e.g. "+1234";
+ * Skill and Base hold four digits and Exp. three, each with its sort arrow.
  */
-const DETAILS_WIDTHS = ['36px', '96px', '112px', '116px', '80px', '80px', '64px', '84px', '72px', '176px'];
+const DETAILS_WIDTHS = [
+  '36px',
+  '96px',
+  '64px',
+  '80px',
+  '116px',
+  '80px',
+  '80px',
+  '64px',
+  '84px',
+  '72px',
+  '176px',
+];
 /**
  * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
  * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by hcmd-12". Where is the
@@ -350,12 +363,12 @@ export function AgentsView(props: {
           </button>
         ),
       }),
-      // AVIEW, Agent table: the Combat rating alone, and with Details checked followed by the Equipment Combat
-      // rating; the column sorts by the Combat rating either way.
-      helper.accessor((agent) => agent.combatRating ?? 0, {
-        id: 'combatRating',
-        header: 'CR',
-        cell: (cell) => (showDetails ? <CombatRatingCell agent={cell.row.original} /> : cell.getValue()),
+      // AVIEW, Agent table: the Combat rating alone, and with Details checked the Equipment Combat rating after it.
+      helper.accessor((agent) => agent.combatRating ?? 0, { id: 'combatRating', header: 'CR' }),
+      helper.accessor((agent) => agent.equipmentCombatRating ?? 0, {
+        id: 'equipmentCombatRating',
+        header: 'Equip.',
+        cell: (cell) => <EquipmentCombatRatingCell agent={cell.row.original} />,
       }),
       // AVIEW, Agent table: the Rank's `name` followed by its Rank insignia; the column sorts by base skill.
       helper.accessor('skillHundredths', {
