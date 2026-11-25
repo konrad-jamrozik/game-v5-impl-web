@@ -1946,6 +1946,14 @@ summary {
   padding: 10px 14px;
   border-left: 4px solid var(--border);
   background: var(--raised);
+  /* A notice fades out over the last 300 ms of the 3 s it stays (NOTICE_MS in App.tsx). */
+  animation: notice-fade-out 300ms ease-in 2700ms forwards;
+}
+
+@keyframes notice-fade-out {
+  to {
+    opacity: 0;
+  }
 }
 
 .notice-error {

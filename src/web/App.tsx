@@ -7,7 +7,7 @@ import { music } from './music-player.ts';
 import { applyScreenLimit, screenLimitOn } from './screen-limit.ts';
 import { configureSounds, installButtonSounds } from './sound-player.ts';
 import { soundSettings } from './sounds.ts';
-import { dismissNotice, useSnapshot } from './store.ts';
+import { dismissNotice, type Notice, useSnapshot } from './store.ts';
 
 export function App() {
   const snapshot = useSnapshot();
@@ -36,19 +36,6 @@ export function App() {
     applyScreenLimit(limited);
   }, [limited]);
 
-  useEffect(() => {
-    const newest = snapshot.notices.at(-1);
-    if (newest === undefined || newest.kind === 'error') {
-      return undefined;
-    }
-    const timer = setTimeout(() => {
-      dismissNotice(newest.id);
-    }, 4000);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [snapshot.notices]);
-
   return (
     <>
       {snapshot.status.hasCurrentCampaign && snapshot.state !== null ? (
@@ -69,26 +56,44 @@ export function App() {
       )}
       <div className="notices" aria-live="polite">
         {snapshot.notices.map((notice) => (
-          <div
-            key={notice.id}
-            className={`notice notice-${notice.kind}`}
-            data-testid={`notice-${notice.kind}`}
-          >
-            <span>{notice.text}</span>
-            <button
-              type="button"
-              className="notice-close"
-              aria-label="Dismiss"
-              data-sound="back"
-              onClick={() => {
-                dismissNotice(notice.id);
-              }}
-            >
-              ×
-            </button>
-          </div>
+          <NoticeToast key={notice.id} notice={notice} />
         ))}
       </div>
     </>
+  );
+}
+
+/** How long a notice stays; its fade-out in `.notice` of styles.css takes the last 300 ms of it. */
+const NOTICE_MS = 3000;
+
+/**
+ * One notice, of any kind: it fades out and is dismissed NOTICE_MS after it appears, each on its own timer, so a
+ * newer notice never keeps an older one on the screen. Its close control dismisses it at once.
+ */
+function NoticeToast({ notice }: { notice: Notice }) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      dismissNotice(notice.id);
+    }, NOTICE_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [notice.id]);
+
+  return (
+    <div className={`notice notice-${notice.kind}`} data-testid={`notice-${notice.kind}`}>
+      <span>{notice.text}</span>
+      <button
+        type="button"
+        className="notice-close"
+        aria-label="Dismiss"
+        data-sound="back"
+        onClick={() => {
+          dismissNotice(notice.id);
+        }}
+      >
+        ×
+      </button>
+    </div>
   );
 }
