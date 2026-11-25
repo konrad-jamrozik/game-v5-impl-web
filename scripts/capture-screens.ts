@@ -220,9 +220,15 @@ async function shootElement(page: Page, name: string, element: Locator): Promise
 
 const view = (page: Page, viewId: string) => id(page, `view-${viewId}`);
 
-/** Opens a Detail view from the Side panel unless it is open. */
+/**
+ * Opens a Detail view from the Side panel unless it is open. CSCR, Hiding the Side panel: the Compendium View leaves the
+ * Side panel out, so it is closed first.
+ */
 async function open(page: Page, viewId: string): Promise<void> {
   if ((await view(page, viewId).count()) === 0) {
+    if ((await view(page, 'compendium').count()) > 0) {
+      await page.keyboard.press('Escape');
+    }
     await id(page, `nav-${viewId}`).click();
   }
   await expect(view(page, viewId)).toBeVisible();

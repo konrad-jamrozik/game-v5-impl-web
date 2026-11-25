@@ -19,6 +19,7 @@ import { act, theEngine, type Snapshot } from '../store.ts';
 import { useRowSelection } from '../row-selection.ts';
 import { pressHeader, sortRows, type SortTier } from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort } from '../ui.tsx';
+import type { ReportTarget } from './TurnReportView.tsx';
 import { InTransitIcon } from '../assignment-cell.tsx';
 import { DetailView } from './DetailView.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
@@ -54,6 +55,8 @@ export function LeadsView(props: {
   state: CurrentLiveWorldStateView;
   locked: string | null;
   initial: string | null;
+  /** CSCR, View trail, Follow: opens another Detail view, e.g. the Agents View from the team pane. */
+  onShow: (target: ReportTarget) => void;
   onClose: () => void;
 }) {
   const { snapshot, state } = props;
@@ -172,6 +175,7 @@ export function LeadsView(props: {
             snapshot={snapshot}
             state={state}
             locked={props.locked}
+            onShow={props.onShow}
           />
         )}
       </div>
@@ -275,6 +279,7 @@ function Team(props: {
   snapshot: Snapshot;
   state: CurrentLiveWorldStateView;
   locked: string | null;
+  onShow: (target: ReportTarget) => void;
 }) {
   const { player } = theEngine();
   const { lead, investigation, snapshot, state, locked } = props;
@@ -435,6 +440,16 @@ function Team(props: {
         </>
       )}
       <div className="pane-actions">
+        {/* LVIEW, Team: on the primary button's line, at the left, an Agents button opens the Agents View as a Follow. */}
+        <Button
+          className="pane-action-start"
+          testId="team-open-agents"
+          onClick={() => {
+            props.onShow({ kind: 'agents' });
+          }}
+        >
+          Agents
+        </Button>
         {estimate === null ? null : (
           <span
             className="figure secondary"

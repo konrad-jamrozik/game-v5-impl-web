@@ -399,9 +399,12 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           }
         }
       } else if (key === 'v') {
-        // CSCR, Hiding the Side panel: the V key hides or shows it wherever the Player is on the Campaign screen.
-        playSound(SOUND.select);
-        setSidePanelHidden(!sidePanelHidden);
+        // CSCR, Hiding the Side panel: the V key hides or shows it wherever the Player is on the Campaign screen,
+        // except while the Compendium View, which leaves the Side panel out, is open.
+        if (open?.id !== 'compendium') {
+          playSound(SOUND.select);
+          setSidePanelHidden(!sidePanelHidden);
+        }
       } else if (key === 'a') {
         // SOUNDS, Select click: the key selects as Select all does, so it plays `select-click`.
         playSound(SOUND.select);
@@ -632,7 +635,17 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         </div>
       )}
 
-      <div className={sidePanelHidden ? 'campaign-body side-hidden' : 'campaign-body'}>
+      {/* CSCR, Hiding the Side panel: the Compendium View leaves the Side panel out, with no strip, and takes the whole
+          width; another place brings it back as the Player last left it. */}
+      <div
+        className={
+          open?.id === 'compendium'
+            ? 'campaign-body side-none'
+            : sidePanelHidden
+              ? 'campaign-body side-hidden'
+              : 'campaign-body'
+        }
+      >
         <main className="globe-stage" data-testid="globe-stage">
           <Globe covered={open !== null} />
           {open === null ? null : (
@@ -657,7 +670,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           )}
         </main>
 
-        {sidePanelHidden ? (
+        {open?.id === 'compendium' ? null : sidePanelHidden ? (
           // CSCR, Hiding the Side panel: a strip along the right edge holds the button that shows it again.
           <aside className="side-strip" aria-label="Side panel hidden">
             <button
@@ -877,7 +890,14 @@ function OpenDetailView(props: {
       );
     case 'leads':
       return (
-        <LeadsView snapshot={snapshot} state={state} locked={locked} initial={open.item} onClose={onClose} />
+        <LeadsView
+          snapshot={snapshot}
+          state={state}
+          locked={locked}
+          initial={open.item}
+          onShow={props.onShow}
+          onClose={onClose}
+        />
       );
     case 'agents':
       return (

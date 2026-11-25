@@ -81,9 +81,15 @@ async function expectFits(page: Page, screen: string): Promise<void> {
   expect(await page.evaluate(layoutProblems), `the layout of ${screen} in the Reference window`).toEqual([]);
 }
 
-/** Opens a Detail view from the Side panel unless it is open. */
+/**
+ * Opens a Detail view from the Side panel unless it is open. CSCR, Hiding the Side panel: the Compendium View leaves the
+ * Side panel out, so it is closed first.
+ */
 async function open(page: Page, viewId: string): Promise<void> {
   if ((await view(page, viewId).count()) === 0) {
+    if ((await view(page, 'compendium').count()) > 0) {
+      await page.keyboard.press('Escape');
+    }
     await id(page, `nav-${viewId}`).click();
   }
   await expect(view(page, viewId)).toBeVisible();

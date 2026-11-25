@@ -2104,6 +2104,12 @@ label:has(> input[type='checkbox']:disabled) {
   grid-template-columns: minmax(0, 1fr) 44px;
 }
 
+/* CSCR, Hiding the Side panel: while the Compendium View is open, the Side panel is left out and nothing stands in
+   its place. */
+.campaign-body.side-none {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .side-strip {
   display: flex;
   justify-content: center;
