@@ -283,3 +283,22 @@ test('Undo and Redo name the Autopilot step that getAutosaveStatus reports, and 
   await id(page, 'redo').click();
   await expect(id(page, 'turn')).toHaveText('2');
 });
+
+test('VIS, Tables: pressing a group row of the Storage View folds its group, and pressing it again unfolds it', async ({
+  page,
+}) => {
+  await newCampaign(page, 'fold-groups');
+  await id(page, 'nav-storage').click();
+  const weapons = id(page, 'storage-group-weapon');
+  const fold = id(page, 'fold-weapon');
+  await expect(fold).toHaveAttribute('aria-expanded', 'true');
+  await expect(fold).toContainText('▾');
+  const unfoldedRows = await weapons.locator('tr').count();
+  expect(unfoldedRows).toBeGreaterThan(1);
+  await fold.click();
+  await expect(fold).toHaveAttribute('aria-expanded', 'false');
+  await expect(fold).toContainText('▸');
+  await expect(weapons.locator('tr')).toHaveCount(1);
+  await fold.click();
+  await expect(weapons.locator('tr')).toHaveCount(unfoldedRows);
+});

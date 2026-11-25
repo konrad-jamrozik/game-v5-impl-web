@@ -2,7 +2,7 @@
  * STVIEW, the Storage View, and ACQVIEW, the Acquisitions View: the Items and Ammo the agency holds, grouped into
  * Weapons, Armor, and Ammo, with a bar that gathers the chosen counts into one sale or one purchase.
  */
-import { useState, type ReactNode } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { CurrentLiveWorldStateView, EquipmentItemView, EquipmentView } from '../../engine/index.ts';
 import { stepOf, steppedCount } from '../stepper.ts';
 import { act, theEngine } from '../store.ts';
@@ -15,6 +15,43 @@ const GROUPS: readonly { readonly kind: EquipmentItemView['kind']; readonly name
   { kind: 'armor', name: 'Armor' },
   { kind: 'ammo', name: 'Ammo' },
 ];
+
+type GroupKind = EquipmentItemView['kind'];
+
+/**
+ * VIS, Tables: pressing a group row anywhere folds its group and pressing it again unfolds it. The row starts with ▾
+ * while unfolded and ▸ while folded. Every group is unfolded whenever the view opens, so the state lives in the view.
+ */
+function useFoldedGroups() {
+  const [folded, setFolded] = useState<ReadonlySet<GroupKind>>(new Set());
+  const toggle = (kind: GroupKind) => {
+    const next = new Set(folded);
+    if (!next.delete(kind)) {
+      next.add(kind);
+    }
+    setFolded(next);
+  };
+  return {
+    isFolded: (kind: GroupKind) => folded.has(kind),
+    mark: (kind: GroupKind) => (folded.has(kind) ? '▸' : '▾'),
+    row: (kind: GroupKind, name: string) => ({
+      className: 'group-row foldable',
+      role: 'button',
+      tabIndex: 0,
+      'aria-expanded': !folded.has(kind),
+      'aria-label': `${folded.has(kind) ? 'Unfold' : 'Fold'} ${name}`,
+      'data-testid': `fold-${kind}`,
+      'data-sound': 'select',
+      onClick: () => toggle(kind),
+      onKeyDown: (event: KeyboardEvent) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggle(kind);
+        }
+      },
+    }),
+  };
+}
 
 /** EQUIP, Sale value: round down(sale_price_fraction × Σ price × count), rounded once for the whole sale. */
 export function saleValueOf(view: EquipmentView, priced: number): number {
@@ -174,6 +211,7 @@ export function StorageView(props: {
   const { player } = theEngine();
   const view = props.state.agency.equipment;
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const folds = useFoldedGroups();
   const [takeEquipped, setTakeEquipped] = useState(false);
   const owned = view.items.filter((item) => item.owned > 0);
   const ammoName = (id: string) => view.items.find((item) => item.id === id)?.name ?? id;
@@ -236,8 +274,10 @@ export function StorageView(props: {
             all.reduce((total, item) => total + f(item), 0);
           return (
             <tbody key={group.kind} data-testid={`storage-group-${group.kind}`}>
-              <tr className="group-row">
-                <td colSpan={2}>▾ {group.name}</td>
+              <tr {...folds.row(group.kind, group.name)}>
+                <td colSpan={2}>
+                  {folds.mark(group.kind)} {group.name}
+                </td>
                 <td className="num">{sum((item) => item.owned).toLocaleString('en-US')}</td>
                 <td className="num">{group.kind === 'ammo' ? '–' : sum((item) => item.equipped)}</td>
                 <td className="num">{sum((item) => item.available).toLocaleString('en-US')}</td>
@@ -245,7 +285,7 @@ export function StorageView(props: {
                 <td />
                 <td />
               </tr>
-              {items.length === 0 ? (
+              {folds.isFolded(group.kind) ? null : items.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="muted">
                     Nothing in Storage
@@ -383,6 +423,7 @@ export function AcquisitionsView(props: {
   const { player } = theEngine();
   const view = props.state.agency.equipment;
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const folds = useFoldedGroups();
   const unlocked = view.items.filter((item) => item.unlocked);
   const ammoName = (id: string) => view.items.find((item) => item.id === id)?.name ?? id;
   const count = (item: EquipmentItemView) => counts[item.id] ?? 0;
@@ -420,10 +461,12 @@ export function AcquisitionsView(props: {
           const items = unlocked.filter((item) => item.kind === group.kind);
           return (
             <tbody key={group.kind} data-testid={`acquisitions-group-${group.kind}`}>
-              <tr className="group-row">
-                <td colSpan={8}>▾ {group.name}</td>
+              <tr {...folds.row(group.kind, group.name)}>
+                <td colSpan={8}>
+                  {folds.mark(group.kind)} {group.name}
+                </td>
               </tr>
-              {items.length === 0 ? (
+              {folds.isFolded(group.kind) ? null : items.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="muted">
                     Nothing to buy yet
