@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vite-plus/test';
 import type { CombatReport } from '../../src/engine/index.ts';
 import {
   BATTLEFIELD_CELLS,
+  PACES,
   advance,
   buildReplay,
   enemyLook,
   jumpTo,
   newPlayback,
+  paceMatches,
   phaseEnd,
   phaseStart,
   playTo,
@@ -17,7 +19,6 @@ import {
   roundEnd,
   settledIndex,
   shownRange,
-  stepBack,
   type PlaybackSettings,
   type ReplaySource,
 } from '../../src/web/combat-replay.ts';
@@ -412,22 +413,24 @@ describe('CRPLAY: Playback', () => {
     expect(shownRange(playback, replay, true)).toEqual([0, 2]);
   });
 
-  it('goes back to before the last attack, or with Instant on the last phase, and drops steps still playing', () => {
+  it('with Instant on, plays one attack alone when the step stops after it, as the Combat turn button does', () => {
     const replay = buildReplay(report(), source);
     const playback = newPlayback();
-    jumpTo(playback, replay, 4);
-    stepBack(playback, replay, false);
-    expect(playback.index).toBe(3);
-    jumpTo(playback, replay, 4);
-    stepBack(playback, replay, true);
-    expect(playback.index).toBe(2);
-    playTo(playback, replay, replay.attacks.length, true);
-    advance(playback, replay, 16, settings);
-    expect(playback.index).toBe(3);
-    stepBack(playback, replay, false);
-    expect(playback.index).toBe(2);
-    expect(playback.active).toHaveLength(0);
+    const instant = { ...settings, instant: true };
+    playTo(playback, replay, 1, true);
+    advance(playback, replay, 16, instant);
+    expect(playback.active).toEqual([{ a: 0, b: 1, t: 0 }]);
+    advance(playback, replay, 1000, instant);
     expect(playback.playing).toBe(false);
+    expect(shownRange(playback, replay, true)).toEqual([0, 1]);
+  });
+
+  it('names a whole phase at rest after a jump with Instant on', () => {
+    const replay = buildReplay(report(), source);
+    const playback = newPlayback();
+    jumpTo(playback, replay, 2);
+    expect(shownRange(playback, replay, true)).toEqual([0, 2]);
+    expect(shownRange(playback, replay, false)).toEqual([1, 2]);
   });
 
   it('keeps a jump within the Combat log', () => {
@@ -438,5 +441,37 @@ describe('CRPLAY: Playback', () => {
     jumpTo(playback, replay, -3);
     expect(playback.index).toBe(0);
     expect(shownRange(playback, replay, false)).toEqual([0, 0]);
+  });
+});
+
+describe('CRPLAY: Transport buttons', () => {
+  it('sets the Options of the four paces, slowest first, with one to four arrows', () => {
+    expect(
+      PACES.map((pace) => [
+        pace.name,
+        pace.arrows,
+        pace.speedMs,
+        pace.overlap,
+        pace.delayMs,
+        pace.instant,
+        pace.aimLines,
+      ]),
+    ).toEqual([
+      ['Slow', 1, 2000, false, null, false, true],
+      ['Medium', 2, 1500, true, 1000, false, true],
+      ['Fast', 3, 1000, true, 250, false, false],
+      ['Very fast', 4, 1000, true, 250, true, false],
+    ]);
+  });
+
+  it('knows the pace whose values the Options have, and Slow whatever the Delay', () => {
+    const [slow, medium, fast, veryFast] = PACES;
+    const options = { speedMs: 2000, delayMs: 500, overlap: false, instant: false };
+    expect(slow !== undefined && paceMatches(slow, options, true)).toBe(true);
+    expect(slow !== undefined && paceMatches(slow, options, false)).toBe(false);
+    const quick = { speedMs: 1000, delayMs: 250, overlap: true, instant: true };
+    expect(veryFast !== undefined && paceMatches(veryFast, quick, false)).toBe(true);
+    expect(fast !== undefined && paceMatches(fast, quick, false)).toBe(false);
+    expect(medium !== undefined && paceMatches(medium, quick, false)).toBe(false);
   });
 });

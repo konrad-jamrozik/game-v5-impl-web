@@ -446,19 +446,15 @@ async function captureMainMenu(page: Page): Promise<void> {
 }
 
 /**
- * The Combat simulator, in a new page opened at the address that shows it at once: a team against a Mission site with
- * every kind of shot, at rest half-way through the Combat log.
+ * The Combat simulator, in a new page opened at the address that shows it at once: its Teams pane with a team against a
+ * Mission site with every kind of shot. CSIM, Layout: the Combat replay covers the Teams pane once Fight is pressed, and
+ * the Combat replay Screenshot shows it, so this one is taken before Fight.
  */
 async function captureCombatSimulator(page: Page): Promise<void> {
   await page.goto(`${baseURL}/?combat-simulator`);
   await expect(id(page, 'combat-simulator')).toBeVisible();
   await id(page, 'sim-team').selectOption('level_4_team');
   await id(page, 'sim-site').selectOption('foil_infrastructure_attack');
-  await id(page, 'sim-fight').click();
-  await expect(id(page, 'combat-replay')).toBeVisible();
-  const slider = id(page, 'replay-slider');
-  const attacks = Number(await slider.getAttribute('max'));
-  await slider.fill(String(Math.ceil(attacks / 2)));
   await shootWindow(page, 'combat-simulator');
 }
 

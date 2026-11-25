@@ -12,8 +12,8 @@ import {
   type Combatant,
 } from '../../src/engine/mechanics/combat/combat.ts';
 import { createEnemy } from '../../src/engine/mechanics/missions/missions.ts';
-import { injectedRandom, type Random } from '../../src/engine/random.ts';
-import { ratio } from '../../src/kernel/index.ts';
+import { injectedRandom, seededRandom, type Random } from '../../src/engine/random.ts';
+import { ratio, seedRng } from '../../src/kernel/index.ts';
 import type { CombatReport } from '../../src/engine/state/types.ts';
 import {
   BOOTSTRAP_GDRS,
@@ -869,5 +869,47 @@ describe('COMBAT: examples', () => {
     );
     expect(effectiveSkill(tired.state, noPenalty.agentParameters)).toBe(100);
     expect(report.outcome).toBe('Wiped');
+  });
+});
+
+describe('COMBAT: Hit outcome, hit roll', () => {
+  /** A Combat of three Agents against three Enemies with the given random source. */
+  const fought = (random: Random): CombatReport => {
+    const outputs = fightCombat(
+      {
+        agents: [combatAgent('a1', { skill: 90 }), combatAgent('a2', { skill: 60 }), combatAgent('a3')],
+        enemies: [soldier('e1'), initiate('e2'), initiate('e3')],
+        combat: gdrs.combatParameters,
+        agentParameters: gdrs.agentParameters,
+      },
+      random,
+    );
+    return { mission: 'm1', ...outputs.report };
+  };
+
+  it('is less than the hit chance exactly when the attack hits, and influences nothing in the Combat', () => {
+    const withRolls = fought(seededRandom(seedRng('hit-roll'), []));
+    const plain = seededRandom(seedRng('hit-roll'), []);
+    const withoutRolls = fought({
+      uniform: (outcome, lo, hi) => plain.uniform(outcome, lo, hi),
+      chance: (outcome, p) => plain.chance(outcome, p),
+      weighted: (outcome, entries) => plain.weighted(outcome, entries),
+    });
+    expect(withRolls.log.length).toBeGreaterThan(3);
+    for (const attack of withRolls.log) {
+      const roll = attack.hitRoll ?? -1;
+      expect(roll).toBeGreaterThanOrEqual(0);
+      expect(roll).toBeLessThan(1000);
+      expect(roll < attack.hitChance).toBe(attack.hit);
+    }
+    // The hit rolls draw nothing from the stream of random outcomes, so the Combat is the same without them.
+    const strip = (report: CombatReport) => report.log.map(({ hitRoll: _roll, ...rest }) => rest);
+    expect(strip(withRolls)).toEqual(strip(withoutRolls));
+    expect(withRolls.outcome).toBe(withoutRolls.outcome);
+  });
+
+  it('is the same for the same seed', () => {
+    const rolls = () => fought(seededRandom(seedRng('again'), [])).log.map((attack) => attack.hitRoll);
+    expect(rolls()).toEqual(rolls());
   });
 });

@@ -251,6 +251,7 @@ class Forcing {
     uniform: (outcome, lo, hi) => this.uniform(outcome, lo, hi) ?? seeded.uniform(outcome, lo, hi),
     chance: (outcome, p) =>
       (outcome.startsWith(HIT) ? this.hit(outcome.slice(HIT.length)) : null) ?? seeded.chance(outcome, p),
+    roll: (outcome, n, steps, taken) => seeded.roll?.(outcome, n, steps, taken) ?? (taken ? 0 : steps - 1),
     weighted: (outcome, entries) => {
       if (!outcome.startsWith(TARGET)) {
         return seeded.weighted(outcome, entries);

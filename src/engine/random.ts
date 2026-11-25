@@ -11,6 +11,19 @@ export interface Random {
   chance(outcome: string, p: Rational): boolean;
   /** A weighted choice: the Probability of each key is its weight over the sum of all weights. */
   weighted(outcome: string, entries: readonly (readonly [string, number])[]): string;
+  /**
+   * How narrowly the outcome just decided by `chance` with the Probability `n / steps` fell: a whole number from 0 to
+   * `steps - 1` that is less than `n` exactly when the outcome took its stated value, each number that allows with
+   * the same Probability. It is no random outcome: it draws nothing from the stream of random outcomes, so asking for
+   * it changes no other outcome, and no override fixes it. A source may leave it out.
+   */
+  roll?(outcome: string, n: number, steps: number, taken: boolean): number;
+}
+
+/** The generator of the rolls: that of the random outcomes at its current count, under another key. */
+function rollRng(rng: RngState): RngState {
+  const [a, b, c, d] = rng.key;
+  return { key: [(a ^ 0x9e3779b9) >>> 0, b, c, d], counter: rng.counter };
 }
 
 /** A pending random outcome override: the named outcome takes this value when it is next decided. */
@@ -59,6 +72,13 @@ export function seededRandom(rng: RngState, overrides: RandomOverride[]): Random
         }
       }
       return chance(rng, p);
+    },
+    roll(_outcome, n, steps, taken) {
+      const allowed = taken ? n : steps - n;
+      if (allowed <= 0) {
+        throw new EngineDefect(`No roll allows the outcome: ${n} of ${steps}`);
+      }
+      return (taken ? 0 : n) + Number(uniformBelow(rollRng(rng), BigInt(allowed)));
     },
     weighted(outcome, entries) {
       let total = 0n;

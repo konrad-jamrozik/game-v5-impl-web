@@ -3358,7 +3358,26 @@ label:has(> input[type='checkbox']:disabled) {
   display: block;
 }
 
-/* CRPLAY: the Battlefield beside its playback controls and the Combat log. */
+/* CRPLAY, Whole screen: the Combat replay covers the whole screen it was opened on, as a Detail view without the inset
+   and without the Accent top edge. It sits above the screen and below the Scrim of a dialog. */
+.replay-whole-screen {
+  /* The height the Combat replay takes above and below the Battlefield: its title row, the Combat ratings bar, and the
+     padding around them. */
+  --replay-chrome: 150px;
+  position: fixed;
+  left: var(--screen-x);
+  top: var(--screen-y);
+  z-index: 7;
+  width: var(--screen-w);
+  height: var(--screen-h);
+}
+
+.replay-whole-screen > .detail-view {
+  inset: 0;
+  border-top: none;
+}
+
+/* CRPLAY: the Battlefield beside the attack being played, the buttons, and the Combat log. */
 .replay {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 348px;
@@ -3371,6 +3390,42 @@ label:has(> input[type='checkbox']:disabled) {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* CRPLAY, Slider and Combat log: the panel beside the Battlefield fits the screen, and the Combat log takes the
+   height left over. */
+.replay-side {
+  height: calc(var(--screen-h) - 90px);
+  min-height: 0;
+}
+
+/* CRPLAY, Transport buttons: a row of symbols like the keys of a tape player. */
+.replay-transport {
+  display: flex;
+  gap: 6px;
+}
+
+.btn.replay-symbol {
+  width: 46px;
+  padding: 0;
+  letter-spacing: 0;
+}
+
+.btn.replay-symbol.pressed {
+  border-color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+  color: var(--accent-text);
+}
+
+.replay-digit {
+  font-family: var(--font-figure);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.replay-repeat-symbol {
+  font-size: 20px;
+  line-height: 1;
 }
 
 /* CRPLAY, Playback: the Combat ratings of the two sides, the Agents' share in Positive against the Enemies' in Danger. */
@@ -3395,8 +3450,6 @@ label:has(> input[type='checkbox']:disabled) {
 .simulator {
   --close-inset-top: 24px;
   --close-inset-right: 24px;
-  /* The height the Combat simulator takes above and below the Battlefield, which fits the rest of the window. */
-  --replay-chrome: 200px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -3418,9 +3471,10 @@ label:has(> input[type='checkbox']:disabled) {
   font-size: 32px;
 }
 
+/* CSIM, Layout: the Teams pane alone; the Combat replay covers it once a Combat has been fought. */
 .simulator-columns {
   display: grid;
-  grid-template-columns: 548px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 548px);
   gap: 16px;
   align-items: start;
 }
@@ -3545,30 +3599,37 @@ label:has(> input[type='checkbox']:disabled) {
   pointer-events: none;
 }
 
-.replay-legend {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .replay-readout {
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-height: 100px;
 }
 
-.replay-buttons {
+/* CRPLAY, Options: in few rows, each named by one or two words. */
+.replay-settings {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.replay-settings-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.replay-option {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
 }
 
-.replay-settings {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+.replay-option select {
+  width: 84px;
 }
 
 /* CRPLAY, Playback, Options: the options are hidden until the Options button shows them. */
@@ -3577,10 +3638,11 @@ label:has(> input[type='checkbox']:disabled) {
 }
 
 .replay-options-toggle {
-  align-self: flex-start;
+  margin-left: auto;
 }
 
 .replay-slider {
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -3588,7 +3650,8 @@ label:has(> input[type='checkbox']:disabled) {
 
 .replay-log {
   position: relative;
-  max-height: 200px;
+  flex: 1;
+  min-height: 72px;
   overflow-y: auto;
   border-top: 1px solid var(--border);
 }

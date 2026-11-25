@@ -405,6 +405,77 @@ export interface Playback {
   /** Playing stops once this many attacks have started and every step has finished. */
   target: number;
   playing: boolean;
+  /** The attacks of the step started last, as a range, or null after a jump. */
+  last: readonly [number, number] | null;
+}
+
+/** CRPLAY, Transport buttons: a pace, i.e. the values a pace button sets the Options to. */
+export interface Pace {
+  readonly id: 'slow' | 'medium' | 'fast' | 'very-fast';
+  readonly name: string;
+  /** How many arrows its button shows. */
+  readonly arrows: number;
+  readonly speedMs: number;
+  readonly overlap: boolean;
+  /** The Delay, or null for a pace that leaves it as it is. */
+  readonly delayMs: number | null;
+  readonly instant: boolean;
+  readonly aimLines: boolean;
+}
+
+/** CRPLAY, Transport buttons: the four paces, slowest first. */
+export const PACES: readonly Pace[] = [
+  {
+    id: 'slow',
+    name: 'Slow',
+    arrows: 1,
+    speedMs: 2000,
+    overlap: false,
+    delayMs: null,
+    instant: false,
+    aimLines: true,
+  },
+  {
+    id: 'medium',
+    name: 'Medium',
+    arrows: 2,
+    speedMs: 1500,
+    overlap: true,
+    delayMs: 1000,
+    instant: false,
+    aimLines: true,
+  },
+  {
+    id: 'fast',
+    name: 'Fast',
+    arrows: 3,
+    speedMs: 1000,
+    overlap: true,
+    delayMs: 250,
+    instant: false,
+    aimLines: false,
+  },
+  {
+    id: 'very-fast',
+    name: 'Very fast',
+    arrows: 4,
+    speedMs: 1000,
+    overlap: true,
+    delayMs: 250,
+    instant: true,
+    aimLines: false,
+  },
+];
+
+/** CRPLAY, Transport buttons: whether the Options have the values of a pace. */
+export function paceMatches(pace: Pace, settings: PlaybackSettings, aimLines: boolean): boolean {
+  return (
+    pace.speedMs === settings.speedMs &&
+    pace.overlap === settings.overlap &&
+    (pace.delayMs === null || pace.delayMs === settings.delayMs) &&
+    pace.instant === settings.instant &&
+    pace.aimLines === aimLines
+  );
 }
 
 export interface PlaybackSettings {
@@ -422,7 +493,7 @@ export const SPEEDS_MS = [2000, 1500, 1000, 500, 250, 100] as const;
 export const DELAYS_MS = [1500, 1000, 500, 250, 100] as const;
 
 export function newPlayback(): Playback {
-  return { index: 0, active: [], since: 0, target: 0, playing: false };
+  return { index: 0, active: [], since: 0, target: 0, playing: false, last: null };
 }
 
 /** How many attacks have finished playing: those before the oldest step still playing. */
@@ -441,6 +512,9 @@ export function shownRange(playback: Playback, replay: Replay, instant: boolean)
   }
   if (playback.index === 0) {
     return [0, 0];
+  }
+  if (playback.last !== null && playback.last[1] === playback.index) {
+    return playback.last;
   }
   return [instant ? phaseStart(replay, playback.index - 1) : playback.index - 1, playback.index];
 }
@@ -464,26 +538,15 @@ export function playTo(playback: Playback, replay: Replay, target: number, now: 
 export function jumpTo(playback: Playback, replay: Replay, index: number): void {
   playback.playing = false;
   playback.active = [];
+  playback.last = null;
   playback.index = Math.min(replay.attacks.length, Math.max(0, index));
-}
-
-/**
- * CRPLAY, Playback, Going back: returns to before the last attack: steps still playing are dropped, and at rest the
- * last step played is undone, i.e. one attack, or with Instant on one phase.
- */
-export function stepBack(playback: Playback, replay: Replay, instant: boolean): void {
-  const oldest = playback.active[0];
-  if (oldest !== undefined) {
-    jumpTo(playback, replay, oldest.a);
-  } else if (playback.index > 0) {
-    jumpTo(playback, replay, instant ? phaseStart(replay, playback.index - 1) : playback.index - 1);
-  }
 }
 
 /**
  * CRPLAY, Playback: moves the playback on by `dtMs`. Every step playing advances by the Speed; a new step starts once
  * the gap since the last start has passed, which is the Delay with Overlap on and otherwise the Speed, i.e. when the
- * last step ends. A step is one attack, or with Instant on the rest of the phase.
+ * last step ends. A step is one attack, or with Instant on the rest of the phase, and never goes past the target, so
+ * that the Combat turn button plays one attack also with Instant on.
  */
 export function advance(playback: Playback, replay: Replay, dtMs: number, settings: PlaybackSettings): void {
   if (!playback.playing) {
@@ -498,8 +561,11 @@ export function advance(playback: Playback, replay: Replay, dtMs: number, settin
   playback.since += dtMs;
   const gap = settings.overlap ? settings.delayMs : settings.speedMs;
   if (playback.index < playback.target && playback.since >= gap) {
-    const end = settings.instant ? phaseEnd(replay, playback.index) : playback.index + 1;
+    const end = settings.instant
+      ? Math.min(phaseEnd(replay, playback.index), playback.target)
+      : playback.index + 1;
     playback.active.push({ a: playback.index, b: end, t: 0 });
+    playback.last = [playback.index, end];
     playback.index = end;
     const over = playback.since - gap;
     playback.since = over < gap ? over : 0;

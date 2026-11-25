@@ -1,23 +1,25 @@
 /**
  * CRPLAY: the Combat replay. It plays one Combat back from its Combat report on the Battlefield, a canvas drawn with
- * the Canvas 2D API, with the playback controls and the Combat log beside it.
+ * the Canvas 2D API, with the attack being played, the transport buttons, the Options, and the Combat log beside it.
  */
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { CombatReport } from '../../engine/index.ts';
-import { combatLogRow } from '../combat-log.ts';
+import { attackResultText, combatLogRow } from '../combat-log.ts';
 import {
   DELAYS_MS,
+  PACES,
   SPEEDS_MS,
   advance,
   jumpTo,
   newPlayback,
+  paceMatches,
   phaseEnd,
   playTo,
   ratingsAt,
   roundEnd,
   settledIndex,
   shownRange,
-  stepBack,
+  type Pace,
   type Playback,
   type PlaybackSettings,
   type Replay,
@@ -30,10 +32,10 @@ import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { Button, typingIn } from '../ui.tsx';
 
-/** CRPLAY, Playback, Steps: the three steps, which Repeat plays again. */
+/** CRPLAY, Rewind, Repeat, and Options buttons: the three steps, which Repeat plays again. */
 type StepKind = 'turn' | 'phase' | 'round';
 
-/** CRPLAY, Playback, Repeat: a step the Player took: the attacks it played, and the Combat it was taken in. */
+/** CRPLAY, Repeat: a step the Player took: the attacks it played, and the Combat it was taken in. */
 interface TakenStep {
   kind: StepKind;
   from: number;
@@ -41,11 +43,77 @@ interface TakenStep {
   combatKey: string | number | undefined;
 }
 
-/** CRPLAY, Playback: a Speed or a Delay as the Player reads it, e.g. "1.5 s". */
+const STEP_NAMES: Record<StepKind, string> = { turn: 'Combat turn', phase: 'Phase', round: 'Combat round' };
+
+/** CRPLAY, Options: a Speed or a Delay as the Player reads it, e.g. "1.5 s". */
 const seconds = (ms: number) => `${ms / 1000} s`;
 
 /** The longest one drawing step may take, so that a tab that slept does not skip a whole Combat. */
 const MAX_STEP_MS = 100;
+
+/** CRPLAY, Options: the Combat replay opens with the values of the Medium pace. */
+const OPENING_PACE = PACES.find((pace) => pace.id === 'medium') ?? PACES[0];
+
+/** CRPLAY, Transport buttons: right-pointing arrows, like the keys of a tape player. */
+function Arrows({ count }: { count: number }) {
+  const width = 6 + count * 7;
+  return (
+    <svg width={width} height="12" viewBox={`0 0 ${width} 12`} aria-hidden="true">
+      {Array.from({ length: count }, (_, k) => (
+        <path key={k} d={`M${k * 7} 0 L${k * 7 + 9} 6 L${k * 7} 12 Z`} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
+/** CRPLAY, Transport buttons: two upright bars. */
+function PauseSymbol() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+      <rect x="1" y="0" width="3.5" height="12" fill="currentColor" />
+      <rect x="7.5" y="0" width="3.5" height="12" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** CRPLAY, Rewind: the rewind symbol of a tape player, a bar before two left-pointing arrows. */
+function RewindSymbol() {
+  return (
+    <svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true">
+      <rect x="0" y="0" width="2.5" height="12" fill="currentColor" />
+      <path d="M11 0 L2.5 6 L11 12 Z M18 0 L9.5 6 L18 12 Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** CRPLAY: a button that shows a symbol and no label; its name is its tooltip and its accessible name. */
+function SymbolButton(props: {
+  name: string;
+  testId: string;
+  disabledReason?: string | null;
+  pressed?: boolean;
+  shortcut?: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const disabled = props.disabledReason !== undefined && props.disabledReason !== null;
+  const title = props.shortcut === undefined ? props.name : `${props.name} · Shortcut: ${props.shortcut}`;
+  return (
+    <button
+      type="button"
+      className={`btn btn-plain replay-symbol${props.pressed === true ? ' pressed' : ''}`}
+      aria-label={props.name}
+      aria-pressed={props.pressed}
+      title={disabled ? `${props.name}: ${props.disabledReason ?? ''}` : title}
+      disabled={disabled}
+      data-testid={props.testId}
+      data-sound="select"
+      onClick={props.onClick}
+    >
+      {props.children}
+    </button>
+  );
+}
 
 export function CombatReplay(props: {
   combat: CombatReport;
@@ -57,12 +125,12 @@ export function CombatReplay(props: {
 }) {
   const { combat, replay } = props;
   const total = replay.attacks.length;
-  const [speedMs, setSpeedMs] = useState<number>(1000);
-  const [delayMs, setDelayMs] = useState<number>(250);
-  const [overlap, setOverlap] = useState(false);
-  const [instant, setInstant] = useState(false);
-  const [aimLines, setAimLines] = useState(true);
-  // CRPLAY, Playback, Options: hidden when a Session starts, and as the Player last left them for the rest of it.
+  const [speedMs, setSpeedMs] = useState<number>(OPENING_PACE?.speedMs ?? 1000);
+  const [delayMs, setDelayMs] = useState<number>(OPENING_PACE?.delayMs ?? 1000);
+  const [overlap, setOverlap] = useState(OPENING_PACE?.overlap ?? false);
+  const [instant, setInstant] = useState(OPENING_PACE?.instant ?? false);
+  const [aimLines, setAimLines] = useState(OPENING_PACE?.aimLines ?? true);
+  // CRPLAY, Options: hidden when a Session starts, and as the Player last left them for the rest of it.
   const optionsShown = replayOptionsShown.use();
   const [takenStep, setTakenStep] = useState<TakenStep | null>(null);
   const [size, setSize] = useState(0);
@@ -118,7 +186,7 @@ export function CombatReplay(props: {
       }
     }
     const [from, to] = shownRange(playback, now.replay, now.settings.instant);
-    const key = `${from}|${to}|${playback.index}|${playback.playing}|${settledIndex(playback)}|${playback.active.length > 0}`;
+    const key = `${from}|${to}|${playback.index}|${playback.playing}|${playback.target}|${settledIndex(playback)}|${playback.active.length > 0}`;
     if (key !== shownKey.current) {
       shownKey.current = key;
       setVersion((version) => version + 1);
@@ -176,7 +244,7 @@ export function CombatReplay(props: {
   const sideOf = (id: string) => combat.participants.find((who) => who.id === id)?.side ?? 'enemy';
   const nameOf = (id: string) => replay.figures.find((figure) => figure.id === id)?.name ?? id;
 
-  // CRPLAY, Playback: the Combat log follows the attack being played.
+  // CRPLAY, Slider and Combat log: the Combat log follows the attack being played.
   useEffect(() => {
     const log = logRef.current;
     const row = log?.children[to - 1];
@@ -186,13 +254,7 @@ export function CombatReplay(props: {
     log.scrollTop = row instanceof HTMLElement ? row.offsetTop - log.clientHeight / 2 + 12 : 0;
   }, [to]);
 
-  /** CRPLAY, Playback, Steps: why a step cannot be taken now, or null. */
-  const stepOff = (kind: StepKind): string | null =>
-    playback.index >= total
-      ? 'Every attack has been played.'
-      : kind === 'turn' && instant
-        ? 'With Instant on, a step is a phase.'
-        : null;
+  const finished = 'Every attack has been played.';
   const step = (kind: StepKind) => {
     const target =
       kind === 'turn'
@@ -209,9 +271,8 @@ export function CombatReplay(props: {
     playTo(playback, replay, target, true);
     refresh();
   };
-  // CRPLAY, Playback, Repeat: the last step taken in the Combat shown, which Repeat plays again from where it began.
+  // CRPLAY, Repeat: the last step taken in the Combat shown, which Repeat plays again from where it began.
   const lastStep = takenStep !== null && takenStep.combatKey === props.combatKey ? takenStep : null;
-  const repeatOff = lastStep === null ? 'No step has been taken yet.' : null;
   const repeat = () => {
     if (lastStep !== null) {
       jumpTo(playback, replay, lastStep.from);
@@ -249,6 +310,32 @@ export function CombatReplay(props: {
     };
   }, []);
 
+  /**
+   * CRPLAY, Transport buttons: a pace button sets the Options to its pace and plays to the end of the Combat, from
+   * Combat start when the Combat replay is at the end of the Combat.
+   */
+  const playAt = (pace: Pace) => {
+    const next: PlaybackSettings = {
+      speedMs: pace.speedMs,
+      delayMs: pace.delayMs ?? delayMs,
+      overlap: pace.overlap,
+      instant: pace.instant,
+    };
+    setSpeedMs(next.speedMs);
+    setDelayMs(next.delayMs);
+    setOverlap(next.overlap);
+    setInstant(next.instant);
+    setAimLines(pace.aimLines);
+    // The drawing loop starts before the next render, so it reads the pace from here at once.
+    live.current = { ...live.current, settings: next, aimLines: pace.aimLines };
+    if (ended) {
+      jumpTo(playback, replay, 0);
+    }
+    playTo(playback, replay, total, false);
+    refresh();
+  };
+  const playingToEnd = playback.playing && playback.target >= total;
+
   const shownAttack = to > from ? combat.log[to - 1] : undefined;
   const shownSide = shownAttack === undefined ? null : sideOf(shownAttack.attacker);
   const several = combat.log.slice(from, to);
@@ -261,33 +348,51 @@ export function CombatReplay(props: {
 
   const select = (
     id: string,
+    label: string,
     value: number,
     values: readonly number[],
     onPick: (ms: number) => void,
     disabled = false,
   ) => (
-    <select
-      id={id}
-      data-testid={id}
-      value={value}
-      disabled={disabled}
-      onChange={(event) => {
-        playSound(SOUND.select);
-        onPick(Number(event.currentTarget.value));
-      }}
-    >
-      {values.map((ms) => (
-        <option key={ms} value={ms}>
-          {seconds(ms)}
-        </option>
-      ))}
-    </select>
+    <label className="replay-option">
+      <span className="label">{label}</span>
+      <select
+        id={id}
+        data-testid={id}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => {
+          playSound(SOUND.select);
+          onPick(Number(event.currentTarget.value));
+        }}
+      >
+        {values.map((ms) => (
+          <option key={ms} value={ms}>
+            {seconds(ms)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  const check = (testId: string, label: string, on: boolean, onToggle: () => void) => (
+    <label className="check-label">
+      <input
+        type="checkbox"
+        data-testid={testId}
+        checked={on}
+        onChange={() => {
+          playSound(SOUND.select);
+          onToggle();
+        }}
+      />
+      {label}
+    </label>
   );
 
   return (
     <div className="replay" data-testid="combat-replay">
       <section className="pane replay-field">
-        {/* CRPLAY, Playback: the Combat ratings of the two sides as of the last Combat round completed. */}
+        {/* CRPLAY, Attack being played: the Combat ratings of the two sides as of the last Combat round completed. */}
         <div className="replay-balance" data-testid="replay-ratings">
           <span className="figure tone-good">{ratings.agents}</span>
           <div className="replay-bar" role="img" aria-label="Combat rating of the Agents against the Enemies">
@@ -341,16 +446,10 @@ export function CombatReplay(props: {
             </div>
           )}
         </div>
-        <div className="replay-legend small muted">
-          <span>The rim is armor and the fill is health; a hit thins the rim, then empties the figure.</span>
-          <span>
-            Chevrons, bars, and stars rank base skill. A dashed outline is Incapacitated; a cross is dead.
-          </span>
-        </div>
       </section>
 
       <section className="pane replay-side">
-        {/* CRPLAY, Playback: the attack being played, and at the end the Combat outcome. */}
+        {/* CRPLAY, Attack being played: the attack being played, and at the end the Combat outcome. */}
         <div className="replay-readout" data-testid="replay-readout">
           <span className="label">
             {ended ? (
@@ -400,8 +499,11 @@ export function CombatReplay(props: {
               <span className="figure secondary">
                 Hit chance {hitChanceText(shownAttack.hitChance)} ({shownAttack.a} vs {shownAttack.d})
               </span>
-              <span className={`figure ${shownRow.tone === 'muted' ? 'muted' : `tone-${shownRow.tone}`}`}>
-                {shownRow.outcome}
+              <span
+                className={`figure ${shownRow.tone === 'muted' ? 'muted' : `tone-${shownRow.tone}`}`}
+                data-testid="replay-result"
+              >
+                {attackResultText(shownAttack)}
                 {shownRow.decisive === null ? null : (
                   <>
                     , <strong>{shownRow.decisive}</strong>
@@ -412,157 +514,127 @@ export function CombatReplay(props: {
           )}
         </div>
 
-        <div className="replay-buttons">
-          <Button
+        {/* CRPLAY, Transport buttons: symbols like the keys of a tape player, in one row. */}
+        <div className="replay-transport">
+          <SymbolButton
+            name="Pause"
+            testId="replay-pause"
+            disabledReason={playback.playing ? null : 'Nothing is playing.'}
+            onClick={() => {
+              playback.playing = false;
+              refresh();
+            }}
+          >
+            <PauseSymbol />
+          </SymbolButton>
+          <SymbolButton
+            name="Combat turn: play the next attack"
             testId="replay-turn"
-            sound="select"
-            disabledReason={stepOff('turn')}
+            disabledReason={playback.index >= total ? finished : null}
             onClick={() => {
               step('turn');
             }}
           >
-            Combat turn ▸
-          </Button>
-          <Button
-            testId="replay-phase"
-            sound="select"
-            disabledReason={stepOff('phase')}
-            onClick={() => {
-              step('phase');
-            }}
-          >
-            Phase ▸▸
-          </Button>
-          <Button
-            testId="replay-round"
-            sound="select"
-            disabledReason={stepOff('round')}
-            onClick={() => {
-              step('round');
-            }}
-          >
-            Combat round ▸▸▸
-          </Button>
-          <Button
-            testId="replay-repeat"
-            sound="select"
-            shortcut="R"
-            tooltip={
-              lastStep === null
-                ? undefined
-                : `Play again: ${lastStep.kind === 'turn' ? 'Combat turn' : lastStep.kind === 'phase' ? 'Phase' : 'Combat round'}, attacks ${lastStep.from + 1} to ${lastStep.to}`
-            }
-            disabledReason={repeatOff}
-            onClick={repeat}
-          >
-            ↻ Repeat
-          </Button>
+            <span className="replay-digit">1</span>
+          </SymbolButton>
+          {PACES.map((pace) => (
+            <SymbolButton
+              key={pace.id}
+              name={pace.name}
+              testId={`replay-${pace.id}`}
+              pressed={playingToEnd && paceMatches(pace, settings, aimLines)}
+              disabledReason={total === 0 ? 'This Combat had no attack.' : null}
+              onClick={() => {
+                playAt(pace);
+              }}
+            >
+              <Arrows count={pace.arrows} />
+            </SymbolButton>
+          ))}
         </div>
-        <div className="replay-buttons">
-          <Button
-            testId="replay-play"
-            kind="primary"
-            sound="select"
-            disabledReason={total === 0 ? 'This Combat had no attack.' : null}
-            onClick={() => {
-              if (playback.playing) {
-                playback.playing = false;
-              } else {
-                if (ended) {
-                  jumpTo(playback, replay, 0);
-                }
-                playTo(playback, replay, total, false);
-              }
-              refresh();
-            }}
-          >
-            {playback.playing ? '❚❚ Pause' : ended ? '↻ Replay' : '▶ Play'}
-          </Button>
-          <Button
-            testId="replay-back"
-            sound="select"
-            disabledReason={atStart ? 'This is Combat start.' : null}
-            onClick={() => {
-              stepBack(playback, replay, instant);
-              refresh();
-            }}
-          >
-            ◂ Back
-          </Button>
-          <Button
-            testId="replay-start"
-            sound="select"
+
+        {/* CRPLAY, Rewind, Repeat, and Options buttons. */}
+        <div className="replay-transport">
+          <SymbolButton
+            name="Rewind to Combat start"
+            testId="replay-rewind"
             disabledReason={atStart ? 'This is Combat start.' : null}
             onClick={() => {
               jumpTo(playback, replay, 0);
               refresh();
             }}
           >
-            ⏮ Start
-          </Button>
+            <RewindSymbol />
+          </SymbolButton>
+          <SymbolButton
+            name={
+              lastStep === null
+                ? 'Repeat'
+                : `Repeat: ${STEP_NAMES[lastStep.kind]}, attacks ${lastStep.from + 1} to ${lastStep.to}`
+            }
+            testId="replay-repeat"
+            shortcut="R"
+            disabledReason={lastStep === null ? 'No step has been taken yet.' : null}
+            onClick={repeat}
+          >
+            <span className="replay-repeat-symbol">↻</span>
+          </SymbolButton>
+          <button
+            type="button"
+            className="btn btn-plain replay-options-toggle"
+            aria-expanded={optionsShown}
+            data-testid="replay-options"
+            data-sound="select"
+            onClick={() => {
+              replayOptionsShown.set(!optionsShown);
+            }}
+          >
+            Options {optionsShown ? '▾' : '▸'}
+          </button>
         </div>
 
-        {/* CRPLAY, Playback, Options: the Speed, Instant, Overlap with its Delay, and Aim lines sit behind the Options
-            button, so that the Battlefield, the buttons, the slider, and the Combat log share one screen. */}
-        <button
-          type="button"
-          className="btn btn-plain replay-options-toggle"
-          aria-expanded={optionsShown}
-          data-testid="replay-options"
-          data-sound="select"
-          onClick={() => {
-            replayOptionsShown.set(!optionsShown);
-          }}
-        >
-          Options {optionsShown ? '▾' : '▸'}
-        </button>
+        {/* CRPLAY, Options: named by one or two words each, in few rows. */}
         <div className="replay-settings" hidden={!optionsShown}>
-          <label className="label" htmlFor="replay-speed">
-            Speed: one attack takes
-          </label>
-          {select('replay-speed', speedMs, SPEEDS_MS, setSpeedMs)}
-          <label className="check-label">
-            <input
-              type="checkbox"
-              data-testid="replay-overlap"
-              checked={overlap}
-              onChange={() => {
-                playSound(SOUND.select);
-                setOverlap(!overlap);
+          <div className="replay-settings-row">
+            {select('replay-speed', 'Speed', speedMs, SPEEDS_MS, setSpeedMs)}
+            {select('replay-delay', 'Delay', delayMs, DELAYS_MS, setDelayMs, !overlap)}
+          </div>
+          <div className="replay-settings-row">
+            {check('replay-overlap', 'Overlap', overlap, () => {
+              setOverlap(!overlap);
+            })}
+            {check('replay-instant', 'Instant', instant, () => {
+              setInstant(!instant);
+            })}
+            {check('replay-aim-lines', 'Aim lines', aimLines, () => {
+              setAimLines(!aimLines);
+            })}
+          </div>
+          <div className="replay-settings-row">
+            <Button
+              testId="replay-phase"
+              sound="select"
+              disabledReason={playback.index >= total ? finished : null}
+              onClick={() => {
+                step('phase');
               }}
-            />
-            Overlap: the next attack starts without waiting
-          </label>
-          <label className="label" htmlFor="replay-delay">
-            Delay: the next attack starts after
-          </label>
-          {select('replay-delay', delayMs, DELAYS_MS, setDelayMs, !overlap)}
-          <label className="check-label">
-            <input
-              type="checkbox"
-              data-testid="replay-instant"
-              checked={instant}
-              onChange={() => {
-                playSound(SOUND.select);
-                setInstant(!instant);
+            >
+              Phase
+            </Button>
+            <Button
+              testId="replay-round"
+              sound="select"
+              disabledReason={playback.index >= total ? finished : null}
+              onClick={() => {
+                step('round');
               }}
-            />
-            Instant: a whole phase attacks at once
-          </label>
-          <label className="check-label">
-            <input
-              type="checkbox"
-              data-testid="replay-aim-lines"
-              checked={aimLines}
-              onChange={() => {
-                playSound(SOUND.select);
-                setAimLines(!aimLines);
-              }}
-            />
-            Aim lines from attacker to defender
-          </label>
+            >
+              Combat round
+            </Button>
+          </div>
         </div>
 
+        {/* CRPLAY, Slider and Combat log. */}
         <div className="replay-slider">
           <label className="label" htmlFor="replay-slider">
             Attack{' '}
@@ -590,7 +662,6 @@ export function CombatReplay(props: {
           </span>
         </div>
 
-        {/* CRPLAY, Playback, Going back: selecting a row shows the Combat right after that attack. */}
         <div className="replay-log" ref={logRef} data-testid="replay-log">
           {combat.log.map((attack, index) => {
             const row = combatLogRow(attack, sideOf);

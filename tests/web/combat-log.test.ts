@@ -1,7 +1,7 @@
 /** TRVIEW, Combat log colours: the tints and outcome colours of the Combat log. */
 import { describe, expect, it } from 'vite-plus/test';
 import type { CombatReport } from '../../src/engine/index.ts';
-import { armorText, combatLogRow } from '../../src/web/combat-log.ts';
+import { armorText, attackResultText, combatLogRow } from '../../src/web/combat-log.ts';
 
 type Attack = CombatReport['log'][number];
 
@@ -77,6 +77,35 @@ describe('TRVIEW: Combat log colours', () => {
       defenderAfter: { currentHealthHundredths: 3000, exhaustion: 1, currentArmor: 18 },
     });
     expect(combatLogRow(absorbed, sideOf).outcome).toBe('hit for 7, 7 absorbed, armor 18, health 30');
+  });
+
+  it('CRPLAY, Attack being played: names the margin of a miss and of a hit, and the values before and after a hit', () => {
+    expect(attackResultText(attack('agent-1', false, { hitChance: 116, hitRoll: 168 }))).toBe('miss by 5.2%');
+    expect(attackResultText(attack('agent-1', false, { hitChance: 116, hitRoll: 116 }))).toBe('miss by 0.0%');
+    const hit = attack('agent-1', true, {
+      hitChance: 320,
+      hitRoll: 230,
+      damage: 8,
+      healthRemovedHundredths: 800,
+      defenderAfter: { currentHealthHundredths: 1200, exhaustion: 0, currentArmor: 0 },
+    });
+    expect(attackResultText(hit)).toBe('hit with 9.0% margin, for 8 damage, health 20 → 12');
+    const through = attack('enemy-1', true, {
+      hitChance: 320,
+      hitRoll: 319,
+      damage: 15,
+      armorRemoved: 8,
+      healthRemovedHundredths: 700,
+      defenderAfter: { currentHealthHundredths: 2300, exhaustion: 1, currentArmor: 0 },
+    });
+    expect(attackResultText(through)).toBe(
+      'hit with 0.1% margin, for 15 damage, 8 absorbed, armor 8 → 0, health 30 → 23',
+    );
+  });
+
+  it('CRPLAY, Attack being played: gives no margin for a Combat report without hit rolls', () => {
+    expect(attackResultText(attack('agent-1', false))).toBe('miss');
+    expect(attackResultText(attack('agent-1', true))).toBe('hit, for 14 damage, health 20 → 6');
   });
 
   it('shows each participant armor at start and at end, and 0 alone without armor', () => {

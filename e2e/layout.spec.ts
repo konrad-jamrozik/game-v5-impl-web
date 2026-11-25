@@ -188,6 +188,16 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   await expectFits(page, 'the Combat report');
   await id(page, 'visualize-combat').click();
   await expect(id(page, 'combat-replay')).toBeVisible();
+  // CRPLAY, Whole screen: the Combat replay covers the status bar and the Side panel.
+  const covered = await page.evaluate(() => {
+    const button = document.querySelector('[data-testid="advance-turn"]')?.getBoundingClientRect();
+    const top =
+      button === undefined
+        ? null
+        : document.elementFromPoint(button.left + button.width / 2, button.top + button.height / 2);
+    return top?.closest('.replay-whole-screen') !== null;
+  });
+  expect(covered, 'the Advance turn button lies under the Combat replay').toBe(true);
   await expectFits(page, 'the Combat replay');
   await id(page, 'replay-options').click();
   await expectFits(page, 'the Combat replay with its options shown');
@@ -199,9 +209,16 @@ test('the Main menu and the Combat simulator fit the Reference window', async ({
   await expectFits(page, 'the Main menu');
   await page.goto('/?combat-simulator');
   await expect(id(page, 'combat-simulator')).toBeVisible();
+  await expectFits(page, 'the Combat simulator');
+  // CSIM, Layout: the Combat replay covers the Teams pane, and its close control shows the Teams pane again.
   await id(page, 'sim-fight').click();
   await expect(id(page, 'combat-replay')).toBeVisible();
-  await expectFits(page, 'the Combat simulator');
+  await expect(id(page, 'sim-fight')).toHaveCount(0);
+  await expectFits(page, 'the Combat replay of the Combat simulator');
+  await id(page, 'replay-options').click();
+  await expectFits(page, 'the Combat replay of the Combat simulator with its options shown');
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'sim-fight')).toBeVisible();
 });
 
 /** The box of an element, in whole px of the window. */

@@ -63,6 +63,7 @@ function combatFromSeed(state: CampaignState, seed: string): Random {
     uniform: (outcome, lo, hi) => pick(outcome).uniform(outcome, lo, hi),
     chance: (outcome, p) => pick(outcome).chance(outcome, p),
     weighted: (outcome, entries) => pick(outcome).weighted(outcome, entries),
+    roll: (outcome, n, steps, taken) => pick(outcome).roll?.(outcome, n, steps, taken) ?? 0,
   };
 }
 

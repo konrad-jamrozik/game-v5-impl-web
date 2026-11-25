@@ -548,6 +548,11 @@ function fight(
     const d = eff(defender);
     const chance = hitChance(a, d);
     const hit = random.chance(`combat.hit.${attacker.id}`, ratio(chance, 1000));
+    // COMBAT, Hit outcome: the hit roll is decided with the hit outcome and is no random outcome of its own. A source
+    // that gives none, e.g. a test's, leaves it at the bound its hit outcome allows.
+    const hitRoll = recordReport
+      ? (random.roll?.(`combat.hit.${attacker.id}`, chance, 1000, hit) ?? (hit ? 0 : 999))
+      : 0;
     let damage: number | null = null;
     let armorRemoved = 0;
     let healthRemovedHundredths = 0;
@@ -612,6 +617,7 @@ function fight(
       a,
       d,
       hitChance: chance,
+      hitRoll,
       hit,
       damage,
       armorRemoved,

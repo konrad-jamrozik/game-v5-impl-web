@@ -1,6 +1,6 @@
 /**
- * CSIM: the Combat simulator. The Teams pane at the left sets up the Agents' side and the Enemies' side, and the Combat
- * replay to its right shows the Detached Combat last fought between them. It has no Campaign and saves nothing.
+ * CSIM: the Combat simulator. The Teams pane sets up the Agents' side and the Enemies' side, and the Combat replay of
+ * the Detached Combat last fought between them covers it once Fight is pressed. It has no Campaign and saves nothing.
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { CombatSimulatorContent } from '../../engine/index.ts';
@@ -98,21 +98,28 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
   const [seed, setSeed] = useState(FIRST_SEED);
   const [fought, setFought] = useState<Fought | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // CSIM, Layout: whether the Combat replay of the Combat last fought covers the screen in place of the Teams pane.
+  const [replayShown, setReplayShown] = useState(false);
 
-  // CSIM, Opening the Combat simulator: the Escape key shows the Main menu again.
+  // CSIM, Opening the Combat simulator: the Escape key shows the Main menu again, or, while the Combat replay is
+  // shown, closes it.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !typingIn(event.target)) {
         event.preventDefault();
         playSound(SOUND.back);
-        onClose();
+        if (replayShown) {
+          setReplayShown(false);
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
     };
-  }, [onClose]);
+  }, [onClose, replayShown]);
 
   const replay = useMemo(
     () =>
@@ -135,7 +142,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
   const rated = session.combatSimulator.rateSides(setupOf(agents, enemies, FIRST_SEED));
   const ratings = rated.ok ? rated.value : null;
 
-  /** CSIM, Fighting the Combat: a rejected setup shows its reason, and the Combat replay keeps the Combat it shows. */
+  /** CSIM, Fighting the Combat: a rejected setup shows its reason and no Combat replay. */
   const fight = (withSeed: string) => {
     const result = session.combatSimulator.fightCombat(setupOf(agents, enemies, withSeed));
     if (!result.ok) {
@@ -143,6 +150,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
       return;
     }
     setProblem(null);
+    setReplayShown(true);
     setFought({
       number: (fought?.number ?? 0) + 1,
       report: reportOf(result.value.combatReport),
@@ -158,6 +166,44 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
   const setEnemy = (index: number, row: EnemyRow) => {
     setEnemies(enemies.map((item, at) => (at === index ? row : item)));
   };
+
+  if (replayShown && fought !== null && replay !== null) {
+    // CSIM, Layout, and CRPLAY, Whole screen: the Combat replay covers the Teams pane; its close control shows the
+    // Teams pane again, with its rows as they were.
+    return (
+      <main className="simulator" data-testid="combat-simulator">
+        <div className="replay-whole-screen">
+          <section className="detail-view" data-testid="sim-replay-view" aria-label="Combat replay">
+            <header className="detail-head">
+              <div className="detail-title">
+                <h2>
+                  Combat replay
+                  <span className="detail-aside">
+                    {fought.agents.length} Agents vs {fought.enemies.length} Enemies · seed {fought.seed}
+                  </span>
+                </h2>
+              </div>
+              <CloseControl
+                testId="sim-replay-close"
+                title="Back to the teams (Esc)"
+                onClose={() => {
+                  setReplayShown(false);
+                }}
+              />
+            </header>
+            <div className="detail-body">
+              <CombatReplay
+                combat={fought.report}
+                replay={replay}
+                combatKey={fought.number}
+                armorScale={Math.max(1, ...content.armors.map((armor) => armor.armor))}
+              />
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="simulator" data-testid="combat-simulator">
@@ -437,21 +483,6 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         </section>
-
-        <div className="simulator-replay">
-          {fought === null || replay === null ? (
-            <p className="muted" data-testid="sim-empty">
-              Press Fight to have the two teams fight a Combat and watch it here.
-            </p>
-          ) : (
-            <CombatReplay
-              combat={fought.report}
-              replay={replay}
-              combatKey={fought.number}
-              armorScale={Math.max(1, ...content.armors.map((armor) => armor.armor))}
-            />
-          )}
-        </div>
       </div>
     </main>
   );

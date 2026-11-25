@@ -268,6 +268,11 @@ export interface AttackRecord {
   readonly d: number;
   /** COMBAT, Hit outcome: the hit chance in thousandths, from 1 to 999; the hit was drawn with hit chance / 1000. */
   readonly hitChance: number;
+  /**
+   * COMBAT, Hit outcome: the hit roll, a whole number from 0 to 999 that is less than the hit chance exactly when the
+   * attack hits. Absent from a Combat report written before the Combat log held it.
+   */
+  readonly hitRoll?: number;
   readonly hit: boolean;
   /** Absent, not zero, for a miss. */
   readonly damage: number | null;

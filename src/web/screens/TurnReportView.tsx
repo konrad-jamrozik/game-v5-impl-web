@@ -3,6 +3,7 @@
  * holds, in four sections, with each Combat report one step away.
  */
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   CombatReport,
   CurrentLiveWorldStateView,
@@ -173,20 +174,25 @@ export function TurnReportView(props: {
         shotOfAmmoType: (ammoType) => gameData?.ammoTypes.find((item) => item.id === ammoType)?.shot,
         seed: shownCombat.mission,
       });
-      return (
-        <DetailView
-          id="report"
-          title="Combat replay"
-          aside={aside}
-          asideText={asideText}
-          onClose={props.onClose}
-        >
-          <CombatReplay
-            combat={shownCombat}
-            replay={replay}
-            armorScale={Math.max(1, ...(gameData?.armors.map((armor) => armor.armor) ?? []))}
-          />
-        </DetailView>
+      // CRPLAY, Whole screen: the Combat replay covers the status bar, the Side panel, and the Globe stage, and stays
+      // a place of the View trail.
+      return createPortal(
+        <div className="replay-whole-screen">
+          <DetailView
+            id="report"
+            title="Combat replay"
+            aside={aside}
+            asideText={asideText}
+            onClose={props.onClose}
+          >
+            <CombatReplay
+              combat={shownCombat}
+              replay={replay}
+              armorScale={Math.max(1, ...(gameData?.armors.map((armor) => armor.armor) ?? []))}
+            />
+          </DetailView>
+        </div>,
+        document.body,
       );
     }
     return (
