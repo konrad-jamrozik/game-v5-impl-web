@@ -1049,15 +1049,12 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const detachedCombatTeams = all<DetachedCombatTeamGdr>('DetachedCombatTeam');
   const ranks = [...all<RankGdr>('Rank')].sort((a, b) => b.minBaseSkill - a.minBaseSkill);
 
-  // GUI, Ranks: no two Ranks share a `min_base_skill`, and one has a `min_base_skill` of 0.
+  // GUI, Ranks: no two Ranks share a `min_base_skill`.
   ranks.forEach((rank, index) => {
     if (ranks[index + 1]?.minBaseSkill === rank.minBaseSkill) {
       problems.push(`Rank ${rank.id}: another Rank has min_base_skill ${rank.minBaseSkill}`);
     }
   });
-  if (!ranks.some((rank) => rank.minBaseSkill === 0)) {
-    problems.push('Rank: no Rank has min_base_skill 0');
-  }
   // COMBAT, EnemyArchetype: no two EnemyArchetypes share an `abbreviation`.
   const abbreviations = new Set<string>();
   for (const enemy of enemyArchetypes.values()) {

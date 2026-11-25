@@ -25,7 +25,7 @@ export interface Rank {
 
 /**
  * GUI, Ranks: the Rank of an Agent with this base skill, rounded down: that of the Rank with the highest
- * `min_base_skill` it reaches, or null when it reaches none, which the Game build rules out by a Rank at 0.
+ * `min_base_skill` it reaches, or null when it reaches none, and the GUI then shows nothing in its place.
  */
 export function rankOf(baseSkillHundredths: number, ranks: readonly RankThreshold[]): Rank | null {
   const skill = Math.floor(baseSkillHundredths / 100);
