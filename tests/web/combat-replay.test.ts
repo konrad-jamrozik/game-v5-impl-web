@@ -159,9 +159,9 @@ describe('CRPLAY: Rank insignia thresholds', () => {
 });
 
 describe('CRPLAY: Figures', () => {
-  it('gives each place of the EnemyArchetype order its shape, colour, and diamonds', () => {
+  it('gives each place of the EnemyArchetype order its shape, colour, and chevrons', () => {
     const looks = Array.from({ length: 9 }, (_, order) => enemyLook(order));
-    expect(looks.map(({ shape, colour, diamonds }) => `${shape} ${colour} ${diamonds}`)).toEqual([
+    expect(looks.map(({ shape, colour, chevrons }) => `${shape} ${colour} ${chevrons}`)).toEqual([
       'triangle yellow 0',
       'triangle yellow 1',
       'triangle yellow 2',
@@ -173,8 +173,8 @@ describe('CRPLAY: Figures', () => {
       'heptagon violet 0',
     ]);
     // Every place past the table is a heptagon, and an EnemyArchetype the Game build does not hold a plain square.
-    expect(enemyLook(12)).toEqual({ shape: 'heptagon', colour: 'violet', diamonds: 0 });
-    expect(enemyLook(-1)).toEqual({ shape: 'square', colour: 'amber', diamonds: 0 });
+    expect(enemyLook(12)).toEqual({ shape: 'heptagon', colour: 'violet', chevrons: 0 });
+    expect(enemyLook(-1)).toEqual({ shape: 'square', colour: 'amber', chevrons: 0 });
   });
 
   it('names each figure, ranks only an Agent, and gives only an Enemy a look', () => {
@@ -183,8 +183,8 @@ describe('CRPLAY: Figures', () => {
     expect(replay.figures.map((figure) => figure.look)).toEqual([
       null,
       null,
-      { shape: 'triangle', colour: 'yellow', diamonds: 0 },
-      { shape: 'square', colour: 'amber', diamonds: 1 },
+      { shape: 'triangle', colour: 'yellow', chevrons: 0 },
+      { shape: 'square', colour: 'amber', chevrons: 1 },
     ]);
     // An Enemy has no Rank insignia, however skilled, e.g. ENEMY-2 at a base skill past the star threshold.
     expect(replay.figures.map((figure) => figure.rank?.kind ?? null)).toEqual([

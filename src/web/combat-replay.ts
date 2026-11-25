@@ -47,32 +47,32 @@ export type EnemyColour = 'yellow' | 'amber' | 'orange' | 'red' | 'violet';
 export interface EnemyLook {
   readonly shape: EnemyShape;
   readonly colour: EnemyColour;
-  /** How many diamonds stand inside the shape. */
-  readonly diamonds: number;
+  /** How many upward chevrons stand inside the shape. */
+  readonly chevrons: number;
 }
 
 /** CRPLAY, Enemy figures: the look of each place of the EnemyArchetype order, counted from 0. */
 const LOOKS: readonly EnemyLook[] = [
-  { shape: 'triangle', colour: 'yellow', diamonds: 0 },
-  { shape: 'triangle', colour: 'yellow', diamonds: 1 },
-  { shape: 'triangle', colour: 'yellow', diamonds: 2 },
-  { shape: 'square', colour: 'amber', diamonds: 0 },
-  { shape: 'square', colour: 'amber', diamonds: 1 },
-  { shape: 'pentagon', colour: 'orange', diamonds: 0 },
-  { shape: 'pentagon', colour: 'orange', diamonds: 1 },
-  { shape: 'hexagon', colour: 'red', diamonds: 0 },
-  { shape: 'heptagon', colour: 'violet', diamonds: 0 },
+  { shape: 'triangle', colour: 'yellow', chevrons: 0 },
+  { shape: 'triangle', colour: 'yellow', chevrons: 1 },
+  { shape: 'triangle', colour: 'yellow', chevrons: 2 },
+  { shape: 'square', colour: 'amber', chevrons: 0 },
+  { shape: 'square', colour: 'amber', chevrons: 1 },
+  { shape: 'pentagon', colour: 'orange', chevrons: 0 },
+  { shape: 'pentagon', colour: 'orange', chevrons: 1 },
+  { shape: 'hexagon', colour: 'red', chevrons: 0 },
+  { shape: 'heptagon', colour: 'violet', chevrons: 0 },
 ];
-const LAST_LOOK: EnemyLook = { shape: 'heptagon', colour: 'violet', diamonds: 0 };
+const LAST_LOOK: EnemyLook = { shape: 'heptagon', colour: 'violet', chevrons: 0 };
 
 /**
- * CRPLAY, Enemy figures: the shape, colour, and diamonds of an Enemy, by the place of its EnemyArchetype in the
+ * CRPLAY, Enemy figures: the shape, colour, and chevrons of an Enemy, by the place of its EnemyArchetype in the
  * EnemyArchetype order, counted from 0; every place past the table is a heptagon, and an EnemyArchetype the Game build
  * does not hold is a plain square.
  */
 export function enemyLook(order: number): EnemyLook {
   if (order < 0) {
-    return { shape: 'square', colour: 'amber', diamonds: 0 };
+    return { shape: 'square', colour: 'amber', chevrons: 0 };
   }
   return LOOKS[order] ?? LAST_LOOK;
 }
