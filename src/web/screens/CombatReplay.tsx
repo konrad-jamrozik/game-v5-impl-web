@@ -23,6 +23,7 @@ import {
   roundEnd,
   settledIndex,
   shownRange,
+  skillShareText,
   type Pace,
   type Playback,
   type PlaybackSettings,
@@ -514,15 +515,16 @@ export function CombatReplay(props: {
                   : { left: hovered.x + 14, top: hovered.y + 14 }
               }
             >
-              {/* CRPLAY, Figures, Name: the full Enemy label, and health and armor as left of what it started with. */}
+              {/* CRPLAY, Figures, Name: the full Enemy label, health and armor as left of what it started with, and
+                  effective skill out of base skill. */}
               <div>{hoveredFigure.fullName}</div>
               <div className="figure secondary">
                 health {wholeText(hoveredValues.healthHundredths)}/{hoveredFigure.maxHealth} · armor{' '}
                 {hoveredValues.armor}/{hoveredFigure.startArmor}
               </div>
               <div className="figure secondary">
-                base skill {wholeText(hoveredFigure.baseSkillHundredths)} · exhaustion{' '}
-                {hoveredValues.exhaustion}
+                skill {skillShareText(hoveredValues.effectiveSkill, hoveredFigure.baseSkillHundredths)} ·
+                exhaustion {hoveredValues.exhaustion}
               </div>
               <div className="figure secondary">
                 weapon damage {hoveredFigure.weaponDamage}

@@ -23,6 +23,7 @@ import {
   roundEnd,
   settledIndex,
   shownRange,
+  skillShareText,
   type PlaybackSettings,
   type ReplayFigure,
   type ReplaySource,
@@ -445,6 +446,7 @@ describe('CRPLAY: the values a figure shows', () => {
       healthHundredths: 3000,
       armor: 20,
       exhaustion: 0,
+      effectiveSkill: 100,
       condition: 'ableToFight',
     });
     // The first hit takes all of enemy-1's armor and 5 of its health.
@@ -452,6 +454,27 @@ describe('CRPLAY: the values a figure shows', () => {
     expect(replay.frames[1]?.[0]).toMatchObject({ exhaustion: 1 });
     expect(replay.frames[4]?.[3]?.condition).toBe('incapacitated');
     expect(replay.frames[5]?.[2]).toMatchObject({ healthHundredths: 0, condition: 'dead' });
+  });
+
+  it('holds each effective skill as the next attack a Combatant takes part in records it, or the final one', () => {
+    const combat = report();
+    const log = combat.log.map((record, n) => ({ ...record, a: 10 + n, d: 20 + n }));
+    const replay = buildReplay({ ...combat, log }, source);
+    const at = (id: string) => replay.figures.findIndex((figure) => figure.id === id);
+    log.forEach((record, n) => {
+      expect(replay.frames[n]?.[at(record.attacker)]?.effectiveSkill).toBe(10 + n);
+      expect(replay.frames[n]?.[at(record.defender)]?.effectiveSkill).toBe(20 + n);
+    });
+    combat.participants.forEach((who) => {
+      expect(replay.frames[log.length]?.[at(who.id)]?.effectiveSkill).toBe(who.final.effectiveSkill);
+    });
+  });
+
+  it('gives effective skill out of base skill, with the share rounded down to one decimal', () => {
+    expect(skillShareText(200, 30000)).toBe('200/300 (66.6%)');
+    expect(skillShareText(350, 35000)).toBe('350/350 (100.0%)');
+    expect(skillShareText(0, 35050)).toBe('0/350 (0.0%)');
+    expect(skillShareText(0, 0)).toBe('0/0');
   });
 
   it('reads the Combat ratings as of the last Combat round completed', () => {
@@ -623,7 +646,7 @@ describe('CRPLAY: Transport buttons', () => {
       ['Slow', 1, 2000, false, null, false, true],
       ['Medium', 2, 1500, true, 1000, false, true],
       ['Fast', 3, 1000, true, 250, false, false],
-      ['Very fast', 4, 1000, true, 250, true, false],
+      ['Very fast', 4, 1000, false, null, true, false],
     ]);
   });
 
@@ -632,7 +655,7 @@ describe('CRPLAY: Transport buttons', () => {
       { speedMs: 2000, delayMs: 2000, overlap: false, instant: false },
       { speedMs: 1500, delayMs: 1000, overlap: true, instant: false },
       { speedMs: 1000, delayMs: 250, overlap: true, instant: false },
-      { speedMs: 1000, delayMs: 250, overlap: true, instant: true },
+      { speedMs: 1000, delayMs: 1000, overlap: false, instant: true },
     ]);
   });
 });

@@ -142,11 +142,26 @@ export interface ReplayFigure {
   readonly look: EnemyLook | null;
 }
 
+/**
+ * CRPLAY, Figures, Name: effective skill out of base skill, with the share in percent rounded down to one decimal,
+ * e.g. "200/300 (66.6%)". Base skill reads as a whole number, rounded down.
+ */
+export function skillShareText(effectiveSkill: number, baseSkillHundredths: number): string {
+  const base = Math.floor(baseSkillHundredths / 100);
+  if (baseSkillHundredths <= 0) {
+    return `${effectiveSkill}/${base}`;
+  }
+  const tenths = Math.floor((effectiveSkill * 100_000) / baseSkillHundredths);
+  return `${effectiveSkill}/${base} (${Math.floor(tenths / 10)}.${tenths % 10}%)`;
+}
+
 /** The values of one Combatant that change in a Combat, as of one moment of the Combat log. */
 export interface FigureValues {
   readonly healthHundredths: number;
   readonly armor: number;
   readonly exhaustion: number;
+  /** CRPLAY, Figures, Name: the effective skill at this moment, as the Combat log records it. */
+  readonly effectiveSkill: number;
   readonly condition: Participant['final']['condition'];
 }
 
@@ -391,17 +406,21 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
       healthHundredths: health,
       armor: start?.armor ?? 0,
       exhaustion: start?.exhaustion ?? 0,
+      effectiveSkill: start?.effectiveSkill ?? 0,
       condition: conditionOf(health, start?.incapacitated ?? false),
     };
   });
   const frames: FigureValues[][] = [current];
   const attacks: ReplayAttack[] = [];
+  /** The attacker's and the defender's effective skill as each attack found them, by attack. */
+  const skillsAt: { attacker: number; defender: number; a: number; d: number }[] = [];
   for (const record of report.log) {
     const attacker = indexOf.get(record.attacker);
     const defender = indexOf.get(record.defender);
     if (attacker === undefined || defender === undefined) {
       continue;
     }
+    skillsAt.push({ attacker, defender, a: record.a, d: record.d });
     const side = figures[attacker]?.side ?? 'agent';
     attacks.push({
       round: record.round,
@@ -416,6 +435,7 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
     current = current.map((values, index) => {
       if (index === defender) {
         return {
+          ...values,
           healthHundredths: record.defenderAfter.currentHealthHundredths,
           armor: record.defenderAfter.currentArmor,
           exhaustion: record.defenderAfter.exhaustion,
@@ -436,6 +456,17 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
       return values;
     });
     frames.push(current);
+  }
+  // A Combatant's effective skill changes only in the attacks it takes part in, and each attack records it as the
+  // attack found it, so a frame holds the effective skill of the next attack it takes part in, or the final one.
+  const next = figures.map((figure) => byId.get(figure.id)?.final.effectiveSkill ?? 0);
+  for (let n = frames.length - 1; n >= 0; n -= 1) {
+    frames[n] = (frames[n] ?? []).map((values, index) => ({ ...values, effectiveSkill: next[index] ?? 0 }));
+    const before = skillsAt[n - 1];
+    if (before !== undefined) {
+      next[before.attacker] = before.a;
+      next[before.defender] = before.d;
+    }
   }
   return { figures, attacks, frames };
 }
@@ -572,8 +603,8 @@ export const PACES: readonly Pace[] = [
     name: 'Very fast',
     arrows: 4,
     speedMs: 1000,
-    overlap: true,
-    delayMs: 250,
+    overlap: false,
+    delayMs: null,
     instant: true,
     aimLines: false,
   },
