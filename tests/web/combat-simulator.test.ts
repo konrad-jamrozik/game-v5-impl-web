@@ -14,10 +14,46 @@ import {
   replaySourceOf,
   reportOf,
   seedFrom,
+  defaultSetup,
+  encodeSetup,
   setupOf,
+  storedSetup,
   withArmor,
   withWeapon,
 } from '../../src/web/combat-simulator.ts';
+import { SETTINGS } from '../../src/engine/session/global-configuration.ts';
+
+describe('CSIM: Teams, the Combat simulator setup', () => {
+  it('opens with the Game build default when nothing is stored', async () => {
+    const built = await content();
+    const setup = storedSetup(built, '');
+    expect(setup.team).toBe(built.teams[0]?.id);
+    expect(setup.site).toBe(built.missionSiteArchetypes[0]?.id);
+    expect(setup.seed).toBe(FIRST_SEED);
+    expect(setup.agents).toEqual(agentRowsOfTeam(built, setup.team));
+  });
+
+  it('opens with the stored setup as it was left', async () => {
+    const built = await content();
+    const start = defaultSetup(built);
+    const left = {
+      ...start,
+      enemies: [enemyRow(built, built.enemyArchetypes[1]!.id)],
+      seed: 'sim-abc123',
+    };
+    const encoded = encodeSetup(left);
+    expect(SETTINGS.find((item) => item.setting === 'combatSimulatorSetup')!.isPermitted(encoded)).toBe(true);
+    expect(storedSetup(built, encoded)).toEqual(left);
+  });
+
+  it('gives way to the Game build default when a row names what the Game build no longer has', async () => {
+    const built = await content();
+    const start = defaultSetup(built);
+    const gone = { ...start, agents: [{ ...newAgentRow(built), weapon: 'no-such-weapon' }] };
+    expect(storedSetup(built, encodeSetup(gone))).toEqual(start);
+    expect(storedSetup(built, '{not json')).toEqual(start);
+  });
+});
 import { errorCode, ok, startEngine } from '../helpers/engine.ts';
 
 async function content(): Promise<CombatSimulatorContent> {

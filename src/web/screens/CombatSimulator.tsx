@@ -1,6 +1,7 @@
 /**
  * CSIM: the Combat simulator. The Teams pane sets up the Agents' side and the Enemies' side, and the Combat replay of
- * the Detached Combat last fought between them covers it once Fight is pressed. It has no Campaign and saves nothing.
+ * the Detached Combat last fought between them covers it once Fight is pressed. It has no Campaign and saves nothing but
+ * its setup, in Global configuration.
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { CombatSimulatorContent } from '../../engine/index.ts';
@@ -9,6 +10,7 @@ import {
   FIRST_SEED,
   VALUE_FIELDS,
   agentRowsOfTeam,
+  encodeSetup,
   enemyRow,
   enemyRowsOfSite,
   newAgentRow,
@@ -16,15 +18,17 @@ import {
   reportOf,
   seedFrom,
   setupOf,
+  storedSetup,
   withArmor,
   withWeapon,
   type AgentRow,
   type EnemyRow,
   type RowValues,
+  type SimulatorSetup,
 } from '../combat-simulator.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
-import { theEngine } from '../store.ts';
+import { setSetting, settingValue, theEngine, useSnapshot } from '../store.ts';
 import { Button, CloseControl, typingIn } from '../ui.tsx';
 import { CombatReplay } from './CombatReplay.tsx';
 
@@ -84,18 +88,26 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
     return result.ok ? result.value : null;
   }, [session]);
 
-  // CSIM, Teams: the Combat simulator opens with the first DetachedCombatTeam against the first MissionSiteArchetype.
-  const firstTeam = content?.teams[0]?.id ?? '';
-  const firstSite = content?.missionSiteArchetypes[0]?.id ?? '';
-  const [team, setTeam] = useState(firstTeam);
-  const [site, setSite] = useState(firstSite);
-  const [agents, setAgents] = useState<readonly AgentRow[]>(() =>
-    content === null ? [] : agentRowsOfTeam(content, firstTeam),
+  // CSIM, Teams: the Combat simulator opens with its setup as the Game designer last left it, the Global configuration
+  // setting Combat simulator setup.
+  const configuration = useSnapshot().configuration;
+  const [opening] = useState<SimulatorSetup | null>(() =>
+    content === null ? null : storedSetup(content, settingValue(configuration, 'combatSimulatorSetup')),
   );
-  const [enemies, setEnemies] = useState<readonly EnemyRow[]>(() =>
-    content === null ? [] : enemyRowsOfSite(content, firstSite),
-  );
-  const [seed, setSeed] = useState(FIRST_SEED);
+  const [team, setTeam] = useState(opening?.team ?? '');
+  const [site, setSite] = useState(opening?.site ?? '');
+  const [agents, setAgents] = useState<readonly AgentRow[]>(opening?.agents ?? []);
+  const [enemies, setEnemies] = useState<readonly EnemyRow[]>(opening?.enemies ?? []);
+  const [seed, setSeed] = useState(opening?.seed ?? FIRST_SEED);
+  // CSIM, Teams: every change to the rows, the presets, or the Seed field stores the setup.
+  const encoded = encodeSetup({ team, site, agents, enemies, seed });
+  const [kept, setKept] = useState(() => (opening === null ? encoded : encodeSetup(opening)));
+  useEffect(() => {
+    if (content !== null && encoded !== kept) {
+      setKept(encoded);
+      void setSetting('combatSimulatorSetup', encoded);
+    }
+  }, [content, encoded, kept]);
   const [fought, setFought] = useState<Fought | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   // CSIM, Layout: whether the Combat replay of the Combat last fought covers the screen in place of the Teams pane.

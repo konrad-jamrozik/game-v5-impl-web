@@ -52,6 +52,7 @@ describe('GUI: Changed settings', () => {
       'devModeOn',
       'revealHiddenContentOn',
       'combatSimulatorShown',
+      'combatSimulatorSetup',
       'screenLimit',
       'sidePanelHidden',
       'lastTurnsCharts',

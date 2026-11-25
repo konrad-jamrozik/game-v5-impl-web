@@ -2,7 +2,7 @@
  * CRPLAY: the Combat replay. It plays one Combat back from its Combat report on the Battlefield, a canvas drawn with
  * the Canvas 2D API, with the attack being played, the transport buttons, the Options, and the Combat log beside it.
  */
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import type { CombatReport } from '../../engine/index.ts';
 import { attackResultText, combatLogRow } from '../combat-log.ts';
 import {
@@ -140,11 +140,14 @@ function SymbolButton(props: {
   disabledReason?: string | null;
   pressed?: boolean;
   shortcut?: string;
-  onClick: () => void;
+  /** A note the tooltip gives after the name, e.g. what the button does with Ctrl held. */
+  hint?: string;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   children: ReactNode;
 }) {
   const disabled = props.disabledReason !== undefined && props.disabledReason !== null;
-  const title = props.shortcut === undefined ? props.name : `${props.name} · Shortcut: ${props.shortcut}`;
+  const named = props.hint === undefined ? props.name : `${props.name} · ${props.hint}`;
+  const title = props.shortcut === undefined ? named : `${named} · Shortcut: ${props.shortcut}`;
   return (
     <button
       type="button"
@@ -391,6 +394,16 @@ export function CombatReplay(props: {
     playTo(playback, replay, total, false);
     refresh();
   };
+  /** CRPLAY, Transport buttons: a pace button pressed with Ctrl held also sets the Options to the values of its pace. */
+  const setOptionsTo = (next: Pace) => {
+    setSpeedMs(next.speedMs);
+    if (next.delayMs !== null) {
+      setDelayMs(next.delayMs);
+    }
+    setOverlap(next.overlap);
+    setInstant(next.instant);
+    setAimLines(next.aimLines);
+  };
   /** CRPLAY, Slider and Combat log, and Back one: plays one picked attack with the Options. */
   const pick = (attack: number) => {
     withOptions();
@@ -623,7 +636,11 @@ export function CombatReplay(props: {
               testId={`replay-${pace.id}`}
               pressed={playback.playing && !playback.picked && activePace?.id === pace.id}
               disabledReason={total === 0 ? 'This Combat had no attack.' : null}
-              onClick={() => {
+              hint="Ctrl+click also sets the Options to this pace"
+              onClick={(event) => {
+                if (event.ctrlKey) {
+                  setOptionsTo(pace);
+                }
                 playAt(pace);
               }}
             >

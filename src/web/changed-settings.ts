@@ -37,6 +37,10 @@ const WORDING: Readonly<Record<string, { readonly name: string; readonly words: 
     name: 'Combat simulator',
     words: (value) => (value === true ? 'shown' : 'hidden'),
   },
+  combatSimulatorSetup: {
+    name: 'Combat simulator setup',
+    words: (value) => (value === '' ? 'first team and site' : 'as last left'),
+  },
   screenLimit: { name: 'Screen limit', words: onOff },
   musicControlCollapsed: {
     name: 'Music control',

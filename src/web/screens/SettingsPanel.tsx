@@ -32,6 +32,7 @@ const SET_ELSEWHERE = new Set([
   'devModeOn',
   'revealHiddenContentOn',
   'combatSimulatorShown',
+  'combatSimulatorSetup',
   'musicControlCollapsed',
   'sidePanelHidden',
   'lastTurnsCharts',

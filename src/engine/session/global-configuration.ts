@@ -126,6 +126,16 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     permitted: 'true or false',
     isPermitted: (value): value is SettingValue => typeof value === 'boolean',
   },
+  // CSIM, Teams: the setup of the Combat simulator as JSON, or empty text for the Game build default. Whether its rows
+  // name only Weapons, Armors, and EnemyArchetypes of the Game build is checked where the setup is read.
+  {
+    setting: 'combatSimulatorSetup',
+    name: 'Combat simulator setup',
+    gameBuildDefault: '',
+    permitted:
+      'A JSON object of the rows, the presets, and the Detached seed, or empty text for the Game build default',
+    isPermitted: (value): value is SettingValue => value === '' || isJsonSetup(value),
+  },
   // VIS, Screen limit: whether every screen is drawn at the size of the Reference window, centred in the window.
   {
     setting: 'screenLimit',
@@ -183,6 +193,21 @@ function parsedJson(value: unknown): unknown {
 function isJsonArrayOfText(value: unknown): boolean {
   const parsed = parsedJson(value);
   return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string');
+}
+
+function isJsonSetup(value: unknown): boolean {
+  const parsed = parsedJson(value);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return false;
+  }
+  const { team, site, seed, agents, enemies } = parsed as Record<string, unknown>;
+  return (
+    typeof team === 'string' &&
+    typeof site === 'string' &&
+    typeof seed === 'string' &&
+    Array.isArray(agents) &&
+    Array.isArray(enemies)
+  );
 }
 
 function isJsonTuning(value: unknown): boolean {

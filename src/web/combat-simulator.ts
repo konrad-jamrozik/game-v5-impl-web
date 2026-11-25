@@ -203,5 +203,99 @@ export function seedFrom(chance: number): string {
     .padStart(6, '0')}`;
 }
 
-/** CSIM, Fighting the Combat, Seed: the Detached seed the field starts with. */
+/** CSIM, Teams: the Detached seed of the Game build default setup. */
 export const FIRST_SEED = 'combat-simulator';
+
+/** CSIM, Teams: the setup the Combat simulator keeps across Sessions as the Global configuration setting. */
+export interface SimulatorSetup {
+  readonly team: string;
+  readonly site: string;
+  readonly agents: readonly AgentRow[];
+  readonly enemies: readonly EnemyRow[];
+  readonly seed: string;
+}
+
+/** CSIM, Teams: the Game build default, the first DetachedCombatTeam against the first MissionSiteArchetype. */
+export function defaultSetup(content: CombatSimulatorContent): SimulatorSetup {
+  const team = content.teams[0]?.id ?? '';
+  const site = content.missionSiteArchetypes[0]?.id ?? '';
+  return {
+    team,
+    site,
+    agents: agentRowsOfTeam(content, team),
+    enemies: enemyRowsOfSite(content, site),
+    seed: FIRST_SEED,
+  };
+}
+
+export function encodeSetup(setup: SimulatorSetup): string {
+  return JSON.stringify(setup);
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+function valuesOf(value: unknown): RowValues | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const values: Record<string, string> = {};
+  for (const field of VALUE_FIELDS) {
+    const text = value[field.key];
+    if (typeof text !== 'string') {
+      return null;
+    }
+    values[field.key] = text;
+  }
+  return values as unknown as RowValues;
+}
+
+/**
+ * CSIM, Teams: the stored setup, or the Game build default when nothing is stored or the stored setup is not permitted,
+ * e.g. it names a Weapon the Game build no longer has. A preset the Game build no longer has gives way to its first.
+ */
+export function storedSetup(content: CombatSimulatorContent, stored: unknown): SimulatorSetup {
+  const fallback = defaultSetup(content);
+  if (typeof stored !== 'string' || stored === '') {
+    return fallback;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stored);
+  } catch {
+    return fallback;
+  }
+  if (!isRecord(parsed) || !Array.isArray(parsed.agents) || !Array.isArray(parsed.enemies)) {
+    return fallback;
+  }
+  const has = (items: readonly { readonly id: string }[], id: unknown) =>
+    typeof id === 'string' && items.some((item) => item.id === id);
+  const agents: AgentRow[] = [];
+  for (const row of parsed.agents as unknown[]) {
+    const values = isRecord(row) ? valuesOf(row.values) : null;
+    if (
+      !isRecord(row) ||
+      values === null ||
+      !has(content.weapons, row.weapon) ||
+      !has(content.armors, row.armorItem)
+    ) {
+      return fallback;
+    }
+    agents.push({ weapon: row.weapon as string, armorItem: row.armorItem as string, values });
+  }
+  const enemies: EnemyRow[] = [];
+  for (const row of parsed.enemies as unknown[]) {
+    const values = isRecord(row) ? valuesOf(row.values) : null;
+    if (!isRecord(row) || values === null || !has(content.enemyArchetypes, row.archetype)) {
+      return fallback;
+    }
+    enemies.push({ archetype: row.archetype as string, values });
+  }
+  return {
+    team: has(content.teams, parsed.team) ? (parsed.team as string) : fallback.team,
+    site: has(content.missionSiteArchetypes, parsed.site) ? (parsed.site as string) : fallback.site,
+    agents,
+    enemies,
+    seed: typeof parsed.seed === 'string' ? parsed.seed : FIRST_SEED,
+  };
+}
