@@ -2,42 +2,11 @@
  * The Autopilot controls in the footer of the Side panel: engage an Autopilot AI under an Autopilot limit, watch its
  * progress, and disengage it. CSCR, Side panel: they are collapsed to one row until the Player expands them.
  */
-import { useEffect, useState } from 'react';
-import type { AutopilotLimit, DisengagementResult } from '../../engine/index.ts';
+import { useState } from 'react';
+import type { AutopilotLimit } from '../../engine/index.ts';
 import { autopilotSettings, permittedAutopilotTurns, shownAutopilotAi } from '../autopilot-controls.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { Button } from '../ui.tsx';
-
-const REASONS: Record<string, string> = {
-  limitReached: 'its limit was reached',
-  disengagedByController: 'you stopped it',
-  campaignEnded: 'the Campaign ended',
-  aiFailed: 'the Autopilot AI failed',
-};
-
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** CSCR, Autopilot controls: the line that tells the Player, in plain words, why the Autopilot engagement ended. */
-export function disengagementLine(result: DisengagementResult): string {
-  const { reason, progress, detail } = result;
-  const actions = count(progress.playerActions, 'Player action', 'Player actions');
-  if (reason === 'advanceTurnWithheld') {
-    return progress.playerActions === 0
-      ? 'Autopilot has nothing more to do this Turn.'
-      : `Autopilot finished this Turn's actions: ${actions}. Advancing the Turn is up to you.`;
-  }
-  const turns = count(progress.turnAdvancements, 'Turn advanced', 'Turns advanced');
-  return (
-    `Autopilot disengaged because ${REASONS[reason] ?? reason}: ${actions}, ${turns}.` +
-    (detail === null ? '' : ` ${detail}`)
-  );
-}
-
-/** Identifies the Current world state well enough to tell that it changed. */
-function worldStateKey(snapshot: Snapshot): string {
-  const { status, timeline } = snapshot;
-  return [status.campaignId, status.turn, timeline?.timelineEntries, timeline?.undoneActions].join('/');
-}
 
 export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
   const { session } = theEngine();
@@ -84,26 +53,8 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
           ? 'No Autopilot AI.'
           : null;
 
-  // The end-of-engagement line stays until Autopilot is engaged again or the World state changes.
-  const finished =
-    active === null && snapshot.autopilot?.status === 'ended' ? snapshot.autopilot.disengagement : null;
-  const here = worldStateKey(snapshot);
-  const [line, setLine] = useState<{ id: string; at: string; open: boolean } | null>(null);
-  useEffect(() => {
-    if (finished === null) {
-      return;
-    }
-    if (line?.id !== finished.engagementId) {
-      setLine({ id: finished.engagementId, at: here, open: true });
-    } else if (line.open && line.at !== here) {
-      setLine({ ...line, open: false });
-    }
-  }, [finished, here, line]);
-  const shownLine =
-    finished !== null && line?.id === finished.engagementId && line.open && line.at === here
-      ? disengagementLine(finished)
-      : null;
-
+  // CSCR, Autopilot controls: when an Autopilot engagement ends, the controls show again what they show before any
+  // engagement, with no account of its disengagement reason or Autopilot progress.
   const engage = (limit: AutopilotLimit) => {
     void run(() => session.autopilot.engage(aiId, limit));
   };
@@ -140,18 +91,11 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
         </Button>
       </>
     );
-  const ending =
-    shownLine === null ? null : (
-      <span className="muted small" data-testid="autopilot-ended">
-        {shownLine}
-      </span>
-    );
-
   if (!expanded) {
     return (
       <section className="autopilot autopilot-collapsed" aria-label="Autopilot" data-testid="autopilot-bar">
         {toggle}
-        {engaged ?? ending}
+        {engaged}
       </section>
     );
   }
@@ -227,7 +171,7 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
           Turns
         </Button>
       </label>
-      {engaged ?? ending ?? (
+      {engaged ?? (
         <span className="muted small">
           The Autopilot AI plays for you through the same Player actions you have.
         </span>
