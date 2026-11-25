@@ -39,9 +39,9 @@ import { Button, typingIn } from '../ui.tsx';
 
 /**
  * CRPLAY, Rewind, Repeat, and Options buttons: the steps Repeat plays again: the four step buttons, and an attack
- * picked with the slider, a row of the Combat log, or Back one.
+ * picked with the slider, a row of the Combat log, or Back one; and, after a pace button, the last step it started.
  */
-type StepKind = 'turn' | 'phase' | 'round' | 'combat' | 'pick';
+type StepKind = 'turn' | 'phase' | 'round' | 'combat' | 'pick' | 'pace';
 
 /** CRPLAY, Repeat: a step the Player took: the attacks it played, and the Combat it was taken in. */
 interface TakenStep {
@@ -49,15 +49,21 @@ interface TakenStep {
   from: number;
   to: number;
   combatKey: string | number | undefined;
+  /** The pace whose last step this is, which Repeat plays it at in place of the Options. */
+  pace?: Pace;
 }
 
-const STEP_NAMES: Record<StepKind, string> = {
+const STEP_NAMES: Record<Exclude<StepKind, 'pace'>, string> = {
   turn: 'Combat turn',
   phase: 'Phase',
   round: 'Combat round',
   combat: 'Combat',
   pick: 'Picked attack',
 };
+
+/** CRPLAY, Repeat: the name its tooltip gives the last step, e.g. "Combat turn" or, after a pace, "Medium". */
+const stepName = (step: TakenStep) =>
+  step.kind === 'pace' ? (step.pace?.name ?? '') : STEP_NAMES[step.kind];
 
 /** CRPLAY, Options: a Speed or a Delay as the Player reads it, e.g. "1.5 s". */
 const seconds = (ms: number) => `${ms / 1000} s`;
@@ -215,6 +221,11 @@ export function CombatReplay(props: {
     setActivePace(null);
     live.current = { ...live.current, settings: options, aimLines };
   };
+  /** CRPLAY, Transport buttons: plays with the values of a pace; the drawing loop reads them from here at once. */
+  const withPace = (pace: Pace) => {
+    setActivePace(pace);
+    live.current = { ...live.current, settings: paceSettings(pace), aimLines: pace.aimLines };
+  };
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -347,11 +358,22 @@ export function CombatReplay(props: {
     playTo(playback, replay, target, true);
     refresh();
   };
-  // CRPLAY, Repeat: the last step taken in the Combat shown, which Repeat plays again from where it began.
-  const lastStep = takenStep !== null && takenStep.combatKey === props.combatKey ? takenStep : null;
+  // CRPLAY, Repeat: the last step taken in the Combat shown, which Repeat plays again from where it began. After a pace
+  // button, it is the last step that pace started, i.e. one attack or, with Instant on, a phase.
+  const taken = takenStep !== null && takenStep.combatKey === props.combatKey ? takenStep : null;
+  const lastStep: TakenStep | null =
+    taken?.kind !== 'pace'
+      ? taken
+      : playback.last === null
+        ? null
+        : { ...taken, from: playback.last[0], to: playback.last[1] };
   const repeat = () => {
     if (lastStep !== null) {
-      withOptions();
+      if (lastStep.pace === undefined) {
+        withOptions();
+      } else {
+        withPace(lastStep.pace);
+      }
       if (lastStep.kind === 'pick') {
         // A picked attack plays again as it was picked, with its aim line.
         playAttack(playback, replay, lastStep.to);
@@ -397,9 +419,9 @@ export function CombatReplay(props: {
    * start when the Combat replay is at the end of the Combat, and leaves the Options as they are.
    */
   const playAt = (next: Pace) => {
-    setActivePace(next);
-    // The drawing loop starts before the next render, so it reads the pace from here at once.
-    live.current = { ...live.current, settings: paceSettings(next), aimLines: next.aimLines };
+    withPace(next);
+    // CRPLAY, Repeat: the last step a pace started is the step Repeat plays again, at that pace.
+    setTakenStep({ kind: 'pace', from: 0, to: 0, combatKey: props.combatKey, pace: next });
     if (ended) {
       jumpTo(playback, replay, 0);
     }
@@ -694,7 +716,7 @@ export function CombatReplay(props: {
             name={
               lastStep === null
                 ? 'Repeat'
-                : `Repeat: ${STEP_NAMES[lastStep.kind]}, attacks ${lastStep.from + 1} to ${lastStep.to}`
+                : `Repeat: ${stepName(lastStep)}, attacks ${lastStep.from + 1} to ${lastStep.to}`
             }
             testId="replay-repeat"
             shortcut="R"
