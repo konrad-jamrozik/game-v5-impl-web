@@ -9,7 +9,7 @@ import { completedProgressBar } from '../progress-bar.ts';
 import { SOON_EXPIRING_TURNS } from '../situation.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
-import { MissionSiteTitleView } from '../mission-site-title.tsx';
+import { GainLineText, toneClass } from '../consequences.tsx';
 import type { GainLine } from '../mission-gains.ts';
 import type { TurnSummaryModel } from '../turn-summary.ts';
 import { ProgressBar } from './ProgressBar.tsx';
@@ -29,8 +29,9 @@ function Group(props: { title: string; count: number; testId: string; children: 
 }
 
 /**
- * TSUM, Totals and sources: the lines of Benefits, Setbacks, or Equipment, summed over every Mission and naming none,
- * in Positive or Danger; an Equipment line starts with its label, e.g. "Recovered:".
+ * TSUM, Totals: the lines of Consequences or Equipment, summed over every Mission and naming none, in Positive or
+ * Danger, each Consequence of a joined line in its own tone (VIS, Consequences); an Equipment line starts with its
+ * label, e.g. "Recovered:".
  */
 function TotalsGroup(props: {
   title: string;
@@ -42,10 +43,10 @@ function TotalsGroup(props: {
       {props.lines.map((line, index) => (
         <div
           key={line.label ?? index}
-          className={`dialog-row ${line.tone === 'good' ? 'tone-good' : 'tone-bad'}`}
+          className={`dialog-row ${line.parts === undefined ? toneClass(line) : 'muted'}`}
           data-testid={`${props.testId}-${line.label?.toLowerCase() ?? index}`}
         >
-          {line.label === undefined ? line.text : `${line.label}: ${line.text}`}
+          {line.label === undefined ? <GainLineText line={line} /> : `${line.label}: ${line.text}`}
         </div>
       ))}
     </Group>
@@ -118,19 +119,15 @@ export function TurnSummary(props: {
               ))}
             </Group>
           )}
-          <TotalsGroup title="Benefits" lines={model.benefits} testId="summary-benefits" />
-          <TotalsGroup title="Setbacks" lines={model.setbacks} testId="summary-setbacks" />
+          <TotalsGroup title="Consequences" lines={model.consequences} testId="summary-consequences" />
           <TotalsGroup title="Equipment" lines={model.equipment} testId="summary-equipment" />
           {model.leads.length === 0 ? null : (
             <Group title="Leads discovered" count={model.leads.length} testId="summary-leads">
               {/* TSUM, Groups: a discovered Lead is never an Assessed Lead yet, so only its name is shown, and,
-                  under TSUM, Totals and sources, the first Mission it is credited to. */}
-              {model.leads.map(({ lead, source }) => (
-                <div key={lead.id} className="dialog-row sit-line summary-sourced">
-                  <span>{lead.name}</span>
-                  {source === null ? null : (
-                    <MissionSiteTitleView title={source} className="summary-source" />
-                  )}
+                  under TSUM, Totals, no Mission. */}
+              {model.leads.map((lead) => (
+                <div key={lead.id} className="dialog-row">
+                  {lead.name}
                 </div>
               ))}
             </Group>

@@ -13,17 +13,16 @@ import type {
 } from '../../engine/index.ts';
 import { armorText, combatLogRow, finalCondition } from '../combat-log.ts';
 import { buildReplay } from '../combat-replay.ts';
-import { Consequences } from '../consequences.tsx';
+import { Consequences, GainLineText, toneClass } from '../consequences.tsx';
 import { enemyLabels } from '../enemy-labels.ts';
 import { hitChanceText, progressGain, progressPoints, wholeText } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import {
-  benefitLines,
   joinedLines,
+  missionConsequenceLines,
   missionEquipment,
   missionSiteTitle,
   missionSiteTitleText,
-  setbackLines,
   type EquipmentCatalog,
   type EquipmentList,
   type GainLine,
@@ -339,17 +338,13 @@ function Sections(props: {
   const missionTitle = (mission: (typeof report.missions)[number]) =>
     titleOf(mission.missionSite, mission.missionSiteArchetype, mission.kind);
   const combatOf = (mission: string) => report.combatReports.find((item) => item.mission === mission);
-  // TRVIEW, Sections, Benefits and Setbacks: the lines of the Turn summary's groups, under the Mission each came from.
-  const benefits = report.missions.flatMap((mission) => {
-    const lines = benefitLines(
+  // TRVIEW, Sections, Consequences: the lines of the Turn summary's group, under the Mission each came from.
+  const consequences = report.missions.flatMap((mission) => {
+    const lines = missionConsequenceLines(
       mission,
       archetype(mission.missionSiteArchetype)?.firstWinPhrase ?? null,
       factionName,
     );
-    return lines.length === 0 ? [] : [{ mission, lines }];
-  });
-  const setbacks = report.missions.flatMap((mission) => {
-    const lines = setbackLines(mission, factionName);
     return lines.length === 0 ? [] : [{ mission, lines }];
   });
   // TRVIEW, Sections, Equipment: Recovered and Spent for each Mission resolved, each left out when empty.
@@ -377,12 +372,12 @@ function Sections(props: {
       <span className="list-name">{leadName(lead)}</span>
     </button>
   );
-  // TRVIEW, Sections, Benefits and Setbacks: a Mission's gains or losses joined on one line, e.g. "+50 money, +5
-  // funding", and its rise in the Contracting cap on a line of its own.
+  // TRVIEW, Sections, Consequences: a Mission's Consequences joined on one line, e.g. "+50 money, −5 funding", each
+  // in its own tone, and its rise in the Contracting cap on a line of its own.
   const gainRows = (lines: readonly GainLine[]) =>
     joinedLines(lines).map((line, index) => (
-      <div key={index} className={`report-item ${line.tone === 'good' ? 'tone-good' : 'tone-bad'}`}>
-        {line.text}
+      <div key={index} className={`report-item ${line.parts === undefined ? toneClass(line) : 'muted'}`}>
+        <GainLineText line={line} />
       </div>
     ));
   const equipmentList = (label: string, list: EquipmentList, tone: string) =>
@@ -500,26 +495,14 @@ function Sections(props: {
         })}
       </Section>
 
-      {/* TRVIEW, Sections: Benefits, Setbacks, Equipment, and Leads discovered name each source Mission as a heading,
+      {/* TRVIEW, Sections: Consequences, Equipment, and Leads discovered name each source Mission as a heading,
           its items indented under it. */}
       <Section
-        title="Benefits"
-        count={benefits.reduce((sum, item) => sum + item.lines.length, 0)}
-        testId="report-benefits"
+        title="Consequences"
+        count={consequences.reduce((sum, item) => sum + item.lines.length, 0)}
+        testId="report-consequences"
       >
-        {benefits.map(({ mission, lines }) => (
-          <SourceBlock key={mission.mission} title={missionTitle(mission)}>
-            {gainRows(lines)}
-          </SourceBlock>
-        ))}
-      </Section>
-
-      <Section
-        title="Setbacks"
-        count={setbacks.reduce((sum, item) => sum + item.lines.length, 0)}
-        testId="report-setbacks"
-      >
-        {setbacks.map(({ mission, lines }) => (
+        {consequences.map(({ mission, lines }) => (
           <SourceBlock key={mission.mission} title={missionTitle(mission)}>
             {gainRows(lines)}
           </SourceBlock>

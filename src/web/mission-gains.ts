@@ -1,6 +1,6 @@
 /**
  * What each resolved Mission brought, as the Turn summary (TSUM, Groups) and the Turn Report View (TRVIEW, Sections)
- * show it: the Mission site title, the Benefits and Setbacks lines, and the Recovered and Spent equipment with their
+ * show it: the Mission site title, the Consequences lines, and the Recovered and Spent equipment with their
  * Sale values. Pure presentation; no gameplay rule.
  */
 import type { CombatReport, ConsequenceRecord, MissionSiteView, TurnReport } from '../engine/index.ts';
@@ -39,12 +39,14 @@ export function missionSiteTitleText(title: MissionSiteTitle): string {
   return `${title.name} · ${title.details}`;
 }
 
-/** One line of Benefits or Setbacks. */
+/** One Consequence, a rise in the Contracting cap, or, from `joinedLines`, Consequences joined on one line. */
 export interface GainLine {
   readonly text: string;
   readonly tone: 'good' | 'bad';
-  /** TRVIEW, Sections, Benefits: the rise in the Contracting cap takes a line of its own. */
+  /** TRVIEW, Sections, Consequences: the rise in the Contracting cap takes a line of its own. */
   readonly ownLine?: boolean;
+  /** VIS, Consequences: the Consequences a joined line holds, each in its own tone. */
+  readonly parts?: readonly GainLine[];
 }
 
 function signed(value: number): string {
@@ -75,109 +77,79 @@ function consequenceLines(c: ConsequenceRecord, factionName: (faction: string) =
   return lines;
 }
 
+/** TSUM, Groups, Consequences: a Won Mission's rise in the Contracting cap, with its first win phrase. */
+function capRiseLines(mission: MissionResult, firstWinPhrase: string | null): GainLine[] {
+  if (mission.result !== 'Won' || mission.contractingCapRise <= 0) {
+    return [];
+  }
+  const reason = firstWinPhrase === null ? '' : ` for ${firstWinPhrase}`;
+  return [
+    {
+      text: `Reputation increased${reason}: our Contracting network expands by ${mission.contractingCapRise}`,
+      tone: 'good',
+      ownLine: true,
+    },
+  ];
+}
+
 /**
- * TSUM, Groups, Benefits: the gains of a Won Mission, then its rise in the Contracting cap, e.g. "Reputation increased
- * for first apprehension: our Contracting network expands by 4".
+ * TRVIEW, Sections, Consequences: the Consequences a Mission applied, Won or Lost, then its rise in the Contracting
+ * cap, e.g. "Reputation increased for first apprehension: our Contracting network expands by 4".
  */
-export function benefitLines(
+export function missionConsequenceLines(
   mission: MissionResult,
   firstWinPhrase: string | null,
   factionName: (faction: string) => string,
 ): GainLine[] {
-  if (mission.result !== 'Won') {
-    return [];
-  }
-  const lines = consequenceLines(mission.consequence, factionName).filter((line) => line.tone === 'good');
-  if (mission.contractingCapRise > 0) {
-    const reason = firstWinPhrase === null ? '' : ` for ${firstWinPhrase}`;
-    lines.push({
-      text: `Reputation increased${reason}: our Contracting network expands by ${mission.contractingCapRise}`,
-      tone: 'good',
-      ownLine: true,
-    });
-  }
-  return lines;
+  return [...consequenceLines(mission.consequence, factionName), ...capRiseLines(mission, firstWinPhrase)];
 }
 
 /**
- * TRVIEW, Sections and TSUM, Groups, Benefits and Setbacks: the lines that are not `ownLine` joined on one line, e.g.
- * "+50 money, +5 funding", in the tone of the first, then each `ownLine` line, e.g. a rise in the Contracting cap.
+ * TRVIEW, Sections and TSUM, Groups, Consequences: the lines that are not `ownLine` joined on one line, e.g. "+50
+ * money, −5 funding", each keeping its tone in `parts`, then each `ownLine` line, e.g. a rise in the Contracting cap.
  */
 export function joinedLines(lines: readonly GainLine[]): GainLine[] {
   const joined = lines.filter((line) => line.ownLine !== true);
   const first = joined[0];
   return [
-    ...(first === undefined ? [] : [{ text: joined.map((line) => line.text).join(', '), tone: first.tone }]),
+    ...(first === undefined
+      ? []
+      : [{ text: joined.map((line) => line.text).join(', '), tone: first.tone, parts: joined }]),
     ...lines.filter((line) => line.ownLine === true),
   ];
 }
 
-/** The Consequences summed by kind, each as its own line; each Faction made Eliminated keeps a line of its own. */
-function summedConsequenceLines(
-  records: readonly ConsequenceRecord[],
+/**
+ * TSUM, Groups, Consequences: the Consequences of every Mission, Won or Lost, summed by kind on one line, a gain and
+ * a loss of one kind netting to one change, e.g. "+120 money, −15 funding, Panic +4.00"; each Faction made Eliminated
+ * keeps a part of its own; then each rise in the Contracting cap on a line of its own.
+ */
+export function summedConsequenceLines(
+  missions: readonly MissionResult[],
+  firstWinPhrase: (archetype: string) => string | null,
   factionName: (faction: string) => string,
 ): GainLine[] {
+  const records = missions.map((mission) => mission.consequence);
   const sum = (pick: (c: ConsequenceRecord) => number) => records.reduce((total, c) => total + pick(c), 0);
+  const panic = sum((c) => c.panicIncreaseHundredths - c.panicReductionHundredths);
   const total: ConsequenceRecord = {
     money: sum((c) => c.money),
     fundingChange: sum((c) => c.fundingChange),
-    panicIncreaseHundredths: sum((c) => c.panicIncreaseHundredths),
-    panicReductionHundredths: sum((c) => c.panicReductionHundredths),
+    panicIncreaseHundredths: Math.max(panic, 0),
+    panicReductionHundredths: Math.max(-panic, 0),
     eliminatedFaction: null,
-    defeat: records.some((c) => c.defeat),
+    defeat: false,
   };
   const eliminated = records.flatMap((c) =>
     c.eliminatedFaction === null
       ? []
       : [{ text: `${factionName(c.eliminatedFaction)} eliminated`, tone: 'good' as const }],
   );
-  return [...consequenceLines(total, factionName), ...eliminated];
-}
-
-/**
- * TSUM, Groups, Benefits: the gains of every Won Mission summed by kind on one line, e.g. "+120 money, +15 funding",
- * then each rise in the Contracting cap on a line of its own.
- */
-export function summedBenefitLines(
-  missions: readonly MissionResult[],
-  firstWinPhrase: (archetype: string) => string | null,
-  factionName: (faction: string) => string,
-): GainLine[] {
-  const won = missions.filter((mission) => mission.result === 'Won');
-  // Only gains count, as in benefitLines: a Won Mission's loss of money or funding, or Panic rise, is not a Benefit.
-  const gains = summedConsequenceLines(
-    won.map(({ consequence: c }) => ({
-      ...c,
-      money: Math.max(c.money, 0),
-      fundingChange: Math.max(c.fundingChange, 0),
-      panicIncreaseHundredths: 0,
-      defeat: false,
-    })),
-    factionName,
+  const defeat = records.some((c) => c.defeat) ? [{ text: 'Campaign lost', tone: 'bad' as const }] : [];
+  const caps = missions.flatMap((mission) =>
+    capRiseLines(mission, firstWinPhrase(mission.missionSiteArchetype)),
   );
-  const caps = won.flatMap((mission) =>
-    benefitLines(mission, firstWinPhrase(mission.missionSiteArchetype), factionName).filter(
-      (line) => line.ownLine === true,
-    ),
-  );
-  return joinedLines([...gains, ...caps]);
-}
-
-/** TSUM, Groups, Setbacks: the Consequences of every Lost Mission summed by kind on one line, in Danger. */
-export function summedSetbackLines(
-  missions: readonly MissionResult[],
-  factionName: (faction: string) => string,
-): GainLine[] {
-  const lines = summedConsequenceLines(
-    missions.filter((mission) => mission.result === 'Lost').map((mission) => mission.consequence),
-    factionName,
-  );
-  return lines.length === 0 ? [] : [{ text: lines.map((line) => line.text).join(', '), tone: 'bad' }];
-}
-
-/** TSUM, Groups, Setbacks: each Consequence that a Lost Mission applied, e.g. "−30 funding" or "Panic +5.00". */
-export function setbackLines(mission: MissionResult, factionName: (faction: string) => string): GainLine[] {
-  return mission.result === 'Lost' ? consequenceLines(mission.consequence, factionName) : [];
+  return joinedLines([...consequenceLines(total, factionName), ...eliminated, ...defeat, ...caps]);
 }
 
 /** The Items and AmmoTypes of the Game build in authored order, with their `name` and `price`, and the sale share. */

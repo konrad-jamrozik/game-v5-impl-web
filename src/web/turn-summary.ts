@@ -15,9 +15,8 @@ import {
   equipmentText,
   missionEquipment,
   missionSiteTitle,
-  summedBenefitLines,
+  summedConsequenceLines,
   summedEquipmentList,
-  summedSetbackLines,
   type EquipmentCatalog,
   type GainLine,
   type MissionSiteTitle,
@@ -35,12 +34,6 @@ export interface SummaryMission {
 /** TSUM, Groups, Equipment: one line, e.g. "Recovered: 3 Items, 11 rounds · worth 165". */
 export interface SummaryEquipmentLine extends GainLine {
   readonly label: 'Recovered' | 'Spent';
-}
-
-/** TSUM, Groups, Leads discovered: a Lead with the first Mission it is credited to, if any. */
-export interface SummaryLead {
-  readonly lead: LeadView;
-  readonly source: MissionSiteTitle | null;
 }
 
 /** What the Turn summary reads of the Game build: the Items, AmmoTypes, and MissionSiteArchetypes. */
@@ -88,13 +81,12 @@ export interface TurnSummaryModel {
   /** The Turn the Advance turn ended. */
   readonly turn: number;
   readonly missions: readonly SummaryMission[];
-  /** TSUM, Groups, Benefits: the summed gains on one line, then each rise in the Contracting cap. */
-  readonly benefits: readonly GainLine[];
-  /** TSUM, Groups, Setbacks: the summed Consequences of the Lost Missions on one line. */
-  readonly setbacks: readonly GainLine[];
+  /** TSUM, Groups, Consequences: the summed Consequences on one line, then each rise in the Contracting cap. */
+  readonly consequences: readonly GainLine[];
   /** TSUM, Groups, Equipment: Recovered, then Spent, each summed over every Mission and left out when empty. */
   readonly equipment: readonly SummaryEquipmentLine[];
-  readonly leads: readonly SummaryLead[];
+  /** TSUM, Totals: each Lead discovered names no Mission. */
+  readonly leads: readonly LeadView[];
   readonly investigations: readonly SummaryInvestigation[];
   readonly newSites: readonly SummarySite[];
   readonly expiredSites: readonly SummaryExpiredSite[];
@@ -194,9 +186,8 @@ export function turnSummary(
           ammoTypes: gameData.ammoTypes,
           salePriceFraction: state.agency.equipment.salePriceFraction,
         };
-  // TSUM, Totals and sources: Benefits, Setbacks, and Equipment sum every Mission and name none.
-  const benefits = summedBenefitLines(report.missions, firstWinPhrase, factionName);
-  const setbacks = summedSetbackLines(report.missions, factionName);
+  // TSUM, Totals: Consequences and Equipment sum every Mission and name none.
+  const consequences = summedConsequenceLines(report.missions, firstWinPhrase, factionName);
   const lists = report.missions.map((mission) =>
     missionEquipment(mission, combatOf(mission.mission), catalog),
   );
@@ -210,11 +201,6 @@ export function turnSummary(
       ? []
       : [{ label: 'Spent' as const, text: equipmentText(spent), tone: 'bad' as const }]),
   ];
-  // TSUM, Totals and sources: a Lead names the first Mission it is credited to, in the order of the Combat reports.
-  const leadSource = (lead: string) => {
-    const credited = report.missions.find((mission) => mission.discoveredLeads.includes(lead));
-    return credited === undefined ? null : titleOf(credited.mission);
-  };
 
   const summaryInvestigations = report.investigationsCompleted.map((item): SummaryInvestigation => {
     const investigation = investigations.get(item.investigation);
@@ -266,12 +252,11 @@ export function turnSummary(
   return {
     turn: report.turn,
     missions: summaryMissions,
-    benefits,
-    setbacks,
+    consequences,
     equipment,
     leads: report.discoveredLeads.flatMap((id) => {
       const lead = leads.get(id);
-      return lead === undefined ? [] : [{ lead, source: leadSource(id) }];
+      return lead === undefined ? [] : [lead];
     }),
     investigations: summaryInvestigations,
     newSites,

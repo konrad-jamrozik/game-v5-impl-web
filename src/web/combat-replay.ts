@@ -407,6 +407,8 @@ export interface Playback {
   playing: boolean;
   /** The attacks of the step started last, as a range, or null after a jump. */
   last: readonly [number, number] | null;
+  /** CRPLAY, Options, Aim lines: the attack being played was picked with the slider or the Combat log. */
+  picked: boolean;
 }
 
 /** CRPLAY, Transport buttons: a pace, i.e. the values a pace button sets the Options to. */
@@ -493,7 +495,7 @@ export const SPEEDS_MS = [2000, 1750, 1500, 1250, 1000, 750, 500, 250, 100] as c
 export const DELAYS_MS = [1500, 1250, 1000, 750, 500, 250, 100] as const;
 
 export function newPlayback(): Playback {
-  return { index: 0, active: [], since: 0, target: 0, playing: false, last: null };
+  return { index: 0, active: [], since: 0, target: 0, playing: false, last: null, picked: false };
 }
 
 /** How many attacks have finished playing: those before the oldest step still playing. */
@@ -524,6 +526,7 @@ export function shownRange(playback: Playback, replay: Replay, instant: boolean)
  * a step still playing keeps its pace.
  */
 export function playTo(playback: Playback, replay: Replay, target: number, now: boolean): void {
+  playback.picked = false;
   playback.target = Math.min(replay.attacks.length, target);
   if (playback.target <= playback.index && playback.active.length === 0) {
     return;
@@ -539,7 +542,23 @@ export function jumpTo(playback: Playback, replay: Replay, index: number): void 
   playback.playing = false;
   playback.active = [];
   playback.last = null;
+  playback.picked = false;
   playback.index = Math.min(replay.attacks.length, Math.max(0, index));
+}
+
+/**
+ * CRPLAY, Slider and Combat log: shows the Combat right before its attack number `attack`, counted from 1, and plays
+ * that attack alone, with its aim line; 0 shows Combat start.
+ */
+export function playAttack(playback: Playback, replay: Replay, attack: number): void {
+  const index = Math.min(replay.attacks.length, Math.max(0, attack));
+  if (index === 0) {
+    jumpTo(playback, replay, 0);
+    return;
+  }
+  jumpTo(playback, replay, index - 1);
+  playTo(playback, replay, index, true);
+  playback.picked = true;
 }
 
 /**

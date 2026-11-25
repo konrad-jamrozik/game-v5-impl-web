@@ -625,10 +625,9 @@ export function drawReplay(ctx: CanvasRenderingContext2D, input: DrawInput): voi
   ctx.setLineDash([2, 5]);
   ctx.lineWidth = 1;
   ctx.beginPath();
-  // CRPLAY, Options, Aim lines: after a jump with the slider or a row of the Combat log, the attack shown has its line
-  // even with Aim lines off, until the playing goes on.
-  const jumped = !playing && playback.last === null;
-  for (const attack of input.aimLines || jumped ? replay.attacks.slice(from, to) : []) {
+  // CRPLAY, Options, Aim lines: an attack picked with the slider or a row of the Combat log has its line even with Aim
+  // lines off.
+  for (const attack of input.aimLines || playback.picked ? replay.attacks.slice(from, to) : []) {
     const attacker = replay.figures[attack.attacker];
     const defender = replay.figures[attack.defender];
     if (attacker !== undefined && defender !== undefined) {

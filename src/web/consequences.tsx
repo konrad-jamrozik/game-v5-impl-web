@@ -5,6 +5,7 @@
  */
 import { Fragment } from 'react';
 import type { ConsequenceRecord } from '../engine/index.ts';
+import type { GainLine } from './mission-gains.ts';
 import { consequenceParts } from './format.ts';
 
 export function Consequences(props: { consequence: ConsequenceRecord; label?: string; className?: string }) {
@@ -21,5 +22,29 @@ export function Consequences(props: { consequence: ConsequenceRecord; label?: st
             </Fragment>
           ))}
     </span>
+  );
+}
+
+export function toneClass(line: GainLine): string {
+  return line.tone === 'good' ? 'tone-good' : 'tone-bad';
+}
+
+/**
+ * VIS, Consequences: a line of the Turn summary or the Turn Report View; a joined line shows each Consequence in its
+ * own tone and the separators between them in Text muted, which the caller's `muted` class gives.
+ */
+export function GainLineText(props: { line: GainLine }) {
+  const { parts } = props.line;
+  return parts === undefined ? (
+    props.line.text
+  ) : (
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={part.text}>
+          {index === 0 ? null : ', '}
+          <span className={toneClass(part)}>{part.text}</span>
+        </Fragment>
+      ))}
+    </>
   );
 }

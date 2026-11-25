@@ -1306,16 +1306,6 @@ input::placeholder {
   margin-top: 4px;
 }
 
-/* TSUM, Sources: a sourced line keeps its gain and its Mission site title on one row, though `.dialog-row` stacks. */
-.dialog-row.sit-line.summary-sourced {
-  flex-direction: row;
-}
-
-/* TSUM, Sources: the Mission site title at the right of a line may shrink and wrap, so the line keeps its text. */
-.sit-line.summary-sourced > .summary-source:last-child {
-  flex: 0 1 auto;
-}
-
 /* TRVIEW, Sections: each source Mission indented under the section's title, and its items indented under it. */
 .report-source {
   padding: 4px 0 4px 12px;

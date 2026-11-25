@@ -14,6 +14,7 @@ import {
   newPlayback,
   paceMatches,
   phaseEnd,
+  playAttack,
   playTo,
   ratingsAt,
   roundEnd,
@@ -334,7 +335,10 @@ export function CombatReplay(props: {
     playTo(playback, replay, total, false);
     refresh();
   };
-  const playingToEnd = playback.playing && playback.target >= total;
+  const playingToEnd = playback.playing && playback.target >= total && !playback.picked;
+  // CRPLAY, Slider and Combat log: the attack picked, also in the moment before its step starts, so that the slider
+  // does not jump back while it is dragged.
+  const sliderAt = playback.picked ? playback.target : playback.index;
 
   const shownAttack = to > from ? combat.log[to - 1] : undefined;
   const shownSide = shownAttack === undefined ? null : sideOf(shownAttack.attacker);
@@ -639,13 +643,10 @@ export function CombatReplay(props: {
           <label className="label" htmlFor="replay-slider">
             Attack{' '}
             <span className="figure">
-              {playback.index} / {total}
+              {sliderAt} / {total}
             </span>
           </label>
-          <span
-            className="slider"
-            style={{ '--fill': sliderFill(playback.index, 0, total) } as CSSProperties}
-          >
+          <span className="slider" style={{ '--fill': sliderFill(sliderAt, 0, total) } as CSSProperties}>
             <input
               id="replay-slider"
               data-testid="replay-slider"
@@ -653,9 +654,9 @@ export function CombatReplay(props: {
               min={0}
               max={total}
               step={1}
-              value={playback.index}
+              value={sliderAt}
               onChange={(event) => {
-                jumpTo(playback, replay, Number(event.currentTarget.value));
+                playAttack(playback, replay, Number(event.currentTarget.value));
                 refresh();
               }}
             />
@@ -672,7 +673,7 @@ export function CombatReplay(props: {
                 data-sound="select"
                 className={`replay-log-row log-${row.tint}${index >= from && index < to ? ' current' : ''}${index >= to ? ' ahead' : ''}`}
                 onClick={() => {
-                  jumpTo(playback, replay, index + 1);
+                  playAttack(playback, replay, index + 1);
                   refresh();
                 }}
               >

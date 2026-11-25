@@ -12,15 +12,13 @@ import {
 import { completionEstimate, progressCircle } from '../../src/web/completion.ts';
 import { situationGroups } from '../../src/web/situation.ts';
 import {
-  benefitLines,
+  missionConsequenceLines,
   missionEquipment,
   missionSiteTitle,
   missionSiteTitleText,
   equipmentText,
   joinedLines,
-  setbackLines,
-  summedBenefitLines,
-  summedSetbackLines,
+  summedConsequenceLines,
 } from '../../src/web/mission-gains.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/web/turn-summary.ts';
 import type { CombatReport, TurnReport } from '../../src/engine/index.ts';
@@ -211,35 +209,37 @@ describe('GUI: Turn summary', () => {
     expect(missionSiteTitleText(title)).toBe('Apprehend member · Red Dawn · Initiative · #3');
   });
 
-  it('lists a Won Mission gains as Benefits, with the first win phrase on the Contracting cap rise', () => {
+  it('lists a Won Mission Consequences, with the first win phrase on the Contracting cap rise', () => {
     const won = result({
       consequence: { ...NONE, money: 50, fundingChange: 10, panicReductionHundredths: 100 },
       contractingCapRise: 4,
     });
-    expect(benefitLines(won, 'first apprehension', factionName).map((line) => line.text)).toEqual([
+    expect(missionConsequenceLines(won, 'first apprehension', factionName).map((line) => line.text)).toEqual([
       '+50 money',
       '+10 funding',
       'Panic −1.00',
       'Reputation increased for first apprehension: our Contracting network expands by 4',
     ]);
-    expect(setbackLines(won, factionName)).toEqual([]);
   });
 
-  it('lists a Lost Mission Consequences as Setbacks and gives it no Benefits', () => {
+  it('lists a Lost Mission Consequences in Danger and gives it no Contracting cap rise', () => {
     const lost = result({
       result: 'Lost',
       consequence: { ...NONE, fundingChange: -30, panicIncreaseHundredths: 500 },
+      contractingCapRise: 4,
     });
-    expect(setbackLines(lost, factionName)).toEqual([
+    expect(missionConsequenceLines(lost, null, factionName)).toEqual([
       { text: '−30 funding', tone: 'bad' },
       { text: 'Panic +5.00', tone: 'bad' },
     ]);
-    expect(benefitLines(lost, null, factionName)).toEqual([]);
   });
 
-  it('sums the Benefits and Setbacks of every Mission by kind on one line, each cap rise on its own', () => {
+  it('sums the Consequences of every Mission, Won or Lost, by kind on one line, each cap rise on its own', () => {
     const missions = [
-      result({ consequence: { ...NONE, money: 50, fundingChange: 5 }, contractingCapRise: 4 }),
+      result({
+        consequence: { ...NONE, money: 50, fundingChange: 5, panicReductionHundredths: 100 },
+        contractingCapRise: 4,
+      }),
       result({
         mission: 'mission-2',
         consequence: { ...NONE, money: 70, fundingChange: 10, eliminatedFaction: 'red_dawn' },
@@ -251,19 +251,17 @@ describe('GUI: Turn summary', () => {
         consequence: { ...NONE, panicIncreaseHundredths: 500 },
       }),
     ];
-    expect(summedBenefitLines(missions, () => 'first apprehension', factionName)).toEqual([
-      { text: '+120 money, +15 funding, Red Dawn eliminated', tone: 'good' },
-      {
-        text: 'Reputation increased for first apprehension: our Contracting network expands by 4',
-        tone: 'good',
-        ownLine: true,
-      },
+    const lines = summedConsequenceLines(missions, () => 'first apprehension', factionName);
+    expect(lines.map((line) => line.text)).toEqual([
+      '+120 money, −15 funding, Panic +4.00, Red Dawn eliminated',
+      'Reputation increased for first apprehension: our Contracting network expands by 4',
     ]);
-    expect(summedSetbackLines(missions, factionName)).toEqual([
-      { text: '−30 funding, Panic +5.00', tone: 'bad' },
-    ]);
-    expect(joinedLines(benefitLines(missions[0]!, null, factionName)).map((line) => line.text)).toEqual([
-      '+50 money, +5 funding',
+    expect(lines[0]?.parts?.map((part) => part.tone)).toEqual(['good', 'bad', 'bad', 'good']);
+    expect(lines[1]?.ownLine).toBe(true);
+    expect(
+      joinedLines(missionConsequenceLines(missions[0]!, null, factionName)).map((line) => line.text),
+    ).toEqual([
+      '+50 money, +5 funding, Panic −1.00',
       'Reputation increased: our Contracting network expands by 4',
     ]);
   });

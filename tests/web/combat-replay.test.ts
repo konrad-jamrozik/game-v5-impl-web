@@ -12,6 +12,7 @@ import {
   paceMatches,
   phaseEnd,
   phaseStart,
+  playAttack,
   playTo,
   rankInsignia,
   ratingRanks,
@@ -431,6 +432,27 @@ describe('CRPLAY: Playback', () => {
     jumpTo(playback, replay, 2);
     expect(shownRange(playback, replay, true)).toEqual([0, 2]);
     expect(shownRange(playback, replay, false)).toEqual([1, 2]);
+  });
+
+  it('plays an attack picked with the slider or the Combat log from right before it, alone and with its aim line', () => {
+    const replay = buildReplay(report(), source);
+    const playback = newPlayback();
+    playAttack(playback, replay, 4);
+    expect(playback.index).toBe(3);
+    expect(playback.picked).toBe(true);
+    // Instant on still plays the attack alone.
+    advance(playback, replay, 16, { ...settings, instant: true });
+    expect(playback.active).toEqual([{ a: 3, b: 4, t: 0 }]);
+    advance(playback, replay, 1000, settings);
+    expect(playback.playing).toBe(false);
+    expect(playback.index).toBe(4);
+    expect(playback.picked).toBe(true);
+    // A step button or a pace plays on without the forced aim line.
+    playTo(playback, replay, 5, true);
+    expect(playback.picked).toBe(false);
+    playAttack(playback, replay, 0);
+    expect(playback.index).toBe(0);
+    expect(playback.playing).toBe(false);
   });
 
   it('keeps a jump within the Combat log', () => {
