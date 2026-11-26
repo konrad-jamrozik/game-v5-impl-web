@@ -931,7 +931,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
           "Combat pistol",
           "Combat pistols"
         ],
-        "body": "A full-size handgun built for a fight, with a larger magazine than a basic pistol and still easy to carry unseen. The Agency issues one to every Agent it hires."
+        "body": "A full-size handgun built for a fight, with a larger magazine than a basic pistol and still easy to carry unseen. The Agency arms its starting team with them; an Agent it hires comes with only a knife."
       }
     ]
   },
@@ -2047,7 +2047,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
               ],
               [
                 "text",
-                "{agent_parameters.initial_roster_size} Agents, ready for orders on the first turn"
+                "{agent_parameters.initial_roster_size} Agents, ready for orders on the first turn, each armed with a {field_agent.weapon}"
               ]
             ]
           },
@@ -2059,7 +2059,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
               ],
               [
                 "text",
-                "Skill {field_agent.base_skill}, health {field_agent.base_health}, no exhaustion, armed with a {field_agent.weapon}"
+                "Skill {field_agent.base_skill}, health {field_agent.base_health}, no exhaustion"
               ]
             ]
           },
@@ -2071,7 +2071,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
               ],
               [
                 "text",
-                "Starts on Standby and arrives next turn"
+                "Starts on Standby, armed with only a {combat_parameters.fallback_weapon}, and arrives next turn"
               ]
             ]
           },
