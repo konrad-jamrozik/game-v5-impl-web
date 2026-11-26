@@ -40,6 +40,11 @@ export interface DetachedExplicitEntry {
   readonly effectiveWeaponDamage: number;
   /** A whole number of at least 0; 0 when the entry leaves it out. */
   readonly effectiveArmor?: number;
+  /**
+   * COMBAT, Combat setup seed: for an Agent, optionally the Weapon it attacks with, by identifier, whose `ammo_type`
+   * its attacks spend and which the Combat report records.
+   */
+  readonly weapon?: string;
 }
 
 /** An entry of the Agents' side: an Agent of the Current campaign by Instance ID, or explicit values. */
@@ -181,9 +186,17 @@ function explicitState(entry: Record<string, unknown>, side: 'agent' | 'enemy'):
       ? 'currentHealth must be from 0 to effectiveMaxHealth, with at most two digits after the decimal point'
       : 'currentHealth must be a whole number from 0 to effectiveMaxHealth';
   }
-  const exhaustion = entry['exhaustion'];
-  if (!isWhole(exhaustion, 0) || !Number.isSafeInteger(exhaustion * 100)) {
-    return 'exhaustion must be a whole number of at least 0';
+  // An Agent's exhaustion is its Exact exhaustion, a Decimal quantity; an Enemy's is whole.
+  const exhaustion =
+    side === 'agent'
+      ? hundredthsOf(entry['exhaustion'])
+      : isWhole(entry['exhaustion'], 0) && Number.isSafeInteger(entry['exhaustion'] * 100)
+        ? entry['exhaustion'] * 100
+        : null;
+  if (exhaustion === null) {
+    return side === 'agent'
+      ? 'exhaustion must be at least 0, with at most two digits after the decimal point'
+      : 'exhaustion must be a whole number of at least 0';
   }
   const weaponDamage = entry['effectiveWeaponDamage'];
   if (!isWhole(weaponDamage, 1)) {
@@ -198,7 +211,7 @@ function explicitState(entry: Record<string, unknown>, side: 'agent' | 'enemy'):
     skillHundredths: skill,
     currentHealthHundredths: health,
     maxHealth,
-    exactExhaustionHundredths: exhaustion * 100,
+    exactExhaustionHundredths: exhaustion,
     weaponDamage,
     armor,
   };
@@ -296,6 +309,18 @@ export function buildDetachedCombat(
           return reject('value_out_of_range', `${where}: ${explicit}.`);
         }
         state = explicit;
+        const weapon = entry['weapon'];
+        if (weapon !== undefined) {
+          const named = typeof weapon === 'string' ? gdrs.weapons.get(weapon) : undefined;
+          if (side !== 'agent' || named === undefined) {
+            return reject(
+              'unknown_weapon',
+              `${where}: weapon must name a Weapon, and only an Agent's entry takes one.`,
+            );
+          }
+          ammoType = named.ammoType ?? null;
+          weaponId = named.id;
+        }
       } else if (typeof entry['id'] !== 'string') {
         return malformed(`${where} must name an id.`);
       } else if (side === 'agent' && kind === 'agent') {

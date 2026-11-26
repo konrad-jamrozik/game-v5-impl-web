@@ -4,7 +4,8 @@
  * its setup, in Global configuration.
  */
 import { useEffect, useMemo, useState } from 'react';
-import type { CombatSimulatorContent } from '../../engine/index.ts';
+import { GAME_BUILD, type CombatSimulatorContent } from '../../engine/index.ts';
+import { CopySetupSeedButton } from '../copy-setup-seed.tsx';
 import { buildReplay } from '../combat-replay.ts';
 import {
   FIRST_SEED,
@@ -15,6 +16,8 @@ import {
   enemyRowsOfSite,
   newAgentRow,
   replaySourceOf,
+  rowsOfSetupSeed,
+  setupSeedOf,
   reportOf,
   seedFrom,
   setupOf,
@@ -39,6 +42,8 @@ interface Fought {
   readonly agents: readonly AgentRow[];
   readonly enemies: readonly EnemyRow[];
   readonly seed: string;
+  /** The rounds at hand a Combat setup seed set, or none for no limit. */
+  readonly ammo: Readonly<Record<string, number>> | null;
 }
 
 /** CSIM, Teams: the fields of one row, one for each value of an explicit entry of a Detached Combat. */
@@ -99,6 +104,8 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
   const [agents, setAgents] = useState<readonly AgentRow[]>(opening?.agents ?? []);
   const [enemies, setEnemies] = useState<readonly EnemyRow[]>(opening?.enemies ?? []);
   const [seed, setSeed] = useState(opening?.seed ?? FIRST_SEED);
+  // CSIM, Fighting the Combat, Seed: the rounds at hand a pasted Combat setup seed set, until a preset replaces the rows.
+  const [ammo, setAmmo] = useState<Readonly<Record<string, number>> | null>(null);
   // CSIM, Teams: every change to the rows, the presets, or the Seed field stores the setup.
   const encoded = encodeSetup({ team, site, agents, enemies, seed });
   const [kept, setKept] = useState(() => (opening === null ? encoded : encodeSetup(opening)));
@@ -137,7 +144,10 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
     () =>
       fought === null || content === null
         ? null
-        : buildReplay(fought.report, replaySourceOf(content, fought.agents, fought.enemies, fought.seed)),
+        : buildReplay(
+            fought.report,
+            replaySourceOf(content, fought.agents, fought.enemies, fought.seed, fought.ammo !== null),
+          ),
     [fought, content],
   );
 
@@ -156,7 +166,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
 
   /** CSIM, Fighting the Combat: a rejected setup shows its reason and no Combat replay. */
   const fight = (withSeed: string) => {
-    const result = session.combatSimulator.fightCombat(setupOf(agents, enemies, withSeed));
+    const result = session.combatSimulator.fightCombat(setupOf(agents, enemies, withSeed, ammo));
     if (!result.ok) {
       setProblem(result.error.message);
       return;
@@ -169,6 +179,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
       agents,
       enemies,
       seed: withSeed,
+      ammo,
     });
   };
 
@@ -204,6 +215,9 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                   </span>
                 </h2>
               </div>
+              <CopySetupSeedButton
+                seed={setupSeedOf(fought.agents, fought.enemies, fought.seed, fought.ammo, GAME_BUILD)}
+              />
               <CloseControl
                 testId="sim-replay-close"
                 title="Back to the teams"
@@ -247,7 +261,22 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                   data-testid="sim-seed"
                   value={seed}
                   onChange={(event) => {
-                    setSeed(event.target.value);
+                    // CSIM, Fighting the Combat, Seed: a Combat setup seed sets both teams, the rounds at hand, and the
+                    // Detached seed, so that Fight fights the Combat it was taken from.
+                    const pasted = rowsOfSetupSeed(content, event.target.value);
+                    if (pasted === null) {
+                      setSeed(event.target.value);
+                      return;
+                    }
+                    setAgents(pasted.agents);
+                    setEnemies(pasted.enemies);
+                    setAmmo(pasted.ammo);
+                    setSeed(pasted.seed);
+                    setProblem(
+                      pasted.gameBuild === GAME_BUILD
+                        ? null
+                        : `This Combat setup seed is from the Game build ${pasted.gameBuild}, so the Combat may differ.`,
+                    );
                   }}
                 />
               </label>
@@ -323,6 +352,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                     playSound(SOUND.select);
                     setTeam(event.target.value);
                     setAgents(agentRowsOfTeam(content, event.target.value));
+                    setAmmo(null);
                   }}
                 >
                   {content.teams.map((item) => (
@@ -430,6 +460,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                     playSound(SOUND.select);
                     setSite(event.target.value);
                     setEnemies(enemyRowsOfSite(content, event.target.value));
+                    setAmmo(null);
                   }}
                 >
                   {content.missionSiteArchetypes.map((item) => (

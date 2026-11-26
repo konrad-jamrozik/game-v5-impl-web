@@ -2,11 +2,14 @@
  * CSIM: the two teams of the Combat simulator as rows of fields, how a preset fills them, and how they become the setup
  * of a Detached Combat and what the Combat replay reads beside its Combat report. Pure presentation: it fights nothing.
  */
-import type {
-  CombatReport,
-  CombatSimulatorContent,
-  DetachedCombatSetup,
-  FoughtCombatReport,
+import {
+  decodeCombatSetupSeed,
+  encodeCombatSetupSeed,
+  type CombatReport,
+  type CombatSimulatorContent,
+  type DetachedCombatSetup,
+  type FoughtCombatReport,
+  type SetupCombatant,
 } from '../engine/index.ts';
 import type { ReplaySource } from './combat-replay.ts';
 import { enemyLabels, shortEnemyLabels } from './enemy-labels.ts';
@@ -123,7 +126,7 @@ export function withArmor(content: CombatSimulatorContent, row: AgentRow, armorI
 /** A field as the number a setup takes: what is not a number stays one the engine rejects by its range. */
 const numberOf = (text: string) => (text.trim() === '' ? Number.NaN : Number(text));
 
-const explicit = (values: RowValues) => ({
+const explicit = (values: RowValues, weapon?: string) => ({
   kind: 'explicit' as const,
   baseSkill: numberOf(values.baseSkill),
   currentHealth: numberOf(values.currentHealth),
@@ -131,22 +134,104 @@ const explicit = (values: RowValues) => ({
   exhaustion: numberOf(values.exhaustion),
   effectiveWeaponDamage: numberOf(values.weaponDamage),
   effectiveArmor: numberOf(values.armor),
+  // COMBAT, Combat setup seed: an Agent's row names its Weapon, whose Ammo its attacks spend where rounds are limited.
+  ...(weapon === undefined ? {} : { weapon }),
 });
 
 /**
  * CSIM, Fighting the Combat: the setup of the Detached Combat between the two sides as the rows give them, each row as
- * an explicit entry, with no changed GDR value and no limit on any AmmoType.
+ * an explicit entry, with no changed GDR value and no limit on any AmmoType but those a Combat setup seed set.
  */
 export function setupOf(
   agents: readonly AgentRow[],
   enemies: readonly EnemyRow[],
   seed: string,
+  ammo: Readonly<Record<string, number>> | null = null,
 ): DetachedCombatSetup {
   return {
-    agents: agents.map((row) => explicit(row.values)),
+    agents: agents.map((row) => explicit(row.values, row.weapon)),
     enemies: enemies.map((row) => explicit(row.values)),
+    ...(ammo === null ? {} : { ammo }),
     seed,
   };
+}
+
+const text = (value: number) => String(value);
+
+/**
+ * CSIM, Fighting the Combat, Seed: the rows, rounds at hand, and Detached seed of a Combat setup seed, or null when
+ * the text is not one or names what the Game build does not have.
+ */
+export function rowsOfSetupSeed(
+  content: CombatSimulatorContent,
+  seedText: string,
+): {
+  agents: AgentRow[];
+  enemies: EnemyRow[];
+  ammo: Record<string, number>;
+  seed: string;
+  gameBuild: string;
+} | null {
+  const setup = decodeCombatSetupSeed(seedText);
+  if (setup === null) {
+    return null;
+  }
+  const valuesOfCombatant = (combatant: SetupCombatant): RowValues => ({
+    baseSkill: text(combatant.baseSkill),
+    currentHealth: text(combatant.currentHealth),
+    maxHealth: text(combatant.effectiveMaxHealth),
+    exhaustion: text(combatant.exhaustion),
+    weaponDamage: text(combatant.effectiveWeaponDamage),
+    armor: text(combatant.effectiveArmor),
+  });
+  const known = (items: readonly { readonly id: string }[], id: string) =>
+    items.some((item) => item.id === id);
+  if (
+    !setup.agents.every(
+      (agent) => known(content.weapons, agent.weapon) && known(content.armors, agent.kind),
+    ) ||
+    !setup.enemies.every((enemy) => known(content.enemyArchetypes, enemy.kind))
+  ) {
+    return null;
+  }
+  return {
+    agents: setup.agents.map((agent) => ({
+      weapon: agent.weapon,
+      armorItem: agent.kind,
+      values: valuesOfCombatant(agent),
+    })),
+    enemies: setup.enemies.map((enemy) => ({ archetype: enemy.kind, values: valuesOfCombatant(enemy) })),
+    ammo: { ...setup.ammo },
+    seed: setup.seed,
+    gameBuild: setup.gameBuild,
+  };
+}
+
+/** CRPLAY, Copy setup seed, in the Combat simulator: the Combat setup seed of the Combat the rows fought. */
+export function setupSeedOf(
+  agents: readonly AgentRow[],
+  enemies: readonly EnemyRow[],
+  seed: string,
+  ammo: Readonly<Record<string, number>> | null,
+  gameBuild: string,
+): string {
+  const combatant = (values: RowValues, weapon: string, kind: string): SetupCombatant => ({
+    baseSkill: numberOf(values.baseSkill),
+    currentHealth: numberOf(values.currentHealth),
+    effectiveMaxHealth: numberOf(values.maxHealth),
+    exhaustion: numberOf(values.exhaustion),
+    effectiveWeaponDamage: numberOf(values.weaponDamage),
+    effectiveArmor: numberOf(values.armor),
+    weapon,
+    kind,
+  });
+  return encodeCombatSetupSeed({
+    gameBuild,
+    seed,
+    ammo: ammo ?? {},
+    agents: agents.map((row) => combatant(row.values, row.weapon, row.armorItem)),
+    enemies: enemies.map((row) => combatant(row.values, '', row.archetype)),
+  });
 }
 
 /** The position, from 1, that the identifier of a participant of a Detached Combat names, e.g. 3 for `agent#3`. */
@@ -162,6 +247,7 @@ export function replaySourceOf(
   agents: readonly AgentRow[],
   enemies: readonly EnemyRow[],
   seed: string,
+  limitedAmmo = false,
 ): ReplaySource {
   const archetypeOf = (id: string) =>
     content.enemyArchetypes.find((item) => item.id === enemies[positionOf(id) - 1]?.archetype);
@@ -185,8 +271,11 @@ export function replaySourceOf(
     weaponOf: (id) =>
       (id.startsWith('agent#') ? agents[positionOf(id) - 1]?.weapon : archetypeOf(id)?.weapon) ?? null,
     shotOfWeapon: (weapon) => content.weapons.find((item) => item.id === weapon)?.shot,
-    // COMBAT, Detached Combat: an Agent of explicit values attacks with no `ammo_type`, so its Ammo never runs out.
-    fallbackWeapon: null,
+    // An Agent's Ammo runs out only where a Combat setup seed limited the rounds; it then fights with the Fallback
+    // Weapon, the one Weapon with neither a `price` nor an `ammo_type`.
+    fallbackWeapon: limitedAmmo
+      ? (content.weapons.find((item) => item.price === null && item.ammoType === null)?.id ?? null)
+      : null,
     ranks: content.ranks,
     seed,
   };

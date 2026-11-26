@@ -34,6 +34,7 @@ import type { Snapshot } from '../store.ts';
 import { turnSummaryHasContent } from '../turn-summary.ts';
 import { backLabel, turnSummaryPlace } from '../view-trail.ts';
 import { Button, Grid } from '../ui.tsx';
+import { CopySetupSeedButton } from '../copy-setup-seed.tsx';
 import { CombatReplay } from './CombatReplay.tsx';
 import { DetailView } from './DetailView.tsx';
 
@@ -194,15 +195,18 @@ export function TurnReportView(props: {
             // CRPLAY, Whole screen: a Combat report button opens this Combat's Combat report as a Follow, before the
             // Back control.
             actions={
-              <Button
-                testId="replay-combat-report"
-                onClick={() => {
-                  place.follow();
-                  setReplayShown(false);
-                }}
-              >
-                Combat report
-              </Button>
+              <>
+                <CopySetupSeedButton seed={shownCombat.setupSeed} />
+                <Button
+                  testId="replay-combat-report"
+                  onClick={() => {
+                    place.follow();
+                    setReplayShown(false);
+                  }}
+                >
+                  Combat report
+                </Button>
+              </>
             }
             onClose={props.onClose}
           >

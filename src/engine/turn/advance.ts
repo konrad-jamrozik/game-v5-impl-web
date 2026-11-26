@@ -6,7 +6,7 @@
  * Campaign instances are processed does not change the result. `order` lets a test choose that order.
  */
 import { byInstanceId, formatInstanceId, must } from '../../kernel/index.ts';
-import type { GdrCatalog } from '../../gdr/index.ts';
+import { GAME_BUILD, type GdrCatalog } from '../../gdr/index.ts';
 import {
   addExhaustion,
   agentCombatantValues,
@@ -22,6 +22,11 @@ import {
   type CombatantValues,
 } from '../mechanics/agents/agents.ts';
 import { agentCombatantState, enemyCombatantState, fightCombat } from '../mechanics/combat/combat.ts';
+import {
+  encodeCombatSetupSeed,
+  missionCombatSeed,
+  setupCombatant,
+} from '../mechanics/combat/combat-setup-seed.ts';
 import {
   fallbacks,
   settleMissionEquipment,
@@ -417,6 +422,25 @@ export function applyAdvanceTurn(
     // COMBAT, Fighting a Combat: the inputs come from the World state, the Combat is fought by the one shared
     // implementation, and this step applies its outputs. An Agent fights with its effective max health, current
     // health, and effective weapon damage; an Enemy in the hundredths form of an Agent.
+    // COMBAT, Combat setup seed, A Mission's Combat: the Combat draws from a Detached seed of its own, derived from the
+    // Campaign seed and the Mission, so that the Combat setup seed fights it again.
+    const combatSeed = missionCombatSeed(world.seed, mission.id);
+    const combatRandom = random.fork?.(combatSeed) ?? random;
+    const overridesBefore = world.randomOverrides.length;
+    const combatAmmo = new Map(
+      [...gdrs.ammoTypes.keys()].map((id) => [id, storageCount(world, id)] as const),
+    );
+    const setupSeed = encodeCombatSetupSeed({
+      gameBuild: GAME_BUILD,
+      seed: combatSeed,
+      ammo: Object.fromEntries(combatAmmo),
+      agents: team.map((agent) =>
+        setupCombatant(agentCombatantState(agent.state, bonus), agent.state.weapon, agent.state.armor),
+      ),
+      enemies: siteEnemies.map((enemy) =>
+        setupCombatant(enemyCombatantState(enemy.state), enemy.state.weapon, enemy.archetype),
+      ),
+    });
     const fought = fightCombat(
       {
         agents: team.map((agent) => ({
@@ -433,15 +457,20 @@ export function applyAdvanceTurn(
         combat: gdrs.combatParameters,
         agentParameters,
         // COMBAT, Ammo in a Combat: the rounds in Storage as the Missions resolved before this one left them.
-        ammo: new Map([...gdrs.ammoTypes.keys()].map((id) => [id, storageCount(world, id)])),
+        ammo: combatAmmo,
         fallbackWeaponDamage: fallbacks(gdrs).weapon.damage,
       },
-      random,
+      combatRandom,
     );
     for (const [ammoType, left] of fought.ammoLeft) {
       world.agency.state.storage[ammoType] = left;
     }
-    const report: CombatReport = { mission: mission.id, ...fought.report };
+    const report: CombatReport = {
+      mission: mission.id,
+      ...fought.report,
+      setupSeed,
+      setupSeedExact: combatRandom !== random && world.randomOverrides.length === overridesBefore,
+    };
     // An Enemy's whole values are written back; an Agent's current health is written back as the health lost it
     // leaves, and its Exact exhaustion as it is.
     siteEnemies.forEach((enemy, index) => {

@@ -252,6 +252,8 @@ describe('CSIM: Fighting the Combat', () => {
       exhaustion: 0,
       effectiveWeaponDamage: 10,
       effectiveArmor: 0,
+      // COMBAT, Combat setup seed: an Agent's row names its Weapon.
+      weapon: agents[0]?.weapon,
     });
     expect(setup.gdrValues).toBeUndefined();
     expect(setup.ammo).toBeUndefined();

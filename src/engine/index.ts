@@ -62,6 +62,14 @@ export type {
   DetachedExplicitEntry,
 } from './mechanics/combat/detached-combat.ts';
 export type { FoughtCombatReport } from './mechanics/combat/combat.ts';
+export {
+  decodeCombatSetupSeed,
+  encodeCombatSetupSeed,
+  isCombatSetupSeedText,
+  setupOfCombatSetup,
+  type CombatSetup,
+  type SetupCombatant,
+} from './mechanics/combat/combat-setup-seed.ts';
 export type {
   InitiativeOperationLevelEntry,
   InitiativeOperationLevelsView,

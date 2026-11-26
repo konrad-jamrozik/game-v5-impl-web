@@ -1,4 +1,12 @@
-import { EngineDefect, Rational, chance, uniformBelow, uniformInt, type RngState } from '../kernel/index.ts';
+import {
+  EngineDefect,
+  Rational,
+  chance,
+  seedRng,
+  uniformBelow,
+  uniformInt,
+  type RngState,
+} from '../kernel/index.ts';
 
 /**
  * The source of every random outcome of game behavior. Each outcome is named as its rule names it, so that a test
@@ -18,6 +26,12 @@ export interface Random {
    * it changes no other outcome, and no override fixes it. A source may leave it out.
    */
   roll?(outcome: string, n: number, steps: number, taken: boolean): number;
+  /**
+   * COMBAT, Combat setup seed, A Mission's Combat: the random outcomes of one Combat, from a Detached seed of its own,
+   * with the same pending random outcome overrides. A source may leave it out, e.g. one a test fixes; the Combat then
+   * draws from this source.
+   */
+  fork?(seed: string): Random;
 }
 
 /** The generator of the rolls: that of the random outcomes at its current count, under another key. */
@@ -72,6 +86,9 @@ export function seededRandom(rng: RngState, overrides: RandomOverride[]): Random
         }
       }
       return chance(rng, p);
+    },
+    fork(seed) {
+      return seededRandom(seedRng(seed), overrides);
     },
     roll(_outcome, n, steps, taken) {
       const allowed = taken ? n : steps - n;

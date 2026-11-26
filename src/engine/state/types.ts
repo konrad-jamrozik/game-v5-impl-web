@@ -318,6 +318,13 @@ export interface CombatReport {
   readonly log: readonly AttackRecord[];
   /** COMBAT, Combat report, item 8: the rounds at hand at Combat start and left at Combat end, per limited AmmoType. */
   readonly ammo: readonly { readonly ammoType: string; readonly start: number; readonly end: number }[];
+  /**
+   * COMBAT, Combat report, item 11: the Combat setup seed, from which a Detached Combat fights the Combat again; absent
+   * for a Combat fought before it existed, and for one fought by a Detached Combat.
+   */
+  readonly setupSeed?: string;
+  /** Whether a Detached Combat on the Combat setup seed fights it again exactly: false when an override applied. */
+  readonly setupSeedExact?: boolean;
 }
 
 // ---- Campaign-wide values (ENDING, LEAD, TURN) ---------------------------------------------------

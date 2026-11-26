@@ -160,7 +160,8 @@ describe('REUSE: Agreement test of developer.tools.fightCombat', () => {
     // COMBAT, Detached Combat, Ammo: an Agent of explicit values spends no Ammo, so its report has no Ammo; the played
     // Combat had rounds enough that no Agent ran out.
     expect(played.log.some((attack) => attack.outOfAmmo !== null)).toBe(false);
-    const { ammo: _ammo, ...withoutAmmo } = byPosition(played);
+    // COMBAT, Combat report, item 11: only a Mission's Combat report holds its Combat setup seed.
+    const { ammo: _ammo, setupSeed: _setupSeed, setupSeedExact: _exact, ...withoutAmmo } = byPosition(played);
     // COMBAT, Combat report, Starting values: a participant given as explicit values has no Weapon, and the played
     // Combat holds the Weapon of each of its participants.
     expect(played.participants.every((participant) => participant.start.weapon !== undefined)).toBe(true);
@@ -185,7 +186,9 @@ describe('REUSE: Agreement test of developer.tools.fightCombat', () => {
       ),
       seed,
     });
-    expect(fromIds.combatReport).toEqual(byPosition(played));
+    expect({ ...fromIds.combatReport, setupSeed: _setupSeed, setupSeedExact: _exact }).toEqual(
+      byPosition(played),
+    );
     expect(fromIds.participants.map((participant) => participant.named?.id)).toEqual([
       ...team,
       ...sites.state.enemies,
@@ -354,7 +357,8 @@ describe('COMBAT: Detached Combat', () => {
       { currentHealth: -1 },
       { baseSkill: 10.555 },
       { effectiveMaxHealth: 0 },
-      { exhaustion: 1.5 },
+      // An Agent's exhaustion is its Exact exhaustion, with at most two digits after the decimal point.
+      { exhaustion: 1.555 },
       { effectiveWeaponDamage: 0 },
       { effectiveArmor: -1 },
       { effectiveArmor: 1.5 },
