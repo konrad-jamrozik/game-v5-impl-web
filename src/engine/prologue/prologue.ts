@@ -18,9 +18,11 @@
  * wounded. Every other team wins unharmed within LONG Combat rounds, while fewer than enough Missions are Won or the
  * Armor is not worn, and on every Response Mission site; the Initiative Mission sites it no longer needs Expire. Once
  * everything else that TURN, Prologue guarantees has built up, it tires two Agents out through the deaths of their
- * teams, each a survivor deployed with one or two doomed Agents to an Initiative Mission site: the Enemies kill the
- * doomed Agents and wound the survivor, the weakened team retreats, and the survivor's Mission exhaustion lifts its
- * exhaustion above exhaustion_work_limit, and then that of another survivor above exhaustion_incapacitation.
+ * teams, each a survivor deployed with one to three doomed Agents to an Initiative Mission site: the Enemies kill the
+ * doomed Agents and wound the survivor until it is Incapacitated but alive, so the team is Wiped, and the survivor's
+ * Mission exhaustion lifts its exhaustion above exhaustion_incapacitation, and then, while that survivor's exhaustion
+ * is still above it, that of another survivor above exhaustion_work_limit. A survivor above exhaustion_incapacitation
+ * recovers down to above exhaustion_work_limit, so another such sacrifice follows whenever one of the two is missing.
  *
  * The Investigations' Required progress outcomes take their least value. It stops at the start of the first Turn, from
  * FIRST_TURN on, whose World state holds everything that TURN, Prologue guarantees.
@@ -108,8 +110,8 @@ interface Tracked {
  * fight, until one hit kills it. `wound`: the Agents hit for their highest damage, the first Enemy attack hits
  * `wounded` for at most half its effective max health, and every other Enemy attack misses. `win`: the Agents hit for
  * their highest damage and the Enemies miss. `sacrifice`: the Agents miss, the Enemies target the `doomed` Agents
- * first and hit each, keeping it able to fight, until a hit kills it, then hit the `survivor` once for at most half
- * its effective max health, and otherwise miss, so that the team, weakened, retreats.
+ * first and hit each, keeping it able to fight, until a hit kills it, then hit the `survivor` as hard as leaves it
+ * alive, and otherwise miss, until it is Incapacitated, so that the team is Wiped.
  */
 type Plan =
   | { readonly kind: 'kill'; readonly agent: string; readonly enemies: Bounds; readonly tracked: Tracked }
@@ -128,7 +130,6 @@ type Plan =
       readonly doomed: readonly string[];
       readonly survivor: string;
       readonly tracked: ReadonlyMap<string, Tracked>;
-      dealt: boolean;
     }
   | { readonly kind: 'win'; readonly agents: ReadonlySet<string>; readonly enemies: Bounds };
 
@@ -209,6 +210,20 @@ function woundingDamage(tracked: Tracked, lo: number, hi: number, gdrs: GdrCatal
     const loss = healthLoss(tracked, damage);
     const left = tracked.state.currentHealthHundredths - loss;
     if (loss > 0 && left * 2 >= tracked.state.maxHealth * 100 && staysAble(tracked, damage, gdrs)) {
+      return damage;
+    }
+  }
+  return null;
+}
+
+/**
+ * The damage of an Enemy hit on the survivor of a `sacrifice`: the highest that removes health and leaves it alive, or
+ * null for a miss when every hit would kill it.
+ */
+function disablingDamage(tracked: Tracked, lo: number, hi: number): number | null {
+  for (let damage = hi; damage >= lo; damage -= 1) {
+    const loss = healthLoss(tracked, damage);
+    if (loss > 0 && loss < tracked.state.currentHealthHundredths) {
       return damage;
     }
   }
@@ -325,9 +340,8 @@ class Forcing {
     let damage: number | null = null;
     if (plan.doomed.includes(target)) {
       damage = killingDamage(tracked, bounds.lo, bounds.hi, this.gdrs);
-    } else if (target === plan.survivor && !plan.dealt) {
-      damage = woundingDamage(tracked, bounds.lo, bounds.hi, this.gdrs);
-      plan.dealt = damage !== null;
+    } else if (target === plan.survivor) {
+      damage = disablingDamage(tracked, bounds.lo, bounds.hi);
     }
     defend(tracked, damage, this.gdrs);
     if (damage === null) {
@@ -359,7 +373,7 @@ class Forcing {
     const candidates = new Set(entries.filter(([, weight]) => weight > 0).map(([key]) => key));
     if (plan?.kind === 'sacrifice' && plan.enemies.has(id)) {
       const doomed = plan.doomed.find((agent) => candidates.has(agent));
-      return doomed ?? (!plan.dealt && candidates.has(plan.survivor) ? plan.survivor : null);
+      return doomed ?? (candidates.has(plan.survivor) ? plan.survivor : null);
     }
     if (plan?.kind !== 'wound' || !plan.enemies.has(id) || plan.dealt) {
       return null;
@@ -484,7 +498,6 @@ function guarantees(state: CampaignState, gdrs: GdrCatalog): Record<string, bool
         (site) => site.state.lifecycle !== 'Active' && site.state.lifecycle !== 'Deployed',
       ).length >= AT_LEAST.finalSites,
     'Lost Missions': [...lost.values()].reduce((sum, n) => sum + n, 0) >= AT_LEAST.lost,
-    'a Retreated Mission': (lost.get('Retreated') ?? 0) > 0,
     'a Wiped Mission': (lost.get('Wiped') ?? 0) > 0,
   };
 }
@@ -693,14 +706,14 @@ class PrologueTurn {
   }
 
   /**
-   * Tires an Agent out through the deaths of its team: a `sacrifice` of a survivor with one doomed Agent, or two when
-   * one is not enough, whose Combat fought ahead ends Retreated within SHORT Combat rounds with the doomed Agents dead,
-   * and leaves the survivor's exhaustion, with its Mission exhaustion, above `low` and at most `high`. The survivors
-   * are tried among the Agents in base from the most tired, and the doomed Agents are the Agents on Standby that wear
-   * no Item but the issued ones, from the lowest base skill.
+   * Tires an Agent out through the deaths of its team: a `sacrifice` of a survivor with the fewest doomed Agents, from
+   * one to three, whose Combat fought ahead ends Wiped within SHORT Combat rounds with the doomed Agents dead and the
+   * survivor alive, and leaves the survivor's exhaustion, with its Mission exhaustion, above `low` and at most `high`.
+   * The survivors are tried among the Agents in base from the most tired, and the doomed Agents are the Agents on
+   * Standby, from the lowest base skill; both wear no Item but the issued ones, since a Wiped team loses its Items.
    */
   private sacrifice(site: MissionSite, bounds: Bounds, low: number, high: number): boolean {
-    const survivors = this.agents()
+    const survivors = this.plain(this.agents())
       .filter((agent) => agent.state.status === 'AtAssignment' && isBaseAssignment(agent.state.assignment))
       .sort(
         (a, b) => b.state.exactExhaustionHundredths - a.state.exactExhaustionHundredths || byInstanceId(a, b),
@@ -708,7 +721,7 @@ class PrologueTurn {
     const pool = this.plain(this.onStandby()).sort(
       (a, b) => a.state.skillHundredths - b.state.skillHundredths || byInstanceId(a, b),
     );
-    for (const count of [1, 2]) {
+    for (const count of [1, 2, 3]) {
       const tiring = missionExhaustion(count, count + 1, this.gdrs.agentParameters) * 100;
       for (const survivor of survivors) {
         const doomed = pool.filter((agent) => agent.id !== survivor.id).slice(0, count);
@@ -723,7 +736,6 @@ class PrologueTurn {
           doomed: doomed.map((agent) => agent.id),
           survivor: survivor.id,
           tracked: new Map(team.map((agent) => [agent.id, track(this.combatantOf(agent))])),
-          dealt: false,
         });
         const fought = this.ahead(
           team.map((agent) => this.fighter(agent)),
@@ -739,7 +751,7 @@ class PrologueTurn {
           exactExhaustionHundredths: after.exactExhaustionHundredths + tiring,
         });
         if (
-          fought.summary.outcome === 'Retreated' &&
+          fought.summary.outcome === 'Wiped' &&
           fought.summary.agentsDead === count &&
           after.currentHealthHundredths > 0 &&
           fought.report.rounds <= SHORT &&
@@ -831,13 +843,17 @@ class PrologueTurn {
       }
       if (builtUp && initiative) {
         if (
+          incapacitation &&
           !limit &&
           this.sacrifice(site, bounds, exhaustionWorkLimit + TIRED_MARGIN, exhaustionIncapacitation)
         ) {
           limit = true;
           continue;
         }
-        if (limit && !incapacitation && this.sacrifice(site, bounds, exhaustionIncapacitation, Infinity)) {
+        if (
+          (!incapacitation || !limit) &&
+          this.sacrifice(site, bounds, exhaustionIncapacitation + TIRED_MARGIN, Infinity)
+        ) {
           incapacitation = true;
           continue;
         }

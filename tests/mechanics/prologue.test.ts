@@ -4,7 +4,7 @@
  * Investigation, at least 12 Serving Agents of at least three Ranks, Serving Agents that wear at least three Weapons and
  * two Armors, two Serving Agents below their effective max health, tired Agents above each exhaustion threshold, a
  * Storage with Weapons of two kinds, an Armor, and Ammo, a Completed Investigation, an Active Mission site, at least 15
- * Mission sites in a final state, of which 8 Won, 3 Lost, one of them Retreated and one Wiped, and 3 Expired, and a
+ * Mission sites in a final state, of which 8 Won, 3 Lost, one of them Wiped, and 3 Expired, and a
  * bought Upgrade. The History holds the Prologue's Turns like any others, and the Campaign plays on, saves, and loads
  * like any other.
  *
@@ -93,7 +93,6 @@ function unmet(state: CampaignState): string[] {
     ],
     ['8 Won Missions', won.length >= 8],
     ['3 Lost Missions', lost.length >= 3],
-    ['a Retreated Mission', lost.some((mission) => mission.combatOutcome === 'Retreated')],
     ['a Wiped Mission', lost.some((mission) => mission.combatOutcome === 'Wiped')],
     ['3 Expired Mission sites', sites.filter((site) => site.state.lifecycle === 'Expired').length >= 3],
     ['a bought Upgrade', Object.values(world.agency.state.acquisitions).some((count) => count > 0)],
