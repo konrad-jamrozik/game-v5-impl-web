@@ -1,6 +1,7 @@
 /** The Main menu: new-Campaign setup, Campaign saves, and the Global configuration. */
 import { useEffect, useState } from 'react';
 import {
+  BUILD_INFO,
   GAME_BUILD,
   decodeCampaignSetupSeed,
   isCampaignSetupSeedText,
@@ -10,7 +11,7 @@ import { buildCommitUrl, buildLabel } from '../build-label.ts';
 import { orderSaveRows } from '../save-rows.ts';
 
 /** The page of the commit the build was made from; null when the build knew no commit. */
-const buildUrl = buildCommitUrl(__BUILD_INFO__);
+const buildUrl = buildCommitUrl(BUILD_INFO);
 import { confirmOrGoBack, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
@@ -156,11 +157,10 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
               Combat simulator
             </Button>
           ) : null}
-          {/* The build label: the PST date of its commit, its number that day, and its short SHA, linking to the
-              commit; the tooltip keeps the Game build, which Campaign saves are checked against. */}
-          <p className="figure muted small" title={`Game build ${GAME_BUILD}`}>
+          {/* MENU, Layout: the build label, the Game build ID after the word "build", linking to its commit. */}
+          <p className="figure muted small">
             {buildUrl === null ? (
-              buildLabel(__BUILD_INFO__)
+              buildLabel(BUILD_INFO)
             ) : (
               <a
                 href={buildUrl}
@@ -169,7 +169,7 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                 className="build-link"
                 data-testid="build-label"
               >
-                {buildLabel(__BUILD_INFO__)}
+                {buildLabel(BUILD_INFO)}
               </a>
             )}
           </p>

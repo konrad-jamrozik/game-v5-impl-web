@@ -2,7 +2,8 @@
  * The Game rules of the Mechanics family, assembled behind the GameRules seam that the engine subsystems use.
  */
 import { produce } from 'immer';
-import { GAME_BUILD, type GdrCatalog } from '../gdr/index.ts';
+import type { GdrCatalog } from '../gdr/index.ts';
+import { GAME_BUILD } from './game-build.ts';
 import {
   detachedCombat,
   detachedCombatBatch,

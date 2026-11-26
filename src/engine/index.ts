@@ -2,7 +2,8 @@
  * The public engine API: the three namespaces `session`, `player`, and `developer` of ENG, API hierarchy. Every user
  * interface is an adapter over this API and implements no gameplay rule of its own.
  */
-import { bootstrapGdrCatalog, buildGdrCatalog, GAME_BUILD, type RawGdrFile } from '../gdr/index.ts';
+import { bootstrapGdrCatalog, buildGdrCatalog, type RawGdrFile } from '../gdr/index.ts';
+import { BUILD_INFO, GAME_BUILD } from './game-build.ts';
 import { createGameRules } from './game-rules.ts';
 import type {
   ActionOutcome,
@@ -109,7 +110,9 @@ export type { AutosaveFailure, EngineError, ErrorCode } from './result.ts';
 export type { GameStorage, SaveHeader, SaveKind } from './saves/storage.ts';
 export { MemoryStorage } from './saves/storage.ts';
 export type * from './state/types.ts';
-export { GAME_BUILD };
+export { BUILD_INFO, GAME_BUILD };
+export { gameBuildId } from './game-build.ts';
+export type { BuildInfo } from './game-build.ts';
 
 export interface Engine {
   /** Session API: for the Session controller. */

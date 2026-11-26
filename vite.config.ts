@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite-plus';
-import { buildInfo, type BuildInfo } from './src/web/build-label.ts';
+import { buildInfo, type BuildInfo } from './src/engine/game-build.ts';
 
 /** The service worker's own entry, emitted as `sw.js` beside the page so that its scope is the whole game. */
 const SERVICE_WORKER = 'sw';

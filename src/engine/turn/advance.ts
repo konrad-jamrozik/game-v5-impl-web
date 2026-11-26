@@ -6,7 +6,8 @@
  * Campaign instances are processed does not change the result. `order` lets a test choose that order.
  */
 import { byInstanceId, formatInstanceId, must } from '../../kernel/index.ts';
-import { GAME_BUILD, type GdrCatalog } from '../../gdr/index.ts';
+import type { GdrCatalog } from '../../gdr/index.ts';
+import { GAME_BUILD } from '../game-build.ts';
 import {
   addExhaustion,
   agentCombatantValues,

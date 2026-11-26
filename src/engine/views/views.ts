@@ -4,7 +4,8 @@
  * consistency. No view reads a hidden value.
  */
 import { deepFreeze, detach, must } from '../../kernel/index.ts';
-import { GAME_BUILD, type GdrCatalog } from '../../gdr/index.ts';
+import type { GdrCatalog } from '../../gdr/index.ts';
+import { GAME_BUILD } from '../game-build.ts';
 import { applyGameAction } from '../actions/actions.ts';
 import {
   canTakeOrders,
