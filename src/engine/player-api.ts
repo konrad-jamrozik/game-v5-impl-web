@@ -304,6 +304,8 @@ export interface UpgradeView {
   /** The Increment in hundredths; a whole number times 100 for every Upgrade but a Rate Upgrade. */
   readonly incrementHundredths: number;
   readonly acquisitions: number;
+  /** ECON, Upgrade: the most Acquisitions the Agency can have of the Upgrade, or null when it has no such limit. */
+  readonly maxAcquisitions: number | null;
 }
 
 export interface AgencyView {

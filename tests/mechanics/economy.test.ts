@@ -586,12 +586,32 @@ describe('ECON: examples', () => {
     });
   });
 
+  it('An Upgrade with a max_acquisitions is purchasable only below it', () => {
+    const limited = upgrade('exhaustion_recovery');
+    const max = limited.maxAcquisitions!;
+    expect(max).toBeGreaterThan(0);
+    let state = setMoney(newCampaign(), limited.price * (max + 1));
+    for (let bought = 0; bought < max; bought += 1) {
+      state = act(state, 'purchaseUpgrade', { upgrade: limited.id });
+    }
+    expect(agency(state).upgrades.find((item) => item.id === limited.id)).toMatchObject({
+      acquisitions: max,
+      maxAcquisitions: max,
+    });
+    expect(money(state)).toBe(limited.price);
+    expectRejected(state, 'purchaseUpgrade', { upgrade: limited.id }, 'max_acquisitions_reached');
+    // An Upgrade without one has no such limit.
+    expect(upgrade('training_cap').maxAcquisitions).toBeNull();
+  });
+
   it('GDR validation', () => {
     expectDefective((raw) => (raw.get('training_cap')['effect'] = 'agent_morale'));
     // ECON, Upgrade effects: no Upgrade raises weapon damage or armor any more.
     expectDefective((raw) => (raw.get('training_cap')['effect'] = 'agent_weapon_damage'));
     expectDefective((raw) => delete raw.get('transport_cap')['increment']);
-    expectDefective((raw) => (raw.get('agent_cap')['max_acquisitions'] = 3));
+    // ECON, Upgrade: max_acquisitions is a whole number of at least 1.
+    expectDefective((raw) => (raw.get('agent_cap')['max_acquisitions'] = 0));
+    expectDefective((raw) => (raw.get('agent_cap')['max_acquisitions'] = 2.5));
     expectDefective((raw) => (raw.get('training_cap')['price'] = -1));
     expectDefective((raw) => (raw.get('economy')['hire_cost'] = { $decimal: '12.5' }));
     // ECON, EconomyParameters: contracting_skill_scale is a whole number of at least 100.

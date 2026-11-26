@@ -450,6 +450,10 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
             : groupDigits(upgrade.incrementHundredths / 100);
           rows.push(['Each purchase', [figure(`+${increment}`), { text: wording.after }]]);
         }
+        // CVIEW, Upgrade data sheet: e.g. "8 at most", left out for an Upgrade without a `max_acquisitions`.
+        if (upgrade.maxAcquisitions !== null) {
+          rows.push(['Purchases', [figure(groupDigits(upgrade.maxAcquisitions)), { text: ' at most' }]]);
+        }
       }
       break;
     }

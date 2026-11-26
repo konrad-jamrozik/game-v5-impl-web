@@ -93,16 +93,29 @@ export function UpgradesView(props: {
           const purchase = purchases.find((item) => item.upgrade === upgrade.id);
           const { kind, what, before, after } = change(upgrade, state);
           const missing = upgrade.price - money;
+          // UVIEW, Upgrade cards: at its `max_acquisitions`, the card shows the value as it is now, without an arrow,
+          // says "Maximum reached" instead of the money missing, and counts "Bought 8 / 8".
+          const maxed = upgrade.maxAcquisitions !== null && upgrade.acquisitions >= upgrade.maxAcquisitions;
+          const bought =
+            upgrade.maxAcquisitions === null
+              ? `Bought ${groupDigits(upgrade.acquisitions)}×`
+              : `Bought ${groupDigits(upgrade.acquisitions)} / ${groupDigits(upgrade.maxAcquisitions)}`;
           return (
             <article key={upgrade.id} className="card upgrade-card" data-testid={`upgrade-${upgrade.id}`}>
               <span className="label">{kind}</span>
               <h4>{upgrade.name}</h4>
               <p className="secondary small upgrade-what">{what}</p>
               <p className="upgrade-change figure" data-testid={`upgrade-change-${upgrade.id}`}>
-                {before === null ? null : <>{before} → </>}
-                <span className="tone-good">{after}</span>
+                {maxed ? (
+                  (before ?? after)
+                ) : (
+                  <>
+                    {before === null ? null : <>{before} → </>}
+                    <span className="tone-good">{after}</span>
+                  </>
+                )}
               </p>
-              <p className="muted small">Bought {groupDigits(upgrade.acquisitions)}×</p>
+              <p className="muted small">{bought}</p>
               <div className="card-actions upgrade-buy">
                 <Button
                   kind="primary"
@@ -116,15 +129,15 @@ export function UpgradesView(props: {
                 >
                   Buy · {groupDigits(upgrade.price)}
                 </Button>
-                {missing > 0 ? (
+                {maxed ? (
+                  <span className="muted small upgrade-missing" data-testid={`maxed-${upgrade.id}`}>
+                    Maximum reached
+                  </span>
+                ) : missing > 0 ? (
                   <span className="tone-bad small upgrade-missing">{groupDigits(missing)} missing</span>
                 ) : null}
               </div>
-              <Tally
-                count={upgrade.acquisitions}
-                label={`Bought ${groupDigits(upgrade.acquisitions)}×`}
-                testId={`tally-${upgrade.id}`}
-              />
+              <Tally count={upgrade.acquisitions} label={bought} testId={`tally-${upgrade.id}`} />
             </article>
           );
         })}

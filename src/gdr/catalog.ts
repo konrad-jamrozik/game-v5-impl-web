@@ -449,6 +449,7 @@ const schemas = {
         'health_recovery',
       ]),
       increment: hundredths(0),
+      max_acquisitions: whole(1).optional(),
     })
     // ECON, Upgrade: only a Rate Upgrade's increment may have decimal places.
     .refine(
@@ -458,7 +459,11 @@ const schemas = {
         g.effect === 'health_recovery' ||
         g.increment % 100 === 0,
     )
-    .transform(({ increment, ...g }) => ({ ...g, incrementHundredths: increment })),
+    .transform(({ increment, max_acquisitions, ...g }) => ({
+      ...g,
+      incrementHundredths: increment,
+      maxAcquisitions: max_acquisitions ?? null,
+    })),
   AgencyArchetype: z.strictObject({ id, type: z.literal('AgencyArchetype'), name }),
   CampaignConfiguration: z
     .strictObject({

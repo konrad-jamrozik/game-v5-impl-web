@@ -559,6 +559,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
       effect: upgrade.effect,
       incrementHundredths: upgrade.incrementHundredths,
       acquisitions: world.agency.state.acquisitions[upgrade.id] ?? 0,
+      maxAcquisitions: upgrade.maxAcquisitions,
     })),
     ...caps,
     contractingCap: currentContractingCap(world, gdrs),
@@ -928,16 +929,7 @@ export function availableActionsView(state: CampaignState, gdrs: GdrCatalog): Av
       upgrade: upgrade.id,
       ...(ended
         ? endedReason
-        : availability(
-            world.agency.state.money < upgrade.price
-              ? {
-                  rejected: true,
-                  code: 'rejected',
-                  reason: 'not_enough_money',
-                  message: `${upgrade.name} costs ${upgrade.price} and the Agency has ${world.agency.state.money}.`,
-                }
-              : null,
-          )),
+        : availability(tryAction(world, gdrs, 'purchaseUpgrade', { upgrade: upgrade.id }))),
     })),
     agentsThatCanTakeOrders: ended
       ? []

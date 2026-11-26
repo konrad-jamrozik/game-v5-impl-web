@@ -185,6 +185,8 @@ export interface UpgradeGdr {
    * for every other Upgrade; see ECON, Upgrade.
    */
   readonly incrementHundredths: number;
+  /** ECON, Upgrade: the most Acquisitions the Agency can have of the Upgrade, or null when it has no such limit. */
+  readonly maxAcquisitions: number | null;
 }
 
 export interface AgencyArchetypeGdr {

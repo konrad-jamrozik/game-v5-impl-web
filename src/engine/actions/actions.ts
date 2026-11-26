@@ -508,6 +508,13 @@ function purchaseUpgrade(world: CurrentWorldState, args: Args, gdrs: GdrCatalog)
   if (upgrade === undefined) {
     return reject('unknown_upgrade', 'That identifier names no Upgrade.');
   }
+  const acquisitions = world.agency.state.acquisitions[upgrade.id] ?? 0;
+  if (upgrade.maxAcquisitions !== null && acquisitions >= upgrade.maxAcquisitions) {
+    return reject(
+      'max_acquisitions_reached',
+      `${upgrade.name} has reached its maximum of ${upgrade.maxAcquisitions} acquisitions.`,
+    );
+  }
   if (world.agency.state.money < upgrade.price) {
     return reject(
       'not_enough_money',

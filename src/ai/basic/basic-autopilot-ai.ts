@@ -68,6 +68,14 @@ type Muster = { readonly agents: ReadonlySet<string>; readonly recall: readonly 
 
 const RATE_EFFECTS = ['training_skill_gain', 'exhaustion_recovery', 'health_recovery'];
 
+/** BASICAI, Purchases: an Upgrade is bought only while its Acquisitions are below its `max_acquisitions`. */
+function belowMax(upgrade: {
+  readonly acquisitions: number;
+  readonly maxAcquisitions: number | null;
+}): boolean {
+  return upgrade.maxAcquisitions === null || upgrade.acquisitions < upgrade.maxAcquisitions;
+}
+
 /** What one pass of the Turn routine reads: the World state, the plan derived from it, and the Muster. */
 interface Pass {
   readonly plan: Plan;
@@ -656,7 +664,7 @@ class Turn {
 
   private upgradeOf(state: CurrentLiveWorldStateView, effect: string) {
     return [...state.agency.upgrades]
-      .filter((item) => item.effect === effect && item.incrementHundredths > 0)
+      .filter((item) => item.effect === effect && item.incrementHundredths > 0 && belowMax(item))
       .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price)[0];
   }
 
@@ -801,7 +809,7 @@ class Turn {
       );
     }
     const rate = [...agency.upgrades]
-      .filter((item) => RATE_EFFECTS.includes(item.effect) && item.incrementHundredths > 0)
+      .filter((item) => RATE_EFFECTS.includes(item.effect) && item.incrementHundredths > 0 && belowMax(item))
       .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price || a.id.localeCompare(b.id))[0];
     if (rate !== undefined && !this.rateBought) {
       const bought = await this.buy(state, `buy ${rate.id}`, rate.price, agency.projectedUpkeep, () =>

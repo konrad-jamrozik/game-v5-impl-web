@@ -37,7 +37,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "skill_penalty_pct_per_exhaustion": 1,
         "exhaustion_per_attack": 1,
         "exhaustion_per_defense": 0,
-        "exhaustion_per_mission": 5,
+        "exhaustion_per_mission": 15,
         "exhaustion_per_pct_killed": 1,
         "exhaustion_per_contracting_turn": 1,
         "exhaustion_per_training_turn": 1,
@@ -5661,7 +5661,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "effect": "training_skill_gain",
         "increment": {
           "$decimal": "0.5"
-        }
+        },
+        "max_acquisitions": 8
       },
       {
         "id": "exhaustion_recovery",
@@ -5669,7 +5670,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "name": "Exhaustion recovery",
         "price": 1000,
         "effect": "exhaustion_recovery",
-        "increment": 1
+        "increment": 1,
+        "max_acquisitions": 10
       },
       {
         "id": "health_recovery",
@@ -5677,7 +5679,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "name": "Health recovery",
         "price": 1000,
         "effect": "health_recovery",
-        "increment": 1
+        "increment": 1,
+        "max_acquisitions": 8
       }
     ]
   },
