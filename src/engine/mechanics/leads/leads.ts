@@ -313,14 +313,20 @@ export function initiativeOperationLevels(gdrs: {
 }
 
 /**
- * LEAD, Contracting cap growth: the number of distinct Initiative operation levels at which a Mission at an Initiative
- * Mission site is Won, whatever its Faction.
+ * LEAD, Contracting cap growth: for each Initiative operation level, the entries of contracting_cap_per_initiative_level
+ * that the distinct Factions Won against at that level bring, the first Faction the first entry; summed over the levels.
  */
-export function initiativeLevelsWon(
+export function contractingCapGrowth(
   world: InitiativeWinWorld,
-  gdrs: Parameters<typeof initiativeOperationLevels>[0],
+  gdrs: Parameters<typeof initiativeOperationLevels>[0] & { readonly economy: EconomyParametersGdr },
 ): number {
-  return wonInitiativeLevels(world, gdrs).size;
+  let growth = 0;
+  for (const factions of wonFactionsByLevel(world, gdrs).values()) {
+    for (let i = 0; i < factions.length; i += 1) {
+      growth += gdrs.economy.contractingCapPerInitiativeLevel[i] ?? 0;
+    }
+  }
+  return growth;
 }
 
 /** The parts of a World state that Contracting cap growth reads. */
@@ -330,19 +336,28 @@ export interface InitiativeWinWorld {
   readonly investigations: Readonly<Record<string, Investigation>>;
 }
 
-/** LEAD, Contracting cap growth: the distinct Initiative operation levels at which a Mission is Won. */
-export function wonInitiativeLevels(
+/**
+ * LEAD, Contracting cap growth: for each Initiative operation level at which a Mission is Won, the target Factions of
+ * its Won Missions, each once, in the order of their first Won Mission there, i.e. the order the Missions were created.
+ */
+export function wonFactionsByLevel(
   world: InitiativeWinWorld,
   gdrs: Parameters<typeof initiativeOperationLevels>[0],
-): Set<number> {
-  const levels = new Set<number>();
+): Map<number, string[]> {
+  const byLevel = new Map<number, string[]>();
   for (const mission of Object.values(world.missions)) {
     const level = mission.state.lifecycle === 'Won' ? missionInitiativeLevel(mission, world, gdrs) : null;
-    if (level !== null) {
-      levels.add(level);
+    const faction = world.missionSites[mission.constants.missionSite]?.constants.targetFaction;
+    if (level === null || faction === undefined) {
+      continue;
     }
+    const factions = byLevel.get(level) ?? [];
+    if (!factions.includes(faction)) {
+      factions.push(faction);
+    }
+    byLevel.set(level, factions);
   }
-  return levels;
+  return byLevel;
 }
 
 /**
@@ -359,15 +374,15 @@ export function missionInitiativeLevel(
   return lead === null ? null : leadInitiativeOperationLevel(lead, gdrs);
 }
 
-/** ECON, Contracting cap, with W the Initiative levels won of the given World state. */
+/** ECON, Contracting cap, with G the Contracting cap growth of the given World state. */
 export function currentContractingCap(
-  world: Parameters<typeof initiativeLevelsWon>[0] & {
+  world: Parameters<typeof contractingCapGrowth>[0] & {
     readonly agency: { readonly state: { readonly contractingUnlocked: boolean } };
   },
   gdrs: Parameters<typeof initiativeOperationLevels>[0] & { readonly economy: EconomyParametersGdr },
 ): number {
   const unlocked = world.agency.state.contractingUnlocked;
-  return contractingCap(gdrs.economy, unlocked, unlocked ? initiativeLevelsWon(world, gdrs) : 0);
+  return contractingCap(gdrs.economy, unlocked, unlocked ? contractingCapGrowth(world, gdrs) : 0);
 }
 
 /** LEAD, Initiative operation level of one Lead; null for one that has none. */

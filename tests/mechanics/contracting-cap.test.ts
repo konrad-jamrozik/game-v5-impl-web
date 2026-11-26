@@ -1,13 +1,17 @@
 /** Tests of the Contracting cap: ECON, Contracting cap and Caps on assigning Agents, and LEAD, Contracting cap growth. */
 import { describe, expect, it } from 'vite-plus/test';
 import { contractingCap } from '../../src/engine/mechanics/economy/economy.ts';
-import { initiativeLevelsWon, leadInitiativeOperationLevel } from '../../src/engine/mechanics/leads/leads.ts';
+import {
+  contractingCapGrowth,
+  leadInitiativeOperationLevel,
+} from '../../src/engine/mechanics/leads/leads.ts';
 import type { CampaignState, CurrentWorldState } from '../../src/engine/state/types.ts';
 import {
   availableActionsView,
   currentLiveWorldStateView,
   currentRetiredWorldStateView,
 } from '../../src/engine/views/views.ts';
+import { bootstrapGdrCatalog, type GdrCatalog } from '../../src/gdr/index.ts';
 import {
   act,
   addMissionSite,
@@ -27,16 +31,24 @@ const { economy } = gdrs;
 const LEAD = 'contracting_opportunities';
 const agency = (state: CampaignState) => currentLiveWorldStateView(state, gdrs).agency;
 
-/** A World state's Missions, Mission sites, and Investigations, holding one Won Mission at a site of each given Lead. */
-function wonAt(leads: readonly string[]): Parameters<typeof initiativeLevelsWon>[0] {
+/**
+ * A World state's Missions, Mission sites, and Investigations, holding one Won Mission at a site of each given Lead,
+ * in order, against the given Faction.
+ */
+function wonAt(
+  wins: readonly (readonly [lead: string, faction: string])[],
+): Parameters<typeof contractingCapGrowth>[0] {
   const world = { missions: {}, missionSites: {}, investigations: {} } as unknown as Pick<
     CurrentWorldState,
     'missions' | 'missionSites' | 'investigations'
   >;
-  leads.forEach((lead, index) => {
+  wins.forEach(([lead, targetFaction], index) => {
     world.investigations[`investigation-${index}`] = { constants: { lead } } as never;
     world.missionSites[`mission-site-${index}`] = {
-      constants: { origin: { kind: 'Investigation', investigation: `investigation-${index}` } },
+      constants: {
+        origin: { kind: 'Investigation', investigation: `investigation-${index}` },
+        targetFaction,
+      },
     } as never;
     world.missions[`mission-${index}`] = {
       constants: { missionSite: `mission-site-${index}` },
@@ -96,44 +108,104 @@ describe('ECON: Contracting cap', () => {
     expect(availableActionsView(filled, gdrs).assignAgents.contractingPlacesLeft).toBe(0);
   });
 
-  it('grows by contracting_cap_per_initiative_level for the first win at each Initiative operation level only', () => {
+  it('grows at each Initiative operation level by one entry for each distinct Faction Won against there', () => {
     const member = 'locate_red_dawn_member';
     const safehouse = 'locate_red_dawn_safehouse';
     expect(leadInitiativeOperationLevel(member, gdrs)).toBe(1);
     expect(leadInitiativeOperationLevel(safehouse, gdrs)).toBe(2);
-    expect(initiativeLevelsWon(wonAt([]), gdrs)).toBe(0);
-    // A second win at a level already counted adds nothing.
-    expect(initiativeLevelsWon(wonAt([member, member]), gdrs)).toBe(1);
-    expect(initiativeLevelsWon(wonAt([member, safehouse]), gdrs)).toBe(2);
-    const per = economy.contractingCapPerInitiativeLevel;
-    expect(contractingCap(economy, true, 2)).toBe(economy.baseContractingCap + 2 * per);
-    // Levels won before Contracting is unlocked raise nothing while it is locked.
-    expect(contractingCap(economy, false, 2)).toBe(0);
+    const [r1 = 0, r2 = 0, r3 = 0] = economy.contractingCapPerInitiativeLevel;
+    expect(contractingCapGrowth(wonAt([]), gdrs)).toBe(0);
+    expect(contractingCapGrowth(wonAt([[member, 'f1']]), gdrs)).toBe(r1);
+    // A second win against the same Faction at a level adds nothing.
+    expect(
+      contractingCapGrowth(
+        wonAt([
+          [member, 'f1'],
+          [member, 'f1'],
+        ]),
+        gdrs,
+      ),
+    ).toBe(r1);
+    // A second and a third Faction at that level bring the second and the third entry, a fourth nothing.
+    expect(
+      contractingCapGrowth(
+        wonAt([
+          [member, 'f1'],
+          [member, 'f2'],
+        ]),
+        gdrs,
+      ),
+    ).toBe(r1 + r2);
+    expect(
+      contractingCapGrowth(
+        wonAt([
+          [member, 'f1'],
+          [member, 'f2'],
+          [member, 'f3'],
+          [member, 'f4'],
+        ]),
+        gdrs,
+      ),
+    ).toBe(r1 + r2 + r3 + (economy.contractingCapPerInitiativeLevel[3] ?? 0));
+    // Each level counts its own Factions.
+    expect(
+      contractingCapGrowth(
+        wonAt([
+          [member, 'f1'],
+          [member, 'f2'],
+          [safehouse, 'f1'],
+        ]),
+        gdrs,
+      ),
+    ).toBe(r1 + r2 + r1);
+    expect(contractingCap(economy, true, 7)).toBe(economy.baseContractingCap + 7);
+    // Wins before Contracting is unlocked raise nothing while it is locked.
+    expect(contractingCap(economy, false, 7)).toBe(0);
   });
 
-  it('Turn report: the first Won Mission at a level brings the rise, a second at that level and a locked cap none', () => {
+  it('Turn report: the first Won Mission against each Faction at a level brings its rise, a second against it and a locked cap none', () => {
     const member = 'locate_red_dawn_member';
-    const archetype = gdrs.leads.find((lead) => lead.id === member)!.onCompletion.createMissionSite!;
+    const [r1 = 0] = economy.contractingCapPerInitiativeLevel;
     // Each win sends four newly hired Agents, so that Agents still away from an earlier win play no part.
-    const win = (start: CampaignState) => {
-      const site = addMissionSite(withAgents(start, agentIds(start).length + 4), archetype, { lead: member });
-      const deployed = act(site.state, 'deployAgents', {
-        missionSite: site.site,
-        agents: agentIds(site.state).slice(-4),
-      });
-      const after = advance(deployed, winning(deployed, site.site));
+    const win = (start: CampaignState, faction = 0, catalog: GdrCatalog = gdrs, lead = member) => {
+      const site = addMissionSite(
+        withAgents(start, agentIds(start).length + 4, catalog),
+        catalog.leads.find((item) => item.id === lead)!.onCompletion.createMissionSite!,
+        { lead, faction, catalog },
+      );
+      const deployed = act(
+        site.state,
+        'deployAgents',
+        { missionSite: site.site, agents: agentIds(site.state).slice(-4) },
+        'player',
+        catalog,
+      );
+      const after = advance(deployed, winning(deployed, site.site), catalog);
       return {
         state: after,
         rises: after.world.history.turnReport!.missions.map((m) => m.contractingCapRise),
       };
     };
     const first = win(newCampaign());
-    expect(first.rises).toEqual([economy.contractingCapPerInitiativeLevel]);
-    expect(agency(first.state).contractingCap).toBe(
-      economy.baseContractingCap + economy.contractingCapPerInitiativeLevel,
-    );
-    // A second win at the level already counted brings no rise.
+    expect(first.rises).toEqual([r1]);
+    expect(agency(first.state).contractingCap).toBe(economy.baseContractingCap + r1);
+    expect(agency(first.state).contractingCapGrowth).toBe(r1);
+    // A second win against the Faction already counted at the level brings no rise.
     expect(win(first.state).rises).toEqual([0]);
+    // A win against another Faction at that level brings the second entry. The test Game build holds Red Dawn alone,
+    // so this part plays the Game build, whose second Faction is Exalt.
+    const full = bootstrapGdrCatalog();
+    const exalt = Object.values(newCampaign({ catalog: full }).world.current.factions).findIndex(
+      (faction) => faction.archetype === 'exalt',
+    );
+    const redDawn = win(newCampaign({ catalog: full }), 0, full);
+    const second = win(redDawn.state, exalt, full, 'locate_exalt_member');
+    const [f1 = 0, f2 = 0] = full.economy.contractingCapPerInitiativeLevel;
+    expect(redDawn.rises).toEqual([f1]);
+    expect(second.rises).toEqual([f2]);
+    expect(currentLiveWorldStateView(second.state, full).agency.contractingCap).toBe(
+      full.economy.baseContractingCap + f1 + f2,
+    );
     // While Contracting is locked, the first win brings no rise either.
     expect(win(newCampaign({ contractingUnlocked: false })).rises).toEqual([0]);
   });

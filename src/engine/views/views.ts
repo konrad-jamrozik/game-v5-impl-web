@@ -3,8 +3,8 @@
  * for, so it is detached and always equals what the current Campaign state gives; see ENG, Derived value
  * consistency. No view reads a hidden value.
  */
-import { deepFreeze, detach, must, q } from '../../kernel/index.ts';
-import { GAME_BUILD, type GdrCatalog, type MissionSiteArchetypeGdr } from '../../gdr/index.ts';
+import { deepFreeze, detach, must } from '../../kernel/index.ts';
+import { GAME_BUILD, type GdrCatalog } from '../../gdr/index.ts';
 import { applyGameAction } from '../actions/actions.ts';
 import {
   canTakeOrders,
@@ -53,10 +53,12 @@ import {
   leadOfMissionSite,
   leadStatus,
   currentContractingCap,
-  initiativeLevelsWon,
+  contractingCapGrowth,
 } from '../mechanics/leads/leads.ts';
 import {
+  archetypeEnemiesCombatRating,
   consequencesOf,
+  enemiesCombatRating,
   isDeployableAgent,
   type ConsequenceAmounts,
 } from '../mechanics/missions/missions.ts';
@@ -411,8 +413,9 @@ function missionSiteView(
     lifecycle: site.state.lifecycle,
     turnsUntilExpiration: site.state.turnsUntilExpiration,
     enemies: enemies.map((enemy) => enemyView(enemy, gdrs)),
-    enemiesCombatRating: combatRating(
-      enemies.map((enemy) => enemyCombatant(enemy.state)),
+    // REUSE, Combat ratings of Enemies.
+    enemiesCombatRating: enemiesCombatRating(
+      enemies.map((enemy) => enemy.state),
       gdrs.combatParameters,
       gdrs.agentParameters,
     ),
@@ -559,7 +562,7 @@ function agencyView(world: CurrentWorldState, gdrs: GdrCatalog): AgencyView {
     ...caps,
     contractingCap: currentContractingCap(world, gdrs),
     contractingUnlocked: world.agency.state.contractingUnlocked,
-    initiativeLevelsWon: initiativeLevelsWon(world, gdrs),
+    contractingCapGrowth: contractingCapGrowth(world, gdrs),
     contractingAgents: countContracting(agents),
     ...ratesOf(world, gdrs),
     equipment: equipmentView(world, gdrs),
@@ -1037,8 +1040,8 @@ export function previewDeployment(
     enemiesCombatRating:
       site === undefined
         ? null
-        : combatRating(
-            site.state.enemies.map((id) => enemyCombatant(must(world.enemies[id], `Enemy ${id}`).state)),
+        : enemiesCombatRating(
+            site.state.enemies.map((id) => must(world.enemies[id], `Enemy ${id}`).state),
             gdrs.combatParameters,
             gdrs.agentParameters,
           ),
@@ -1049,18 +1052,6 @@ export function previewDeployment(
 }
 
 const gameDataCache = new WeakMap<GdrCatalog, GameDataView>();
-
-function archetypeRating(archetype: MissionSiteArchetypeGdr, gdrs: GdrCatalog): number {
-  // A newly created Enemy has current health equal to base health and exhaustion 0, so its Combat rating is its
-  // skill unless it meets the incapacitation condition.
-  let total = 0;
-  for (const [enemyId, count] of archetype.enemies) {
-    const enemy = must(gdrs.enemyArchetypes.get(enemyId), `EnemyArchetype ${enemyId}`);
-    const able = q(enemy.skill).gt(gdrs.combatParameters.incapacitationSkillFraction.mul(enemy.skill));
-    total += able ? enemy.skill * count : 0;
-  }
-  return total;
-}
 
 function decimalText(value: { n: bigint; d: bigint }): string {
   // The CombatParameters values are finite decimals; write them back as decimals.
@@ -1271,7 +1262,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         firstWinPhrase: archetype.firstWinPhrase,
         expiresInTurns: archetype.expiresInTurns,
         enemies: archetype.enemies.map(([enemyArchetype, count]) => ({ enemyArchetype, count })),
-        enemiesCombatRating: archetypeRating(archetype, gdrs),
+        enemiesCombatRating: archetypeEnemiesCombatRating(archetype, gdrs),
         onWin:
           archetype.kind === 'initiative' ? consequenceView(consequencesOf('Won', archetype, null)) : null,
         operationLevel: archetype.operationLevel,

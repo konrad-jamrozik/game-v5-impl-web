@@ -272,7 +272,8 @@ export function parseTemplate(text: string): readonly AuthoredPart[] | string {
 /**
  * COMP, Value formatting: the text a Placeholder shows for one value as `scripts/build-gdr.ts` writes it, or null for
  * a value of a shape that no Placeholder can show, e.g. a mapping or an absent value. A number is read as the exact
- * decimal number the GDR file states, and nothing is rounded.
+ * decimal number the GDR file states, and nothing is rounded; a decimal authored as a whole number, e.g. `0`, is shown
+ * as that whole number.
  */
 export function formatPlaceholderValue(value: unknown): string | null {
   if (typeof value === 'string') {
@@ -282,7 +283,7 @@ export function formatPlaceholderValue(value: unknown): string | null {
     return value < 0 ? `−${-value}` : String(Math.abs(value));
   }
   const decimal = isRecord(value) && Object.keys(value).length === 1 ? value['$decimal'] : undefined;
-  const match = typeof decimal === 'string' ? /^([+-]?)(\d+)\.(\d+)$/.exec(decimal) : null;
+  const match = typeof decimal === 'string' ? /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(decimal) : null;
   if (match === null) {
     return null;
   }

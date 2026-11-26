@@ -418,7 +418,7 @@ const schemas = {
       base_transport_cap: whole(0),
       base_training_cap: whole(0),
       base_contracting_cap: whole(0),
-      contracting_cap_per_initiative_level: whole(0),
+      contracting_cap_per_initiative_level: z.array(whole(0)).min(1),
     })
     .transform((g) => ({
       type: g.type,

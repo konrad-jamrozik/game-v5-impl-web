@@ -320,8 +320,8 @@ export interface AgencyView {
   readonly contractingCap: number;
   /** ECON, Agency properties: whether Contracting is unlocked. */
   readonly contractingUnlocked: boolean;
-  /** LEAD, Contracting cap growth: the Initiative levels won. */
-  readonly initiativeLevelsWon: number;
+  /** LEAD, Contracting cap growth: what Won Missions at Initiative Mission sites add to the Contracting cap. */
+  readonly contractingCapGrowth: number;
   /** ECON, Contracting cap: the Serving Agents whose Assignment is Contracting, In transit included. */
   readonly contractingAgents: number;
   /**

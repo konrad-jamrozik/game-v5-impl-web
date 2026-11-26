@@ -243,6 +243,10 @@ describe('COMP: Placeholders', () => {
     expect(formatPlaceholderValue({ $decimal: '0.1' })).toBe('0.1');
     expect(formatPlaceholderValue({ $decimal: '2.00' })).toBe('2');
     expect(formatPlaceholderValue({ $decimal: '12.345' })).toBe('12.345');
+    // A decimal property authored as a whole number is a whole number.
+    expect(formatPlaceholderValue({ $decimal: '0' })).toBe('0');
+    expect(formatPlaceholderValue({ $decimal: '3' })).toBe('3');
+    expect(formatPlaceholderValue({ $decimal: '-0' })).toBe('0');
     // A negative number: the minus sign U+2212.
     expect(formatPlaceholderValue(-3)).toBe('−3');
     expect(formatPlaceholderValue({ $decimal: '-0.25' })).toBe('−0.25');

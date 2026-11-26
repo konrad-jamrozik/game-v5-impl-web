@@ -161,7 +161,8 @@ export interface EconomyParametersGdr {
   /** ECON, Contracting cap: the Contracting cap once Contracting is unlocked, before any first win raises it. */
   readonly baseContractingCap: number;
   /** ECON, Contracting cap: what each Initiative level won adds to the Contracting cap once Contracting is unlocked. */
-  readonly contractingCapPerInitiativeLevel: number;
+  /** ECON, EconomyParameters: the Contracting cap rises at each Initiative operation level, by Faction in order. */
+  readonly contractingCapPerInitiativeLevel: readonly number[];
 }
 
 export type UpgradeEffect =

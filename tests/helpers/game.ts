@@ -658,11 +658,11 @@ export function withAgents(state: CampaignState, total: number, catalog: GdrCata
   });
 }
 
-/** Adds an Active Mission site of the given MissionSiteArchetype, with the origin its kind needs. */
+/** Adds an Active Mission site of the given MissionSiteArchetype, with the origin its kind needs, targeting the Faction at the given place in Faction order, the first by default. */
 export function addMissionSite(
   state: CampaignState,
   archetypeId: string,
-  options: { turnsUntilExpiration?: number; lead?: string; catalog?: GdrCatalog } = {},
+  options: { turnsUntilExpiration?: number; lead?: string; catalog?: GdrCatalog; faction?: number } = {},
 ): { state: CampaignState; site: string } {
   const catalog = options.catalog ?? gdrs;
   const archetype = catalog.missionSiteArchetypes.find((item) => item.id === archetypeId);
@@ -671,7 +671,7 @@ export function addMissionSite(
   }
   let siteId = '';
   const next = tweak(state, (world) => {
-    const faction = Object.values(world.factions)[0];
+    const faction = Object.values(world.factions)[options.faction ?? 0];
     if (!faction) {
       throw new Error('No Faction');
     }

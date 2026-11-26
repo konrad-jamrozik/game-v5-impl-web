@@ -78,17 +78,11 @@ export function agencyCaps(
 }
 
 /**
- * ECON, Contracting cap: 0 while Contracting is not unlocked, and otherwise base_contracting_cap plus
- * contracting_cap_per_initiative_level for each Initiative level won (LEAD, Contracting cap growth).
+ * ECON, Contracting cap: 0 while Contracting is not unlocked, and otherwise base_contracting_cap plus G, the
+ * Contracting cap growth (LEAD, Contracting cap growth).
  */
-export function contractingCap(
-  economy: EconomyParametersGdr,
-  unlocked: boolean,
-  initiativeLevelsWon: number,
-): number {
-  return unlocked
-    ? economy.baseContractingCap + economy.contractingCapPerInitiativeLevel * initiativeLevelsWon
-    : 0;
+export function contractingCap(economy: EconomyParametersGdr, unlocked: boolean, growth: number): number {
+  return unlocked ? economy.baseContractingCap + growth : 0;
 }
 
 /** The rates a Rate Upgrade raises, each a Decimal quantity held in hundredths; see ECON, Rate Upgrades. */

@@ -130,15 +130,7 @@ export function createMissionSite(input: {
   agentParameters: AgentParametersGdr;
 }): { site: MissionSite; enemies: Enemy[] } {
   const siteId = input.newId('mission-site');
-  const enemies: Enemy[] = [];
-  for (const [archetypeId, count] of input.archetype.enemies) {
-    const archetype = must(input.enemyArchetypes.get(archetypeId), `EnemyArchetype ${archetypeId}`);
-    const weapon = must(input.weapons.get(archetype.weapon), `Weapon ${archetype.weapon}`);
-    const armor = must(input.armors.get(archetype.armor), `Armor ${archetype.armor}`);
-    for (let i = 0; i < count; i += 1) {
-      enemies.push(createEnemy(input.newId('enemy'), siteId, archetype, weapon, armor));
-    }
-  }
+  const enemies = createArchetypeEnemies(input.archetype, siteId, () => input.newId('enemy'), input);
   return {
     site: {
       id: siteId,
@@ -149,8 +141,8 @@ export function createMissionSite(input: {
         targetFaction: input.targetFaction,
         turnCreated: input.turn,
         // MISSION, Mission site creation: the Combat rating of its Enemies taken as one side, as created.
-        creationCombatRating: combatRating(
-          enemies.map((enemy) => enemyCombatantState(enemy.state)),
+        creationCombatRating: enemiesCombatRating(
+          enemies.map((enemy) => enemy.state),
           input.combat,
           input.agentParameters,
         ),
@@ -163,6 +155,64 @@ export function createMissionSite(input: {
     },
     enemies,
   };
+}
+
+/** The GDRs that creating the Enemies of a MissionSiteArchetype reads. */
+export interface EnemyCreationGdrs {
+  readonly enemyArchetypes: ReadonlyMap<string, EnemyArchetypeGdr>;
+  readonly weapons: ReadonlyMap<string, WeaponGdr>;
+  readonly armors: ReadonlyMap<string, ArmorGdr>;
+}
+
+/**
+ * MISSION, Mission site creation and Enemy creation: the Enemies of a Mission site of the MissionSiteArchetype, in the
+ * authored order of its `enemies`. REUSE, Combat ratings of Enemies: the one implementation that both Mission site
+ * creation and the Combat rating of a MissionSiteArchetype's Enemies call.
+ */
+export function createArchetypeEnemies(
+  archetype: MissionSiteArchetypeGdr,
+  siteId: string,
+  newEnemyId: () => string,
+  gdrs: EnemyCreationGdrs,
+): Enemy[] {
+  const enemies: Enemy[] = [];
+  for (const [archetypeId, count] of archetype.enemies) {
+    const enemyArchetype = must(gdrs.enemyArchetypes.get(archetypeId), `EnemyArchetype ${archetypeId}`);
+    const weapon = must(gdrs.weapons.get(enemyArchetype.weapon), `Weapon ${enemyArchetype.weapon}`);
+    const armor = must(gdrs.armors.get(enemyArchetype.armor), `Armor ${enemyArchetype.armor}`);
+    for (let i = 0; i < count; i += 1) {
+      enemies.push(createEnemy(newEnemyId(), siteId, enemyArchetype, weapon, armor));
+    }
+  }
+  return enemies;
+}
+
+/** REUSE, Combat ratings of Enemies: the Combat rating of some Enemies taken as one side, by the one rating of a side. */
+export function enemiesCombatRating(
+  enemies: readonly Enemy['state'][],
+  combat: CombatParametersGdr,
+  agentParameters: AgentParametersGdr,
+): number {
+  return combatRating(enemies.map(enemyCombatantState), combat, agentParameters);
+}
+
+/**
+ * MISSION, Player-visible information: the Combat rating of a MissionSiteArchetype's Enemies, i.e. the Creation Combat
+ * rating of every Mission site of it, rated from the Enemies Mission site creation creates for it.
+ */
+export function archetypeEnemiesCombatRating(
+  archetype: MissionSiteArchetypeGdr,
+  gdrs: EnemyCreationGdrs & {
+    readonly combatParameters: CombatParametersGdr;
+    readonly agentParameters: AgentParametersGdr;
+  },
+): number {
+  const enemies = createArchetypeEnemies(archetype, 'rated', () => 'rated', gdrs);
+  return enemiesCombatRating(
+    enemies.map((enemy) => enemy.state),
+    gdrs.combatParameters,
+    gdrs.agentParameters,
+  );
 }
 
 /**
