@@ -3,21 +3,7 @@
  * smaller trend charts of the resources the agency runs on, five full-width Agency charts, and one Faction chart for
  * each Faction below them.
  */
-import {
-  ACTIVITY_SERIES,
-  activityBars,
-  ASSET_SERIES,
-  assetLines,
-  COMBAT_BAR_SERIES,
-  COMBAT_LINE_SERIES,
-  combatStrength,
-  EXPENDITURE_SERIES,
-  INCOME_SERIES,
-  moneyFlow,
-  NET_FLOW,
-  skillBands,
-  wornLines,
-} from '../agency-charts.ts';
+import { agencyCharts, capUpgradeIds } from '../agency-charts.ts';
 import { responseSitesSeries } from '../faction-activity.ts';
 import { decimalText } from '../format.ts';
 import type { Snapshot } from '../store.ts';
@@ -30,79 +16,20 @@ import { SeriesChart } from './SeriesChart.tsx';
 /** CVIEW, Agency charts: five full-width charts below the trend charts and above the Faction charts. */
 function AgencyCharts({ snapshot }: { snapshot: Snapshot }) {
   const history = snapshot.history;
-  const entries = history?.entries ?? [];
-  const open = history?.openEntry ?? null;
-  const moneyAtStart = history?.turnSeries.moneyAtStartOfTurn ?? [];
-  // ECON, Glossary: a Cap Upgrade raises the Agent cap, the Transport cap, or the Training cap.
-  const capUpgrades = new Set(
-    (snapshot.state?.agency.upgrades ?? [])
-      .filter((upgrade) => ['agent_cap', 'transport_cap', 'training_cap'].includes(upgrade.effect))
-      .map((upgrade) => upgrade.id),
-  );
-  const flow = moneyFlow(entries, moneyAtStart, capUpgrades);
-  const skills = skillBands(entries, open, snapshot.gameData?.ranks ?? []);
-  // CVIEW, Agency charts, Agents by base skill: the thresholds of its exhaustion lines come from AgentParameters.
-  const parameters = snapshot.gameData?.agentParameters ?? {};
-  const worn = wornLines(entries, open, {
-    workLimit: parameters['exhaustionWorkLimit'] ?? 70,
-    freePoints: parameters['exhaustionFreePoints'] ?? 30,
+  const charts = agencyCharts({
+    entries: history?.entries ?? [],
+    open: history?.openEntry ?? null,
+    moneyAtStartOfTurn: history?.turnSeries.moneyAtStartOfTurn ?? [],
+    capUpgrades: capUpgradeIds(snapshot.state?.agency.upgrades ?? []),
+    sites: [...(snapshot.state?.missionSites ?? []), ...(snapshot.retired?.missionSites ?? [])],
+    ranks: snapshot.gameData?.ranks ?? [],
+    agentParameters: snapshot.gameData?.agentParameters ?? {},
   });
-  const assets = assetLines(entries, open, moneyAtStart);
-  const strength = combatStrength(entries, open, [
-    ...(snapshot.state?.missionSites ?? []),
-    ...(snapshot.retired?.missionSites ?? []),
-  ]);
   return (
     <>
-      <SeriesChart
-        title="Agents · end of Turn"
-        barSeries={ACTIVITY_SERIES}
-        bars={activityBars(entries, open)}
-        total
-        testId="agent-activity-chart"
-      />
-      <SeriesChart
-        title="Money flow"
-        barSeries={[...INCOME_SERIES, ...EXPENDITURE_SERIES]}
-        bars={flow.bars}
-        lines={[{ ...NET_FLOW, points: flow.net }]}
-        testId="money-flow-chart"
-      />
-      <SeriesChart
-        title="Assets · start of Turn"
-        lines={[
-          { ...ASSET_SERIES.money, points: assets.money },
-          { ...ASSET_SERIES.servingAgents, points: assets.servingAgents, axis: 'right' },
-          { ...ASSET_SERIES.agentCap, points: assets.agentCap, axis: 'right' },
-          { ...ASSET_SERIES.transportCap, points: assets.transportCap, axis: 'right' },
-          { ...ASSET_SERIES.trainingCap, points: assets.trainingCap, axis: 'right' },
-          // CHARTS, Agency charts: the Contracting cap line and its legend entry only once the cap is at least 1 in a
-          // Turn shown; the cap never falls, so that is the latest Turns whenever any Turn has it.
-          ...(assets.contractingCap.some((point) => point.value >= 1)
-            ? [{ ...ASSET_SERIES.contractingCap, points: assets.contractingCap, axis: 'right' as const }]
-            : []),
-        ]}
-        testId="assets-chart"
-      />
-      <SeriesChart
-        title="Agents by base skill · end of Turn"
-        barSeries={skills.series}
-        bars={skills.bars}
-        lines={worn}
-        total
-        testId="skill-chart"
-      />
-      <SeriesChart
-        title="Combat ratings · end of Turn"
-        barSeries={COMBAT_BAR_SERIES}
-        bars={strength.bars}
-        lines={[
-          { ...COMBAT_LINE_SERIES.lastSite, points: strength.lastSite },
-          { ...COMBAT_LINE_SERIES.lastFiveSites, points: strength.lastFiveSites },
-        ]}
-        total
-        testId="combat-strength-chart"
-      />
+      {charts.map((chart) => (
+        <SeriesChart key={chart.key} chart={chart} />
+      ))}
     </>
   );
 }

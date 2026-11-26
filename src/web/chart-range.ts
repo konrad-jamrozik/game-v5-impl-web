@@ -5,8 +5,7 @@
  */
 import { setSetting, settingValue, snapshot, useSnapshot } from './store.ts';
 
-/** VIS, Charts: how many of the last Turns a chart shows while its checkbox is checked. */
-export const LAST_TURNS = 100;
+export { LAST_TURNS, lastTurnsFrom } from './series-chart-scene.ts';
 
 /** The charts whose checkbox is checked, from the stored text of Last 100 Turns charts. */
 export function checkedCharts(stored: unknown): readonly string[] {
@@ -32,15 +31,4 @@ export function useLastTurns(chart: string): [boolean, (on: boolean) => void] {
     void setSetting('lastTurnsCharts', JSON.stringify(value ? [...others, chart].sort() : others));
   };
   return [on, set];
-}
-
-/**
- * VIS, Charts: the Turns a chart shows, the last 100 of `turns` while `on`, otherwise all of them; the turn numbers
- * need not be consecutive, e.g. the ended Turns of Money flow.
- */
-export function lastTurnsFrom(turns: readonly number[], on: boolean): number {
-  if (!on || turns.length === 0) {
-    return Number.NEGATIVE_INFINITY;
-  }
-  return Math.max(...turns) - LAST_TURNS + 1;
 }

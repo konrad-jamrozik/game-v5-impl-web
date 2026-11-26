@@ -4,7 +4,10 @@ import type { HistoryEntry, OpenHistoryEntry, StateSummary } from '../../src/eng
 import {
   ACTIVITY_SERIES,
   activityBars,
+  agencyCharts,
   assetLines,
+  capUpgradeIds,
+  chartEntryOf,
   combatStrength,
   moneyFlow,
   readoutText,
@@ -106,8 +109,36 @@ describe('CVIEW: Agency charts', () => {
       { name: '100–149 (Rookie)', color: '#6A5ACD' },
       { name: '150–199 (Junior Agent)', color: '#4A86D9' },
       { name: '200–749 (Agent)', color: '#2FB0B8' },
+      { name: 'Killed', color: '#7A1C1C', outsideTotal: true },
     ]);
-    expect(bars).toEqual([{ turn: 7, above: [7, 0, 1], below: [] }]);
+    expect(bars).toEqual([{ turn: 7, above: [7, 0, 1, 0], below: [] }]);
+  });
+
+  it('example: the Agents Killed by the Advance turn that ended Turn 4 top the bar of Turn 5, outside its Total', () => {
+    const killedIn = (ids: string[][]) =>
+      ({
+        fundingUsed: 20,
+        income: 70,
+        upkeep: 40,
+        missions: ids.map((killed) => ({ consequence: consequence(0), killed })),
+        expiredConsequences: [],
+      }) as unknown as HistoryEntry['report'];
+    const { series, bars } = skillBands(
+      [
+        entry(4, { turnEnd: summary({ baseSkills: [100, 100, 100] }), report: killedIn([['a1'], ['a2']]) }),
+        entry(5, { turnEnd: summary({ baseSkills: [100] }), report: killedIn([]) }),
+      ],
+      { turn: 6, turnStart: summary(), turnEnd: summary({ baseSkills: [100] }) },
+      ranks,
+    );
+    expect(bars.map((bar) => bar.above)).toEqual([
+      [3, 0],
+      [1, 2],
+      [1, 0],
+    ]);
+    expect(readoutText({ turn: 5, barSeries: series, bars, lines: [], total: true })).toBe(
+      'Turn 5: Total 1 · 100–149 (Rookie) 1 · Killed 2',
+    );
   });
 
   it('counts a base skill below the lowest Rank in the band of the lowest Rank', () => {
@@ -118,8 +149,8 @@ describe('CVIEW: Agency charts', () => {
       actions: [],
     };
     const { series, bars } = skillBands([], open, ranks);
-    expect(series.map((band) => band.name)).toEqual(['100–149 (Rookie)']);
-    expect(bars).toEqual([{ turn: 2, above: [3], below: [] }]);
+    expect(series.map((band) => band.name)).toEqual(['100–149 (Rookie)', 'Killed']);
+    expect(bars).toEqual([{ turn: 2, above: [3, 0], below: [] }]);
   });
 
   it('puts every base skill from the highest Rank up in its open-ended band, with the colours in order', () => {
@@ -130,10 +161,10 @@ describe('CVIEW: Agency charts', () => {
       actions: [],
     };
     const { series, bars } = skillBands([], open, ranks);
-    expect(series).toHaveLength(4);
-    expect(series.at(-2)).toEqual({ name: '200–749 (Agent)', color: '#2FB0B8' });
-    expect(series.at(-1)).toEqual({ name: '750+ (Commander)', color: '#45BF6E' });
-    expect(bars[0]?.above.slice(-2)).toEqual([1, 2]);
+    expect(series).toHaveLength(5);
+    expect(series.at(-3)).toEqual({ name: '200–749 (Agent)', color: '#2FB0B8' });
+    expect(series.at(-2)).toEqual({ name: '750+ (Commander)', color: '#45BF6E' });
+    expect(bars[0]?.above.slice(-3, -1)).toEqual([1, 2]);
   });
 
   it('example: Combat strength stacks the Deployable and Other Agents and draws the last and last five Mission sites', () => {
@@ -152,7 +183,6 @@ describe('CVIEW: Agency charts', () => {
         turn: 3,
         turnStart: summary(),
         turnEnd: summary({ servingCombatRating: 280, deployableCombatRating: 200 }),
-        actions: [],
       },
       // Listed out of creation order, as the live and Retired Mission sites are.
       [...sites.slice(3), ...sites.slice(0, 3)],
@@ -175,7 +205,7 @@ describe('CVIEW: Agency charts', () => {
   });
 
   it('example: the readout starts with the Total of the bar and leaves out every series whose value is 0', () => {
-    const bars = [{ turn: 94, above: [8, 6, 10, 0, 16, 0, 0], below: [] }];
+    const bars = [{ turn: 94, above: [8, 6, 10, 0, 0, 0, 16], below: [] }];
     expect(readoutText({ turn: 94, barSeries: ACTIVITY_SERIES, bars, lines: [], total: true })).toBe(
       'Turn 94: Total 40 · Standby 8 · Training 6 · Contracting 10 · Deployed 16',
     );
@@ -192,12 +222,48 @@ describe('CVIEW: Agency charts', () => {
       turn: 2,
       turnStart: summary(),
       turnEnd: summary({ agentActivity: { ...activity, deployed: 0, standby: 5 } }),
-      actions: [],
     });
-    expect(bars).toEqual([
-      { turn: 1, above: [2, 0, 0, 0, 3, 0, 1], below: [] },
-      { turn: 2, above: [5, 0, 0, 0, 0, 0, 1], below: [] },
+    // Deployed is last, on top of the bar.
+    expect(ACTIVITY_SERIES.map((series) => series.name)).toEqual([
+      'Standby',
+      'Training',
+      'Contracting',
+      'Investigating',
+      'Recovering',
+      'In transit',
+      'Deployed',
     ]);
+    expect(bars).toEqual([
+      { turn: 1, above: [2, 0, 0, 0, 0, 1, 3], below: [] },
+      { turn: 2, above: [5, 0, 0, 0, 0, 1, 0], below: [] },
+    ]);
+  });
+
+  it('reduces a History entry to what the charts read, and the charts read it as they read the entry', () => {
+    const full = entry(1, {
+      turnEnd: summary({ baseSkills: [120] }),
+      actions: [
+        { operation: 'hireAgents', args: { count: 1 }, moneyChange: -100 },
+        { operation: 'assignAgents', args: {}, moneyChange: 0 },
+      ],
+    } as unknown as Partial<HistoryEntry>);
+    const reduced = chartEntryOf(full);
+    expect(reduced.actions).toEqual([{ operation: 'hireAgents', args: { count: 1 }, moneyChange: -100 }]);
+    const input = {
+      open: null,
+      moneyAtStartOfTurn: [{ turn: 1, value: 500 }],
+      capUpgrades: capUpgradeIds([
+        { id: 'agent_cap', effect: 'agent_cap' },
+        { id: 'armor', effect: 'armor' },
+      ]),
+      sites: [],
+      ranks,
+      agentParameters: { exhaustionWorkLimit: 70, exhaustionFreePoints: 30 },
+    };
+    expect(agencyCharts({ ...input, entries: [reduced] })).toEqual(
+      agencyCharts({ ...input, entries: [full] }),
+    );
+    expect(input.capUpgrades).toEqual(new Set(['agent_cap']));
   });
 
   it('splits each ended Turn into income, expenditures, and a Net flow from the Turn series of money', () => {
@@ -238,7 +304,6 @@ describe('CVIEW: Agency charts', () => {
           caps: { agentCap: 28, transportCap: 8, trainingCap: 10, contractingCap: 4 },
         }),
         turnEnd: summary(),
-        actions: [],
       },
       [
         { turn: 1, value: 500 },
