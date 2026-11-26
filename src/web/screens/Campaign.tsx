@@ -1,7 +1,8 @@
 /**
  * CSCR: the Campaign screen. The status bar spans the top; the Side panel on the right holds the navigation to every
- * Detail view, the compact Situation panel, and the Autopilot footer; the Globe stage fills the rest, and the open
- * Detail view covers it. The globe, a decoration, is drawn in the Globe stage behind every Detail view.
+ * Detail view, the compact Situation panel, and the Autopilot footer; the Globe stage fills the rest, holds the Music
+ * control, and the open Detail view covers it. The globe, a decoration, is drawn in the Globe stage behind every
+ * Detail view.
  */
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { nearLimitColor } from '../condition-scale.ts';
@@ -687,6 +688,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       >
         <main className="globe-stage" data-testid="globe-stage">
           <Globe covered={open !== null} />
+          {/* MUSIC, Music control on the Globe stage: at its bottom right corner, hidden while a Detail view covers
+              it. */}
+          {open === null ? <MusicControl snapshot={snapshot} onGlobeStage /> : null}
           {open === null ? null : (
             <PlaceContext value={placeContext}>
               <OpenDetailView
@@ -786,15 +790,13 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
               onShow={show}
             />
 
-            <footer className="side-footer">
-              {/* CSCR, Side panel: the Autopilot controls stand in the footer only while Dev mode is enabled and
-                  Autopilot controls shown is on; otherwise the footer holds only its bottom row. */}
-              {snapshot.status.devMode && autopilotSettings(snapshot.configuration.settings).shown ? (
+            {/* CSCR, Side panel: the footer holds the Autopilot controls while Dev mode is enabled and Autopilot
+                controls shown is on; otherwise the Side panel has no footer. */}
+            {snapshot.status.devMode && autopilotSettings(snapshot.configuration.settings).shown ? (
+              <footer className="side-footer">
                 <AutopilotBar snapshot={snapshot} />
-              ) : null}
-              {/* CSCR, Side panel: the footer always holds the Music control. */}
-              <MusicControl snapshot={snapshot} inSidePanel />
-            </footer>
+              </footer>
+            ) : null}
           </aside>
         )}
       </div>

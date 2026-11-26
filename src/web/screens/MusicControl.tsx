@@ -1,11 +1,10 @@
 /**
  * MUSIC, Music control: the Music toggle, the Skip button, and the Track title of the Current Track. It is shown above
- * the Settings panel of the Main menu and in the footer of the Side panel of the Campaign screen. MUSIC, Music volume
+ * the Settings panel of the Main menu and on the Globe stage of the Campaign screen. MUSIC, Music volume
  * slider: the row of the Settings panel that sets the Music volume.
  */
 import { useState, useSyncExternalStore } from 'react';
 import { music } from '../music-player.ts';
-import { setMusicCollapsed, useMusicCollapsed } from '../side-panel.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { VolumeSlider } from '../ui.tsx';
 
@@ -41,14 +40,14 @@ export function Speaker({ off }: { off: boolean }) {
 }
 
 /**
- * `inSidePanel`: MUSIC, Music control in the Side panel: the Track title on a line of its own, ending in the Collapse
- * button, with the Music toggle and the Skip button in a row under it, which is hidden while collapsed.
+ * `onGlobeStage`: MUSIC, Music control on the Globe stage: one row with the Track title first, at the bottom right
+ * corner of the Globe stage, its buttons drawn as the globe's own controls are.
  */
-export function MusicControl({ snapshot, inSidePanel }: { snapshot: Snapshot; inSidePanel?: boolean }) {
+export function MusicControl({ snapshot, onGlobeStage }: { snapshot: Snapshot; onGlobeStage?: boolean }) {
   const { session } = theEngine();
   const { on } = musicSettings(snapshot);
   const status = useSyncExternalStore(music.subscribe, music.getStatus);
-  const collapsed = useMusicCollapsed();
+  const buttonClass = onGlobeStage === true ? 'globe-stage-button' : 'btn btn-plain';
 
   const title = on ? (status.title === null ? '' : `♪ ${status.title}`) : 'Music off';
   const titleLine = (
@@ -65,7 +64,7 @@ export function MusicControl({ snapshot, inSidePanel }: { snapshot: Snapshot; in
       {/* SOUNDS, Main click: the Music toggle changes a setting of Global configuration, whichever way it turns. */}
       <button
         type="button"
-        className="btn btn-plain speaker-toggle"
+        className={`${buttonClass} speaker-toggle`}
         aria-label={on ? 'Music on' : 'Music off'}
         aria-pressed={on}
         title={on ? 'Turn music off' : 'Turn music on'}
@@ -78,7 +77,7 @@ export function MusicControl({ snapshot, inSidePanel }: { snapshot: Snapshot; in
       </button>
       <button
         type="button"
-        className="btn btn-plain music-skip"
+        className={`${buttonClass} music-skip`}
         aria-label="Next Track"
         title="Next Track"
         data-testid="music-skip"
@@ -92,28 +91,11 @@ export function MusicControl({ snapshot, inSidePanel }: { snapshot: Snapshot; in
     </>
   );
 
-  if (inSidePanel === true) {
-    const collapseName = collapsed ? 'Expand the Music control' : 'Collapse the Music control';
+  if (onGlobeStage === true) {
     return (
-      <div className="music-control music-control-panel" data-testid="music-control">
-        <div className="music-title-line">
-          {titleLine}
-          <button
-            type="button"
-            className="btn btn-plain music-collapse"
-            aria-label={collapseName}
-            aria-expanded={!collapsed}
-            title={collapseName}
-            data-testid="music-collapse"
-            data-sound="select"
-            onClick={() => {
-              setMusicCollapsed(!collapsed);
-            }}
-          >
-            {collapsed ? '▴' : '▾'}
-          </button>
-        </div>
-        {collapsed ? null : <div className="music-buttons">{buttons}</div>}
+      <div className="music-control music-control-globe" data-testid="music-control">
+        {titleLine}
+        {buttons}
       </div>
     );
   }

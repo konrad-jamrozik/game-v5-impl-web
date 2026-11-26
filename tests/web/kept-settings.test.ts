@@ -1,5 +1,5 @@
 /**
- * CSCR, Hiding the Side panel; MUSIC, Music control in the Side panel; VIS, Charts and Artwork tuning; CRPLAY,
+ * CSCR, Hiding the Side panel; VIS, Charts and Artwork tuning; CRPLAY,
  * Options: every interface choice is a Global configuration setting, kept in every later Session.
  */
 import { describe, expect, it } from 'vite-plus/test';
@@ -17,7 +17,6 @@ describe('interface choices kept across Sessions', () => {
     const storage = new MemoryStorage();
     await boot(storage);
     await setSetting('sidePanelHidden', true);
-    await setSetting('musicControlCollapsed', true);
     await setSetting('combatReplayOptionsShown', true);
     await setSetting('lastTurnsCharts', JSON.stringify(['agents']));
     await setSetting('artworkTuning', JSON.stringify({ 'artwork-1': { opacityPct: 30, image: 'a.png' } }));
@@ -25,7 +24,6 @@ describe('interface choices kept across Sessions', () => {
     await boot(storage);
     const configuration = snapshot().configuration;
     expect(settingValue(configuration, 'sidePanelHidden')).toBe(true);
-    expect(settingValue(configuration, 'musicControlCollapsed')).toBe(true);
     expect(settingValue(configuration, 'combatReplayOptionsShown')).toBe(true);
     expect(checkedCharts(settingValue(configuration, 'lastTurnsCharts'))).toEqual(['agents']);
     expect(tuningsFrom(settingValue(configuration, 'artworkTuning')).get('artwork-1')).toEqual({

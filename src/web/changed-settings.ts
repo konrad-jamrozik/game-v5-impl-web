@@ -42,10 +42,6 @@ const WORDING: Readonly<Record<string, { readonly name: string; readonly words: 
     words: (value) => (value === '' ? 'first team and site' : 'as last left'),
   },
   screenLimit: { name: 'Screen limit', words: onOff },
-  musicControlCollapsed: {
-    name: 'Music control',
-    words: (value) => (value === true ? 'collapsed' : 'expanded'),
-  },
   sidePanelHidden: { name: 'Side panel', words: (value) => (value === true ? 'hidden' : 'shown') },
   lastTurnsCharts: { name: 'Charts on Last 100 Turns', words: (value) => chartList(value) },
   artworkTuning: { name: 'Artwork tuning', words: (value) => (value === '{}' ? 'none' : 'tuned') },

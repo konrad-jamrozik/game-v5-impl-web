@@ -42,7 +42,6 @@ describe('GUI: Changed settings', () => {
       'autopilotAutosaveLimit',
       'musicOn',
       'musicVolume',
-      'musicControlCollapsed',
       'soundsOn',
       'soundsVolume',
       'autopilotControlsShown',

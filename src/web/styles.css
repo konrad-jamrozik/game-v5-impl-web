@@ -2326,36 +2326,58 @@ label:has(> input[type='checkbox']:disabled) {
   border-top: 1px solid var(--divider);
 }
 
-/* MUSIC, Music control in the Side panel: the Track title on a line of its own, ending in the Collapse button, and
-   the Music toggle and the Skip button in a row under it. */
-.music-control-panel {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
+/* MUSIC, Music control on the Globe stage: at its bottom right corner, level with the row of the globe's controls at
+   the bottom left, which sits 12px from the bottom above a 13px imagery credit and an 8px gap (globe.css). The Track
+   title comes first, so the buttons at the right end stay in place whatever its length. */
+.music-control-globe {
+  position: absolute;
+  right: 16px;
+  bottom: calc(12px + 13px * 1.4 + 8px);
+  max-width: calc(50% - 24px);
+  justify-content: flex-end;
 }
 
-.music-title-line {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 24px;
+.music-control-globe .music-title {
+  flex: 0 1 auto;
+  text-align: right;
 }
 
-.music-collapse {
+/* Drawn as the globe's own controls are: transparent, with a thin light outline, so the stars show through. */
+.music-control-globe .globe-stage-button {
   flex: none;
-  width: 24px;
-  height: 24px;
-  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  letter-spacing: 0;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border: 1px solid rgb(232 228 216 / 28%);
+  border-radius: var(--radius, 2px);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
 }
 
-.music-buttons {
-  display: flex;
-  gap: 8px;
+.music-control-globe .globe-stage-button:hover:not(:disabled) {
+  border-color: rgb(232 228 216 / 60%);
+  background: rgb(232 228 216 / 8%);
+}
+
+.music-control-globe .globe-stage-button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.music-control-globe .globe-stage-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.music-control-globe .globe-stage-button svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* CSCR, Status bar controls: the square Settings button. */

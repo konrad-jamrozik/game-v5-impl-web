@@ -49,14 +49,6 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     isPermitted: (value): value is SettingValue =>
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 100,
   },
-  // MUSIC, Music control in the Side panel: whether the Music control is collapsed to its Track title.
-  {
-    setting: 'musicControlCollapsed',
-    name: 'Music control collapsed',
-    gameBuildDefault: false,
-    permitted: 'true or false',
-    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
-  },
   {
     setting: 'soundsOn',
     name: 'Sounds on',
