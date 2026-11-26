@@ -85,7 +85,7 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
     defaultPresetId: gdrs.configurationParameters.defaultPreset,
     configurationValues: CONFIGURATION_VALUES,
 
-    createCampaign: ({ configuration, seed }) => {
+    createCampaign: ({ configuration, seed, setup }) => {
       const prologue = configuration['prologue'] ?? 0;
       const initial = createCampaignState(
         {
@@ -97,8 +97,11 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
         gdrs,
       );
       // TURN, Prologue: with 1, campaign creation continues from the initial Campaign state.
-      return prologue === 1 ? playPrologue(initial, gdrs) : initial;
+      const created = prologue === 1 ? playPrologue(initial, gdrs) : initial;
+      // CONFIG, Campaign setup seed: the Campaign records the setup it was created with.
+      return setup === undefined ? created : { ...created, setup };
     },
+    setupOf: (state) => state.setup ?? null,
     applyAction: (state, record) => applyActionTo(state, record, gdrs),
     advanceTurn: (state) => advanceTurnOf(state, gdrs),
     checkInvariants: (state) => checkInvariants(state, gdrs),

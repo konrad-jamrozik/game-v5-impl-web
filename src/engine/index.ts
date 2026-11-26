@@ -28,6 +28,7 @@ import {
   type AutosaveStatus,
   type AutosaveTarget,
   type CommitOutcome,
+  type CreateCampaignReport,
   type DisengagementResult,
   type EngineEnvironment,
   type PresetListEntry,
@@ -91,7 +92,14 @@ export type {
   SessionStatus,
   SetupReport,
   TimelineStatus,
+  CreateCampaignReport,
 } from './session/core.ts';
+export {
+  decodeCampaignSetupSeed,
+  isCampaignSetupSeedText,
+  type CampaignSetup,
+  type CampaignSetupSeed,
+} from './session/campaign-setup-seed.ts';
 export type {
   GlobalConfigurationReport,
   SettingReport,
@@ -114,7 +122,12 @@ export interface Engine {
     };
     readonly campaign: {
       /** Creates a Campaign from the new-Campaign setup. `seed` supplies the Campaign seed. */
-      create(options?: { seed?: string }): Promise<Result<null>>;
+      /**
+       * LIFE, Campaign selection, Create; CONFIG, Campaign setup seed: `seed` takes a Campaign seed or a Campaign setup
+       * seed, and `setupSeed` a Campaign setup seed; one created from a Campaign setup seed reports whether its Game
+       * build differs.
+       */
+      create(options?: { seed?: string; setupSeed?: string }): Promise<Result<CreateCampaignReport | null>>;
       close(): Promise<Result<null>>;
     };
     readonly saves: {

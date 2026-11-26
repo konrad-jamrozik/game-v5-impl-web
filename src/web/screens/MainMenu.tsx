@@ -1,6 +1,11 @@
 /** The Main menu: new-Campaign setup, Campaign saves, and the Global configuration. */
 import { useEffect, useState } from 'react';
-import { GAME_BUILD, type SaveListEntry } from '../../engine/index.ts';
+import {
+  GAME_BUILD,
+  decodeCampaignSetupSeed,
+  isCampaignSetupSeedText,
+  type SaveListEntry,
+} from '../../engine/index.ts';
 import { buildCommitUrl, buildLabel } from '../build-label.ts';
 import { orderSaveRows } from '../save-rows.ts';
 
@@ -121,6 +126,9 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
       window.removeEventListener('keydown', onKey);
     };
   });
+
+  // MENU, New Campaign, Seed: what a Campaign setup seed in the Seed field holds, or none for a Campaign seed.
+  const pastedSetup = isCampaignSetupSeedText(seed) ? decodeCampaignSetupSeed(seed) : null;
 
   return (
     <main className="menu">
@@ -290,7 +298,9 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
               <span>Preset</span>
               <select
                 data-testid="preset-select"
-                value={selected?.preset ?? ''}
+                disabled={pastedSetup !== null}
+                title={pastedSetup === null ? undefined : 'Set by the Campaign setup seed in the Seed field'}
+                value={pastedSetup?.preset ?? selected?.preset ?? ''}
                 onChange={(event) => {
                   setEditErrors({});
                   act(() => session.newCampaignSetup.selectPreset(event.target.value));
@@ -305,7 +315,25 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                 ))}
               </select>
             </label>
-            {selected !== undefined && values?.ok === true ? (
+            {pastedSetup !== null ? (
+              // MENU, New Campaign, Seed: a Campaign setup seed shows the Preset edits it holds, which cannot be changed.
+              <div className="setup-values" data-testid="setup-seed-edits">
+                {Object.keys(pastedSetup.edits).length === 0 ? (
+                  <span className="label">No Preset edits</span>
+                ) : (
+                  Object.entries(pastedSetup.edits).map(([key, edit]) => (
+                    <div key={key} className="field">
+                      <span>
+                        {values?.ok === true
+                          ? (values.value.find((item) => item.key === key)?.name ?? key)
+                          : key}
+                      </span>
+                      <span className="figure">{edit}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : selected !== undefined && values?.ok === true ? (
               <div className="setup-values">
                 {values.value.map((value) => (
                   <div key={value.key} className="field">
@@ -363,6 +391,12 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                 }}
               />
             </label>
+            {pastedSetup !== null && pastedSetup.gameBuild !== GAME_BUILD ? (
+              <span className="field-error tone-warn" data-testid="setup-seed-build">
+                This Campaign setup seed is from the Game build {pastedSetup.gameBuild}, so the Campaign may
+                unfold differently.
+              </span>
+            ) : null}
             <Button
               kind="primary"
               main

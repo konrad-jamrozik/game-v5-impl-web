@@ -5,7 +5,7 @@
  * is this Implementation's: `cs1-` followed by URL-safe Base64 of compact JSON, in which equal consecutive Combatants
  * are written once with their count, so that a Mission site of many equal Enemies stays short.
  */
-import { seedRng } from '../../../kernel/index.ts';
+import { fromBase64Url, seedRng, toBase64Url } from '../../../kernel/index.ts';
 import type { CombatantState } from './combat.ts';
 import type { DetachedCombatSetup, DetachedExplicitEntry } from './detached-combat.ts';
 
@@ -97,38 +97,6 @@ function unpack(packed: unknown): SetupCombatant[] | null {
     kind,
   };
   return Array.from({ length: count as number }, () => combatant);
-}
-
-/** URL-safe Base64 of ASCII text, without padding; the engine runs where no `btoa` is defined. */
-const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-function toBase64Url(text: string): string {
-  let out = '';
-  for (let i = 0; i < text.length; i += 3) {
-    const a = text.charCodeAt(i);
-    const b = i + 1 < text.length ? text.charCodeAt(i + 1) : 0;
-    const c = i + 2 < text.length ? text.charCodeAt(i + 2) : 0;
-    const triple = (a << 16) | (b << 8) | c;
-    const chars = [18, 12, 6, 0].map((shift) => ALPHABET[(triple >> shift) & 63] ?? '');
-    out += chars.slice(0, Math.min(4, text.length - i + 1)).join('');
-  }
-  return out;
-}
-function fromBase64Url(text: string): string {
-  let bits = 0;
-  let value = 0;
-  let out = '';
-  for (const char of text) {
-    const index = ALPHABET.indexOf(char);
-    if (index < 0) throw new Error('not Base64');
-    value = (value << 6) | index;
-    bits += 6;
-    if (bits >= 8) {
-      bits -= 8;
-      out += String.fromCharCode((value >> bits) & 255);
-      value &= (1 << bits) - 1;
-    }
-  }
-  return out;
 }
 
 /** COMBAT, Combat setup seed: the text of a Combat setup. */

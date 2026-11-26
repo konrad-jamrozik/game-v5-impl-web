@@ -1,4 +1,9 @@
 import {
+  decodeCampaignSetupSeed,
+  encodeCampaignSetupSeed,
+  isCampaignSetupSeedText,
+} from './campaign-setup-seed.ts';
+import {
   CHOSEN_SEED_LENGTH,
   EngineDefect,
   deepEqual,
@@ -145,6 +150,11 @@ export interface SessionStatus {
   readonly campaignId: string | null;
   /** The Campaign seed of the Current campaign, in a form `create` accepts. Never Player-visible. */
   readonly campaignSeed: string | null;
+  /**
+   * CONFIG, Campaign setup seed: that of the Current campaign, which `create` accepts to create it again exactly; none
+   * for a Campaign created before it was kept. Never Player-visible.
+   */
+  readonly campaignSetupSeed: string | null;
   readonly turn: number | null;
   readonly campaignEnded: boolean;
   readonly devMode: boolean;
@@ -214,6 +224,14 @@ export interface PresetValueReport {
   readonly presetEdit: number | null;
   readonly permitted: string;
   readonly adjustableDuringPlay: boolean;
+}
+
+/** CONFIG, Campaign setup seed: what creating a Campaign from a Campaign setup seed reports. */
+export interface CreateCampaignReport {
+  /** Whether the Campaign setup seed is of another Game build, so that the Campaign may unfold differently. */
+  readonly gameBuildDiffers: boolean;
+  /** The Game build the Campaign setup seed names. */
+  readonly gameBuild: string;
 }
 
 export interface SetupReport {
@@ -476,6 +494,7 @@ export class EngineCore<S extends ShellState> {
       hasCurrentCampaign: campaign !== null,
       campaignId: campaign?.campaignId ?? null,
       campaignSeed: state?.world.current.seed ?? null,
+      campaignSetupSeed: state === null ? null : this.setupSeedOf(state),
       turn: state?.world.current.turn ?? null,
       campaignEnded: state === null ? false : this.rules.isEnded(state),
       devMode: this.devMode,
@@ -738,14 +757,89 @@ export class EngineCore<S extends ShellState> {
   // ---------------------------------------------------------------------------------------------
   // Campaign selection; see LIFE, Campaign selection
 
-  createCampaign(principal: Principal, options: { seed?: unknown } = {}): Promise<Result<null>> {
+  /** CONFIG, Campaign setup seed: the Campaign setup seed of a Campaign state, or none before it was kept. */
+  private setupSeedOf(state: S): string | null {
+    const setup = this.rules.setupOf?.(state) ?? null;
+    return setup === null
+      ? null
+      : encodeCampaignSetupSeed({
+          gameBuild: this.rules.gameBuild,
+          seed: state.world.current.seed,
+          ...setup,
+        });
+  }
+
+  /**
+   * CONFIG, Campaign setup seed, Creating from it: the Campaign configuration a Campaign setup seed gives, from its
+   * preset and its Preset edits, or the reason the current Game build does not accept it.
+   */
+  private setupFromSeed(
+    text: string,
+  ): { setup: SetupReport & { edits: Record<string, number> }; seed: string; gameBuild: string } | string {
+    const decoded = decodeCampaignSetupSeed(text);
+    if (decoded === null) {
+      return 'The text is not a Campaign setup seed.';
+    }
+    if (!isPermittedSeed(decoded.seed)) {
+      return 'The Campaign setup seed holds a Campaign seed that is not permitted.';
+    }
+    const preset = this.preset(decoded.preset);
+    if (preset === null) {
+      return `The Game build supplies no Campaign configuration preset "${decoded.preset}", which the Campaign setup seed names.`;
+    }
+    const values: Record<string, number> = {};
+    for (const descriptor of this.rules.configurationValues) {
+      const edit = decoded.edits[descriptor.key];
+      if (edit !== undefined && !descriptor.isPermitted(edit)) {
+        return `The Campaign setup seed edits ${descriptor.name} to a value it does not permit: ${descriptor.permitted}.`;
+      }
+      const value = edit ?? preset.values[descriptor.key];
+      if (value === undefined) {
+        throw new EngineDefect(`Preset ${preset.id} supplies no value for ${descriptor.key}`);
+      }
+      values[descriptor.key] = value;
+    }
+    const known = new Set(this.rules.configurationValues.map((descriptor) => descriptor.key));
+    const unknown = Object.keys(decoded.edits).find((key) => !known.has(key));
+    if (unknown !== undefined) {
+      return `The Campaign setup seed edits ${unknown}, which the Game build has no Campaign configuration value for.`;
+    }
+    return {
+      setup: { preset: preset.id, values, edits: { ...decoded.edits } },
+      seed: decoded.seed,
+      gameBuild: decoded.gameBuild,
+    };
+  }
+
+  createCampaign(
+    principal: Principal,
+    options: { seed?: unknown; setupSeed?: unknown } = {},
+  ): Promise<Result<CreateCampaignReport | null>> {
     return this.runExclusive(async () => {
       const denied = this.checkSession(principal, { needsCampaign: false, duringAutopilot: false });
       if (denied) {
         return denied;
       }
+      // CONFIG, Campaign setup seed, Creating from it: in place of a Campaign seed, and ignoring the new-Campaign setup.
+      const setupText = isCampaignSetupSeedText(options.setupSeed)
+        ? options.setupSeed
+        : isCampaignSetupSeedText(options.seed)
+          ? options.seed
+          : options.setupSeed === undefined || options.setupSeed === null
+            ? null
+            : '';
+      let fromSeed: Exclude<ReturnType<EngineCore<S>['setupFromSeed']>, string> | null = null;
+      if (setupText !== null) {
+        const read = this.setupFromSeed(setupText);
+        if (typeof read === 'string') {
+          return fail('invalid_input', read);
+        }
+        fromSeed = read;
+      }
       let seed: string;
-      if (options.seed === undefined || options.seed === null) {
+      if (fromSeed !== null) {
+        seed = fromSeed.seed;
+      } else if (options.seed === undefined || options.seed === null) {
         seed = seedFromNumbers(this.env.randomNumbers(CHOSEN_SEED_LENGTH));
       } else if (isPermittedSeed(options.seed)) {
         seed = options.seed;
@@ -757,7 +851,14 @@ export class EngineCore<S extends ShellState> {
       }
       let state: S;
       try {
-        state = this.rules.createCampaign({ configuration: this.resolveSetup().values, seed });
+        const resolved = fromSeed?.setup ?? this.resolveSetup();
+        const edits =
+          fromSeed?.setup.edits ?? Object.fromEntries(this.presetEdits.get(resolved.preset) ?? []);
+        state = this.rules.createCampaign({
+          configuration: resolved.values,
+          seed,
+          setup: { preset: resolved.preset, edits },
+        });
         const violations = this.rules.checkInvariants(state);
         if (violations.length > 0) {
           throw new EngineDefect(violations.join('; '));
@@ -772,7 +873,13 @@ export class EngineCore<S extends ShellState> {
       const failures: AutosaveFailure[] = [];
       await this.writeCurrentAutosave(failures);
       this.changed();
-      return ok(null, failures);
+      // CONFIG, Campaign setup seed, Another Game build: creation reports that the Game build differs.
+      return ok(
+        fromSeed === null
+          ? null
+          : { gameBuildDiffers: fromSeed.gameBuild !== this.rules.gameBuild, gameBuild: fromSeed.gameBuild },
+        failures,
+      );
     });
   }
 

@@ -1,3 +1,4 @@
+import type { CampaignSetup } from './session/campaign-setup-seed.ts';
 import type { Rejection } from './result.ts';
 
 /**
@@ -57,7 +58,14 @@ export interface GameRules<S extends ShellState> {
   readonly configurationValues: readonly ConfigurationValueDescriptor[];
 
   /** Creation: equal inputs give equal initial Campaign state. */
-  createCampaign(input: { configuration: Readonly<Record<string, number>>; seed: string }): S;
+  createCampaign(input: {
+    configuration: Readonly<Record<string, number>>;
+    seed: string;
+    /** CONFIG, Campaign setup seed: the preset and Preset edits the Campaign is created with, which it records. */
+    setup?: CampaignSetup;
+  }): S;
+  /** CONFIG, Campaign setup seed: the preset and Preset edits a Campaign was created with; none before it was kept. */
+  setupOf?(state: S): CampaignSetup | null;
   /**
    * Applies one action other than Advance turn. Returns the next World state, the same state when the action
    * has no effect, or a rejection. It never changes its input.

@@ -712,6 +712,11 @@ export interface CampaignConfiguration {
 
 export interface CampaignState {
   readonly configuration: CampaignConfiguration;
+  /**
+   * CONFIG, Campaign setup seed: the Campaign configuration preset and the Preset edits the Campaign was created with;
+   * absent in a Campaign save written before it was kept.
+   */
+  readonly setup?: { readonly preset: string; readonly edits: Readonly<Record<string, number>> };
   readonly world: {
     readonly current: CurrentWorldState;
     readonly history: WorldHistory;
