@@ -199,6 +199,19 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   await expect(id(page, 'turn')).toHaveText(String(turn + 1), { timeout: 60_000 });
   await expect(id(page, 'turn-summary')).toBeVisible();
   await expectFits(page, 'the Turn summary');
+  // TSUM, Stepping through events: the Turn summary opens at its first Summary event, a Mission, and steps through
+  // them with "›", "‹", and the arrow keys.
+  await expect(id(page, 'summary-count')).toHaveText(/^1 \/ /);
+  await expect(id(page, 'summary-kind')).toContainText('Mission');
+  await expect(id(page, 'summary-prev')).toBeDisabled();
+  const total = Number((await id(page, 'summary-count').innerText()).split('/')[1]?.trim());
+  if (total > 1) {
+    await id(page, 'summary-next').click();
+    await expect(id(page, 'summary-count')).toHaveText(`2 / ${total}`);
+    await expectFits(page, 'the second Summary event');
+    await page.keyboard.press('ArrowLeft');
+    await expect(id(page, 'summary-count')).toHaveText(`1 / ${total}`);
+  }
   await id(page, 'turn-summary-report').click();
   await expectFits(page, 'the Turn Report View');
   await view(page, 'report').locator('[data-testid^="combat-"]').first().click();

@@ -1,9 +1,15 @@
 /**
- * What each resolved Mission brought, as the Turn summary (TSUM, Groups) and the Turn Report View (TRVIEW, Sections)
+ * What each resolved Mission brought, as the Turn summary (TSUM, Summary events) and the Turn Report View (TRVIEW, Sections)
  * show it: the Mission site title, the Consequences lines, and the Recovered and Spent equipment with their
  * Sale values. Pure presentation; no gameplay rule.
  */
-import type { CombatReport, ConsequenceRecord, MissionSiteView, TurnReport } from '../engine/index.ts';
+import type {
+  CombatReport,
+  ConsequenceRecord,
+  ConsequenceView,
+  MissionSiteView,
+  TurnReport,
+} from '../engine/index.ts';
 import { decimalText, groupDigits } from './format.ts';
 
 type MissionResult = TurnReport['missions'][number];
@@ -77,7 +83,7 @@ function consequenceLines(c: ConsequenceRecord, factionName: (faction: string) =
   return lines;
 }
 
-/** TSUM, Groups, Consequences: a Won Mission's rise in the Contracting cap, with its first win phrase. */
+/** TSUM, Summary events, Mission: a Won Mission's rise in the Contracting cap, with its first win phrase. */
 function capRiseLines(mission: MissionResult, firstWinPhrase: string | null): GainLine[] {
   if (mission.result !== 'Won' || mission.contractingCapRise <= 0) {
     return [];
@@ -105,7 +111,7 @@ export function missionConsequenceLines(
 }
 
 /**
- * TRVIEW, Sections and TSUM, Groups, Consequences: the lines that are not `ownLine` joined on one line, e.g. "+50
+ * TRVIEW, Sections and TSUM, Summary events, Mission: the lines that are not `ownLine` joined on one line, e.g. "+50
  * money, −5 funding", each keeping its tone in `parts`, then each `ownLine` line, e.g. a rise in the Contracting cap.
  */
 export function joinedLines(lines: readonly GainLine[]): GainLine[] {
@@ -120,36 +126,27 @@ export function joinedLines(lines: readonly GainLine[]): GainLine[] {
 }
 
 /**
- * TSUM, Groups, Consequences: the Consequences of every Mission, Won or Lost, summed by kind on one line, a gain and
- * a loss of one kind netting to one change, e.g. "+120 money, −15 funding, Panic +4.00"; each Faction made Eliminated
- * keeps a part of its own; then each rise in the Contracting cap on a line of its own.
+ * TSUM, Summary events, New Mission site: the rewards or penalties of a Mission site, as the Consequences they would
+ * apply, joined on one line, e.g. "+50 money, Panic −1.00".
  */
-export function summedConsequenceLines(
-  missions: readonly MissionResult[],
-  firstWinPhrase: (archetype: string) => string | null,
+export function siteConsequenceLines(
+  c: ConsequenceView,
+  targetFaction: string,
   factionName: (faction: string) => string,
 ): GainLine[] {
-  const records = missions.map((mission) => mission.consequence);
-  const sum = (pick: (c: ConsequenceRecord) => number) => records.reduce((total, c) => total + pick(c), 0);
-  const panic = sum((c) => c.panicIncreaseHundredths - c.panicReductionHundredths);
-  const total: ConsequenceRecord = {
-    money: sum((c) => c.money),
-    fundingChange: sum((c) => c.fundingChange),
-    panicIncreaseHundredths: Math.max(panic, 0),
-    panicReductionHundredths: Math.max(-panic, 0),
-    eliminatedFaction: null,
-    defeat: false,
-  };
-  const eliminated = records.flatMap((c) =>
-    c.eliminatedFaction === null
-      ? []
-      : [{ text: `${factionName(c.eliminatedFaction)} eliminated`, tone: 'good' as const }],
+  return joinedLines(
+    consequenceLines(
+      {
+        money: c.money,
+        fundingChange: c.fundingChange,
+        panicIncreaseHundredths: c.panicIncreaseHundredths,
+        panicReductionHundredths: c.panicReductionHundredths,
+        eliminatedFaction: c.eliminatesTargetFaction ? targetFaction : null,
+        defeat: c.defeat,
+      },
+      factionName,
+    ),
   );
-  const defeat = records.some((c) => c.defeat) ? [{ text: 'Campaign lost', tone: 'bad' as const }] : [];
-  const caps = missions.flatMap((mission) =>
-    capRiseLines(mission, firstWinPhrase(mission.missionSiteArchetype)),
-  );
-  return joinedLines([...consequenceLines(total, factionName), ...eliminated, ...defeat, ...caps]);
 }
 
 /** The Items and AmmoTypes of the Game build in authored order, with their `name` and `price`, and the sale share. */
@@ -245,20 +242,7 @@ export function missionEquipment(
 
 const counted = (count: number, word: string) => `${groupDigits(count)} ${word}${count === 1 ? '' : 's'}`;
 
-/**
- * TSUM, Groups, Equipment: the lists of every Mission summed into one, by its number of Items, its number of rounds,
- * and its Sale value, each the sum of the Missions' own, as the Turn Report View shows them.
- */
-export function summedEquipmentList(lists: readonly EquipmentList[]): EquipmentList {
-  return {
-    entries: lists.flatMap((list) => list.entries),
-    items: lists.reduce((sum, list) => sum + list.items, 0),
-    rounds: lists.reduce((sum, list) => sum + list.rounds, 0),
-    value: lists.reduce((sum, list) => sum + list.value, 0),
-  };
-}
-
-/** TSUM, Groups, Equipment: e.g. "3 Items, 11 rounds · worth 165". */
+/** TSUM, Summary events, Mission: e.g. "3 Items, 11 rounds · worth 165". */
 export function equipmentText(list: EquipmentList): string {
   const parts = [
     ...(list.items > 0 ? [counted(list.items, 'Item')] : []),

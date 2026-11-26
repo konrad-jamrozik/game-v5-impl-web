@@ -168,6 +168,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
 
   // TSUM, Showing and dismissing: the Player reopens the Turn summary from the Turn Report View, at any time.
   const [reopened, setReopened] = useState(false);
+  // TSUM, Stepping through events: the Summary event shown; it opens at the first, and the View trail keeps it.
+  const [summaryIndex, setSummaryIndex] = useState(0);
   const summaryOpen =
     !autopilotActive &&
     (showsTurnSummary(requestedTurn, snapshot.report) ||
@@ -175,6 +177,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const dismissSummary = () => {
     setRequestedTurn(null);
     setReopened(false);
+    setSummaryIndex(0);
   };
 
   const advance = () => {
@@ -243,6 +246,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const showSummaryAgain = (summary: Place<TrailId>) => {
     showPlace(summary.under);
     setReopened(true);
+    // TSUM, Showing and dismissing: the View trail leads back to the Summary event the Turn summary was showing.
+    setSummaryIndex(typeof summary.memo.index === 'number' ? summary.memo.index : 0);
   };
   /** CSCR, View trail, Go back: the last place leaves the View trail and is shown as the Player left it. */
   const back = () => {
@@ -266,7 +271,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     id: DetailViewId = 'report',
     item: string | null = null,
   ) => {
-    setTrail(fromTurnSummary<DetailViewId>(shownPlace()));
+    setTrail(fromTurnSummary<DetailViewId>(shownPlace(), summaryIndex));
     openPlace(id, item, restored);
     dismissSummary();
   };
@@ -878,21 +883,27 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
             snapshot.gameData,
           )}
           currentTurn={state.turn}
+          index={summaryIndex}
+          onIndexChange={setSummaryIndex}
           onDismiss={dismissSummary}
           onOpenReport={() => {
             openFromSummary(NOTHING_RESTORED);
           }}
           onOpenReplay={(mission) => {
-            // TSUM, Mission cards: the Turn Report View opens with that Mission's Combat replay one step away.
+            // TSUM, Links: the Turn Report View opens with that Mission's Combat replay one step away.
             openFromSummary({ combat: mission, logOpen: false, replay: true });
           }}
           onOpenSite={(missionSite) => {
-            // TSUM, Mission site links: the Missions View opens with that Mission site selected.
+            // TSUM, Links: the Missions View opens with that Mission site selected.
             openFromSummary(NOTHING_RESTORED, 'missions', missionSite);
           }}
           onOpenAgents={() => {
-            // TSUM, Groups: the line of an Investigation that unlocked Contracting opens the Agents View.
+            // TSUM, Summary events: the line of an Investigation that unlocked Contracting opens the Agents View.
             openFromSummary(NOTHING_RESTORED, 'agents');
+          }}
+          onOpenLeads={(lead) => {
+            // TSUM, Summary events, Lead discovered: the Leads View opens with that Lead selected.
+            openFromSummary(NOTHING_RESTORED, 'leads', lead);
           }}
         />
       ) : null}

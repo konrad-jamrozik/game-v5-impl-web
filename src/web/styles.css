@@ -29,6 +29,8 @@
   /* VIS, Colours: Notice, welcome news that asks for no action, and Autopilot, for an Autopilot button. */
   --notice: #8fb8d6;
   --autopilot: #b4a0e5;
+  /* VIS, Colours: Investigation, an Investigation completed among the Summary events of the Turn summary. */
+  --investigation: #a77bdb;
   /* VIS, Colours: the five Enemy colours, which tell the Enemies of the Combat replay apart, from the weakest shape to
      the strongest, and Tracer and Beam, for its shots. */
   --enemy-yellow: #e6d54a;
@@ -1383,17 +1385,255 @@ input::placeholder {
   border-top: 1px solid var(--divider);
 }
 
-/* TSUM, Mission cards: one line, its Mission site title at the left and its outcome at the right, selectable whole. */
-.summary-mission-card {
-  width: 100%;
-  border: 0;
-  color: inherit;
-  font: inherit;
-  text-align: left;
+/* TSUM, Layout: 1120 × 736 in the Reference window, the Event art 1120 × 480 (21:9) on top, the details below it, and
+   a 68 px control row. VIS, Dialogs: the one dialog wider than 640 px. */
+.summary-dialog {
+  max-width: 1120px;
+  height: 736px;
+  display: grid;
+  grid-template-rows: 480px minmax(0, 1fr) 68px;
+  outline: none;
 }
 
-.summary-mission-card + .summary-mission-card {
+.summary-art {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, #1d1c17, var(--background));
+}
+
+/* TSUM, Layout: until a picture exists, the Event art is a placeholder drawn in the colour of the kind. */
+.summary-art-wash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    120% 140% at 78% 40%,
+    color-mix(in srgb, var(--kind) 22%, transparent),
+    transparent 60%
+  );
+}
+
+.summary-art-glyph {
+  position: absolute;
+  top: 50%;
+  right: 120px;
+  width: 260px;
+  height: 260px;
+  transform: translateY(-58%);
+  color: var(--kind);
+  opacity: 0.22;
+  stroke-width: 2.2;
+}
+
+.summary-art-head {
+  position: absolute;
+  top: 24px;
+  left: 32px;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.summary-art-head h2 {
+  margin: 0;
+}
+
+/* TSUM, Layout: the bottom of the Event art fades into the Surface under the caption. */
+.summary-art-shade {
+  position: absolute;
+  inset: auto 0 0;
+  height: 220px;
+  background: linear-gradient(to top, var(--surface), rgb(21 21 18 / 60%) 45%, transparent);
+}
+
+.summary-caption {
+  position: absolute;
+  right: 32px;
+  bottom: 18px;
+  left: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--kind);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.summary-pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--kind);
+}
+
+.summary-tag {
+  padding: 3px 7px 2px;
+  border: 1px solid currentcolor;
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.summary-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-meta {
+  color: var(--text-secondary);
+}
+
+/* TSUM, Layout: the details, in blocks side by side, scroll when they do not fit. */
+.summary-details {
+  overflow-y: auto;
+  padding: 12px 32px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.summary-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.summary-blocks {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 28px;
+}
+
+.summary-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.summary-block-wide {
+  grid-column: span 2;
+}
+
+.summary-block > .sit-group-head {
+  margin-bottom: 2px;
+}
+
+.summary-line {
+  min-width: 0;
+}
+
+.summary-prose {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.summary-big {
+  font-size: 22px;
+}
+
+/* TSUM, Links: a link of a Summary event, in the Label style and Accent text. */
+.summary-go {
+  align-self: flex-start;
   margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.summary-go:hover,
+.summary-go:focus-visible {
+  text-decoration: underline;
+}
+
+/* TSUM, Layout: the control row, Open Turn report on the left, the stepping controls in the centre, Continue right. */
+.summary-controls {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+}
+
+.summary-controls-right {
+  justify-self: end;
+}
+
+.summary-pager {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.summary-arrow {
+  width: 36px;
+  padding: 0;
+  font-size: 20px;
+}
+
+/* TSUM, Stepping through events: the dots of one kind stand together, with a wider gap between kinds. */
+.summary-dots {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.summary-dot-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.summary-dot {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--kind);
+  opacity: 0.45;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.summary-dot:hover,
+.summary-dot-seen {
+  opacity: 0.75;
+}
+
+.summary-dot-on {
+  opacity: 1;
+  transform: scale(1.35);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 3.5px var(--kind);
+}
+
+.summary-count {
+  min-width: 44px;
+  text-align: center;
 }
 
 /* TRVIEW, Sections: each source Mission indented under the section's title, and its items indented under it. */
@@ -2535,17 +2775,7 @@ label:has(> input[type='checkbox']:disabled) {
   color: var(--danger);
 }
 
-/* TSUM, Mission site links: a Mission site item is a button that reads as the row it is. */
-.summary-site-link {
-  width: 100%;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-
-/* TSUM, Groups: the line of an Investigation that unlocked Contracting, a button that reads as a line of text. */
+/* TSUM, Summary events: the line of an Investigation that unlocked Contracting, a button that reads as a line of text. */
 .summary-unlock {
   align-self: flex-start;
   margin-top: 4px;

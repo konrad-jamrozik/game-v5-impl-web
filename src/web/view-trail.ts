@@ -23,11 +23,15 @@ export interface Place<Id extends string = string> {
   readonly under?: Place<Id> | null;
 }
 
-/** CSCR, View trail: the Turn summary as a place, shown over `under`. */
+/**
+ * CSCR, View trail: the Turn summary as a place, shown over `under`, with the Summary event it showed in its memo
+ * (TSUM, Showing and dismissing).
+ */
 export function turnSummaryPlace<Id extends string>(
   under: Place<Id> | null,
+  index = 0,
 ): Place<Id | typeof TURN_SUMMARY> {
-  return { id: TURN_SUMMARY, item: null, memo: {}, scrollTop: 0, name: 'Turn summary', under };
+  return { id: TURN_SUMMARY, item: null, memo: { index }, scrollTop: 0, name: 'Turn summary', under };
 }
 
 /**
@@ -36,8 +40,9 @@ export function turnSummaryPlace<Id extends string>(
  */
 export function fromTurnSummary<Id extends string>(
   under: Place<Id> | null,
+  index = 0,
 ): ViewTrail<Id | typeof TURN_SUMMARY> {
-  return [turnSummaryPlace(under)];
+  return [turnSummaryPlace(under, index)];
 }
 
 /**

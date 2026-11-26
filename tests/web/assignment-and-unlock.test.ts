@@ -1,6 +1,6 @@
 /**
  * AVIEW, Agent table: an Assignment reads "Investigating" without its Lead's name, leads to that Lead, and marks an
- * Agent In transit with the In transit icon. TSUM, Groups: a completed Investigation whose Lead unlocks Contracting
+ * Agent In transit with the In transit icon. TSUM, Summary events: a completed Investigation whose Lead unlocks Contracting
  * says so.
  */
 import { describe, expect, it } from 'vite-plus/test';

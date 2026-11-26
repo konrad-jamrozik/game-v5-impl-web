@@ -1,6 +1,6 @@
 /**
- * SITP, Groups; GUI, Completion estimate and Progress circle; and TSUM, Groups: which groups show, in which order,
- * and when the Turn summary shows.
+ * SITP, Groups; GUI, Completion estimate and Progress circle; and TSUM, Summary events: which groups and Summary
+ * events show, in which order, and when the Turn summary shows.
  */
 import { describe, expect, it } from 'vite-plus/test';
 import type { CampaignState } from '../../src/engine/state/types.ts';
@@ -18,9 +18,15 @@ import {
   missionSiteTitleText,
   equipmentText,
   joinedLines,
-  summedConsequenceLines,
+  siteConsequenceLines,
 } from '../../src/web/mission-gains.ts';
-import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../../src/web/turn-summary.ts';
+import {
+  showsTurnSummary,
+  summaryEvents,
+  turnSummary,
+  turnSummaryHasContent,
+  type TurnSummaryModel,
+} from '../../src/web/turn-summary.ts';
 import type { CombatReport, TurnReport } from '../../src/engine/index.ts';
 import {
   act,
@@ -234,35 +240,52 @@ describe('GUI: Turn summary', () => {
     ]);
   });
 
-  it('sums the Consequences of every Mission, Won or Lost, by kind on one line, each cap rise on its own', () => {
-    const missions = [
-      result({
-        consequence: { ...NONE, money: 50, fundingChange: 5, panicReductionHundredths: 100 },
-        contractingCapRise: 4,
-      }),
-      result({
-        mission: 'mission-2',
-        consequence: { ...NONE, money: 70, fundingChange: 10, eliminatedFaction: 'red_dawn' },
-      }),
-      result({ mission: 'mission-3', result: 'Lost', consequence: { ...NONE, fundingChange: -30 } }),
-      result({
-        mission: 'mission-4',
-        result: 'Lost',
-        consequence: { ...NONE, panicIncreaseHundredths: 500 },
-      }),
-    ];
-    const lines = summedConsequenceLines(missions, () => 'first apprehension', factionName);
+  it('joins a Mission own Consequences on one line, its cap rise on a line of its own', () => {
+    const won = result({
+      consequence: { ...NONE, money: 50, fundingChange: 5, panicReductionHundredths: 100 },
+      contractingCapRise: 4,
+    });
+    const lines = joinedLines(missionConsequenceLines(won, null, factionName));
     expect(lines.map((line) => line.text)).toEqual([
-      '+120 money, −15 funding, Panic +4.00, Red Dawn eliminated',
-      'Reputation increased for first apprehension: our Contracting network expands by 4',
-    ]);
-    expect(lines[0]?.parts?.map((part) => part.tone)).toEqual(['good', 'bad', 'bad', 'good']);
-    expect(lines[1]?.ownLine).toBe(true);
-    expect(
-      joinedLines(missionConsequenceLines(missions[0]!, null, factionName)).map((line) => line.text),
-    ).toEqual([
       '+50 money, +5 funding, Panic −1.00',
       'Reputation increased: our Contracting network expands by 4',
+    ]);
+    expect(lines[0]?.parts?.map((part) => part.tone)).toEqual(['good', 'good', 'good']);
+    expect(lines[1]?.ownLine).toBe(true);
+  });
+
+  it('writes a Mission site rewards as the Consequences they would apply, the target Faction named', () => {
+    const rewards = {
+      money: 60,
+      fundingChange: 0,
+      panicIncreaseHundredths: 0,
+      panicReductionHundredths: 50,
+      eliminatesTargetFaction: true,
+      defeat: false,
+    };
+    expect(siteConsequenceLines(rewards, 'red_dawn', factionName).map((line) => line.text)).toEqual([
+      '+60 money, Panic −0.50, Red Dawn eliminated',
+    ]);
+  });
+
+  it('orders the Summary events by kind, and by the Turn report within a kind', () => {
+    const model = {
+      turn: 4,
+      missions: [{ mission: 'mission-1' }, { mission: 'mission-2' }],
+      investigations: [{ investigation: 'investigation-1' }],
+      leads: [{ id: 'lead_a' }],
+      newSites: [{ missionSite: 'mission-site-5' }],
+      expiredSites: [{ missionSite: 'mission-site-2' }],
+      interrupted: [{ investigation: 'investigation-3', leadName: 'Lead C' }],
+    } as unknown as TurnSummaryModel;
+    expect(summaryEvents(model).map((event) => [event.kind, event.key])).toEqual([
+      ['mission', 'mission-1'],
+      ['mission', 'mission-2'],
+      ['investigation', 'investigation-1'],
+      ['lead', 'lead_a'],
+      ['site', 'mission-site-5'],
+      ['expired', 'mission-site-2'],
+      ['interrupted', 'investigation-3'],
     ]);
   });
 
@@ -370,11 +393,11 @@ describe('GUI: Turn summary', () => {
         },
       ],
     };
-    // TSUM, Groups: an Expired Mission site alone never shows the Turn summary; the Situation panel shows it.
+    // TSUM, Summary events: an Expired Mission site alone never shows the Turn summary; the Situation panel shows it.
     expect(showsTurnSummary(quietReport.turn, expiredOnly)).toBe(false);
-    // TRVIEW, Turn summary button: enabled when the only group is Expired Mission sites.
+    // TRVIEW, Turn summary button: enabled when the only Summary events are Expired Mission sites.
     expect(turnSummaryHasContent(expiredOnly)).toBe(true);
-    // TSUM, Groups: a Cancelled Mission site alone gives the Turn summary no group.
+    // TSUM, Summary events: a Cancelled Mission site alone gives the Turn summary no Summary event.
     expect(turnSummaryHasContent({ ...quietReport, cancelledMissionSites: ['mission-site-9'] })).toBe(false);
   });
 
@@ -402,6 +425,8 @@ describe('GUI: Turn summary', () => {
         missionSite: 'mission-site-9',
         name: siteName('apprehend_member'),
         kind: 'Response',
+        // The Mission site is unknown to this World state, so its Faction is unknown too.
+        faction: '',
         consequence: NO_CONSEQUENCE,
       },
     ]);
