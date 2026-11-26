@@ -6,7 +6,7 @@
 import { Fragment, useEffect, type ReactNode } from 'react';
 import type { HistoryEntry } from '../../engine/index.ts';
 import { actionLines, expenditures, type ActionNames } from '../history-actions.ts';
-import { panicText } from '../format.ts';
+import { groupDigits, panicText } from '../format.ts';
 import { historyRows } from '../history-rows.ts';
 import { usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
@@ -16,7 +16,7 @@ import { DetailView } from './DetailView.tsx';
 const COLUMNS = 9;
 
 function count(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`;
+  return `${groupDigits(n)} ${n === 1 ? one : many}`;
 }
 
 function Label(props: { tone: string; children: ReactNode }) {
@@ -47,7 +47,7 @@ function Events(props: {
           }}
         >
           {props.missionSiteName(mission.missionSiteArchetype)} {mission.result === 'Won' ? 'won' : 'lost'}
-          {mission.killed.length > 0 ? `, ${mission.killed.length} killed` : ''}
+          {mission.killed.length > 0 ? `, ${groupDigits(mission.killed.length)} killed` : ''}
         </button>
       ))}
       {report.investigationsCompleted.length > 0 ? (
@@ -74,9 +74,9 @@ function MoneyChange(props: { value: number }) {
     return <span />;
   }
   return props.value < 0 ? (
-    <span className="figure num tone-bad">−{-props.value}</span>
+    <span className="figure num tone-bad">−{groupDigits(-props.value)}</span>
   ) : (
-    <span className="figure num tone-good">+{props.value}</span>
+    <span className="figure num tone-good">+{groupDigits(props.value)}</span>
   );
 }
 
@@ -174,15 +174,15 @@ export function HistoryView({
                 <Fragment key={row.turn}>
                   <tr data-testid={row.now ? 'history-turn-now' : `history-turn-${row.turn}`}>
                     {/* HVIEW: the current Turn's number in Notice, with no word after it. */}
-                    <td className={row.now ? 'num tone-notice' : 'num'}>{row.turn}</td>
-                    <td className="num">{row.moneyStart}</td>
+                    <td className={row.now ? 'num tone-notice' : 'num'}>{groupDigits(row.turn)}</td>
+                    <td className="num">{groupDigits(row.moneyStart)}</td>
                     <td className={spent > 0 ? 'num tone-bad' : 'num muted'}>
-                      {spent > 0 ? `−${spent}` : '0'}
+                      {spent > 0 ? `−${groupDigits(spent)}` : '0'}
                     </td>
-                    <td className="num tone-good">+{row.income}</td>
-                    <td className="num tone-bad">−{row.upkeep}</td>
+                    <td className="num tone-good">+{groupDigits(row.income)}</td>
+                    <td className="num tone-bad">−{groupDigits(row.upkeep)}</td>
                     <td className="num">{panicText(row.panic)}</td>
-                    <td className="num">{row.agents}</td>
+                    <td className="num">{groupDigits(row.agents)}</td>
                     <td className="num">
                       {row.actions.length === 0 ? (
                         <span className="muted">0</span>
@@ -196,7 +196,7 @@ export function HistoryView({
                             toggle(row.turn);
                           }}
                         >
-                          {isOpen ? '▾' : '▸'} {row.actions.length}
+                          {isOpen ? '▾' : '▸'} {groupDigits(row.actions.length)}
                         </button>
                       )}
                     </td>

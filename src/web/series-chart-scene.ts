@@ -7,6 +7,16 @@
  */
 import type { Bar, LineSeries, Series } from './agency-charts.ts';
 
+/**
+ * GUI, Digit grouping: a number with a comma between each group of three digits of its whole part, e.g. 45817 as
+ * "45,817". A copy of `groupDigits` of `format.ts`, since this module imports types alone.
+ */
+function groupDigits(n: number): string {
+  const [whole = '', fraction] = String(Math.abs(n)).split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${n < 0 ? '-' : ''}${fraction === undefined ? grouped : `${grouped}.${fraction}`}`;
+}
+
 /** VIS, Charts: how many of the last Turns a chart shows while its Last 100 Turns checkbox is checked. */
 export const LAST_TURNS = 100;
 
@@ -164,7 +174,7 @@ export function seriesChartScene(chart: SeriesChartData, width: number, height: 
   const left = (value: number) => ({
     x: PAD.left - 6,
     y: y(value) + 4,
-    text: String(value),
+    text: groupDigits(value),
     anchor: 'end' as const,
   });
   const ticks = [
@@ -176,14 +186,14 @@ export function seriesChartScene(chart: SeriesChartData, width: number, height: 
           {
             x: width - PAD.right + 6,
             y: yRight(rightTop) + 4,
-            text: String(rightTop),
+            text: groupDigits(rightTop),
             anchor: 'start' as const,
           },
           { x: width - PAD.right + 6, y: yRight(0) + 4, text: '0', anchor: 'start' as const },
         ]
       : []),
-    { x: cx(first), y: height - 6, text: `T${first}`, anchor: 'middle' as const },
-    { x: cx(last), y: height - 6, text: `T${last}`, anchor: 'middle' as const },
+    { x: cx(first), y: height - 6, text: `T${groupDigits(first)}`, anchor: 'middle' as const },
+    { x: cx(last), y: height - 6, text: `T${groupDigits(last)}`, anchor: 'middle' as const },
   ];
 
   const barWidth = slot * 0.7;

@@ -112,6 +112,8 @@ export { MemoryStorage } from './saves/storage.ts';
 export type * from './state/types.ts';
 export { BUILD_INFO, GAME_BUILD };
 export { gameBuildId } from './game-build.ts';
+/** GUI, Digit grouping: shared with every user interface, so that each groups digits as the Compendium texts do. */
+export { groupDigitString } from '../kernel/index.ts';
 export type { BuildInfo } from './game-build.ts';
 
 export interface Engine {

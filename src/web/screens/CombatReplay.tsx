@@ -30,7 +30,7 @@ import {
   type Replay,
 } from '../combat-replay.ts';
 import { drawReplay, figureAt, readPalette, type ReplayPalette } from '../combat-replay-draw.ts';
-import { hitChanceText, wholeText } from '../format.ts';
+import { groupDigits, hitChanceText, wholeText } from '../format.ts';
 import { replayOptionsShown } from '../replay-options.ts';
 import { sliderFill } from '../slider.ts';
 import { heardBetween } from '../combat-replay-shots.ts';
@@ -550,15 +550,15 @@ export function CombatReplay(props: {
                   effective skill out of base skill. */}
               <div>{hoveredFigure.fullName}</div>
               <div className="figure secondary">
-                health {wholeText(hoveredValues.healthHundredths)}/{hoveredFigure.maxHealth} · armor{' '}
-                {hoveredValues.armor}/{hoveredFigure.startArmor}
+                health {wholeText(hoveredValues.healthHundredths)}/{groupDigits(hoveredFigure.maxHealth)} ·
+                armor {groupDigits(hoveredValues.armor)}/{groupDigits(hoveredFigure.startArmor)}
               </div>
               <div className="figure secondary">
                 skill {skillShareText(hoveredValues.effectiveSkill, hoveredFigure.baseSkillHundredths)} ·
-                exhaustion {hoveredValues.exhaustion}
+                exhaustion {groupDigits(hoveredValues.exhaustion)}
               </div>
               <div className="figure secondary">
-                weapon damage {hoveredFigure.weaponDamage}
+                weapon damage {groupDigits(hoveredFigure.weaponDamage)}
                 {hoveredValues.condition === 'dead'
                   ? ' · dead'
                   : hoveredValues.condition === 'incapacitated'
@@ -577,8 +577,8 @@ export function CombatReplay(props: {
           <div className="replay-ratings" data-testid="replay-ratings">
             <RatingsPie share={share} />
             <div className="figure">
-              <span className="tone-good">{ratings.agents}</span> :{' '}
-              <span className="tone-bad">{ratings.enemies}</span>
+              <span className="tone-good">{groupDigits(ratings.agents)}</span> :{' '}
+              <span className="tone-bad">{groupDigits(ratings.enemies)}</span>
             </div>
             <div className="figure">{ratingsRatioText(ratings)}</div>
           </div>
@@ -591,12 +591,12 @@ export function CombatReplay(props: {
                   <span className={combat.outcome === 'Won' ? 'tone-good' : 'tone-bad'}>
                     {combat.outcome}
                   </span>{' '}
-                  after {combat.rounds} {combat.rounds === 1 ? 'Combat round' : 'Combat rounds'}
+                  after {groupDigits(combat.rounds)} {combat.rounds === 1 ? 'Combat round' : 'Combat rounds'}
                 </>
               ) : shownAttack === undefined ? (
                 'Combat start'
               ) : (
-                `Combat round ${shownAttack.round} · ${shownSide === 'agent' ? "Agents' phase" : "Enemies' phase"}`
+                `Combat round ${groupDigits(shownAttack.round)} · ${shownSide === 'agent' ? "Agents' phase" : "Enemies' phase"}`
               )}
             </span>
             {shownAttack === undefined || shownRow === null ? (
@@ -610,13 +610,14 @@ export function CombatReplay(props: {
                   attack together
                 </span>
                 <span className="figure secondary">
-                  {several.length} attacks: {several.filter((attack) => attack.hit).length} hits,{' '}
-                  {several.filter((attack) => !attack.hit).length} misses
+                  {groupDigits(several.length)} attacks:{' '}
+                  {groupDigits(several.filter((attack) => attack.hit).length)} hits,{' '}
+                  {groupDigits(several.filter((attack) => !attack.hit).length)} misses
                 </span>
                 <span className={`figure ${shownSide === 'agent' ? 'tone-good' : 'tone-bad'}`}>
-                  {several.reduce((sum, attack) => sum + (attack.damage ?? 0), 0)} damage
+                  {groupDigits(several.reduce((sum, attack) => sum + (attack.damage ?? 0), 0))} damage
                   {several.some((attack) => attack.defenderDead)
-                    ? ` · ${several.filter((attack) => attack.defenderDead).length} dead`
+                    ? ` · ${groupDigits(several.filter((attack) => attack.defenderDead).length)} dead`
                     : ''}
                 </span>
               </>
@@ -632,7 +633,8 @@ export function CombatReplay(props: {
                   </span>
                 </span>
                 <span className="figure secondary">
-                  Hit chance {hitChanceText(shownAttack.hitChance)} ({shownAttack.a} vs {shownAttack.d})
+                  Hit chance {hitChanceText(shownAttack.hitChance)} ({groupDigits(shownAttack.a)} vs{' '}
+                  {groupDigits(shownAttack.d)})
                 </span>
                 <span
                   className={`figure ${shownRow.tone === 'muted' ? 'muted' : `tone-${shownRow.tone}`}`}
@@ -725,7 +727,7 @@ export function CombatReplay(props: {
             name={
               lastStep === null
                 ? 'Repeat'
-                : `Repeat: ${stepName(lastStep)}, attacks ${lastStep.from + 1} to ${lastStep.to}`
+                : `Repeat: ${stepName(lastStep)}, attacks ${groupDigits(lastStep.from + 1)} to ${groupDigits(lastStep.to)}`
             }
             testId="replay-repeat"
             shortcut="R"
@@ -814,7 +816,7 @@ export function CombatReplay(props: {
           <label className="label" htmlFor="replay-slider">
             Attack{' '}
             <span className="figure">
-              {sliderAt} / {total}
+              {groupDigits(sliderAt)} / {groupDigits(total)}
             </span>
           </label>
           <span className="slider" style={{ '--fill': sliderFill(sliderAt, 0, total) } as CSSProperties}>
@@ -846,12 +848,12 @@ export function CombatReplay(props: {
                   pick(index + 1);
                 }}
               >
-                <span className="figure muted">{attack.round}</span>
+                <span className="figure muted">{groupDigits(attack.round)}</span>
                 <span className="figure">
                   {nameOf(attack.attacker)} → {nameOf(attack.defender)}
                 </span>
                 <span className={`figure ${row.tone === 'muted' ? 'muted' : `tone-${row.tone}`}`}>
-                  {attack.hit ? `−${attack.damage ?? 0}` : 'miss'}
+                  {attack.hit ? `−${groupDigits(attack.damage ?? 0)}` : 'miss'}
                   {row.decisive === null ? '' : ` ${row.decisive === 'dead' ? 'dead' : 'out'}`}
                 </span>
               </button>

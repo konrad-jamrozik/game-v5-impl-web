@@ -13,6 +13,7 @@ export const BATTLEFIELD_ROWS = 32;
 
 // ---- Rank insignia -------------------------------------------------------------------------------
 
+import { groupDigits } from './format.ts';
 import { rankInsignia, type RankInsignia, type RankThreshold } from './rank.ts';
 
 export { rankInsignia, type RankInsignia, type RankThreshold };
@@ -138,10 +139,10 @@ export interface ReplayFigure {
 export function skillShareText(effectiveSkill: number, baseSkillHundredths: number): string {
   const base = Math.floor(baseSkillHundredths / 100);
   if (baseSkillHundredths <= 0) {
-    return `${effectiveSkill}/${base}`;
+    return `${groupDigits(effectiveSkill)}/${groupDigits(base)}`;
   }
   const tenths = Math.floor((effectiveSkill * 100_000) / baseSkillHundredths);
-  return `${effectiveSkill}/${base} (${Math.floor(tenths / 10)}.${tenths % 10}%)`;
+  return `${groupDigits(effectiveSkill)}/${groupDigits(base)} (${groupDigits(Math.floor(tenths / 10))}.${tenths % 10}%)`;
 }
 
 /** The values of one Combatant that change in a Combat, as of one moment of the Combat log. */
@@ -480,7 +481,9 @@ export function ratingsAt(
  * or "–" when the Enemies' Combat rating is 0.
  */
 export function ratingsRatioText(ratings: { readonly agents: number; readonly enemies: number }): string {
-  return ratings.enemies === 0 ? '–' : `${Math.round((100 * ratings.agents) / ratings.enemies)}%`;
+  return ratings.enemies === 0
+    ? '–'
+    : `${groupDigits(Math.round((100 * ratings.agents) / ratings.enemies))}%`;
 }
 
 // ---- Stepping ------------------------------------------------------------------------------------

@@ -22,7 +22,7 @@ import type {
   CurrentRetiredWorldStateView,
 } from '../../engine/index.ts';
 import { Exhaustion, Health, exhaustionLevels } from '../condition.tsx';
-import { decimalText, wholeText } from '../format.ts';
+import { decimalText, groupDigits, wholeText } from '../format.ts';
 import {
   ASSIGNMENTS,
   blockedBy,
@@ -118,12 +118,12 @@ function CapFigure(props: { label: string; testId: string; model: CapBarModel })
       <span className="label">{props.label}</span>
       <span className="cap-figure-line">
         <span className="figure">
-          {model.free} / {model.cap}
+          {groupDigits(model.free)} / {groupDigits(model.cap)}
         </span>
         <span
           className="cap-bar"
           role="img"
-          aria-label={`${props.label}: ${model.free} of ${model.cap}`}
+          aria-label={`${props.label}: ${groupDigits(model.free)} of ${groupDigits(model.cap)}`}
           data-taken-share={model.takenShare}
         >
           <span
@@ -345,7 +345,11 @@ export function AgentsView(props: {
         ),
       }),
       // AVIEW, Agent table: the Combat rating alone.
-      helper.accessor((agent) => agent.combatRating ?? 0, { id: 'combatRating', header: 'CR' }),
+      helper.accessor((agent) => agent.combatRating ?? 0, {
+        id: 'combatRating',
+        header: 'CR',
+        cell: (cell) => groupDigits(cell.getValue()),
+      }),
       // AVIEW, Agent table: the Rank's `name` followed by its Rank insignia; the column sorts by base skill.
       helper.accessor('skillHundredths', {
         id: 'rank',
@@ -530,7 +534,7 @@ export function AgentsView(props: {
         }
       }}
     >
-      {label} {shown}
+      {label} {groupDigits(shown)}
     </button>
   );
 
@@ -620,7 +624,7 @@ export function AgentsView(props: {
             act(() => player.actions.hireAgents(1));
           }}
         >
-          Hire · {state.agency.hireCost}
+          Hire · {groupDigits(state.agency.hireCost)}
         </Button>
         <div className="control-group control-row" role="group" aria-labelledby="assign-to-label">
           <span className="label" id="assign-to-label">
@@ -681,12 +685,12 @@ export function AgentsView(props: {
         {memorial ? null : (
           <span className="selection-figures">
             <span className="muted small" data-testid="agents-selected">
-              {count} selected
+              {groupDigits(count)} selected
             </span>
             {selectionCombatRating === null ? null : (
               <span className="combat-rating" data-testid="selection-combat-rating">
                 <span className="label">Combat rating</span>
-                <span className="figure tone-accent">{selectionCombatRating}</span>
+                <span className="figure tone-accent">{groupDigits(selectionCombatRating)}</span>
               </span>
             )}
           </span>
@@ -893,8 +897,10 @@ function Memorial(props: {
                 </button>
               </td>
               <td className="num">{wholeText(row.agent.skillHundredths)}</td>
-              <td className="num">{row.agent.experience}</td>
-              <td className="num">T{row.agent.turnTerminated ?? '-'}</td>
+              <td className="num">{groupDigits(row.agent.experience)}</td>
+              <td className="num">
+                T{row.agent.turnTerminated === null ? '-' : groupDigits(row.agent.turnTerminated)}
+              </td>
               {/* AVIEW, Memorial, Cause: Dismissed in Text muted; Killed by and the Enemy label in Danger text. */}
               <td
                 className={row.agent.agentStatus === 'Killed' ? 'tone-bad' : 'muted'}
@@ -908,9 +914,9 @@ function Memorial(props: {
                   </>
                 )}
               </td>
-              <td className="num">{row.missions}</td>
-              <td className="num">{row.turns}</td>
-              <td className="num">{row.kills}</td>
+              <td className="num">{groupDigits(row.missions)}</td>
+              <td className="num">{groupDigits(row.turns)}</td>
+              <td className="num">{groupDigits(row.kills)}</td>
               <td data-testid={`memorial-where-${row.agent.id}`}>
                 {row.death === null ? null : (
                   <>
@@ -1008,19 +1014,19 @@ function AgentDetails(props: {
         <dt>Archetype</dt>
         <dd>{agent.archetypeName}</dd>
         <dt>Turn hired</dt>
-        <dd className="figure">{agent.turnHired}</dd>
+        <dd className="figure">{groupDigits(agent.turnHired)}</dd>
         {/* AVIEW, Agent details: Turns served, the current Turn minus the Turn hired, or for a Terminated Agent its
             Turns with the Agency as the Memorial counts them. */}
         <dt>Turns served</dt>
         <dd className="figure" data-testid="details-turns-served">
-          {(agent.turnTerminated ?? state.turn) - agent.turnHired}
+          {groupDigits((agent.turnTerminated ?? state.turn) - agent.turnHired)}
         </dd>
         <dt>Weapon</dt>
         <dd>
           {terminated ? (
             <>
               {agent.weaponName}{' '}
-              <span className="figure secondary">· damage {agent.effectiveWeaponDamage}</span>
+              <span className="figure secondary">· damage {groupDigits(agent.effectiveWeaponDamage)}</span>
             </>
           ) : (
             <EquipmentPicker
@@ -1038,7 +1044,8 @@ function AgentDetails(props: {
         <dd data-testid="details-armor">
           {terminated ? (
             <>
-              {agent.armorName} <span className="figure secondary">· armor {agent.effectiveArmor}</span>
+              {agent.armorName}{' '}
+              <span className="figure secondary">· armor {groupDigits(agent.effectiveArmor)}</span>
             </>
           ) : (
             <EquipmentPicker
@@ -1060,13 +1067,13 @@ function AgentDetails(props: {
           <>
             <dt>Effective skill</dt>
             <dd className="figure" data-testid="details-effective-skill">
-              {agent.effectiveSkill}
+              {groupDigits(agent.effectiveSkill)}
             </dd>
           </>
         )}
         <dt>Experience</dt>
         <dd className="figure" data-testid="details-experience">
-          {agent.experience}
+          {groupDigits(agent.experience)}
         </dd>
         {/* AVIEW, Agent details: the base skill gained on Training, under Experience, with two decimals. */}
         <dt>Training skill gain</dt>
@@ -1076,8 +1083,8 @@ function AgentDetails(props: {
         <dt>Health</dt>
         <dd className="figure" data-testid="details-health">
           {terminated
-            ? agent.effectiveMaxHealth
-            : `${decimalText(agent.currentHealthHundredths)}/${agent.effectiveMaxHealth}`}
+            ? groupDigits(agent.effectiveMaxHealth)
+            : `${decimalText(agent.currentHealthHundredths)}/${groupDigits(agent.effectiveMaxHealth)}`}
         </dd>
         {terminated ? null : (
           <>
@@ -1098,9 +1105,12 @@ function AgentDetails(props: {
       {terminated ? null : (
         <span className="combat-rating" data-testid="details-combat-rating">
           <span className="label">Combat rating</span>
-          <span className="figure tone-accent">{agent.combatRating}</span>
+          <span className="figure tone-accent">
+            {agent.combatRating === null ? null : groupDigits(agent.combatRating)}
+          </span>
           <span className="figure secondary">
-            · max {agent.restedCombatRating} · equipment{' '}
+            · max {agent.restedCombatRating === null ? null : groupDigits(agent.restedCombatRating)} ·
+            equipment{' '}
             <span
               className={
                 (agent.equipmentCombatRating ?? 0) > 0
@@ -1115,7 +1125,7 @@ function AgentDetails(props: {
                 : (agent.equipmentCombatRating ?? 0) < 0
                   ? '−'
                   : ''}
-              {Math.abs(agent.equipmentCombatRating ?? 0)}
+              {groupDigits(Math.abs(agent.equipmentCombatRating ?? 0))}
             </span>
           </span>
         </span>
@@ -1154,7 +1164,7 @@ function AgentDetails(props: {
                 >
                   <td className="link-name">{item.what}</td>
                   <td>{item.faction}</td>
-                  <td className="figure">{item.turn === null ? '' : `Turn ${item.turn}`}</td>
+                  <td className="figure">{item.turn === null ? '' : `Turn ${groupDigits(item.turn)}`}</td>
                   <td className={outcomeTone(item.outcome)}>{item.outcome}</td>
                 </tr>
               );

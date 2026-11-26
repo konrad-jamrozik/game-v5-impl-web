@@ -10,6 +10,7 @@ import type {
   MissionSiteView,
   TurnReport,
 } from '../engine/index.ts';
+import { groupDigits } from './format.ts';
 import {
   completionEstimate,
   progressCircle,
@@ -165,5 +166,7 @@ export function lostMissionSites(
 /** The Required progress range of a Lead as the GUI writes it, e.g. "3–4", or null while it is unknown. */
 export function rangeText(lead: Pick<LeadView, 'requiredProgressRange'> | null | undefined): string | null {
   const range = lead?.requiredProgressRange;
-  return range === undefined || range === 'unknown' ? null : `${range.min}–${range.max}`;
+  return range === undefined || range === 'unknown'
+    ? null
+    : `${groupDigits(range.min)}–${groupDigits(range.max)}`;
 }

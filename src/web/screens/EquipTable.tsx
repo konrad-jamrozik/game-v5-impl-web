@@ -12,7 +12,7 @@ import type {
 import { assignmentText } from '../assignment.ts';
 import { AssignmentCell } from '../assignment-cell.tsx';
 import { Exhaustion, Health, type ExhaustionLevels } from '../condition.tsx';
-import { wholeText } from '../format.ts';
+import { groupDigits, wholeText } from '../format.ts';
 import { usePlaceState } from '../place.tsx';
 import { rankOf, type RankThreshold } from '../rank.ts';
 import { RankText } from '../rank-insignia.tsx';
@@ -87,7 +87,7 @@ function EquipmentCombatRatingCell({ agent }: { agent: AgentView }) {
   const tone = equipment > 0 ? 'tone-good' : equipment < 0 ? 'tone-bad' : 'muted';
   return (
     <span className={tone} data-testid={`equipment-cr-${agent.id}`}>
-      {equipment > 0 ? `+${equipment}` : equipment < 0 ? `−${-equipment}` : '0'}
+      {equipment > 0 ? `+${groupDigits(equipment)}` : equipment < 0 ? `−${groupDigits(-equipment)}` : '0'}
     </span>
   );
 }
@@ -192,14 +192,14 @@ export function EquipTable(props: {
                     {agent.id}
                   </button>
                 </td>
-                <td className="num">{agent.combatRating ?? 0}</td>
+                <td className="num">{groupDigits(agent.combatRating ?? 0)}</td>
                 <td className="num">
                   <EquipmentCombatRatingCell agent={agent} />
                 </td>
                 <td>{rank === null ? null : <RankText rank={rank} abbreviated />}</td>
-                <td className="num">{agent.effectiveSkill}</td>
+                <td className="num">{groupDigits(agent.effectiveSkill)}</td>
                 <td className="num">{wholeText(agent.skillHundredths)}</td>
-                <td className="num">{agent.experience}</td>
+                <td className="num">{groupDigits(agent.experience)}</td>
                 <td className="num">
                   <Health currentHundredths={agent.currentHealthHundredths} base={agent.effectiveMaxHealth} />
                 </td>

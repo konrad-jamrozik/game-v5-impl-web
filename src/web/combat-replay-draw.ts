@@ -27,6 +27,7 @@ import {
   outlineGlow,
   type ShotGeometry,
 } from './combat-replay-shots.ts';
+import { groupDigits } from './format.ts';
 
 /** VIS, Colours: the Design tokens the Battlefield is drawn in, read from the style sheet. */
 export interface ReplayPalette {
@@ -544,7 +545,7 @@ function drawHits(ctx: CanvasRenderingContext2D, input: DrawInput, step: Playbac
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = `${Math.max(11, cell * 0.55)}px ${palette.figureFont}`;
-    ctx.fillText(`−${hit.damage}`, x, y - r * 1.9 - 6 - k * cell * 0.8);
+    ctx.fillText(`−${groupDigits(hit.damage)}`, x, y - r * 1.9 - 6 - k * cell * 0.8);
     ctx.restore();
   }
 }

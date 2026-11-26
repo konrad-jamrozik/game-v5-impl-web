@@ -3,6 +3,7 @@
  * presentation over the Player API views; no gameplay rule.
  */
 import type { CurrentLiveWorldStateView, GameDataView, LeadView } from '../engine/index.ts';
+import { groupDigits } from './format.ts';
 
 /** The name of the Faction a Lead concerns, or its FactionArchetype when no Faction of the Campaign has it. */
 export function leadFactionName(
@@ -56,7 +57,7 @@ export function onCompletionLines(
       key: 'site',
       before: 'Creates the Mission site ',
       strong: archetype?.name ?? site,
-      after: enemies === undefined ? '' : ` · ${enemies} ${enemies === 1 ? 'Enemy' : 'Enemies'}`,
+      after: enemies === undefined ? '' : ` · ${groupDigits(enemies)} ${enemies === 1 ? 'Enemy' : 'Enemies'}`,
       good: false,
     });
   }
@@ -75,7 +76,7 @@ export function onCompletionLines(
       key: 'contracting',
       before: 'Unlocks Contracting',
       strong: '',
-      after: places === undefined ? '' : ` · ${places} ${places === 1 ? 'place' : 'places'}`,
+      after: places === undefined ? '' : ` · ${groupDigits(places)} ${places === 1 ? 'place' : 'places'}`,
       good: true,
     });
   }

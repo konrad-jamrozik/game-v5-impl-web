@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import type { AutopilotLimit } from '../../engine/index.ts';
 import { autopilotSettings, permittedAutopilotTurns, shownAutopilotAi } from '../autopilot-controls.ts';
+import { groupDigits } from '../format.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { Button } from '../ui.tsx';
 
@@ -78,7 +79,8 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
     active === null ? null : (
       <>
         <span className="pulse" data-testid="autopilot-active">
-          Engaged: {progress?.playerActions ?? 0} actions, {progress?.turnAdvancements ?? 0} Turns
+          Engaged: {groupDigits(progress?.playerActions ?? 0)} actions,{' '}
+          {groupDigits(progress?.turnAdvancements ?? 0)} Turns
         </span>
         <Button
           kind="danger"

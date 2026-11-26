@@ -15,7 +15,7 @@ import type {
 import { Consequences } from '../consequences.tsx';
 import { enemyGroups } from '../enemy-groups.ts';
 import { enemyLabels } from '../enemy-labels.ts';
-import { decimalText, wholeText } from '../format.ts';
+import { decimalText, groupDigits, wholeText } from '../format.ts';
 import {
   appliedConsequence,
   conditionText,
@@ -47,10 +47,10 @@ import { usePlaceState } from '../place.tsx';
 export function consequenceParts(c: ConsequenceView, factionName: string): string[] {
   const parts: string[] = [];
   if (c.money !== 0) {
-    parts.push(`${c.money > 0 ? '+' : '−'}${Math.abs(c.money)} money`);
+    parts.push(`${c.money > 0 ? '+' : '−'}${groupDigits(Math.abs(c.money))} money`);
   }
   if (c.fundingChange !== 0) {
-    parts.push(`${c.fundingChange > 0 ? '+' : '−'}${Math.abs(c.fundingChange)} funding`);
+    parts.push(`${c.fundingChange > 0 ? '+' : '−'}${groupDigits(Math.abs(c.fundingChange))} funding`);
   }
   if (c.panicReductionHundredths !== 0) {
     parts.push(`Panic −${decimalText(c.panicReductionHundredths)}`);
@@ -78,7 +78,9 @@ function CombatRating(props: { value: number | string; testId: string }) {
   return (
     <span className="combat-rating" data-testid={props.testId}>
       <span className="label">Combat rating</span>
-      <span className="figure tone-accent">{props.value}</span>
+      <span className="figure tone-accent">
+        {typeof props.value === 'number' ? groupDigits(props.value) : props.value}
+      </span>
     </span>
   );
 }
@@ -120,7 +122,7 @@ export function MissionsView(props: {
         : [
             {
               site,
-              detail: `${factionName(site.targetFaction)} · ${mission.teamSent.length} Agents`,
+              detail: `${factionName(site.targetFaction)} · ${groupDigits(mission.teamSent.length)} Agents`,
               tone: 'secondary',
             },
           ];
@@ -150,7 +152,7 @@ export function MissionsView(props: {
       <div className="list-group" data-testid={testId}>
         <div className="sit-group-head">
           <span className="label">{title}</span>
-          <span className="figure tone-accent">{items.length}</span>
+          <span className="figure tone-accent">{groupDigits(items.length)}</span>
         </div>
         {items.map((item) => (
           <button
@@ -180,7 +182,7 @@ export function MissionsView(props: {
     <DetailView
       id="missions"
       title="Missions"
-      aside={`${active.length} Active`}
+      aside={`${groupDigits(active.length)} Active`}
       // MVIEW, Mission site list: the Concluded toggle follows the number of Active Mission sites in the title row.
       lead={
         <button
@@ -193,7 +195,7 @@ export function MissionsView(props: {
             setPicked(null);
           }}
         >
-          Concluded {retired?.missionSites.length ?? 0}
+          Concluded {groupDigits(retired?.missionSites.length ?? 0)}
         </button>
       }
       onClose={props.onClose}
@@ -217,7 +219,7 @@ export function MissionsView(props: {
                 'Active Mission sites',
                 active.map((site) => ({
                   site,
-                  detail: `${site.kind} · ${factionName(site.targetFaction)} · ${site.turnsUntilExpiration} T left`,
+                  detail: `${site.kind} · ${factionName(site.targetFaction)} · ${groupDigits(site.turnsUntilExpiration)} T left`,
                   tone: site.turnsUntilExpiration <= 2 ? 'tone-accent' : 'secondary',
                 })),
                 'missions-active',
@@ -294,11 +296,11 @@ function SiteDetails(props: {
         <dt>Faction</dt>
         <dd data-testid="site-faction">{target}</dd>
         <dt>Turn created</dt>
-        <dd className="figure">{site.turnCreated}</dd>
+        <dd className="figure">{groupDigits(site.turnCreated)}</dd>
         {site.lifecycle === 'Active' ? (
           <>
             <dt>Expires in</dt>
-            <dd className="figure">{site.turnsUntilExpiration} T</dd>
+            <dd className="figure">{groupDigits(site.turnsUntilExpiration)} T</dd>
           </>
         ) : null}
         {/* MVIEW, Final state: a Concluded Mission site shows its Mission's outcome instead of "Concluded". */}
@@ -394,7 +396,7 @@ function Participants(props: {
         <div className="sit-group-head pane-sub">
           <span className="label">{which === 'enemy' ? 'Enemies' : 'Agents'}</span>
           <CombatRating
-            value={`${record.ratingsStart[key]} → ${record.ratingsEnd[key]}`}
+            value={`${groupDigits(record.ratingsStart[key])} → ${groupDigits(record.ratingsEnd[key])}`}
             testId={`concluded-${key}-combat-rating`}
           />
         </div>
@@ -440,7 +442,8 @@ function Participants(props: {
                   )}
                 </td>
                 <td className="num">
-                  {participant.startEffectiveSkill} → {participant.endEffectiveSkill}
+                  {groupDigits(participant.startEffectiveSkill)} →{' '}
+                  {groupDigits(participant.endEffectiveSkill)}
                 </td>
                 <td className="num">
                   {wholeText(participant.startHealthHundredths)} →{' '}
@@ -570,7 +573,7 @@ function Deployment(props: {
           checked Agents taken as one side, 0 while none is checked. */}
       <div className="deploy-figures">
         <span className={`figure${over ? ' tone-bad' : ' secondary'}`} data-testid="transport">
-          Transport {taken} / {state.agency.transportCap}
+          Transport {groupDigits(taken)} / {groupDigits(state.agency.transportCap)}
         </span>
         <CombatRating
           value={preview !== null && preview.ok ? preview.value.teamCombatRating : 0}
@@ -579,7 +582,7 @@ function Deployment(props: {
         {/* MVIEW, Deployment: the share it is of the Enemies' Combat rating, coloured by its band. */}
         {share === null ? null : (
           <span className={`figure combat-share ${share.tone}`} data-testid="team-combat-share">
-            · {share.percent}%
+            · {groupDigits(share.percent)}%
           </span>
         )}
       </div>
@@ -653,7 +656,7 @@ function Deployment(props: {
                       </button>
                       <DeployRankInsignia baseSkillHundredths={agent.skillHundredths} ranks={ranks} />
                     </td>
-                    <td className="num">{agent.combatRating ?? 0}</td>
+                    <td className="num">{groupDigits(agent.combatRating ?? 0)}</td>
                     <td className="num">
                       {/* MVIEW, Deployment: every Agent's exhaustion, coloured under VIS, Agent condition. */}
                       <Exhaustion value={agent.exhaustion} levels={exhaustionLevels(snapshot.gameData)} />
@@ -682,7 +685,7 @@ function Deployment(props: {
             props.onDeploy(team);
           }}
         >
-          Deploy {team.length}
+          Deploy {groupDigits(team.length)}
         </Button>
         {/* MVIEW, Deployment: at the right, an Agents button opens the Agents View as a Follow. */}
         <Button

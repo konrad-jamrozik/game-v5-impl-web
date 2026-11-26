@@ -4,6 +4,7 @@
  * engine; no gameplay rule is implemented here.
  */
 import type { InvestigationView } from '../engine/index.ts';
+import { groupDigits } from './format.ts';
 import type { RequiredKnowledge } from './progress-bar.ts';
 
 export type ProgressCircleModel =
@@ -61,12 +62,15 @@ export function completionEstimate(
   const greatest = known.requiredProgressRange.max * 100;
   const latest = Math.max(1, Math.ceil((greatest - p) / gain));
   if (p >= required) {
-    return { text: `ETA ≤ ${latest} T`, tone: 'next' };
+    return { text: `ETA ≤ ${groupDigits(latest)} T`, tone: 'next' };
   }
   const earliest = Math.max(1, Math.ceil((required - p) / gain));
   const last = Math.max(earliest, latest);
   return {
-    text: earliest === last ? `ETA ${earliest} T` : `ETA ${earliest}–${last} T`,
+    text:
+      earliest === last
+        ? `ETA ${groupDigits(earliest)} T`
+        : `ETA ${groupDigits(earliest)}–${groupDigits(last)} T`,
     tone: earliest === 1 ? 'next' : 'plain',
   };
 }

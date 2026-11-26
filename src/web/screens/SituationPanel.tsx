@@ -5,6 +5,7 @@
 import type { ReactNode } from 'react';
 import type { CurrentLiveWorldStateView, LeadView, MissionSiteView } from '../../engine/index.ts';
 import { WarningTriangle } from '../condition.tsx';
+import { groupDigits } from '../format.ts';
 import { GROUP_TITLES, situationGroups, type MissionSiteRow, type SituationGroup } from '../situation.ts';
 import { ProgressCircle } from './ProgressCircle.tsx';
 
@@ -29,12 +30,12 @@ function missionSiteLine({ site, urgency }: MissionSiteRow): {
       return {
         rowClass: ' sit-row-next',
         glyph: <WarningTriangle />,
-        value: `${site.turnsUntilExpiration} T left`,
+        value: `${groupDigits(site.turnsUntilExpiration)} T left`,
       };
     case 'lost':
       return { rowClass: ' sit-row-lost', glyph: <ProhibitionIcon />, value: site.lifecycle };
     case 'other':
-      return { rowClass: '', glyph: null, value: `${site.turnsUntilExpiration} T left` };
+      return { rowClass: '', glyph: null, value: `${groupDigits(site.turnsUntilExpiration)} T left` };
   }
 }
 
@@ -59,7 +60,7 @@ export function SituationPanel(props: {
     <section className="situation" data-testid="situation" aria-label="Situation">
       <header className="section-head">
         <h3>Situation</h3>
-        <span className="label">Turn {state.turn}</span>
+        <span className="label">Turn {groupDigits(state.turn)}</span>
       </header>
       {groups.length === 0 ? (
         <p className="muted" data-testid="situation-quiet">
@@ -70,7 +71,7 @@ export function SituationPanel(props: {
           <div key={group.id} className="sit-group" data-testid={`situation-${group.id}`}>
             <div className="sit-group-head">
               <span className="label">{GROUP_TITLES[group.id]}</span>
-              <span className="figure tone-accent">{group.count}</span>
+              <span className="figure tone-accent">{groupDigits(group.count)}</span>
             </div>
             <GroupRows group={group} onShow={props.onShow} />
           </div>
@@ -144,14 +145,14 @@ function GroupRows(props: { group: SituationGroup; onShow: (target: SituationTar
       if (group.fitToStartWork > 0) {
         parts.push(
           <span key="fit">
-            <span className="figure strong">{group.fitToStartWork}</span> fit to start work
+            <span className="figure strong">{groupDigits(group.fitToStartWork)}</span> fit to start work
           </span>,
         );
       }
       if (group.trainingFree > 0) {
         parts.push(
           <span key="training">
-            <span className="figure strong">{group.trainingFree}</span> Training place
+            <span className="figure strong">{groupDigits(group.trainingFree)}</span> Training place
             {group.trainingFree === 1 ? '' : 's'} free
           </span>,
         );

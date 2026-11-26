@@ -1,6 +1,6 @@
 /** VIS, Agent condition: the coloured exhaustion and current health values; the scales are in condition-scale.ts. */
 import { exhaustionTone, healthColor, type ExhaustionLevels } from './condition-scale.ts';
-import { wholeText } from './format.ts';
+import { groupDigits, wholeText } from './format.ts';
 
 export { exhaustionLevels, exhaustionTone, healthColor, type ExhaustionLevels } from './condition-scale.ts';
 
@@ -26,7 +26,7 @@ export function Exhaustion(props: { value: number; levels: ExhaustionLevels }) {
   return (
     <span className={`condition ${tone}`}>
       {triangle ? <WarningTriangle /> : null}
-      {props.value}
+      {groupDigits(props.value)}
     </span>
   );
 }
@@ -38,7 +38,7 @@ export function Exhaustion(props: { value: number; levels: ExhaustionLevels }) {
 export function Health(props: { currentHundredths: number; base: number }) {
   return (
     <span className="condition" style={{ color: healthColor(props.currentHundredths / 100, props.base) }}>
-      {wholeText(props.currentHundredths)}/{props.base}
+      {wholeText(props.currentHundredths)}/{groupDigits(props.base)}
     </span>
   );
 }

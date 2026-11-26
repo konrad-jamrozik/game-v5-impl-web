@@ -5,6 +5,7 @@
  */
 import type { SettingReport } from '../engine/index.ts';
 import { checkedCharts } from './chart-range.ts';
+import { groupDigits } from './format.ts';
 
 type Words = (value: unknown) => string;
 
@@ -55,7 +56,7 @@ const WORDING: Readonly<Record<string, { readonly name: string; readonly words: 
 export function changedSettingLine(setting: SettingReport): string {
   const wording = WORDING[setting.setting] ?? {
     name: setting.name,
-    words: (value: unknown) => String(value),
+    words: (value: unknown) => (typeof value === 'number' ? groupDigits(value) : String(value)),
   };
   return `${wording.name}: ${wording.words(setting.effectiveValue)} (default ${wording.words(setting.gameBuildDefault)})`;
 }

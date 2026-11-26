@@ -6,6 +6,7 @@
  */
 import { useState } from 'react';
 import { lastTurnsFrom, useLastTurns } from '../chart-range.ts';
+import { groupDigits } from '../format.ts';
 import { LastTurnsCheckbox } from './LastTurnsCheckbox.tsx';
 import { ChartDot } from './SeriesChart.tsx';
 import { FullScreenButton, useChartFullScreen, usePlotSize } from './ChartFullScreen.tsx';
@@ -37,7 +38,7 @@ export function LineChart(props: {
   headline?: boolean;
   /** Text after the current value, e.g. "of 100% limit". */
   valueNote?: string;
-  /** How a value of the series is written, e.g. with two decimals for Panic; by default as it is. */
+  /** How a value of the series is written, e.g. with two decimals for Panic; by default as it is, digits grouped. */
   valueText?: (value: number) => string;
   testId?: string;
 }) {
@@ -51,7 +52,7 @@ export function LineChart(props: {
   const checkbox = (
     <LastTurnsCheckbox chart={props.testId ?? props.title} on={lastOnly} onChange={setLastOnly} />
   );
-  const text = props.valueText ?? String;
+  const text = props.valueText ?? groupDigits;
   const [hover, setHover] = useState<number | null>(null);
   const headline = props.headline === true;
   // VIS, Charts: while the chart is shown full screen, its plot is drawn at the size it takes on screen.
@@ -83,7 +84,7 @@ export function LineChart(props: {
   const turnSpan = Math.max(1, last.turn - first.turn);
   // VIS, Charts: the vertical axis labels its top and bottom values, so the plot starts after the widest of them,
   // in the Axis style, 11 px JetBrains Mono, about 6.7 px a character, 6 px from the plot.
-  const widestLabel = Math.max(...[top, top / 2, low].map((value) => String(value).length));
+  const widestLabel = Math.max(...[top, top / 2, low].map((value) => groupDigits(value).length));
   const padLeft = Math.max(PAD.left, Math.ceil(widestLabel * 6.7) + 10);
   const x = (turn: number) => padLeft + ((turn - first.turn) / turnSpan) * (width - padLeft - PAD.right);
   const y = (value: number) => PAD.top + ((top - value) / (top - low)) * (height - PAD.top - PAD.bottom);
@@ -113,7 +114,7 @@ export function LineChart(props: {
               <>
                 {text(shown.value)}
                 {unit}
-                <small>Turn {shown.turn}</small>
+                <small>Turn {groupDigits(shown.turn)}</small>
               </>
             )}
           </span>
@@ -129,7 +130,7 @@ export function LineChart(props: {
           <svg
             viewBox={`0 0 ${width} ${height}`}
             role="img"
-            aria-label={`${props.title}: ${text(first.value)}${unit} in Turn ${first.turn}, ${text(last.value)}${unit} in Turn ${last.turn}`}
+            aria-label={`${props.title}: ${text(first.value)}${unit} in Turn ${groupDigits(first.turn)}, ${text(last.value)}${unit} in Turn ${groupDigits(last.turn)}`}
             onMouseLeave={() => {
               setHover(null);
             }}
@@ -157,11 +158,11 @@ export function LineChart(props: {
             <line className="chart-grid" x1={padLeft} x2={width - PAD.right} y1={y(top)} y2={y(top)} />
             <line className="chart-base" x1={padLeft} x2={width - PAD.right} y1={y(0)} y2={y(0)} />
             <text className="chart-tick" x={padLeft - 6} y={y(top) + 4} textAnchor="end">
-              {top}
+              {groupDigits(top)}
             </text>
             {headline ? (
               <text className="chart-tick" x={padLeft - 6} y={y(middle) + 4} textAnchor="end">
-                {middle}
+                {groupDigits(middle)}
               </text>
             ) : null}
             <text className="chart-tick" x={padLeft - 6} y={y(0) + 4} textAnchor="end">
@@ -169,7 +170,7 @@ export function LineChart(props: {
             </text>
             {low < 0 ? (
               <text className="chart-tick" x={padLeft - 6} y={y(low) + 4} textAnchor="end">
-                {low}
+                {groupDigits(low)}
               </text>
             ) : null}
             {props.limit === undefined ? null : (
@@ -194,16 +195,16 @@ export function LineChart(props: {
                   y={y(props.limit) + 11}
                   textAnchor="end"
                 >
-                  LOSS AT {props.limit}
+                  LOSS AT {groupDigits(props.limit)}
                   {unit}
                 </text>
               </>
             )}
             <text className="chart-tick" x={padLeft} y={height - 6} textAnchor="start">
-              T{first.turn}
+              T{groupDigits(first.turn)}
             </text>
             <text className="chart-tick" x={width - PAD.right} y={height - 6} textAnchor="end">
-              T{last.turn}
+              T{groupDigits(last.turn)}
             </text>
             <path className="chart-area" d={area} />
             <path className="chart-line" d={line} />

@@ -1,6 +1,7 @@
 /** Small presentational pieces shared by the screens. */
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { nearLimitColor } from './condition-scale.ts';
+import { groupDigits, signedNumber } from './format.ts';
 import { sliderFill } from './slider.ts';
 import type { ButtonSound } from './sounds.ts';
 import { showsSortArrow, type SortTier } from './table-sort.ts';
@@ -142,7 +143,7 @@ export function Meter(props: { value: number; max: number; label?: string }) {
     <span
       className="meter"
       role="img"
-      aria-label={props.label ?? `${props.value} of ${props.max}`}
+      aria-label={props.label ?? `${groupDigits(props.value)} of ${groupDigits(props.max)}`}
       style={{ '--meter-colour': nearLimitColor(props.value, props.max) } as CSSProperties}
     >
       {Array.from({ length: 10 }, (_, index) => (
@@ -238,8 +239,9 @@ export function Section(props: { title: string; children: ReactNode; aside?: Rea
   );
 }
 
+/** A change of a number, with "+" before a gain and its digits grouped, e.g. "+1,200" and "-80". */
 export function signed(value: number): string {
-  return value > 0 ? `+${value}` : String(value);
+  return signedNumber(value);
 }
 
 /** Whether a keyboard event comes from a control that takes typed text. */

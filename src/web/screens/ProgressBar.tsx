@@ -1,10 +1,10 @@
 /** GUI, Progress bar, styled under VIS, Progress bars. The geometry comes from `progress-bar.ts`. */
 import type { CSSProperties } from 'react';
-import { progressGain, progressPoints } from '../format.ts';
+import { groupDigits, progressGain, progressPoints } from '../format.ts';
 import { fillColour, rangeLabels, type ProgressBarModel } from '../progress-bar.ts';
 
 /** The Required progress and its range are whole progress points, e.g. 6. */
-const whole = (hundredths: number) => String(hundredths / 100);
+const whole = (hundredths: number) => groupDigits(hundredths / 100);
 
 const pct = (value: number) => `${Math.round(value * 10000) / 100}%`;
 

@@ -1034,7 +1034,7 @@ input::placeholder {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px 24px;
+  gap: 14px 16px;
   padding: 8px 20px;
   background: var(--surface);
   border-bottom: 2px solid var(--accent);
@@ -1048,10 +1048,17 @@ input::placeholder {
   gap: 10px 28px;
 }
 
+/* VIS, Status bar: the values sit 18 px apart, and the Panic meter is 100 px wide, so that grouped values late in a
+   long Campaign, e.g. Money "145,817" with "+12,237" over "−10,040", Funding "1,250", and Agents "104/140", still fit
+   the Reference window beside the controls. */
 .status-facts {
   flex-wrap: nowrap;
-  column-gap: 24px;
+  column-gap: 18px;
   overflow: hidden;
+}
+
+.status-facts .meter {
+  width: 100px;
 }
 
 .status-actions {
@@ -1085,10 +1092,24 @@ input::placeholder {
 }
 
 .fact-change {
-  margin-left: 10px;
   font-family: var(--font-figure);
   word-spacing: normal;
   font-size: 13px;
+}
+
+/* VIS, Status bar: a value with a gain and a loss, i.e. Money, stacks them in one column after it, the gain above the
+   loss, so that they widen the bar only once. The two 13 px lines together are no taller than the 22 px headline
+   figure's line, so the bar keeps its height, and the column is centred on that figure. */
+.fact-changes {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.fact-changes > .fact-change {
+  line-height: 13px;
 }
 
 .fact-label {

@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Consequences } from '../consequences.tsx';
-import { progressPoints } from '../format.ts';
+import { groupDigits, progressPoints } from '../format.ts';
 import { completedProgressBar } from '../progress-bar.ts';
 import { SOON_EXPIRING_TURNS } from '../situation.ts';
 import { playSound } from '../sound-player.ts';
@@ -15,14 +15,14 @@ import type { TurnSummaryModel } from '../turn-summary.ts';
 import { withShortcut } from '../ui.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
 
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+const plural = (count: number, word: string) => `${groupDigits(count)} ${word}${count === 1 ? '' : 's'}`;
 
 function Group(props: { title: string; count: number; testId: string; children: ReactNode }) {
   return (
     <section className="sit-group" data-testid={props.testId}>
       <div className="sit-group-head">
         <span className="label">{props.title}</span>
-        <span className="figure tone-accent">{props.count}</span>
+        <span className="figure tone-accent">{groupDigits(props.count)}</span>
       </div>
       {props.children}
     </section>
@@ -89,8 +89,8 @@ export function TurnSummary(props: {
         }}
       >
         <header className="dialog-head">
-          <h2 id="turn-summary-title">Turn {model.turn} summary</h2>
-          <span className="muted small">Now Turn {props.currentTurn}</span>
+          <h2 id="turn-summary-title">Turn {groupDigits(model.turn)} summary</h2>
+          <span className="muted small">Now Turn {groupDigits(props.currentTurn)}</span>
         </header>
         <div className="dialog-body">
           {model.missions.length === 0 ? null : (
@@ -156,7 +156,7 @@ export function TurnSummary(props: {
                       {item.range === null ? null : (
                         <span className="muted">
                           {' '}
-                          / {item.range.min}–{item.range.max}
+                          / {groupDigits(item.range.min)}–{groupDigits(item.range.max)}
                         </span>
                       )}
                     </span>
@@ -209,7 +209,8 @@ export function TurnSummary(props: {
                     </span>
                   </div>
                   <span className="sit-sub">
-                    {site.kind} · {site.origin} · {site.enemies} {site.enemies === 1 ? 'Enemy' : 'Enemies'}
+                    {site.kind} · {site.origin} · {groupDigits(site.enemies)}{' '}
+                    {site.enemies === 1 ? 'Enemy' : 'Enemies'}
                   </span>
                 </button>
               ))}

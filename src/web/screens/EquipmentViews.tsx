@@ -4,6 +4,7 @@
  */
 import { useState, type KeyboardEvent } from 'react';
 import type { CurrentLiveWorldStateView, EquipmentItemView, EquipmentView } from '../../engine/index.ts';
+import { groupDigits } from '../format.ts';
 import { stepOf } from '../stepper.ts';
 import { run, theEngine } from '../store.ts';
 import { Button, Grid } from '../ui.tsx';
@@ -58,10 +59,21 @@ export function saleValueOf(view: EquipmentView, priced: number): number {
   return Math.floor((priced * view.salePriceFraction.numerator) / view.salePriceFraction.denominator);
 }
 
+/**
+ * A Sale value, whole as it is and otherwise with two decimals, e.g. "0.50", its whole part grouped under GUI, Digit
+ * grouping, e.g. "1,250.50".
+ */
+function valueText(exact: number): string {
+  if (Number.isInteger(exact)) {
+    return groupDigits(exact);
+  }
+  const [whole = '0', fraction = '00'] = Math.abs(exact).toFixed(2).split('.');
+  return `${exact < 0 ? '-' : ''}${groupDigits(Number(whole))}.${fraction}`;
+}
+
 /** The Sale value of one, with two decimals when it is not whole, e.g. "0.50"; GUI, Decimal quantities shown. */
 function unitText(view: EquipmentView, price: number, count = 1): string {
-  const exact = (price * count * view.salePriceFraction.numerator) / view.salePriceFraction.denominator;
-  return Number.isInteger(exact) ? exact.toLocaleString('en-US') : exact.toFixed(2);
+  return valueText((price * count * view.salePriceFraction.numerator) / view.salePriceFraction.denominator);
 }
 
 function sumText(
@@ -70,8 +82,7 @@ function sumText(
   count: (item: EquipmentItemView) => number,
 ) {
   const priced = items.reduce((sum, item) => sum + item.price * count(item), 0);
-  const exact = (priced * view.salePriceFraction.numerator) / view.salePriceFraction.denominator;
-  return Number.isInteger(exact) ? exact.toLocaleString('en-US') : exact.toFixed(2);
+  return valueText((priced * view.salePriceFraction.numerator) / view.salePriceFraction.denominator);
 }
 
 /** STVIEW, Storage header: what a value is, the share of the price `sale_price_fraction` gives, e.g. "half the price". */
@@ -81,7 +92,7 @@ function valueNote(view: EquipmentView): string {
     return 'Value is half the price';
   }
   const percent = (numerator * 100) / denominator;
-  return `Value is ${Number.isInteger(percent) ? percent : percent.toFixed(1)}% of the price`;
+  return `Value is ${Number.isInteger(percent) ? groupDigits(percent) : percent.toFixed(1)}% of the price`;
 }
 
 /**
@@ -93,7 +104,7 @@ function Stats(props: { item: EquipmentItemView; ammoName: (id: string) => strin
   if (item.kind === 'weapon') {
     return (
       <span>
-        <span className="figure stat-figure">{item.stat}</span>
+        <span className="figure stat-figure">{item.stat === null ? null : groupDigits(item.stat)}</span>
         <SwordIcon />{' '}
         <span className="muted">{item.ammoType === null ? '' : props.ammoName(item.ammoType)}</span>
       </span>
@@ -102,7 +113,7 @@ function Stats(props: { item: EquipmentItemView; ammoName: (id: string) => strin
   if (item.kind === 'armor') {
     return (
       <span>
-        <span className="figure stat-figure">{item.stat}</span>
+        <span className="figure stat-figure">{item.stat === null ? null : groupDigits(item.stat)}</span>
         <ArmorIcon />
       </span>
     );
@@ -110,12 +121,12 @@ function Stats(props: { item: EquipmentItemView; ammoName: (id: string) => strin
   return (
     <span
       className={item.ammoShort ? 'tone-warn figure' : 'figure'}
-      title={`Recommended for ${item.ammoAgents} Agents`}
+      title={`Recommended for ${groupDigits(item.ammoAgents)} Agents`}
     >
-      {item.available.toLocaleString('en-US')} / {item.ammoNeeded.toLocaleString('en-US')}
+      {groupDigits(item.available)} / {groupDigits(item.ammoNeeded)}
       {item.ammoShort ? (
         <AmmoWarning
-          title={`${item.name} ${item.available}, below ${item.ammoNeeded} for ${item.ammoAgents} Agents`}
+          title={`${item.name} ${groupDigits(item.available)}, below ${groupDigits(item.ammoNeeded)} for ${groupDigits(item.ammoAgents)} Agents`}
         />
       ) : null}
     </span>
@@ -133,7 +144,7 @@ function chosenLines(
       const n = count(item);
       const plural =
         item.kind !== 'ammo' && n !== 1 && !item.name.endsWith('s') ? `${item.name}s` : item.name;
-      return `${n} ${plural}`;
+      return `${groupDigits(n)} ${plural}`;
     });
 }
 
@@ -217,7 +228,13 @@ function TradeControl(props: {
         inputMode="numeric"
         className={tone}
         aria-label={`${props.name} to trade: below 0 sells, above 0 buys`}
-        title={count < 0 ? `Sell ${-count}` : count > 0 ? `Buy ${count}` : 'Nothing traded'}
+        title={
+          count < 0
+            ? `Sell ${groupDigits(-count)}`
+            : count > 0
+              ? `Buy ${groupDigits(count)}`
+              : 'Nothing traded'
+        }
         value={draft ?? shown}
         onFocus={(event) => {
           setDraft(String(count));
@@ -309,7 +326,7 @@ export function StorageView(props: {
       title="Storage"
       aside={
         <>
-          Money {money.toLocaleString('en-US')}
+          Money {groupDigits(money)}
           <span className="muted" data-testid="storage-value-note">
             {' '}
             · {valueNote(view)}
@@ -366,9 +383,11 @@ export function StorageView(props: {
                   <td colSpan={2}>
                     {folds.mark(group.kind)} {group.name}
                   </td>
-                  <td className="num">{sum((item) => item.owned).toLocaleString('en-US')}</td>
-                  <td className="num">{group.kind === 'ammo' ? '–' : sum((item) => item.equipped)}</td>
-                  <td className="num">{sum((item) => item.available).toLocaleString('en-US')}</td>
+                  <td className="num">{groupDigits(sum((item) => item.owned))}</td>
+                  <td className="num">
+                    {group.kind === 'ammo' ? '–' : groupDigits(sum((item) => item.equipped))}
+                  </td>
+                  <td className="num">{groupDigits(sum((item) => item.available))}</td>
                   <td />
                   <td />
                   <td />
@@ -386,10 +405,10 @@ export function StorageView(props: {
                       <td>
                         <Stats item={item} ammoName={ammoName} />
                       </td>
-                      <td className="num">{item.owned.toLocaleString('en-US')}</td>
-                      <td className="num">{item.kind === 'ammo' ? '–' : item.equipped}</td>
-                      <td className="num">{item.available.toLocaleString('en-US')}</td>
-                      <td className="num">{item.unlocked ? item.price.toLocaleString('en-US') : ''}</td>
+                      <td className="num">{groupDigits(item.owned)}</td>
+                      <td className="num">{item.kind === 'ammo' ? '–' : groupDigits(item.equipped)}</td>
+                      <td className="num">{groupDigits(item.available)}</td>
+                      <td className="num">{item.unlocked ? groupDigits(item.price) : ''}</td>
                       <td className="num">{unitText(view, item.price)}</td>
                       <td>
                         <TradeControl
@@ -415,17 +434,16 @@ export function StorageView(props: {
             {/* Each part keeps its words together, so the panel wraps only between parts. */}
             <span className="figure trade-sums">
               <span>
-                Earns <span className="tone-good">+{earns.toLocaleString('en-US')}</span> ·
+                Earns <span className="tone-good">+{groupDigits(earns)}</span> ·
               </span>{' '}
               <span>
-                Costs{' '}
-                <span className={missing > 0 ? 'tone-bad' : undefined}>{cost.toLocaleString('en-US')}</span> ·
+                Costs <span className={missing > 0 ? 'tone-bad' : undefined}>{groupDigits(cost)}</span> ·
               </span>{' '}
-              <span>Money after {(money + earns - cost).toLocaleString('en-US')}</span>
+              <span>Money after {groupDigits(money + earns - cost)}</span>
               {missing > 0 ? (
                 <>
                   {' '}
-                  <span className="tone-bad">· {missing.toLocaleString('en-US')} missing</span>
+                  <span className="tone-bad">· {groupDigits(missing)} missing</span>
                 </>
               ) : null}
             </span>
@@ -437,7 +455,7 @@ export function StorageView(props: {
               title={stripped.lines.join('\n')}
               data-testid="trade-stripped"
             >
-              {stripped.agents} {stripped.agents === 1 ? 'Agent loses' : 'Agents lose'} equipment
+              {groupDigits(stripped.agents)} {stripped.agents === 1 ? 'Agent loses' : 'Agents lose'} equipment
             </div>
           )}
           <div className="trade-line">
@@ -459,7 +477,11 @@ export function StorageView(props: {
                 testId="trade"
                 disabledReason={
                   props.locked ??
-                  (nothing ? 'Nothing is chosen.' : missing > 0 ? `${missing} money missing.` : null)
+                  (nothing
+                    ? 'Nothing is chosen.'
+                    : missing > 0
+                      ? `${groupDigits(missing)} money missing.`
+                      : null)
                 }
                 onClick={trade}
               >

@@ -1,25 +1,43 @@
 /** Formatting of engine values for reading, shared by the screens; no gameplay rule. */
-import type { ConsequenceRecord } from '../engine/index.ts';
+import { groupDigitString, type ConsequenceRecord } from '../engine/index.ts';
+
+/**
+ * GUI, Digit grouping: a number as the GUI shows it, with a comma between each group of three digits of its whole
+ * part, counted from the right, e.g. 45817 as "45,817", -1040 as "-1,040", and 999 as "999". The text is built from
+ * the digits, never from the browser locale. An identifier, e.g. a seed, and a number in a field the Player edits are
+ * not numbers to group and never pass through here.
+ */
+export function groupDigits(n: number): string {
+  const [whole = '', fraction] = String(Math.abs(n)).split('.');
+  const grouped = groupDigitString(whole);
+  return `${n < 0 ? '-' : ''}${fraction === undefined ? grouped : `${grouped}.${fraction}`}`;
+}
+
+/** A change of a number, with "+" before a gain, e.g. 1200 as "+1,200", -80 as "-80", and 0 as "0". */
+export function signedNumber(value: number): string {
+  return value > 0 ? `+${groupDigits(value)}` : groupDigits(value);
+}
 
 /**
  * GUI, Decimal quantities shown: one of the few Decimal quantities shown with two decimals, held in hundredths, shown
- * exactly and never rounded, e.g. 2940 as 29.40 and 10110 as 101.10. The text is built from the whole number of
- * hundredths, never through a binary float.
+ * exactly and never rounded, e.g. 2940 as 29.40, 10110 as 101.10, and 125050 as 1,250.50 under GUI, Digit grouping.
+ * The text is built from the whole number of hundredths, never through a binary float.
  */
 export function decimalText(hundredths: number): string {
   const sign = hundredths < 0 ? '-' : '';
   const magnitude = Math.abs(hundredths);
   const whole = Math.floor(magnitude / 100);
-  return `${sign}${whole}.${String(magnitude - whole * 100).padStart(2, '0')}`;
+  return `${sign}${groupDigits(whole)}.${String(magnitude - whole * 100).padStart(2, '0')}`;
 }
 
 /**
  * GUI, Decimal quantities shown: by default a Decimal quantity, held in hundredths, is shown as a whole number,
  * rounded down so that it never reads as having reached a threshold it has not, e.g. 10190 as 101 and 2940 as 29. A
- * whole number held in hundredths, e.g. an Enemy's health in a Combat report, is shown as it is.
+ * whole number held in hundredths, e.g. an Enemy's health in a Combat report, is shown as it is. Its digits are grouped
+ * under GUI, Digit grouping, e.g. 123400 as 1,234.
  */
 export function wholeText(hundredths: number): string {
-  return String(Math.floor(hundredths / 100));
+  return groupDigits(Math.floor(hundredths / 100));
 }
 
 /**
@@ -39,10 +57,6 @@ export function progressPoints(hundredths: number): string {
 /** A gain of Investigation progress, shown with two decimals so that a gain below one point shows, e.g. 104 as 1.04. */
 export function progressGain(hundredths: number): string {
   return decimalText(hundredths);
-}
-
-function signedNumber(value: number): string {
-  return value > 0 ? `+${value}` : String(value);
 }
 
 /** One Consequence that applied, and whether it is good or bad for the Player. */

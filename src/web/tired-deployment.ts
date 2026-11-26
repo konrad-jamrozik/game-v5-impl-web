@@ -4,6 +4,7 @@
  * and asks to confirm. It is a warning, not a block.
  */
 import type { CurrentLiveWorldStateView } from '../engine/index.ts';
+import { groupDigits } from './format.ts';
 import { confirmOrGoBack } from './sound-player.ts';
 
 /** The exhaustion from which the GUI warns; a constant of the GUI, not a GDR value, because no game rule reads it. */
@@ -22,10 +23,11 @@ export function tiredDeploymentMessage(
     return null;
   }
   return [
-    `${tired.length === 1 ? 'An Agent' : `${tired.length} Agents`} of this team ${tired.length === 1 ? 'is' : 'are'} ` +
+    `${tired.length === 1 ? 'An Agent' : `${groupDigits(tired.length)} Agents`} of this team ${tired.length === 1 ? 'is' : 'are'} ` +
       'tired, and so will fight worse and drop out of the Combat sooner:',
     ...tired.map(
-      (agent) => `- ${agent.id}: exhaustion ${agent.exhaustion}, effective skill ${agent.effectiveSkill}`,
+      (agent) =>
+        `- ${agent.id}: exhaustion ${groupDigits(agent.exhaustion)}, effective skill ${groupDigits(agent.effectiveSkill)}`,
     ),
     'Deploy anyway?',
   ].join('\n');

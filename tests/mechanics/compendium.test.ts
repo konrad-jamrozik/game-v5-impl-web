@@ -235,9 +235,16 @@ describe('GDR: a directory of one file per GDR', () => {
 
 describe('COMP: Placeholders', () => {
   it('Value formatting shows each value in one fixed form', () => {
-    // A whole number: its digits, without separators.
-    expect(formatPlaceholderValue(1000)).toBe('1000');
+    // A whole number: its digits, with a comma between each group of three, as GUI, Digit grouping groups them.
+    expect(formatPlaceholderValue(1000)).toBe('1,000');
+    expect(formatPlaceholderValue(250)).toBe('250');
+    expect(formatPlaceholderValue(999)).toBe('999');
+    expect(formatPlaceholderValue(1234567)).toBe('1,234,567');
     expect(formatPlaceholderValue(0)).toBe('0');
+    expect(formatPlaceholderValue(-1500)).toBe('−1,500');
+    expect(formatPlaceholderValue({ $decimal: '1234.5' })).toBe('1,234.5');
+    expect(formatPlaceholderValue({ $decimal: '1234.56780' })).toBe('1,234.5678');
+    expect(formatPlaceholderValue({ $decimal: '-01500.00' })).toBe('−1,500');
     // A number with a fractional part: no trailing zeros, and a whole number when only zeros follow the full stop.
     expect(formatPlaceholderValue({ $decimal: '0.50' })).toBe('0.5');
     expect(formatPlaceholderValue({ $decimal: '0.1' })).toBe('0.1');

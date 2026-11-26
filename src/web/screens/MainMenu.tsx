@@ -8,6 +8,7 @@ import {
   type SaveListEntry,
 } from '../../engine/index.ts';
 import { buildCommitUrl, buildLabel } from '../build-label.ts';
+import { groupDigits } from '../format.ts';
 import { orderSaveRows } from '../save-rows.ts';
 
 /** The page of the commit the build was made from; null when the build knew no commit. */
@@ -181,7 +182,7 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
           <header className="menu-saves-head">
             <h2>Campaign saves</h2>
             <span className="label">
-              {campaigns.length} {campaigns.length === 1 ? 'Campaign' : 'Campaigns'}
+              {groupDigits(campaigns.length)} {campaigns.length === 1 ? 'Campaign' : 'Campaigns'}
             </span>
           </header>
           {saves.length === 0 ? (
@@ -201,7 +202,7 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                       <span className="figure" title={group.campaignId}>
                         {group.campaignId.slice(0, 8)}
                       </span>
-                      <span className="label">Turn {group.turn}</span>
+                      <span className="label">Turn {groupDigits(group.turn)}</span>
                     </div>
                     <div className="actions">
                       <Button
@@ -220,7 +221,7 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                           // MENU, Campaign saves: deleting cannot be undone, so the Player confirms it first.
                           if (
                             confirmOrGoBack(
-                              `Delete Campaign ${group.campaignId.slice(0, 8)} with all its ${group.saves.length} Campaign saves? This cannot be undone.`,
+                              `Delete Campaign ${group.campaignId.slice(0, 8)} with all its ${groupDigits(group.saves.length)} Campaign saves? This cannot be undone.`,
                             )
                           ) {
                             void run(() => session.saves.deleteCampaign(group.campaignId));
@@ -246,9 +247,9 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                           </td>
                           <td
                             className="num"
-                            title={`Turn ${save.turn}, ${save.actions} Player actions in it`}
+                            title={`Turn ${groupDigits(save.turn)}, ${groupDigits(save.actions)} Player actions in it`}
                           >
-                            T{save.turn} A{save.actions}
+                            T{groupDigits(save.turn)} A{groupDigits(save.actions)}
                           </td>
                           <td>
                             <div className="actions">
@@ -271,7 +272,7 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                                   // MENU, Campaign saves: deleting cannot be undone, so the Player confirms it first.
                                   if (
                                     confirmOrGoBack(
-                                      `Delete the ${kind} of Turn ${save.turn} of Campaign ${save.campaignId.slice(0, 8)}? This removes 1 Campaign save and cannot be undone.`,
+                                      `Delete the ${kind} of Turn ${groupDigits(save.turn)} of Campaign ${save.campaignId.slice(0, 8)}? This removes 1 Campaign save and cannot be undone.`,
                                     )
                                   ) {
                                     void run(() => session.saves.delete(save.saveId));
@@ -328,7 +329,7 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                           ? (values.value.find((item) => item.key === key)?.name ?? key)
                           : key}
                       </span>
-                      <span className="figure">{edit}</span>
+                      <span className="figure">{groupDigits(edit)}</span>
                     </div>
                   ))
                 )}
@@ -342,7 +343,7 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                       <NumberField
                         label={`${value.name} edit`}
                         testId={`preset-edit-${value.key}`}
-                        placeholder={`${value.presetValue} (preset)`}
+                        placeholder={`${groupDigits(value.presetValue)} (preset)`}
                         stored={value.presetEdit === null ? '' : String(value.presetEdit)}
                         onCommit={(text) => {
                           const result =

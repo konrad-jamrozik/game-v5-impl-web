@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { readoutText, type AgencyChart } from '../agency-charts.ts';
 import { hoverRect, legendOf, sceneTurnAt, seriesChartScene, shownChart } from '../series-chart-scene.ts';
 import { useLastTurns } from '../chart-range.ts';
+import { groupDigits } from '../format.ts';
 import { LastTurnsCheckbox } from './LastTurnsCheckbox.tsx';
 import { FullScreenButton, useChartFullScreen, usePlotSize } from './ChartFullScreen.tsx';
 
@@ -82,7 +83,7 @@ export function SeriesChart({ chart }: { chart: AgencyChart }) {
         <svg
           viewBox={`0 0 ${scene.width} ${scene.height}`}
           role="img"
-          aria-label={`${chart.title}, Turn ${scene.first} to Turn ${scene.last}`}
+          aria-label={`${chart.title}, Turn ${groupDigits(scene.first)} to Turn ${groupDigits(scene.last)}`}
           onMouseLeave={() => {
             setHover(null);
           }}

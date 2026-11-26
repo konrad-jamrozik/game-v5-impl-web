@@ -16,6 +16,16 @@ import type {
   TurnSeriesValue,
 } from '../engine/index.ts';
 
+/**
+ * GUI, Digit grouping: a whole number with a comma between each group of three digits, e.g. 45817 as "45,817". A copy
+ * of `groupDigits` of `format.ts`, since this module imports types alone.
+ */
+function groupDigits(n: number): string {
+  const [whole = '', fraction] = String(Math.abs(n)).split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${n < 0 ? '-' : ''}${fraction === undefined ? grouped : `${grouped}.${fraction}`}`;
+}
+
 export interface Series {
   readonly name: string;
   readonly color: string;
@@ -269,11 +279,11 @@ export function readout(input: {
  */
 export function readoutText(input: Parameters<typeof readout>[0]): string {
   const items = readout(input);
-  if (items === null) {
+  if (items === null || input.turn === null) {
     return ' ';
   }
-  const text = items.map((item) => `${item.name} ${String(item.value)}`).join(' · ');
-  return `Turn ${String(input.turn)}:${text === '' ? '' : ` ${text}`}`;
+  const text = items.map((item) => `${item.name} ${groupDigits(item.value)}`).join(' · ');
+  return `Turn ${groupDigits(input.turn)}:${text === '' ? '' : ` ${text}`}`;
 }
 
 /** The Turn-end part of every ended Turn, then the Current world state for the current Turn. */
@@ -325,7 +335,9 @@ export function skillBands(
   const series: Series[] = starts.slice(0, count).map((start, band) => {
     const next = starts[band + 1];
     const range =
-      next === undefined ? `${start.minBaseSkill}+` : `${start.minBaseSkill}–${next.minBaseSkill - 1}`;
+      next === undefined
+        ? `${groupDigits(start.minBaseSkill)}+`
+        : `${groupDigits(start.minBaseSkill)}–${groupDigits(next.minBaseSkill - 1)}`;
     return {
       name: start.name === null ? range : `${range} (${start.name})`,
       color: BAND_COLORS[Math.min(band, BAND_COLORS.length - 1)] ?? '#F4EFE6',
@@ -370,8 +382,8 @@ export function wornLines(
   });
   return [
     line('recovering', 'Recovering'),
-    line('aboveWorkLimit', `Exhaustion > ${thresholds.workLimit}`),
-    line('aboveFreePoints', `Exhaustion > ${thresholds.freePoints}`),
+    line('aboveWorkLimit', `Exhaustion > ${groupDigits(thresholds.workLimit)}`),
+    line('aboveFreePoints', `Exhaustion > ${groupDigits(thresholds.freePoints)}`),
   ];
 }
 

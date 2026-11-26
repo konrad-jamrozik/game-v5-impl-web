@@ -12,7 +12,7 @@ import type {
 } from '../../engine/index.ts';
 import { agentsToAddOrder, isInBase } from '../agents-to-add.ts';
 import { Exhaustion, exhaustionLevels } from '../condition.tsx';
-import { progressGain, progressPoints } from '../format.ts';
+import { groupDigits, progressGain, progressPoints } from '../format.ts';
 import { leadFactionName, onCompletionLines } from '../lead-completion.ts';
 import { progressBar } from '../progress-bar.ts';
 import { activeInvestigationRows, leadsToInvestigate, rangeText } from '../situation.ts';
@@ -117,7 +117,12 @@ export function LeadsView(props: {
       : state.investigations.find((item) => item.id === selected.activeInvestigation);
 
   return (
-    <DetailView id="leads" title="Leads" aside={`${leads.length} discovered`} onClose={props.onClose}>
+    <DetailView
+      id="leads"
+      title="Leads"
+      aside={`${groupDigits(leads.length)} discovered`}
+      onClose={props.onClose}
+    >
       <div className="panes">
         <div className="pane pane-list">
           {groups.map((group) =>
@@ -126,7 +131,7 @@ export function LeadsView(props: {
                 {group.collapsed === undefined ? (
                   <div className="sit-group-head">
                     <span className="label">{group.title}</span>
-                    <span className="figure tone-accent">{group.items.length}</span>
+                    <span className="figure tone-accent">{groupDigits(group.items.length)}</span>
                   </div>
                 ) : (
                   <button
@@ -141,7 +146,7 @@ export function LeadsView(props: {
                     <span className="label">
                       {group.collapsed ? '▸' : '▾'} {group.title}
                     </span>
-                    <span className="figure muted">{group.items.length}</span>
+                    <span className="figure muted">{groupDigits(group.items.length)}</span>
                   </button>
                 )}
                 {group.collapsed === true
@@ -222,7 +227,7 @@ function LeadDetails(props: {
         {completions === 0 ? null : (
           <>
             <dt>Completed</dt>
-            <dd className="figure">{completions}×</dd>
+            <dd className="figure">{groupDigits(completions)}×</dd>
           </>
         )}
       </dl>
@@ -266,7 +271,7 @@ function LeadDetails(props: {
                 : `+${progressGain(investigation.projectedProgressGain)}`}
             </dd>
             <dt>Turns</dt>
-            <dd className="figure">{state.turn - investigation.turnStarted}</dd>
+            <dd className="figure">{groupDigits(state.turn - investigation.turnStarted)}</dd>
           </dl>
         </>
       )}
@@ -303,6 +308,10 @@ function Team(props: {
   });
   const none = team.length === 0 ? 'Check the Agents to add first.' : null;
   const agentById = (id: string) => state.agents.find((agent) => agent.id === id);
+  const skillOf = (id: string) => {
+    const agent = agentById(id);
+    return agent === undefined ? '-' : groupDigits(agent.effectiveSkill);
+  };
   // LVIEW, Team, Current team: members are checked to be recalled; a member In transit, or one that cannot take
   // orders, cannot be checked.
   const members = investigation?.currentTeam ?? [];
@@ -350,7 +359,7 @@ function Team(props: {
         <>
           <div className="sit-group-head">
             <span className="label">Current team</span>
-            <span className="figure tone-accent">{investigation.currentTeam.length}</span>
+            <span className="figure tone-accent">{groupDigits(investigation.currentTeam.length)}</span>
           </div>
           {/* LVIEW, Team, Current team: a selection checkbox, the Instance ID with the In transit icon for a member In
               transit, and the effective skill; the Recall button under the table recalls the checked members. */}
@@ -402,7 +411,7 @@ function Team(props: {
                       </button>
                       {inTransit ? <InTransitIcon /> : null}
                     </td>
-                    <td className="num">{agentById(member.agent)?.effectiveSkill ?? '-'}</td>
+                    <td className="num">{skillOf(member.agent)}</td>
                   </tr>
                 );
               })}
@@ -421,14 +430,14 @@ function Team(props: {
                 setRecallChecked([]);
               }}
             >
-              Recall · {toRecall.length}
+              Recall · {groupDigits(toRecall.length)}
             </Button>
           </div>
         </>
       )}
       <div className="sit-group-head pane-sub">
         <span className="label">Agents to add</span>
-        <span className="figure secondary">{team.length} checked</span>
+        <span className="figure secondary">{groupDigits(team.length)} checked</span>
       </div>
       {candidates.length === 0 ? (
         <p className="muted small">No Agent that is Fit to start work can take orders now.</p>
@@ -480,7 +489,7 @@ function Team(props: {
                         {agent.id}
                       </button>
                     </td>
-                    <td className="num">{agent.effectiveSkill}</td>
+                    <td className="num">{groupDigits(agent.effectiveSkill)}</td>
                     <td className="num">
                       <Exhaustion value={agent.exhaustion} levels={levels} />
                     </td>
@@ -509,7 +518,7 @@ function Team(props: {
               setChecked([]);
             }}
           >
-            Start · {team.length}
+            Start · {groupDigits(team.length)}
           </Button>
         ) : (
           <Button
@@ -527,7 +536,7 @@ function Team(props: {
               setChecked([]);
             }}
           >
-            Assign · {team.length}
+            Assign · {groupDigits(team.length)}
           </Button>
         )}
         {estimate === null ? null : (

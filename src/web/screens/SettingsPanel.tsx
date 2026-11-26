@@ -7,6 +7,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { changedSettingLine, changedSettings } from '../changed-settings.ts';
+import { groupDigits } from '../format.ts';
 import { REFERENCE_WINDOW } from '../screen-limit.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND, soundSettings } from '../sounds.ts';
@@ -41,7 +42,7 @@ const SET_ELSEWHERE = new Set([
 
 /** The label of the checkbox of a setting that is on or off; VIS, Screen limit names the Screen limit's. */
 const CHECKBOX_LABELS: Readonly<Record<string, string>> = {
-  screenLimit: `Limit the screen to ${String(REFERENCE_WINDOW.width)} × ${String(REFERENCE_WINDOW.height)}`,
+  screenLimit: `Limit the screen to ${groupDigits(REFERENCE_WINDOW.width)} × ${groupDigits(REFERENCE_WINDOW.height)}`,
 };
 
 /** GUI, Changed settings: one line per setting whose stored value overrides its Game build default, with Reset. */
@@ -174,7 +175,10 @@ function SettingsRows(props: {
                       act(() => session.globalConfiguration.reset(setting.setting));
                     }}
                   >
-                    Reset to {String(setting.gameBuildDefault)}
+                    Reset to{' '}
+                    {typeof setting.gameBuildDefault === 'number'
+                      ? groupDigits(setting.gameBuildDefault)
+                      : setting.gameBuildDefault}
                   </Button>
                 ) : null}
                 <NumberField

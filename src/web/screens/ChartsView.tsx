@@ -5,7 +5,7 @@
  */
 import { agencyCharts, capUpgradeIds } from '../agency-charts.ts';
 import { responseSitesSeries } from '../faction-activity.ts';
-import { decimalText } from '../format.ts';
+import { decimalText, groupDigits } from '../format.ts';
 import type { Snapshot } from '../store.ts';
 import { ChartsFullScreenContext, WholeScreen } from './ChartFullScreen.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -70,7 +70,7 @@ export function ChartsView({ snapshot, onClose }: { snapshot: Snapshot; onClose:
               testId="panic-chart"
               {...(panicLimit === undefined
                 ? {}
-                : { limit: panicLimit, valueNote: `of ${panicLimit}% limit` })}
+                : { limit: panicLimit, valueNote: `of ${groupDigits(panicLimit)}% limit` })}
             />
             <div className="charts">
               <LineChart

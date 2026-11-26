@@ -194,7 +194,7 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   page.on('dialog', (dialog) => void dialog.accept());
   await page.locator('[data-testid^="deploy-mission-site-"]').click();
   await expect(id(page, `deploy-pick-${team[0] ?? ''}`)).toHaveCount(0);
-  const turn = Number(await id(page, 'turn').innerText());
+  const turn = Number((await id(page, 'turn').innerText()).replaceAll(',', ''));
   await id(page, 'advance-turn').click();
   await expect(id(page, 'turn')).toHaveText(String(turn + 1), { timeout: 60_000 });
   await expect(id(page, 'turn-summary')).toBeVisible();

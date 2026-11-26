@@ -28,7 +28,7 @@ import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
 import { Button, CloseControl, Fact, Meter, typingIn, withShortcut } from '../ui.tsx';
 import { turnsSinceLastFactionActivity } from '../faction-activity.ts';
-import { decimalText, panicText } from '../format.ts';
+import { decimalText, groupDigits, panicText } from '../format.ts';
 import { AgentsView } from './AgentsView.tsx';
 import { AutopilotBar } from './AutopilotBar.tsx';
 import { ChartsView } from './ChartsView.tsx';
@@ -522,24 +522,27 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         <header className="statusbar">
           <div className="status-facts">
             <Fact label="Turn" testId="turn">
-              {state.turn}
+              {groupDigits(state.turn)}
             </Fact>
             <div className="fact">
               <span className="fact-label">Money</span>
               <span className="fact-value">
-                <span data-testid="money">{state.agency.money}</span>
-                {/* VIS, Status bar: the projected change of a value follows it in Positive or Danger. */}
-                <span className="fact-change tone-good" title="Projected income">
-                  +{state.agency.projectedIncome}
-                </span>
-                <span className="fact-change tone-bad" title="Projected upkeep">
-                  −{state.agency.projectedUpkeep}
+                <span data-testid="money">{groupDigits(state.agency.money)}</span>
+                {/* VIS, Status bar: the projected change of a value follows it in Positive or Danger; Money's gain
+                  and loss stack in one column after it, the gain above the loss, so that they widen the bar once. */}
+                <span className="fact-changes">
+                  <span className="fact-change tone-good" title="Projected income">
+                    +{groupDigits(state.agency.projectedIncome)}
+                  </span>
+                  <span className="fact-change tone-bad" title="Projected upkeep">
+                    −{groupDigits(state.agency.projectedUpkeep)}
+                  </span>
                 </span>
               </span>
             </div>
-            <Fact label="Funding">{state.agency.funding}</Fact>
+            <Fact label="Funding">{groupDigits(state.agency.funding)}</Fact>
             <Fact label="Agents">
-              {state.agency.servingAgents}/{state.agency.agentCap}
+              {groupDigits(state.agency.servingAgents)}/{groupDigits(state.agency.agentCap)}
             </Fact>
             <div className="fact">
               <span className="fact-label">Panic</span>
@@ -553,7 +556,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                 }
               >
                 <span>
-                  {decimalText(state.panicHundredths)} / {state.panicLimit}%
+                  {decimalText(state.panicHundredths)} / {groupDigits(state.panicLimit)}%
                 </span>
                 <Meter
                   value={state.panicHundredths}
@@ -568,10 +571,12 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
               <span className="fact-label">Enemy quiet</span>
               <span className="fact-value">
                 <span data-testid="turns-since-faction-activity">
-                  {turnsSinceLastFactionActivity(state.turn, [
-                    ...state.missionSites,
-                    ...(snapshot.retired?.missionSites ?? []),
-                  ])}
+                  {groupDigits(
+                    turnsSinceLastFactionActivity(state.turn, [
+                      ...state.missionSites,
+                      ...(snapshot.retired?.missionSites ?? []),
+                    ]),
+                  )}
                 </span>
                 <span className="fact-unit">T</span>
               </span>
@@ -669,7 +674,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           data-testid="ending"
           role="status"
         >
-          <strong>{state.ending.ending}</strong> in Turn {state.ending.turn}:{' '}
+          <strong>{state.ending.ending}</strong> in Turn {groupDigits(state.ending.turn)}:{' '}
           {state.ending.reasons.map((reason) => REASONS[reason] ?? reason).join(' and ')}. The Campaign has
           ended; you can still look around, undo, or return to an Autosave.
         </div>
@@ -774,7 +779,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                           }}
                         >
                           <span>{view.name}</span>
-                          {count === undefined || count === 0 ? null : <span className="count">{count}</span>}
+                          {count === undefined || count === 0 ? null : (
+                            <span className="count">{groupDigits(count)}</span>
+                          )}
                         </button>
                       );
                     })}

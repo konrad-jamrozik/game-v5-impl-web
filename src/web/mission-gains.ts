@@ -4,7 +4,7 @@
  * Sale values. Pure presentation; no gameplay rule.
  */
 import type { CombatReport, ConsequenceRecord, MissionSiteView, TurnReport } from '../engine/index.ts';
-import { decimalText } from './format.ts';
+import { decimalText, groupDigits } from './format.ts';
 
 type MissionResult = TurnReport['missions'][number];
 
@@ -50,7 +50,7 @@ export interface GainLine {
 }
 
 function signed(value: number): string {
-  return value > 0 ? `+${value}` : `−${-value}`;
+  return value > 0 ? `+${groupDigits(value)}` : `−${groupDigits(-value)}`;
 }
 
 /** Each Consequence that applied, as its own line, e.g. "+50 money", "−30 funding", or "Panic −1.00". */
@@ -85,7 +85,7 @@ function capRiseLines(mission: MissionResult, firstWinPhrase: string | null): Ga
   const reason = firstWinPhrase === null ? '' : ` for ${firstWinPhrase}`;
   return [
     {
-      text: `Reputation increased${reason}: our Contracting network expands by ${mission.contractingCapRise}`,
+      text: `Reputation increased${reason}: our Contracting network expands by ${groupDigits(mission.contractingCapRise)}`,
       tone: 'good',
       ownLine: true,
     },
@@ -243,7 +243,7 @@ export function missionEquipment(
   return { recovered: equipmentList(recovered, catalog), spent: equipmentList(spent, catalog) };
 }
 
-const counted = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+const counted = (count: number, word: string) => `${groupDigits(count)} ${word}${count === 1 ? '' : 's'}`;
 
 /**
  * TSUM, Groups, Equipment: the lists of every Mission summed into one, by its number of Items, its number of rounds,
@@ -264,5 +264,5 @@ export function equipmentText(list: EquipmentList): string {
     ...(list.items > 0 ? [counted(list.items, 'Item')] : []),
     ...(list.rounds > 0 ? [counted(list.rounds, 'round')] : []),
   ];
-  return `${parts.join(', ')} · worth ${list.value.toLocaleString('en-US')}`;
+  return `${parts.join(', ')} · worth ${groupDigits(list.value)}`;
 }

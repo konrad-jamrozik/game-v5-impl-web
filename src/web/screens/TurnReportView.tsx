@@ -15,7 +15,7 @@ import { armorText, combatLogRow, finalCondition } from '../combat-log.ts';
 import { buildReplay } from '../combat-replay.ts';
 import { Consequences, GainLineText, toneClass } from '../consequences.tsx';
 import { enemyLabels, shortEnemyLabels } from '../enemy-labels.ts';
-import { hitChanceText, progressGain, progressPoints, wholeText } from '../format.ts';
+import { groupDigits, hitChanceText, progressGain, progressPoints, wholeText } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
 import {
   joinedLines,
@@ -57,7 +57,7 @@ function Section(props: { title: string; count: number; testId: string; children
     <section className="report-section" data-testid={props.testId}>
       <div className="sit-group-head">
         <span className="label">{props.title}</span>
-        <span className="figure tone-accent">{props.count}</span>
+        <span className="figure tone-accent">{groupDigits(props.count)}</span>
       </div>
       {props.children}
     </section>
@@ -115,7 +115,7 @@ export function TurnReportView(props: {
       </DetailView>
     );
   }
-  const heading = `Turn ${report.turn} ended · Turn ${report.turn + 1} began`;
+  const heading = `Turn ${groupDigits(report.turn)} ended · Turn ${groupDigits(report.turn + 1)} began`;
   if (shownCombat !== undefined) {
     const mission = report.missions.find((item) => item.mission === shownCombat.mission);
     const site = [...state.missionSites, ...(snapshot.retired?.missionSites ?? [])].find(
@@ -153,7 +153,7 @@ export function TurnReportView(props: {
           </>
         )}
         {/* TRVIEW, Sections: the Combat outcome only of a Lost Mission, as a Won one's is Won too. */}
-        {`${mission?.result === 'Won' ? '' : ` · ${shownCombat.outcome}`} in ${shownCombat.rounds} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`}
+        {`${mission?.result === 'Won' ? '' : ` · ${shownCombat.outcome}`} in ${groupDigits(shownCombat.rounds)} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`}
       </>
     );
     // The same line as text, which the pointer resting on a line cut short shows in full.
@@ -161,7 +161,7 @@ export function TurnReportView(props: {
       siteName ?? '',
       mission === undefined ? '' : ` · ${mission.result}`,
       mission?.result === 'Won' ? '' : ` · ${shownCombat.outcome}`,
-      ` in ${shownCombat.rounds} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`,
+      ` in ${groupDigits(shownCombat.rounds)} ${shownCombat.rounds === 1 ? 'round' : 'rounds'}`,
     ].join('');
     if (replayShown) {
       const gameData = snapshot.gameData;
@@ -322,6 +322,10 @@ function Sections(props: {
     ...(snapshot.retired?.missionSites ?? []),
   ];
   const site = (id: string) => sites.find((item) => item.id === id);
+  const expiresIn = (id: string) => {
+    const found = site(id);
+    return found === undefined ? '-' : groupDigits(found.turnsUntilExpiration);
+  };
   const gameData = snapshot.gameData;
   const archetype = (id: string) => gameData?.missionSiteArchetypes.find((item) => item.id === id);
   const leadName = (lead: string) => snapshot.retired?.leads.find((item) => item.id === lead)?.name ?? lead;
@@ -410,12 +414,12 @@ function Sections(props: {
     list.entries.length === 0 ? null : (
       <div className="report-item" data-testid={`equipment-${label.toLowerCase()}`}>
         <div className="report-equipment-head">
-          {label} <span className="muted small">· worth {list.value.toLocaleString('en-US')}</span>
+          {label} <span className="muted small">· worth {groupDigits(list.value)}</span>
         </div>
         <ul className={`report-equipment-entries ${tone}`}>
           {list.entries.map((entry) => (
             <li key={entry.id}>
-              <span className="figure">{entry.count}</span> {entry.name}
+              <span className="figure">{groupDigits(entry.count)}</span> {entry.name}
             </li>
           ))}
         </ul>
@@ -475,7 +479,7 @@ function Sections(props: {
                   {/* TRVIEW, Sections: the Combat outcome only of a Lost Mission, e.g. "Lost · Wiped". */}
                   {combat === undefined
                     ? ''
-                    : `${mission.result === 'Won' ? '' : ` · ${combat.outcome}`} in ${combat.rounds} rounds`}
+                    : `${mission.result === 'Won' ? '' : ` · ${combat.outcome}`} in ${groupDigits(combat.rounds)} rounds`}
                 </span>
                 {combat === undefined ? null : (
                   <span className="trade-buttons report-mission-buttons">
@@ -505,15 +509,17 @@ function Sections(props: {
               </div>
               {/* The second line: the Agents on its side, the Agents Killed, the Enemies dead, and the experience. */}
               <div className="report-mission-facts">
-                <span className="figure">{combat?.agents.length ?? '-'} Agents</span>
+                <span className="figure">
+                  {combat === undefined ? '-' : groupDigits(combat.agents.length)} Agents
+                </span>
                 <span className={mission.killed.length > 0 ? 'tone-bad' : 'muted'}>
                   {mission.killed.length === 0 ? 'none killed' : `Killed ${mission.killed.join(', ')}`}
                 </span>
                 <span className="figure">
-                  Enemies dead {dead} / {enemies.length}
+                  Enemies dead {groupDigits(dead)} / {groupDigits(enemies.length)}
                 </span>
                 <span className="figure" data-testid={`exp-${mission.mission}`}>
-                  +{experience} exp
+                  +{groupDigits(experience)} exp
                 </span>
               </div>
             </div>
@@ -588,10 +594,7 @@ function Sections(props: {
 
       <Section title="Mission sites" count={siteCount} testId="report-sites">
         {report.createdMissionSites.map((id) =>
-          siteRow(
-            id,
-            <span className="secondary">Created · {site(id)?.turnsUntilExpiration ?? '-'} T to expire</span>,
-          ),
+          siteRow(id, <span className="secondary">Created · {expiresIn(id)} T to expire</span>),
         )}
         {report.expiredMissionSites.map((item) =>
           siteRow(
@@ -681,9 +684,9 @@ function Experience(props: {
   }
   const gained = props.growth.find((item) => item.agent === who.id);
   if (gained === undefined) {
-    return <s className="muted">+{who.combatExperience}</s>;
+    return <s className="muted">+{groupDigits(who.combatExperience)}</s>;
   }
-  return <span className="tone-good">+{gained.missionExperience}</span>;
+  return <span className="tone-good">+{groupDigits(gained.missionExperience)}</span>;
 }
 
 function CombatReportDetails(props: {
@@ -753,7 +756,7 @@ function CombatReportDetails(props: {
                     </th>
                     <td className="num">{wholeText(who.start.skillHundredths)}</td>
                     <td className="num">
-                      {who.start.effectiveSkill} → {who.final.effectiveSkill}
+                      {groupDigits(who.start.effectiveSkill)} → {groupDigits(who.final.effectiveSkill)}
                     </td>
                     <td className="num">
                       {wholeText(who.start.currentHealthHundredths)} →{' '}
@@ -769,20 +772,20 @@ function CombatReportDetails(props: {
                       ) : (
                         wholeText(who.final.currentHealthHundredths)
                       )}
-                      /{who.start.maxHealth}
+                      /{groupDigits(who.start.maxHealth)}
                     </td>
                     <td className="num" data-testid={`armor-${who.id}`}>
                       {armorText(who)}
                     </td>
                     <td className="num">
-                      {who.start.exhaustion} →{' '}
+                      {groupDigits(who.start.exhaustion)} →{' '}
                       {who.side === 'agent' ? (
                         <Exhaustion value={who.final.exhaustion} levels={props.levels} />
                       ) : (
-                        who.final.exhaustion
+                        groupDigits(who.final.exhaustion)
                       )}
                     </td>
-                    <td className="num">{who.start.weaponDamage}</td>
+                    <td className="num">{groupDigits(who.start.weaponDamage)}</td>
                     {/* GUI, Decimal quantities shown: health removed from an Agent, a Decimal quantity, rounds down. */}
                     <td className="num">{wholeText(who.damageDealtHundredths)}</td>
                     <td className="num">{wholeText(who.damageTakenHundredths)}</td>
@@ -803,7 +806,10 @@ function CombatReportDetails(props: {
           <p className="small secondary" data-testid="combat-ammo">
             <span className="label">Ammo</span>{' '}
             {combat.ammo
-              .map((item) => `${props.itemName(item.ammoType)} ${item.start} → ${item.end}`)
+              .map(
+                (item) =>
+                  `${props.itemName(item.ammoType)} ${groupDigits(item.start)} → ${groupDigits(item.end)}`,
+              )
               .join(' · ')}
           </p>
         )}
@@ -822,9 +828,9 @@ function CombatReportDetails(props: {
           <tbody>
             {combat.ratings.map((rating) => (
               <tr key={rating.round}>
-                <th scope="row">{rating.round === 0 ? 'Start' : `Round ${rating.round}`}</th>
-                <td className="num">{rating.agents}</td>
-                <td className="num">{rating.enemies}</td>
+                <th scope="row">{rating.round === 0 ? 'Start' : `Round ${groupDigits(rating.round)}`}</th>
+                <td className="num">{groupDigits(rating.agents)}</td>
+                <td className="num">{groupDigits(rating.enemies)}</td>
               </tr>
             ))}
           </tbody>
@@ -841,7 +847,7 @@ function CombatReportDetails(props: {
           <summary data-testid="combat-log-toggle">
             Combat log{' '}
             <span className="muted">
-              ({combat.log.length} {combat.log.length === 1 ? 'attack' : 'attacks'})
+              ({groupDigits(combat.log.length)} {combat.log.length === 1 ? 'attack' : 'attacks'})
             </span>
           </summary>
           <Grid widths={LOG_WIDTHS} className="log" testId="combat-log">
@@ -860,7 +866,7 @@ function CombatReportDetails(props: {
                 const row = combatLogRow(attack, sideOf);
                 return (
                   <tr key={index} className={`log-${row.tint}`} data-testid={`combat-log-row-${index}`}>
-                    <td className="num">{attack.round}</td>
+                    <td className="num">{groupDigits(attack.round)}</td>
                     <td>
                       {props.nameOf(attack.attacker)}
                       {attack.outOfAmmo === null ? null : (
@@ -872,7 +878,7 @@ function CombatReportDetails(props: {
                     </td>
                     <td>{props.nameOf(attack.defender)}</td>
                     <td className="num">
-                      {hitChanceText(attack.hitChance)} ({attack.a} vs {attack.d})
+                      {hitChanceText(attack.hitChance)} ({groupDigits(attack.a)} vs {groupDigits(attack.d)})
                     </td>
                     <td className={`log-outcome ${row.tone === 'muted' ? 'muted' : `tone-${row.tone}`}`}>
                       {row.outcome}

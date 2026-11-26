@@ -3,6 +3,7 @@
  * actions, from the Action record of its History entry. Pure presentation; no gameplay rule.
  */
 import type { ActionRecordItem } from '../engine/index.ts';
+import { groupDigits } from './format.ts';
 
 /** HVIEW, Expenditures: the sum of the money changes below 0, as a positive amount. */
 export function expenditures(actions: readonly ActionRecordItem[]): number {
@@ -31,7 +32,7 @@ function entriesText(item: ActionRecordItem, names: ActionNames): string {
     .map((entry: { id?: unknown; count?: unknown }) => {
       const count = typeof entry.count === 'number' ? entry.count : 0;
       const name = names.item(typeof entry.id === 'string' ? entry.id : '');
-      return `${count} ${name}`;
+      return `${groupDigits(count)} ${name}`;
     })
     .join(', ');
 }
@@ -45,7 +46,7 @@ export interface ActionLine {
 }
 
 function plural(count: number, one: string, many = `${one}s`): string {
-  return `${count} ${count === 1 ? one : many}`;
+  return `${groupDigits(count)} ${count === 1 ? one : many}`;
 }
 
 function arg(item: ActionRecordItem, key: string): unknown {
@@ -97,7 +98,7 @@ function lineText(
     case 'dismissAgents':
       return `Dismissed ${agents}`;
     case 'purchaseUpgrade':
-      return `Bought ${count} ${names.upgrade(text(item, 'upgrade'))} ${count === 1 ? 'Upgrade' : 'Upgrades'}`;
+      return `Bought ${groupDigits(count)} ${names.upgrade(text(item, 'upgrade'))} ${count === 1 ? 'Upgrade' : 'Upgrades'}`;
     case 'equipAgent':
       return `Equipped ${text(item, 'agent')} with ${names.item(text(item, 'equipment'))}`;
     case 'buyItems':
@@ -113,7 +114,9 @@ function lineText(
     case 'deployAgents':
       return `Deployed ${agents} to ${names.missionSite(text(item, 'missionSite'))}`;
     case 'addMoney':
-      return money < 0 ? `Removed ${-money} money (cheat)` : `Added ${money} money (cheat)`;
+      return money < 0
+        ? `Removed ${groupDigits(-money)} money (cheat)`
+        : `Added ${groupDigits(money)} money (cheat)`;
     case 'addAgents': {
       const each = arg(item, 'count');
       return `Added ${plural((typeof each === 'number' ? each : 0) * count, 'Agent')} (cheat)`;
@@ -140,7 +143,7 @@ export function actionLines(actions: readonly ActionRecordItem[], names: ActionN
     const group = actions.slice(start, end);
     const money = group.reduce((sum, item) => sum + item.moneyChange, 0);
     lines.push({
-      numbers: end - start === 1 ? `${start + 1}` : `${start + 1}–${end}`,
+      numbers: end - start === 1 ? groupDigits(start + 1) : `${groupDigits(start + 1)}–${groupDigits(end)}`,
       text: lineText(first, group, money, names),
       moneyChange: money,
     });

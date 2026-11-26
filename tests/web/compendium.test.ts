@@ -12,6 +12,7 @@ import {
   revealedLeadsView,
 } from '../../src/engine/views/views.ts';
 import { finalCondition } from '../../src/web/combat-log.ts';
+import { groupDigits } from '../../src/web/format.ts';
 import {
   articlesOf,
   categoryOf,
@@ -371,7 +372,9 @@ describe('COMPV: Subject data sheets', () => {
     const each = (id: string) => rowsOf(sheetOf(state, id))['Each purchase'];
     const upgrade = (id: string) => gdrs.upgrades.find((item) => item.id === id)!;
     expect(sheetOf(state, 'agent_cap')?.heading).toBe('Upgrade');
-    expect(rowsOf(sheetOf(state, 'agent_cap'))['Price']).toBe(`${upgrade('agent_cap').price} money`);
+    expect(rowsOf(sheetOf(state, 'agent_cap'))['Price']).toBe(
+      `${groupDigits(upgrade('agent_cap').price)} money`,
+    );
     expect(each('agent_cap')).toBe(`+${upgrade('agent_cap').incrementHundredths / 100} to the Agent cap`);
     expect(each('transport_cap')).toMatch(/^\+\d+ to the Transport cap$/);
     expect(each('training_cap')).toMatch(/^\+\d+ to the Training cap$/);

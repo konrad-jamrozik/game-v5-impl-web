@@ -1,6 +1,6 @@
 /** UVIEW: the Upgrades View, one card per Upgrade with what one more purchase changes and whether it is affordable. */
 import type { CurrentLiveWorldStateView, UpgradeView } from '../../engine/index.ts';
-import { decimalText } from '../format.ts';
+import { decimalText, groupDigits } from '../format.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { Button, Tally } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
@@ -51,8 +51,8 @@ function change(upgrade: UpgradeView, state: CurrentLiveWorldStateView): Change 
     return {
       kind: 'Cap Upgrade',
       what: cap.name,
-      before: String(now),
-      after: String(now + upgrade.incrementHundredths / 100),
+      before: groupDigits(now),
+      after: groupDigits(now + upgrade.incrementHundredths / 100),
     };
   }
   const rate = RATES[upgrade.effect];
@@ -72,7 +72,7 @@ function change(upgrade: UpgradeView, state: CurrentLiveWorldStateView): Change 
     kind: 'Max health Upgrade',
     what: 'Max health of every Agent',
     before: null,
-    after: `+${upgrade.incrementHundredths / 100}`,
+    after: `+${groupDigits(upgrade.incrementHundredths / 100)}`,
   };
 }
 
@@ -87,7 +87,7 @@ export function UpgradesView(props: {
   const purchases = snapshot.actions?.purchaseUpgrade ?? [];
   const money = state.agency.money;
   return (
-    <DetailView id="upgrades" title="Upgrades" aside={`Money ${money}`} onClose={props.onClose}>
+    <DetailView id="upgrades" title="Upgrades" aside={`Money ${groupDigits(money)}`} onClose={props.onClose}>
       <div className="upgrade-cards" data-testid="upgrades">
         {state.agency.upgrades.map((upgrade) => {
           const purchase = purchases.find((item) => item.upgrade === upgrade.id);
@@ -102,7 +102,7 @@ export function UpgradesView(props: {
                 {before === null ? null : <>{before} → </>}
                 <span className="tone-good">{after}</span>
               </p>
-              <p className="muted small">Bought {upgrade.acquisitions}×</p>
+              <p className="muted small">Bought {groupDigits(upgrade.acquisitions)}×</p>
               <div className="card-actions upgrade-buy">
                 <Button
                   kind="primary"
@@ -114,15 +114,15 @@ export function UpgradesView(props: {
                     act(() => player.actions.purchaseUpgrade(upgrade.id));
                   }}
                 >
-                  Buy · {upgrade.price}
+                  Buy · {groupDigits(upgrade.price)}
                 </Button>
                 {missing > 0 ? (
-                  <span className="tone-bad small upgrade-missing">{missing} missing</span>
+                  <span className="tone-bad small upgrade-missing">{groupDigits(missing)} missing</span>
                 ) : null}
               </div>
               <Tally
                 count={upgrade.acquisitions}
-                label={`Bought ${upgrade.acquisitions}×`}
+                label={`Bought ${groupDigits(upgrade.acquisitions)}×`}
                 testId={`tally-${upgrade.id}`}
               />
             </article>

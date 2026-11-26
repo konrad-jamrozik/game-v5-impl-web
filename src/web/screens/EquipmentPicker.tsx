@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentView, CurrentLiveWorldStateView, EquipmentItemView } from '../../engine/index.ts';
+import { groupDigits } from '../format.ts';
 import { currentScreenSpan } from '../screen-limit.ts';
 import { act, theEngine } from '../store.ts';
 import { AmmoWarning, ArmorIcon, SwordIcon } from './equipment-icons.tsx';
@@ -66,7 +67,9 @@ export function EquipmentText(props: { agent: AgentView; kind: 'weapon' | 'armor
   return (
     <>
       {kind === 'weapon' ? agent.weaponName : agent.armorName}{' '}
-      <span className="figure">{kind === 'weapon' ? agent.baseWeaponDamage : agent.baseArmor}</span>
+      <span className="figure">
+        {groupDigits(kind === 'weapon' ? agent.baseWeaponDamage : agent.baseArmor)}
+      </span>
       {kind === 'weapon' ? <SwordIcon /> : <ArmorIcon />}
       {kind === 'weapon' && agent.ammoShort ? <AmmoWarning title="Ammo short" /> : null}
     </>
@@ -169,21 +172,25 @@ export function EquipmentPicker(props: {
                 >
                   <span>{option.name}</span>
                   <span className="figure">
-                    {option.stat}
+                    {groupDigits(option.stat)}
                     {props.kind === 'weapon' ? <SwordIcon /> : <ArmorIcon />}
                   </span>
                   <span className="secondary">
                     {props.kind === 'weapon'
                       ? option.ammo === null
                         ? 'no ammo'
-                        : `${option.ammo.name} ${option.ammo.available}`
+                        : `${option.ammo.name} ${groupDigits(option.ammo.available)}`
                       : ''}
                     {option.ammo?.ammoShort === true ? (
                       <AmmoWarning title={`${option.ammo.name} short`} />
                     ) : null}
                   </span>
                   <span className="muted small">
-                    {option.worn ? 'worn' : option.available === null ? '' : `${option.available} in store`}
+                    {option.worn
+                      ? 'worn'
+                      : option.available === null
+                        ? ''
+                        : `${groupDigits(option.available)} in store`}
                   </span>
                 </button>
               ))}

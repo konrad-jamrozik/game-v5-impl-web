@@ -3,6 +3,7 @@
  * of one Enemy's Combat rating, and those of equal Combat rating in the EnemyArchetype order of GUI, EnemyArchetype
  * order: the authored order of the EnemyArchetype GDR file.
  */
+import { groupDigits } from './format.ts';
 
 export interface EnemyGroup {
   readonly archetype: string;
@@ -46,7 +47,7 @@ export function enemyGroups(
       combatRating: group.combatRating,
       text:
         group.count === 1
-          ? `1 ${group.name} · ${group.combatRating} CR`
-          : `${group.count} ${group.name}s · ${group.combatRating} CR each`,
+          ? `1 ${group.name} · ${groupDigits(group.combatRating)} CR`
+          : `${groupDigits(group.count)} ${group.name}s · ${groupDigits(group.combatRating)} CR each`,
     }));
 }

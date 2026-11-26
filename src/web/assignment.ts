@@ -1,5 +1,6 @@
 /** AVIEW, Agent table: how an Agent's Assignment reads, and the Lead or Mission site it leads to. */
 import type { AgentView, CurrentLiveWorldStateView, CurrentRetiredWorldStateView } from '../engine/index.ts';
+import { groupDigits } from './format.ts';
 
 /** The Lead or Mission site an Assignment names, as the Detail view that details it selects it. */
 export type AssignmentTarget =
@@ -56,7 +57,7 @@ export function assignmentParts(
   }
   if (assignment.kind === 'Recovery' && agent.recoveryTurnsRemaining !== null) {
     return {
-      text: `Recovery · ${agent.recoveryTurnsRemaining} T left`,
+      text: `Recovery · ${groupDigits(agent.recoveryTurnsRemaining)} T left`,
       target: null,
       targetName: null,
       inTransit,

@@ -11,6 +11,7 @@ import type {
   Condition,
   TemplatePart,
 } from './types.ts';
+import { groupDigitString } from '../kernel/index.ts';
 
 /** A GDR as `scripts/build-gdr.ts` writes it: its properties as authored, with `id` and `type`. */
 export type RawGdr = Readonly<Record<string, unknown>>;
@@ -273,21 +274,22 @@ export function parseTemplate(text: string): readonly AuthoredPart[] | string {
  * COMP, Value formatting: the text a Placeholder shows for one value as `scripts/build-gdr.ts` writes it, or null for
  * a value of a shape that no Placeholder can show, e.g. a mapping or an absent value. A number is read as the exact
  * decimal number the GDR file states, and nothing is rounded; a decimal authored as a whole number, e.g. `0`, is shown
- * as that whole number.
+ * as that whole number. The whole part has its digits grouped as GUI, Digit grouping groups them, e.g. `1,000`.
  */
 export function formatPlaceholderValue(value: unknown): string | null {
   if (typeof value === 'string') {
     return value;
   }
   if (typeof value === 'number' && Number.isSafeInteger(value)) {
-    return value < 0 ? `−${-value}` : String(Math.abs(value));
+    const grouped = groupDigitString(String(Math.abs(value)));
+    return value < 0 ? `−${grouped}` : grouped;
   }
   const decimal = isRecord(value) && Object.keys(value).length === 1 ? value['$decimal'] : undefined;
   const match = typeof decimal === 'string' ? /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(decimal) : null;
   if (match === null) {
     return null;
   }
-  const whole = (match[2] ?? '').replace(/^0+(?=\d)/, '');
+  const whole = groupDigitString((match[2] ?? '').replace(/^0+(?=\d)/, ''));
   const fraction = (match[3] ?? '').replace(/0+$/, '');
   const digits = fraction === '' ? whole : `${whole}.${fraction}`;
   return match[1] === '-' && /[1-9]/.test(digits) ? `−${digits}` : digits;

@@ -9,7 +9,7 @@ import type {
   CurrentRetiredWorldStateView,
   GameDataView,
 } from '../engine/index.ts';
-import { decimalText } from './format.ts';
+import { decimalText, groupDigits } from './format.ts';
 
 export const GUIDE = 'Guide';
 export const MECHANICS = 'Mechanics';
@@ -239,7 +239,7 @@ const SEPARATOR: SheetPart = { text: ' · ' };
 const MINUS = '−';
 
 function figure(value: number | string): SheetPart {
-  return { text: String(value), style: 'figure' };
+  return { text: typeof value === 'number' ? groupDigits(value) : value, style: 'figure' };
 }
 
 function joined(items: readonly (readonly SheetPart[])[]): SheetPart[] {
@@ -248,7 +248,7 @@ function joined(items: readonly (readonly SheetPart[])[]): SheetPart[] {
 
 /** A value with a plus sign, or with the minus sign U+2212. */
 function signed(value: number): string {
-  return value < 0 ? `${MINUS}${-value}` : `+${value}`;
+  return value < 0 ? `${MINUS}${groupDigits(-value)}` : `+${groupDigits(value)}`;
 }
 
 /**
@@ -388,7 +388,10 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
       const weapon = gameData.weapons.find((item) => item.id === subject);
       if (weapon !== undefined) {
         rows.push(['Damage', [figure(weapon.damage)]]);
-        rows.push(['Damage of a hit', [figure(`${weapon.damageOfAHit.min}–${weapon.damageOfAHit.max}`)]]);
+        rows.push([
+          'Damage of a hit',
+          [figure(`${groupDigits(weapon.damageOfAHit.min)}–${groupDigits(weapon.damageOfAHit.max)}`)],
+        ]);
         // COMPV, Weapon data sheet: the AmmoType it spends, or "None".
         const ammo = gameData.ammoTypes.find((item) => item.id === weapon.ammoType);
         rows.push([
@@ -444,7 +447,7 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
           // GUI, Decimal quantities shown: the Increment of a Rate Upgrade is shown with two decimals.
           const increment = wording.rate
             ? decimalText(upgrade.incrementHundredths)
-            : String(upgrade.incrementHundredths / 100);
+            : groupDigits(upgrade.incrementHundredths / 100);
           rows.push(['Each purchase', [figure(`+${increment}`), { text: wording.after }]]);
         }
       }

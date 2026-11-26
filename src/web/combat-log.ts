@@ -3,7 +3,7 @@
  * presentation; no gameplay rule.
  */
 import type { CombatReport } from '../engine/index.ts';
-import { hitChanceText, wholeText } from './format.ts';
+import { groupDigits, hitChanceText, wholeText } from './format.ts';
 
 type Attack = CombatReport['log'][number];
 
@@ -45,7 +45,9 @@ export function finalCondition(
  * Combat end joined by "→", e.g. "3 → 0", and "0" alone for a participant whose effective armor is 0.
  */
 export function armorText(who: Pick<CombatReport['participants'][number], 'start' | 'final'>): string {
-  return who.start.armor === 0 ? '0' : `${who.start.armor} → ${who.final.currentArmor}`;
+  return who.start.armor === 0
+    ? '0'
+    : `${groupDigits(who.start.armor)} → ${groupDigits(who.final.currentArmor)}`;
 }
 
 export function combatLogRow(attack: Attack, sideOf: (id: string) => 'agent' | 'enemy'): CombatLogRow {
@@ -57,11 +59,13 @@ export function combatLogRow(attack: Attack, sideOf: (id: string) => 'agent' | '
   // with the defender's current armor after it, between the damage outcome and the current health.
   const armorBefore = attack.defenderAfter.currentArmor + attack.armorRemoved;
   const armor =
-    armorBefore > 0 ? `, ${attack.armorRemoved} absorbed, armor ${attack.defenderAfter.currentArmor}` : '';
+    armorBefore > 0
+      ? `, ${groupDigits(attack.armorRemoved)} absorbed, armor ${groupDigits(attack.defenderAfter.currentArmor)}`
+      : '';
   return {
     tint,
     tone: tint === 'agent' ? 'good' : 'bad',
-    outcome: `hit for ${attack.damage ?? 0}${armor}, health ${wholeText(attack.defenderAfter.currentHealthHundredths)}`,
+    outcome: `hit for ${groupDigits(attack.damage ?? 0)}${armor}, health ${wholeText(attack.defenderAfter.currentHealthHundredths)}`,
     decisive: attack.defenderDead ? 'dead' : attack.defenderIncapacitated ? 'incapacitated' : null,
   };
 }
@@ -81,7 +85,9 @@ export function attackResultText(attack: Attack): string {
   const after = attack.defenderAfter;
   const armorBefore = after.currentArmor + attack.armorRemoved;
   const armor =
-    armorBefore > 0 ? `, ${attack.armorRemoved} absorbed, armor ${armorBefore} → ${after.currentArmor}` : '';
+    armorBefore > 0
+      ? `, ${groupDigits(attack.armorRemoved)} absorbed, armor ${groupDigits(armorBefore)} → ${groupDigits(after.currentArmor)}`
+      : '';
   const healthBefore = after.currentHealthHundredths + attack.healthRemovedHundredths;
-  return `${margin}, for ${attack.damage ?? 0} damage${armor}, health ${wholeText(healthBefore)} → ${wholeText(after.currentHealthHundredths)}`;
+  return `${margin}, for ${groupDigits(attack.damage ?? 0)} damage${armor}, health ${wholeText(healthBefore)} → ${wholeText(after.currentHealthHundredths)}`;
 }

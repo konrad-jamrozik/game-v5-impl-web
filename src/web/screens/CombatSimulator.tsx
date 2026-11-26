@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { GAME_BUILD, type CombatSimulatorContent } from '../../engine/index.ts';
 import { CopySetupSeedButton } from '../copy-setup-seed.tsx';
+import { groupDigits } from '../format.ts';
 import { buildReplay } from '../combat-replay.ts';
 import {
   FIRST_SEED,
@@ -61,7 +62,7 @@ function ValueFields(props: {
             className="simulator-number"
             type="number"
             min={0}
-            aria-label={`${field.title} of ${props.side} ${props.index + 1}`}
+            aria-label={`${field.title} of ${props.side} ${groupDigits(props.index + 1)}`}
             data-testid={`sim-${props.side}-${props.index + 1}-${field.key}`}
             value={props.values[field.key]}
             onChange={(event) => {
@@ -203,15 +204,16 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                   Combat replay
                   <span className="detail-aside">
                     {/* CSIM, Fighting the Combat: the Combat outcome and its Combat rounds, as a Combat report gives them. */}
-                    {fought.agents.length} Agents vs {fought.enemies.length} Enemies ·{' '}
+                    {groupDigits(fought.agents.length)} Agents vs {groupDigits(fought.enemies.length)} Enemies
+                    ·{' '}
                     <span
                       className={fought.report.outcome === 'Won' ? 'tone-good' : 'tone-bad'}
                       data-testid="sim-replay-outcome"
                     >
                       {fought.report.outcome}
                     </span>{' '}
-                    in {fought.report.rounds} {fought.report.rounds === 1 ? 'round' : 'rounds'} · seed{' '}
-                    {fought.seed}
+                    in {groupDigits(fought.report.rounds)} {fought.report.rounds === 1 ? 'round' : 'rounds'} ·
+                    seed {fought.seed}
                   </span>
                 </h2>
               </div>
@@ -310,13 +312,13 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                   <span>
                     Agents{' '}
                     <span className="figure tone-good" data-testid="sim-rating-agents">
-                      {ratings.agents}
+                      {groupDigits(ratings.agents)}
                     </span>
                   </span>
                   <span>
                     Enemies{' '}
                     <span className="figure tone-bad" data-testid="sim-rating-enemies">
-                      {ratings.enemies}
+                      {groupDigits(ratings.enemies)}
                     </span>
                   </span>
                   <span>
@@ -324,7 +326,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                     <span className="figure" data-testid="sim-rating-ratio">
                       {ratings.enemies === 0
                         ? '—'
-                        : `${Math.round((100 * ratings.agents) / ratings.enemies)}%`}
+                        : `${groupDigits(Math.round((100 * ratings.agents) / ratings.enemies))}%`}
                     </span>
                   </span>
                 </>
@@ -342,7 +344,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
             <div className="simulator-side">
               <header className="simulator-side-head">
                 <h3>
-                  Agents <span className="figure muted">{agents.length}</span>
+                  Agents <span className="figure muted">{groupDigits(agents.length)}</span>
                 </h3>
                 <select
                   aria-label="Agents' side preset"
@@ -385,10 +387,10 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                   <tbody>
                     {agents.map((row, index) => (
                       <tr key={index}>
-                        <td className="figure muted">{index + 1}</td>
+                        <td className="figure muted">{groupDigits(index + 1)}</td>
                         <td>
                           <select
-                            aria-label={`Weapon of agent ${index + 1}`}
+                            aria-label={`Weapon of agent ${groupDigits(index + 1)}`}
                             data-testid={`sim-agent-${index + 1}-weapon`}
                             value={row.weapon}
                             onChange={(event) => {
@@ -404,7 +406,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                         </td>
                         <td>
                           <select
-                            aria-label={`Armor of agent ${index + 1}`}
+                            aria-label={`Armor of agent ${groupDigits(index + 1)}`}
                             data-testid={`sim-agent-${index + 1}-armor-item`}
                             value={row.armorItem}
                             onChange={(event) => {
@@ -430,7 +432,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                           <button
                             type="button"
                             className="btn btn-plain simulator-remove"
-                            aria-label={`Remove agent ${index + 1}`}
+                            aria-label={`Remove agent ${groupDigits(index + 1)}`}
                             title="Remove"
                             data-sound="select"
                             onClick={() => {
@@ -450,7 +452,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
             <div className="simulator-side">
               <header className="simulator-side-head">
                 <h3>
-                  Enemies <span className="figure muted">{enemies.length}</span>
+                  Enemies <span className="figure muted">{groupDigits(enemies.length)}</span>
                 </h3>
                 <select
                   aria-label="Enemies' side preset"
@@ -495,10 +497,10 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                   <tbody>
                     {enemies.map((row, index) => (
                       <tr key={index}>
-                        <td className="figure muted">{index + 1}</td>
+                        <td className="figure muted">{groupDigits(index + 1)}</td>
                         <td colSpan={2}>
                           <select
-                            aria-label={`EnemyArchetype of enemy ${index + 1}`}
+                            aria-label={`EnemyArchetype of enemy ${groupDigits(index + 1)}`}
                             data-testid={`sim-enemy-${index + 1}-archetype`}
                             value={row.archetype}
                             onChange={(event) => {
@@ -524,7 +526,7 @@ export function CombatSimulator({ onClose }: { onClose: () => void }) {
                           <button
                             type="button"
                             className="btn btn-plain simulator-remove"
-                            aria-label={`Remove enemy ${index + 1}`}
+                            aria-label={`Remove enemy ${groupDigits(index + 1)}`}
                             title="Remove"
                             data-sound="select"
                             onClick={() => {

@@ -4,6 +4,7 @@
  * Turn step when it crosses none. Pure presentation; the engine decides what is available and what a step crosses.
  */
 import type { AutosaveTarget } from '../engine/index.ts';
+import { groupDigits } from './format.ts';
 
 export type UndoRedoForm = 'action' | 'turn' | 'autopilot';
 
@@ -40,12 +41,13 @@ export function undoRedoStep(
     return null;
   }
   const direction = which === 'undo' ? 'Back to' : 'Forward to';
+  const turn = groupDigits(target.turn);
   const where: Record<AutosaveTarget['autosaveKind'], string> = {
-    turnEnd: `the end of Turn ${target.turn}`,
-    autopilot: `the end of Turn ${target.turn}, played by Autopilot`,
-    engagement: `Turn ${target.turn}, before Autopilot was engaged`,
-    disengagement: `where Autopilot disengaged, in Turn ${target.turn}`,
-    furthestProgress: `the furthest progress, in Turn ${target.turn}`,
+    turnEnd: `the end of Turn ${turn}`,
+    autopilot: `the end of Turn ${turn}, played by Autopilot`,
+    engagement: `Turn ${turn}, before Autopilot was engaged`,
+    disengagement: `where Autopilot disengaged, in Turn ${turn}`,
+    furthestProgress: `the furthest progress, in Turn ${turn}`,
   };
   return {
     form: target.crossesAutopilotEngagement ? 'autopilot' : 'turn',
