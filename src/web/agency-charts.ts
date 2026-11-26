@@ -144,10 +144,10 @@ export interface BandRank {
 
 /**
  * CVIEW, Agency charts, Agents by base skill: the Serving Agents of each Turn-end state, by base skill rounded down, in the bands of the
- * Ranks: a first band from 0 up to below the lowest `min_base_skill`, then one band for each Rank up to below the
- * next, the highest open-ended, each named by its range and a Rank's by its `name` in parentheses, e.g. "0–99",
- * "100–149 (Rookie)", and "750+ (Commander)", from the first band up to the highest that holds an Agent in any Turn
- * shown.
+ * Ranks: one band for each Rank up to below the next, the highest open-ended, each named by its range and the Rank's
+ * `name` in parentheses, e.g. "100–149 (Rookie)" and "750+ (Commander)", from the band of the lowest Rank up to the
+ * highest that holds an Agent in any Turn shown. An Agent whose base skill reaches no Rank counts in the band of the
+ * lowest.
  */
 export function skillBands(
   entries: readonly HistoryEntry[],
@@ -156,11 +156,9 @@ export function skillBands(
 ): { series: Series[]; bars: Bar[] } {
   const ends = turnEnds(entries, open);
   const ordered = [...ranks].sort((a, b) => a.minBaseSkill - b.minBaseSkill);
-  // The first band is below the lowest Rank, unless a Rank starts at 0.
-  const starts = [
-    ...(ordered[0]?.minBaseSkill === 0 ? [] : [{ name: null, minBaseSkill: 0 }]),
-    ...ordered.map((rank) => ({ name: rank.name as string | null, minBaseSkill: rank.minBaseSkill })),
-  ];
+  // Without a Rank GDR, a single band holds every Agent.
+  const starts: { name: string | null; minBaseSkill: number }[] =
+    ordered.length === 0 ? [{ name: null, minBaseSkill: 0 }] : ordered;
   const bandOf = (skill: number) => {
     let band = 0;
     starts.forEach((start, index) => {

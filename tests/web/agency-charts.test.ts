@@ -93,8 +93,8 @@ describe('CVIEW: Agency charts', () => {
     { name: 'Commander', minBaseSkill: 750 },
   ];
 
-  it('example: Turn 7 has 5 Agents at 0–99, 7 Rookies, no Junior Agent, and 1 Agent', () => {
-    const skills = [10, 20, 30, 40, 99, 100, 110, 120, 130, 140, 149, 100, 210];
+  it('example: Turn 7 has 7 Rookies, no Junior Agent, and 1 Agent, starting at the lowest Rank', () => {
+    const skills = [100, 110, 120, 130, 140, 149, 100, 210];
     const open: OpenHistoryEntry = {
       turn: 7,
       turnStart: summary(),
@@ -102,13 +102,24 @@ describe('CVIEW: Agency charts', () => {
       actions: [],
     };
     const { series, bars } = skillBands([], open, ranks);
-    expect(series.map((band) => band.name)).toEqual([
-      '0–99',
-      '100–149 (Rookie)',
-      '150–199 (Junior Agent)',
-      '200–749 (Agent)',
+    expect(series).toEqual([
+      { name: '100–149 (Rookie)', color: '#6A5ACD' },
+      { name: '150–199 (Junior Agent)', color: '#4A86D9' },
+      { name: '200–749 (Agent)', color: '#2FB0B8' },
     ]);
-    expect(bars).toEqual([{ turn: 7, above: [5, 7, 0, 1], below: [] }]);
+    expect(bars).toEqual([{ turn: 7, above: [7, 0, 1], below: [] }]);
+  });
+
+  it('counts a base skill below the lowest Rank in the band of the lowest Rank', () => {
+    const open: OpenHistoryEntry = {
+      turn: 2,
+      turnStart: summary(),
+      turnEnd: summary({ baseSkills: [0, 99, 100] }),
+      actions: [],
+    };
+    const { series, bars } = skillBands([], open, ranks);
+    expect(series.map((band) => band.name)).toEqual(['100–149 (Rookie)']);
+    expect(bars).toEqual([{ turn: 2, above: [3], below: [] }]);
   });
 
   it('puts every base skill from the highest Rank up in its open-ended band, with the colours in order', () => {
@@ -119,9 +130,9 @@ describe('CVIEW: Agency charts', () => {
       actions: [],
     };
     const { series, bars } = skillBands([], open, ranks);
-    expect(series).toHaveLength(5);
-    expect(series.at(-2)).toEqual({ name: '200–749 (Agent)', color: '#45BF6E' });
-    expect(series.at(-1)).toEqual({ name: '750+ (Commander)', color: '#A3CC3F' });
+    expect(series).toHaveLength(4);
+    expect(series.at(-2)).toEqual({ name: '200–749 (Agent)', color: '#2FB0B8' });
+    expect(series.at(-1)).toEqual({ name: '750+ (Commander)', color: '#45BF6E' });
     expect(bars[0]?.above.slice(-2)).toEqual([1, 2]);
   });
 
