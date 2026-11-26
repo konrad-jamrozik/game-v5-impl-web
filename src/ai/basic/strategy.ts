@@ -34,33 +34,39 @@ export interface Opposition {
 }
 
 /**
- * BASICAI, Glossary, Threat: the strongest Creation Combat rating among the Response Mission sites created in the last
- * Threat window Turns; while there is none, the strongest MissionSiteArchetype of kind `response` serving the lowest
- * Faction operation level.
+ * BASICAI, Glossary, Threat: the strongest MissionSiteArchetype of kind `response` serving the Threat level, i.e. the
+ * Faction operation level `levelsAhead` above the highest one served by the Response Mission sites created in the last
+ * Threat window Turns, or above the lowest while there is none, and the highest when no level is that far above.
  */
 export function threat(
   live: CurrentLiveWorldStateView,
   retired: CurrentRetiredWorldStateView,
   data: GameDataView,
   windowTurns: number,
+  levelsAhead: number,
 ): Opposition | null {
-  const recent = [...retired.missionSites, ...live.missionSites]
-    .filter((site) => site.kind === 'Response' && site.turnCreated >= live.turn - windowTurns)
-    .sort((a, b) => b.creationCombatRating - a.creationCombatRating || a.id.localeCompare(b.id));
-  const strongest = recent[0];
-  if (strongest !== undefined) {
-    return {
-      combatRating: strongest.creationCombatRating,
-      enemies: strongest.enemies.length,
-      archetype: strongest.archetype,
-    };
-  }
   const responses = data.missionSiteArchetypes.filter((item) => item.kind === 'response');
-  const lowest = Math.min(...responses.map((item) => item.operationLevel ?? Infinity));
-  const fallback = responses
-    .filter((item) => (item.operationLevel ?? Infinity) === lowest)
-    .sort((a, b) => b.enemiesCombatRating - a.enemiesCombatRating)[0];
-  return fallback === undefined ? null : opposition(fallback);
+  const levels = [
+    ...new Set(responses.flatMap((item) => (item.operationLevel === null ? [] : [item.operationLevel]))),
+  ].sort((a, b) => a - b);
+  if (levels.length === 0) {
+    return null;
+  }
+  const seen = [...retired.missionSites, ...live.missionSites]
+    .filter((site) => site.kind === 'Response' && site.turnCreated >= live.turn - windowTurns)
+    .flatMap((site) => (site.operationLevel === null ? [] : [site.operationLevel.level]));
+  const from =
+    seen.length === 0
+      ? 0
+      : Math.max(
+          0,
+          levels.findLastIndex((level) => level <= Math.max(...seen)),
+        );
+  const level = levels[Math.min(levels.length - 1, from + levelsAhead)];
+  const strongest = responses
+    .filter((item) => item.operationLevel === level)
+    .sort((a, b) => b.enemiesCombatRating - a.enemiesCombatRating || a.id.localeCompare(b.id))[0];
+  return strongest === undefined ? null : opposition(strongest);
 }
 
 const opposition = (archetype: GameDataView['missionSiteArchetypes'][number]): Opposition => ({
@@ -69,13 +75,16 @@ const opposition = (archetype: GameDataView['missionSiteArchetypes'][number]): O
   archetype: archetype.id,
 });
 
-/** The MissionSiteArchetypes at which a Mission against each Faction is Won, by Faction ID. */
+/**
+ * The MissionSiteArchetypes of kind `initiative` at which a Mission against each Faction is Won, by Faction ID; BASICAI,
+ * Glossary, Next rung: a Won Response Mission counts for no rung.
+ */
 export function wonAgainst(retired: CurrentRetiredWorldStateView): Map<string, Set<string>> {
   const siteOf = new Map(retired.missionSites.map((site) => [site.id, site]));
   const won = new Map<string, Set<string>>();
   for (const mission of retired.missions) {
     const site = siteOf.get(mission.missionSite);
-    if (mission.lifecycle === 'Won' && site !== undefined) {
+    if (mission.lifecycle === 'Won' && site !== undefined && site.kind === 'Initiative') {
       const set = won.get(site.targetFaction) ?? new Set<string>();
       set.add(site.archetype);
       won.set(site.targetFaction, set);
@@ -166,7 +175,7 @@ export function makePlan(
   const equipment = live.agency.equipment;
   const storage = planEquipment(order, equipment, 'storage');
   const rating = ratingParameters(data);
-  const found = threat(live, retired, data, t.threatWindowTurns);
+  const found = threat(live, retired, data, t.threatWindowTurns, t.threatLevelsAhead);
   const won = wonAgainst(retired);
   const rungs = nextRungs(live, data, won);
   const weakest = [...rungs.values()].sort((a, b) => a.combatRating - b.combatRating)[0];

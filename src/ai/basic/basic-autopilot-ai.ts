@@ -85,6 +85,8 @@ class Turn {
   private saving = false;
   /** Whether a health recovery Upgrade was bought this Turn. */
   private healthBought = false;
+  /** Whether a Rate Upgrade was bought this Turn (BASICAI, Purchases, item 6: at most one a Turn). */
+  private rateBought = false;
 
   constructor(player: PlayerApi, thresholds: BasicAiThresholds) {
     this.player = player;
@@ -451,10 +453,39 @@ class Turn {
     return null;
   }
 
+  /**
+   * BASICAI, Deploying and mustering, Deploy now: once a Winning team exists for a Response Mission site, the team sent
+   * in its place: for one whose loss loses the Campaign, the strongest Deployable Agents the free Transport cap allows;
+   * for any other, the fewest Deployable Agents, strongest first, that reach the Full team share with at least the
+   * Agents a Winning team needs, when they fit, and otherwise the Winning team.
+   */
+  private strongerTeam(state: CurrentLiveWorldStateView, site: MissionSiteView, team: string[]): string[] {
+    if (site.kind !== 'Response') {
+      return team;
+    }
+    const places = state.agency.transportCap - state.agency.deployedAgents;
+    const strongest = this.deployableNow(state).sort(
+      (a, b) => b.effectiveSkill - a.effectiveSkill || a.index - b.index,
+    );
+    if (site.penalties.defeat) {
+      return strongest.slice(0, Math.max(0, places)).map((member) => member.agent.id);
+    }
+    const full = this.formTeam(
+      strongest,
+      places,
+      site.enemies.length,
+      site.enemiesCombatRating,
+      this.t.fullTeamPct,
+      (members) => this.previewRating(members),
+    );
+    return full === null ? team : full.map((member) => member.agent.id);
+  }
+
   /** Step 2: deploy a Winning team of Deployable Agents, most urgent first. */
   private async deploy(state: CurrentLiveWorldStateView): Promise<boolean> {
     for (const site of this.sitesByUrgency(state)) {
-      const team = this.deployTeam(state, site);
+      const winning = this.deployTeam(state, site);
+      const team = winning === null ? null : this.strongerTeam(state, site, winning);
       if (
         team !== null &&
         (await this.act(`deploy ${site.id}`, () => this.player.actions.deployAgents(site.id, team)))
@@ -772,10 +803,12 @@ class Turn {
     const rate = [...agency.upgrades]
       .filter((item) => RATE_EFFECTS.includes(item.effect) && item.incrementHundredths > 0)
       .sort((a, b) => a.acquisitions - b.acquisitions || a.price - b.price || a.id.localeCompare(b.id))[0];
-    if (rate !== undefined) {
-      return this.buy(state, `buy ${rate.id}`, rate.price, agency.projectedUpkeep, () =>
+    if (rate !== undefined && !this.rateBought) {
+      const bought = await this.buy(state, `buy ${rate.id}`, rate.price, agency.projectedUpkeep, () =>
         this.player.actions.purchaseUpgrade(rate.id),
       );
+      this.rateBought ||= bought;
+      return bought;
     }
     return false;
   }
