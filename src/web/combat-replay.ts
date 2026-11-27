@@ -626,8 +626,10 @@ export interface PlaybackSettings {
 }
 
 /** CRPLAY, Playback: the values the Player picks the Speed and the Delay from, in milliseconds. */
-export const SPEEDS_MS = [2000, 1750, 1500, 1250, 1000, 750, 500, 250, 100] as const;
-export const DELAYS_MS = [1500, 1250, 1000, 750, 500, 250, 100] as const;
+export const SPEEDS_MS = [
+  4000, 3750, 3500, 3250, 3000, 2750, 2500, 2250, 2000, 1750, 1500, 1250, 1000, 750, 500, 250, 100,
+] as const;
+export const DELAYS_MS = [2000, 1750, 1500, 1250, 1000, 750, 500, 250, 100] as const;
 
 export function newPlayback(): Playback {
   return { index: 0, active: [], since: 0, target: 0, playing: false, last: null, picked: false };
