@@ -182,10 +182,13 @@ export function makePlan(
   const setter = [found, weakest]
     .filter((item): item is Opposition => item !== null && item !== undefined)
     .sort((a, b) => b.combatRating - a.combatRating)[0];
+  // BASICAI, Glossary, Strike team size: the Agents needed for the more numerous Enemies of the Threat and of the
+  // weakest Next rung, whichever of the two sets the Strike goal's Combat rating.
+  const enemies = Math.max(found?.enemies ?? 0, weakest?.enemies ?? 0);
   const goal =
     setter === undefined
       ? null
-      : { combatRating: Math.ceil((setter.combatRating * t.combatMarginPct) / 100), enemies: setter.enemies };
+      : { combatRating: Math.ceil((setter.combatRating * t.combatMarginPct) / 100), enemies };
   const eligible = order
     .filter((agent) => agent.assignment?.kind !== 'Investigation')
     .map((agent) => ({ agent, member: plannedMember(agent, storage, live) }));

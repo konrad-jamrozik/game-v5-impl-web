@@ -129,6 +129,39 @@ describe('BASICAI: Next rung and Strike team', () => {
       plan.order.slice(0, plan.strike.length).map((agent) => agent.id),
     );
   });
+
+  it('asks for the Agents of the more numerous Enemies of the Threat even when a stronger Next rung sets the goal', async () => {
+    const { engine, live } = await newCampaign('strike-count');
+    const data = ok(engine.player.queries.getGameData());
+    // Every Initiative MissionSiteArchetype far stronger than any Response one, so that the weakest Next rung sets the
+    // Strike goal's Combat rating.
+    const strongest = Math.max(...data.missionSiteArchetypes.map((item) => item.enemiesCombatRating));
+    const rungsStronger = {
+      ...data,
+      missionSiteArchetypes: data.missionSiteArchetypes.map((item) =>
+        item.kind === 'initiative'
+          ? { ...item, enemiesCombatRating: item.enemiesCombatRating + strongest }
+          : item,
+      ),
+    };
+    const plan = makePlan(
+      live,
+      ok(engine.player.queries.getCurrentRetiredWorldState()),
+      rungsStronger,
+      BASIC_AI_THRESHOLDS,
+    );
+    const weakest = [...plan.rungs.values()].sort((a, b) => a.combatRating - b.combatRating)[0];
+    if (plan.threat === null || weakest === undefined || plan.goal === null) {
+      throw new Error('A new Campaign needs a Threat and a Next rung.');
+    }
+    if (plan.threat.enemies <= weakest.enemies) {
+      throw new Error('The Game build needs a Threat with more Enemies than the first Next rung.');
+    }
+    expect(plan.goal.combatRating).toBe(
+      Math.ceil((weakest.combatRating * BASIC_AI_THRESHOLDS.combatMarginPct) / 100),
+    );
+    expect(plan.goal.enemies).toBe(plan.threat.enemies);
+  });
 });
 
 type Engine = Awaited<ReturnType<typeof startEngine>>['engine'];
