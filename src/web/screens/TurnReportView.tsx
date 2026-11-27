@@ -649,25 +649,25 @@ function Sections(props: {
 
 /**
  * VIS, Tables: the fixed widths of the participants table, the Combat log, and the Combat ratings table, each column
- * wide enough for the widest value of its quantity, e.g. "1234 → 1234" in Skill, "123 → 123/123" in Health,
- * "123 → 123" in Armor, and "99.9% (1234 vs 1234)" in Hit chance; a participant, an attacker, and a defender hold the
- * longest Enemy label, e.g. "high-commander-12". The participants table is 1044 px in all, so that it fits its pane in
- * the Reference window.
+ * wide enough for the widest value of its quantity, its Digit grouping commas included, e.g. "1,234" in Base,
+ * "1,234 → 1,234" in Skill, "123 → 123/123" in Health, "123 → 123" in Armor, "123 → 123" and the warning triangle in
+ * Exh., and "99.9% (1,234 vs 1,234)" in Hit chance; a participant, an attacker, and a defender hold the longest Enemy
+ * label, e.g. "high-commander-12". The participants table is at most 1044 px in all, so that it fits its pane in the
+ * Reference window; to fit, it leaves each participant's weapon damage to the tooltip of its name.
  */
 const PARTICIPANT_WIDTHS = [
-  '148px',
-  '64px',
-  '120px',
+  '152px',
+  '72px',
+  '140px',
   '140px',
   '104px',
-  '104px',
-  '60px',
+  '120px',
   '64px',
   '64px',
   '60px',
   '116px',
 ];
-const LOG_WIDTHS = ['72px', '160px', '160px', '184px', '300px'];
+const LOG_WIDTHS = ['72px', '160px', '160px', '192px', '300px'];
 
 /**
  * TRVIEW, Combat report: the Exp of one participant. A survivor shows its Mission experience as one total in Positive,
@@ -728,7 +728,6 @@ function CombatReportDetails(props: {
               <th className="num" title="Exhaustion">
                 Exh.
               </th>
-              <th className="num">Damage</th>
               <th className="num">Dealt</th>
               <th className="num">Taken</th>
               {/* The header says "Exp" alone, because the "+" of each value already says that it was gained. */}
@@ -751,7 +750,14 @@ function CombatReportDetails(props: {
                 const condition = finalCondition(who.side, who.final.condition);
                 return (
                   <tr key={who.id} data-testid={`participant-${who.id}`}>
-                    <th scope="row" className={condition.tone ?? undefined}>
+                    {/* VIS, Tables: the weapon damage, which does not change in a Combat, moves one step away, into
+                        the tooltip of the participant's name, so that the table fits its pane. */}
+                    <th
+                      scope="row"
+                      className={condition.tone ?? undefined}
+                      title={`Weapon damage ${groupDigits(who.start.weaponDamage)}`}
+                      data-testid={`participant-name-${who.id}`}
+                    >
                       {props.nameOf(who.id)}
                     </th>
                     <td className="num">{wholeText(who.start.skillHundredths)}</td>
@@ -785,7 +791,6 @@ function CombatReportDetails(props: {
                         groupDigits(who.final.exhaustion)
                       )}
                     </td>
-                    <td className="num">{groupDigits(who.start.weaponDamage)}</td>
                     {/* GUI, Decimal quantities shown: health removed from an Agent, a Decimal quantity, rounds down. */}
                     <td className="num">{wholeText(who.damageDealtHundredths)}</td>
                     <td className="num">{wholeText(who.damageTakenHundredths)}</td>

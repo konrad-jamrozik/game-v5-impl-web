@@ -77,14 +77,15 @@ const SELECTABLE_FIRST = 'selectable';
 
 /**
  * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. AVIEW, Agent table: the
- * Instance ID holds 30 characters, for the Agents' full names to come. CR holds four digits and Exh. three after the
- * warning triangle, each with its sort arrow; Rank holds the abbreviation "Hi Cmdr" and three stars; Assignment names
- * no Lead or Mission site and marks In transit with an icon, so it holds "Recovery · 99 T left" and the icon.
+ * Instance ID holds 30 characters, for the Agents' full names to come. CR holds four digits with their comma, e.g.
+ * "1,234" (65 px), and Exh. three after the warning triangle, each with its sort arrow; Health holds "123/123"; Rank
+ * holds the abbreviation "Hi Cmdr" and three stars; Assignment names no Lead or Mission site and marks In transit with
+ * an icon, so it holds "Recovery · 99 T left" and the icon.
  */
 const SERVING_WIDTHS = [
   '36px',
   AGENT_COLUMN_WIDTH,
-  '64px',
+  '72px',
   RANK_COLUMN_WIDTH,
   '84px',
   '72px',
@@ -92,19 +93,22 @@ const SERVING_WIDTHS = [
 ];
 /**
  * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
- * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by high-commander-12". Where is the
- * table's one column of free text: it takes the width the others leave, and a longer value ends in "…".
+ * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by high-commander-12" (211 px). Base,
+ * Exp., Ended, and Turns hold four digits with their comma, e.g. "1,234", because a base skill, the experience that
+ * grows it, and a Turn reach 1,000 in a long Campaign; every header holds its label with its sort arrow, e.g.
+ * "Missions▼" (94 px). Where is the table's one column of free text: it takes the width the others leave, and a longer
+ * value ends in "…".
  */
 const MEMORIAL_WIDTHS = [
   AGENT_COLUMN_WIDTH,
-  '84px',
-  '64px',
-  '76px',
-  '210px',
-  '84px',
-  '64px',
-  '64px',
-  '148px',
+  '72px',
+  '68px',
+  '80px',
+  '212px',
+  '96px',
+  '80px',
+  '72px',
+  '114px',
 ];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
@@ -1134,7 +1138,8 @@ function AgentDetails(props: {
       {participation.length === 0 ? (
         <p className="muted">No Investigation or Mission yet.</p>
       ) : (
-        <Grid widths={['360px', '140px', '100px', '120px']} className="compact" testId="participation-grid">
+        // VIS, Tables: Turn holds a Turn of four digits with its comma, "Turn 1,234".
+        <Grid widths={['360px', '140px', '112px', '120px']} className="compact" testId="participation-grid">
           <thead>
             <tr>
               <th>Name</th>

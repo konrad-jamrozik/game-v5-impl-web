@@ -400,9 +400,10 @@ function Participants(props: {
             testId={`concluded-${key}-combat-rating`}
           />
         </div>
-        {/* VIS, Tables: Skill holds "1234 → 1234" and Health "123 → 123"; a column headed Agent holds 30 characters. */}
+        {/* VIS, Tables: Skill holds "1,234 → 1,234" (137 px) and Health "123 → 123"; a column headed Agent holds 30
+            characters. */}
         <Grid
-          widths={[which === 'enemy' ? '160px' : AGENT_COLUMN_WIDTH, '120px', '150px', '136px']}
+          widths={[which === 'enemy' ? '160px' : AGENT_COLUMN_WIDTH, '140px', '150px', '136px']}
           className="compact"
         >
           <thead>

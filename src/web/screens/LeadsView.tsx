@@ -362,9 +362,10 @@ function Team(props: {
             <span className="figure tone-accent">{groupDigits(investigation.currentTeam.length)}</span>
           </div>
           {/* LVIEW, Team, Current team: a selection checkbox, the Instance ID with the In transit icon for a member In
-              transit, and the effective skill; the Recall button under the table recalls the checked members. */}
+              transit, and the effective skill; the Recall button under the table recalls the checked members. VIS,
+              Tables: Skill holds four digits with their comma, "1,234". */}
           <Grid
-            widths={['36px', AGENT_COLUMN_WIDTH, '64px']}
+            widths={['36px', AGENT_COLUMN_WIDTH, '72px']}
             className="compact pick-grid"
             testId="current-team"
           >

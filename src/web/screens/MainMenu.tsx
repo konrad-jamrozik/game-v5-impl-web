@@ -232,7 +232,10 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                       </Button>
                     </div>
                   </header>
-                  <Grid widths={['200px', '96px', '160px']}>
+                  {/* VIS, Tables: the first column holds "Furthest progress Autosave" after the card's 18 px inset,
+                      and the second a Turn of four digits with its comma and the Player actions in it, e.g.
+                      "T1,234 A123". */}
+                  <Grid widths={['212px', '120px', '160px']}>
                     <tbody>
                       {group.saves.map((save) => (
                         <tr key={save.saveId}>

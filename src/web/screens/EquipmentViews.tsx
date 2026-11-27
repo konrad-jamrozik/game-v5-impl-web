@@ -344,9 +344,9 @@ export function StorageView(props: {
       <div className="storage-trade">
         <Grid
           // VIS, Tables: Item holds "Reinforced ballistic vest" after its indent, Stats "32 ⚔ Laser rifle battery", the
-          // counts "10,000", and Sell · Buy its "all", arrows, and count, so that the table and the trade panel fit
-          // the Reference window side by side.
-          widths={['186px', '176px', '68px', '60px', '68px', '64px', '72px', '196px']}
+          // counts "10,000" (74 px), Price the dearest Item's "4,000", and Sell · Buy its "all", arrows, and count, so
+          // that the table and the trade panel fit the Reference window side by side.
+          widths={['186px', '176px', '76px', '60px', '76px', '72px', '72px', '196px']}
           className="equipment-table"
           testId="storage-table"
         >

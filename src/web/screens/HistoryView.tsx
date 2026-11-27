@@ -141,9 +141,11 @@ export function HistoryView({
       <div className="table-scroll" data-testid="history">
         <Grid
           // VIS, Tables: 1068 px in all, so that the table fits its view in the Reference window. HVIEW, Turn by Turn
-          // table: the Panic column is wide enough for Panic with two decimals, e.g. "24.35%", and Events, the
-          // table's one column of free text, takes the width the others leave.
-          widths={['80px', '76px', '76px', '76px', '76px', '88px', '72px', '84px', '440px']}
+          // table: Turn holds "1,234"; Money holds eight digits with their commas, "12,345,678", and Spent, Income,
+          // and Upkeep six after their sign, "−123,456"; the Panic column is wide enough for Panic with two
+          // decimals, e.g. "24.35%"; and Events, the table's one column of free text, takes the width the others
+          // leave.
+          widths={['72px', '112px', '96px', '96px', '96px', '88px', '72px', '84px', '352px']}
           testId="history-table"
           scroll={false}
         >

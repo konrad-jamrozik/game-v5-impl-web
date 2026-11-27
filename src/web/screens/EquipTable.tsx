@@ -38,20 +38,21 @@ type EquipKey =
 /**
  * VIS, Tables, and AVIEW, Equip table: the fixed widths of the condensed Equip table, its text 13 px and its cells 6 px
  * from their sides, so that every column fits the Reference window without scrolling sideways. The Instance ID holds
- * 30 characters; CR, Skill, and Base four digits, Equip. four after its sign, Exp. three, each with its sort arrow; Rank
- * "Hi Cmdr" and three stars; Weapon and Armor the longest Item `name` of the GDRs with its number, icon, and caret; and
- * Assignment "Recovery · 99 T left" with the In transit icon.
+ * 30 characters; CR, Skill, Base, and Exp. four digits with their comma, e.g. "1,234", and Equip. four after its
+ * sign, each with its sort arrow, e.g. "Equip.▼" (69 px); Health "123/123" and Exh. three digits, each with its sort
+ * arrow; Rank "Hi Cmdr" and three stars; Weapon and Armor the longest Item `name` of the GDRs with its number, icon,
+ * and caret; and Assignment "Recovery · 99 T left" with the In transit icon.
  */
 const EQUIP_WIDTHS = [
   '246px',
   '56px',
-  '64px',
+  '72px',
   '98px',
-  '56px',
-  '56px',
-  '52px',
-  '70px',
-  '56px',
+  '64px',
+  '60px',
+  '60px',
+  '76px',
+  '60px',
   '200px',
   '210px',
   '144px',
