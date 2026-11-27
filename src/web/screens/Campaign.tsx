@@ -32,7 +32,12 @@ import { useCtrlHeld } from '../ctrl-held.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate, lostMissionSites } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
-import { clearCampaignStart, pendingCampaignStart, type SpecialEventView } from '../special-events.ts';
+import {
+  campaignStartEvent,
+  clearCampaignStart,
+  pendingCampaignStart,
+  type SpecialEventView,
+} from '../special-events.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
 import { Button, CloseControl, Fact, Meter, typingIn, withShortcut } from '../ui.tsx';
 import { turnsSinceLastFactionActivity } from '../faction-activity.ts';
@@ -768,7 +773,13 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                 }}
                 onShow={followTo}
                 onOpenSummary={() => {
-                  setReopened(true);
+                  // TRVIEW, Turn summary button: while there is no Turn report yet, it replays the Special event of
+                  // campaign_start.
+                  if (snapshot.report === null) {
+                    setSpecialEvent(campaignStartEvent(snapshot.gameData));
+                  } else {
+                    setReopened(true);
+                  }
                 }}
                 onClose={close}
               />

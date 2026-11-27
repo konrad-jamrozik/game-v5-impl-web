@@ -31,6 +31,7 @@ import {
 } from '../mission-gains.ts';
 import { MissionSiteTitleView } from '../mission-site-title.tsx';
 import { usePlace, usePlaceName, usePlaceState } from '../place.tsx';
+import { campaignStartEvent } from '../special-events.ts';
 import type { Snapshot } from '../store.ts';
 import { turnSummaryHasContent } from '../turn-summary.ts';
 import { backLabel, turnSummaryPlace } from '../view-trail.ts';
@@ -83,15 +84,18 @@ export function TurnReportView(props: {
   const [replayShown, setReplayShown] = usePlaceState('replay', false);
   const shownCombat = report?.combatReports.find((item) => item.mission === combat);
   usePlaceName(shownCombat === undefined ? null : replayShown ? 'Combat replay' : 'Combat report');
-  // TRVIEW, Turn summary button: disabled, not hidden, when there is no Turn report or no group to show. While the
-  // Back control returns to the Turn summary, the Back control stands in its place and the button is not shown.
+  // TRVIEW, Turn summary button: while there is no Turn report yet, it replays the Special event of campaign_start.
+  // Disabled, not hidden, when there is nothing to show. While the Back control returns to the Turn summary, the Back
+  // control stands in its place and the button is not shown.
   const backToSummary = place.back?.label === backLabel([turnSummaryPlace(null)]);
   const summaryButton = backToSummary ? undefined : (
     <Button
       testId="reopen-summary"
       disabledReason={
         report === null
-          ? 'There is no Turn report yet.'
+          ? campaignStartEvent(snapshot.gameData) === null
+            ? 'There is no Turn report yet.'
+            : null
           : turnSummaryHasContent(report)
             ? null
             : 'This Turn report has nothing for the Turn summary.'

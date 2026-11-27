@@ -4,6 +4,7 @@ import { gameDataView } from '../../src/engine/views/views.ts';
 import { buildGdrCatalog } from '../../src/gdr/catalog.ts';
 import { RAW_GDR_FILES } from '../../src/gdr/generated/raw-gdrs.ts';
 import {
+  campaignStartEvent,
   clearCampaignStart,
   emphasized,
   noteCampaignCreation,
@@ -39,6 +40,13 @@ describe('TSUM: Special events', () => {
     const welcome = gameDataView(gdrs).specialEvents.find((event) => event.trigger === 'campaign_start');
     expect(welcome?.title).toBe('Situation Report');
     expect(welcome?.text).toMatch(/^The year is 2030\. .* known as \*\*Continuity\*\*\. /);
+  });
+
+  it('names the Special event of campaign_start for the Turn summary button to replay, whatever has been shown', () => {
+    const data = gameDataView(gdrs);
+    expect(campaignStartEvent(data)?.title).toBe('Situation Report');
+    expect(campaignStartEvent(gameDataView(buildGdrCatalog(eventsFile([]))))).toBeNull();
+    expect(campaignStartEvent(null)).toBeNull();
   });
 
   it('draws each phrase between double asterisks in Special, without the asterisks', () => {

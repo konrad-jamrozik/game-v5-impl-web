@@ -47,6 +47,12 @@ test('the globe is kept, not built again, when the Player goes to the Main menu 
   await expect(id(page, 'globe').locator('.globe')).toHaveCount(1);
   // TSUM, Special events: the welcome is not shown again for that Campaign.
   await expect(id(page, 'special-event')).toHaveCount(0);
+  // TRVIEW, Turn summary button: while there is no Turn report yet, it replays the welcome.
+  await id(page, 'nav-report').click();
+  await id(page, 'reopen-summary').click();
+  await expect(id(page, 'special-event-text')).toContainText('The year is 2030.');
+  await id(page, 'special-event-continue').click();
+  await expect(id(page, 'special-event')).toHaveCount(0);
 });
 
 test('a reload takes the files of the Game build from the service worker', async ({ page }) => {

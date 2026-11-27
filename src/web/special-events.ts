@@ -50,10 +50,15 @@ export function noteCampaignCreation(): { failed: () => void } {
  * it does not clear it, so that a render called twice reads the same; the Campaign screen clears it once shown.
  */
 export function pendingCampaignStart(gameData: GameDataView | null): SpecialEventView | null {
-  if (!campaignStartPending || gameData === null) {
-    return null;
-  }
-  return gameData.specialEvents.find((event) => event.trigger === 'campaign_start') ?? null;
+  return campaignStartPending ? campaignStartEvent(gameData) : null;
+}
+
+/**
+ * The Special event of `campaign_start`, or null when the Game build has none. TRVIEW, Turn summary button: it is
+ * what the button replays while there is no Turn report yet.
+ */
+export function campaignStartEvent(gameData: GameDataView | null): SpecialEventView | null {
+  return gameData?.specialEvents.find((event) => event.trigger === 'campaign_start') ?? null;
 }
 
 /** The Campaign screen calls this once it has taken the Special event of `campaign_start`, so it is not shown again. */
