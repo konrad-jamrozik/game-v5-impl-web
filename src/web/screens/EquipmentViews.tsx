@@ -13,8 +13,8 @@ import { AmmoWarning, ArmorIcon, SwordIcon } from './equipment-icons.tsx';
 
 const GROUPS: readonly { readonly kind: EquipmentItemView['kind']; readonly name: string }[] = [
   { kind: 'weapon', name: 'Weapons' },
-  { kind: 'armor', name: 'Armor' },
   { kind: 'ammo', name: 'Ammo' },
+  { kind: 'armor', name: 'Armor' },
 ];
 
 type GroupKind = EquipmentItemView['kind'];
