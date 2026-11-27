@@ -3558,41 +3558,13 @@ label:has(> input[type='checkbox']:disabled) {
   outline-offset: 1px;
 }
 
-/* COMPV, Article pane: the Formulas table: two columns without a header row, the first in Text muted and as wide as
-   its longest label, the second taking the rest of the pane and wrapping. */
-.sheet {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.sheet th,
-.sheet td {
-  padding: 6px 0;
-  border-bottom: 1px solid var(--raised);
-  text-align: left;
-  vertical-align: top;
-}
-
-.sheet th {
-  padding-right: 24px;
-  width: 1%;
-  color: var(--text-muted);
-  font-weight: 400;
-  white-space: nowrap;
-}
-
-.sheet td {
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
 .see-also {
   margin: 0;
   font-size: 14px;
 }
 
-/* COMPV, Subject data sheets: each label, in Text muted, above its value, the rows divided as the Formulas table's. */
+/* COMPV, Subject data sheets and the Formulas of the Article pane: each label, in Text muted, above its value, the
+   rows divided by a Raised line. */
 .data-sheet {
   margin: 0;
   font-size: 14px;

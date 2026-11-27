@@ -195,6 +195,22 @@ function SheetValue(props: { parts: readonly SheetPart[]; onOpen: (article: stri
  * as the page "Compendium Image Slot" shows them; a category not named here, e.g. Other, uses the last entry.
  */
 const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
+  Guide: {
+    color: 'var(--text-muted)',
+    glyph: (
+      <path d="M50 26c-10-8-24-10-36-8v58c12-2 26 0 36 8 10-8 24-10 36-8V18c-12-2-26 0-36 8zM50 26v58" />
+    ),
+  },
+  Mechanics: {
+    color: 'var(--text-secondary)',
+    glyph: (
+      <>
+        <circle cx="50" cy="50" r="13" />
+        <circle cx="50" cy="50" r="31" />
+        <path d="M50 8v11M50 81v11M8 50h11M81 50h11M20 20l8 8M72 72l8 8M80 20l-8 8M28 72l-8 8" />
+      </>
+    ),
+  },
   Agents: {
     color: 'var(--notice)',
     glyph: (
@@ -300,8 +316,8 @@ export function CompendiumView(props: {
     setHistory(history);
   }
   const article = all.find((item) => item.id === currentArticle(history)) ?? null;
-  // COMPV, Article pane: a Subject article has Article art; any other article gives its parts the whole width.
-  const artCategory = article?.category === 'subject' ? categoryOf(article) : null;
+  // COMPV, Article pane: every article has Article art, the placeholder of its category.
+  const artCategory = article === null ? null : categoryOf(article);
 
   const matching = searchArticles(all, search);
   // COMPV, Panes, Category tabs: a tab for every category with a Player-visible article, whatever the search text;
@@ -481,20 +497,19 @@ export function CompendiumView(props: {
                 {article.formulas.length === 0 ? null : (
                   <>
                     <h4 className="pane-title pane-sub">Formulas</h4>
-                    <table className="sheet" data-testid="article-formulas">
-                      <tbody>
-                        {article.formulas.map((row, index) => (
-                          <tr key={index}>
-                            <th scope="row">
-                              <Segments segments={row.label} onOpen={open} />
-                            </th>
-                            <td>
-                              <Segments segments={row.text} onOpen={open} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    {/* COMPV, Article pane, Formulas: each label above its text, as in a Data sheet. */}
+                    <dl className="data-sheet" data-testid="article-formulas">
+                      {article.formulas.map((row, index) => (
+                        <div key={index} className="data-sheet-row">
+                          <dt>
+                            <Segments segments={row.label} onOpen={open} />
+                          </dt>
+                          <dd>
+                            <Segments segments={row.text} onOpen={open} />
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
                   </>
                 )}
                 {sheet === null ? null : (
