@@ -1,7 +1,7 @@
 /**
- * TSUM, Special events: a Special event shown on its own, in the dialog of the Turn summary and with its layout, but
- * with no text over its Event art, its heading and its larger text centred below it, and only Continue, centred, in
- * its control row.
+ * TSUM, Special events: a Special event shown on its own, in the dialog of the Turn summary, its Event art a backdrop
+ * filling the dialog above the control row, its heading and its larger text centred on it from top to bottom, and only
+ * Continue, centred, in its control row.
  */
 import { useEffect, useRef } from 'react';
 import { playSound } from '../sound-player.ts';
@@ -20,7 +20,7 @@ export function SpecialEvent(props: { event: SpecialEventView; onDismiss: () => 
       <div
         ref={dialog}
         tabIndex={-1}
-        className="dialog summary-dialog"
+        className="dialog summary-dialog special-event-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="special-event-title"
@@ -37,13 +37,13 @@ export function SpecialEvent(props: { event: SpecialEventView; onDismiss: () => 
         }}
       >
         <div
-          className="summary-art"
+          className="summary-art special-event-stage"
           data-testid="summary-art"
           style={{ ['--kind' as string]: 'var(--special)' }}
         >
-          <div className="summary-art-wash" />
+          <div className="summary-art-wash special-event-wash" />
           <svg
-            className="summary-art-glyph"
+            className="special-event-glyph"
             viewBox="0 0 100 100"
             fill="none"
             stroke="currentColor"
@@ -53,23 +53,22 @@ export function SpecialEvent(props: { event: SpecialEventView; onDismiss: () => 
             <circle cx="50" cy="50" r="30" strokeWidth="1.2" />
             <path d="M50 16l8 26 26 8-26 8-8 26-8-26-26-8 26-8z" />
           </svg>
-          <div className="summary-art-shade" />
-        </div>
-        <div className="summary-details special-event-details">
-          <h2 id="special-event-title" className="special-event-heading" data-testid="special-event-title">
-            {event.title}
-          </h2>
-          <p className="special-event-text" data-testid="special-event-text">
-            {emphasized(event.text).map((part, index) =>
-              part.emphasis ? (
-                <span key={index} className="special-event-emphasis">
-                  {part.text}
-                </span>
-              ) : (
-                part.text
-              ),
-            )}
-          </p>
+          <div className="special-event-details">
+            <h2 id="special-event-title" className="special-event-heading" data-testid="special-event-title">
+              {event.title}
+            </h2>
+            <p className="special-event-text" data-testid="special-event-text">
+              {emphasized(event.text).map((part, index) =>
+                part.emphasis ? (
+                  <span key={index} className="special-event-emphasis">
+                    {part.text}
+                  </span>
+                ) : (
+                  part.text
+                ),
+              )}
+            </p>
+          </div>
         </div>
         <footer className="special-event-controls">
           <button

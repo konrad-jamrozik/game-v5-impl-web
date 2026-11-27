@@ -1585,17 +1585,52 @@ input::placeholder {
   justify-self: end;
 }
 
-/* TSUM, Special events: the heading and the larger text centred across the dialog, and together centred between the
-   Event art and the control row; only Continue, centred, in the control row. */
+/* TSUM, Special events: the Event art fills the dialog above the control row as a backdrop, its glyph faint behind the
+   text; the heading and the larger text stand centred on it from top to bottom; only Continue, centred, in the control
+   row. */
+.special-event-dialog {
+  grid-template-rows: minmax(0, 1fr) 68px;
+}
+
+.special-event-stage {
+  border-bottom: 1px solid var(--divider);
+}
+
+.special-event-wash {
+  background: radial-gradient(
+    70% 80% at 50% 50%,
+    color-mix(in srgb, var(--kind) 18%, transparent),
+    transparent 70%
+  );
+}
+
+.special-event-glyph {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 520px;
+  height: 520px;
+  transform: translate(-50%, -50%);
+  color: var(--kind);
+  opacity: 0.08;
+  stroke-width: 1.6;
+}
+
 .special-event-details {
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 20px;
+  height: 100%;
+  padding: 32px 64px;
+  overflow-y: auto;
 }
 
 .special-event-heading {
+  font-size: 34px;
+  letter-spacing: 0.1em;
   text-align: center;
 }
 
