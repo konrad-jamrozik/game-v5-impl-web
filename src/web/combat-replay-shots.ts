@@ -4,6 +4,7 @@
  * attack has played, so that an attack always looks the same and nothing needs clean-up when the Player goes back.
  */
 import { shotFamily, type ShotKind } from './combat-replay.ts';
+import { KINETIC_MISS, replaySoundName } from './sounds.ts';
 
 /** When, within one attack, its attacker is marked, its shot lands, and its defender is emptied, as fractions. */
 export const T_AIM = 0.18;
@@ -263,7 +264,8 @@ export interface ShotMoment {
 
 /**
  * SOUNDS, Combat replay Sounds: the moments of one attack and the Sound of each: the shot Sound each time the Weapon
- * fires, one hit Sound as the shot lands, and `miss-kinetic` as the first round of a kinetic shot passes the defender.
+ * fires, one hit Sound as the shot lands, and a kinetic miss, which stands for its three Sounds, as the first round of
+ * a kinetic shot passes the defender.
  */
 export function shotMoments(shot: ShotKind, hit: boolean): readonly ShotMoment[] {
   const sound = `shot-${shot.replaceAll('_', '-')}`;
@@ -274,7 +276,7 @@ export function shotMoments(shot: ShotKind, hit: boolean): readonly ShotMoment[]
       at: kinetic.fire + k * kinetic.lag,
       sound,
     }));
-    return [...fired, { at: kinetic.fire + kinetic.flight, sound: hit ? 'hit-kinetic' : 'miss-kinetic' }];
+    return [...fired, { at: kinetic.fire + kinetic.flight, sound: hit ? 'hit-kinetic' : KINETIC_MISS }];
   }
   if (family === 'energy') {
     return hit
@@ -291,7 +293,8 @@ export function shotMoments(shot: ShotKind, hit: boolean): readonly ShotMoment[]
 /**
  * SOUNDS, Combat replay Sounds: the Sounds heard as the steps being played move on, each step from one moment of its
  * attacks to a later one, with the attack each belongs to. Of the Sounds of one Sound name that start at the same
- * time only one is heard, so that a phase played at once is a volley and not one loud Sound.
+ * time only one is heard, so that a phase played at once is a volley and not one loud Sound; the three Sounds of a
+ * kinetic miss count as one Sound name, and the attack that is heard chooses among them.
  */
 export function heardBetween(
   replay: { readonly attacks: readonly { readonly shot: ShotKind; readonly hit: boolean }[] },
@@ -307,7 +310,7 @@ export function heardBetween(
       }
     });
   }
-  return [...heard].map(([sound, attack]) => ({ sound, attack }));
+  return [...heard].map(([sound, attack]) => ({ sound: replaySoundName(sound, attack), attack }));
 }
 
 /** When a shot that misses has passed its defender, which is when the word that says so appears. */

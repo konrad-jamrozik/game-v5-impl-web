@@ -12,7 +12,7 @@ import {
   shotMoments,
   type ShotGeometry,
 } from '../../src/web/combat-replay-shots.ts';
-import { REPLAY_SOUNDS, REPLAY_SOUND_LIMIT, replaySoundRate } from '../../src/web/sounds.ts';
+import { REPLAY_SOUNDS, REPLAY_SOUND_LIMIT, replaySoundName, replaySoundRate } from '../../src/web/sounds.ts';
 
 const SHOTS: readonly ShotKind[] = [
   'blade',
@@ -120,7 +120,7 @@ describe('SOUNDS: Combat replay Sounds', () => {
     for (const shot of SHOTS) {
       for (const hit of [true, false]) {
         for (const moment of shotMoments(shot, hit)) {
-          expect(REPLAY_SOUNDS.has(moment.sound)).toBe(true);
+          expect(REPLAY_SOUNDS.has(replaySoundName(moment.sound, 0))).toBe(true);
           expect(moment.at).toBeGreaterThan(0);
           expect(moment.at).toBeLessThan(1);
         }
@@ -151,13 +151,35 @@ describe('SOUNDS: Combat replay Sounds', () => {
     };
     // With Instant on, a whole phase is one step, so its attacks reach each moment together.
     const heard = heardBetween(replay, [{ a: 0, b: 3, from: 0.4, to: 0.6 }]).map((item) => item.sound);
+    // The miss is that of the second attack, heard as the one of its three Sounds that attack chooses.
     expect(heard.toSorted()).toEqual([
       'hit-energy',
       'hit-kinetic',
-      'miss-kinetic',
+      replaySoundName('miss-kinetic', 1),
       'shot-laser-rifle',
       'shot-rifle',
     ]);
+  });
+
+  it('plays one of the three Sounds of a kinetic miss, each about as often, the same for the same attack', () => {
+    const chosen = Array.from({ length: 300 }, (_, attack) => replaySoundName('miss-kinetic', attack));
+    for (const name of ['miss-kinetic-1', 'miss-kinetic-2', 'miss-kinetic-3']) {
+      const count = chosen.filter((item) => item === name).length;
+      expect(count).toBeGreaterThan(70);
+      expect(count).toBeLessThan(130);
+    }
+    expect(chosen.every((name) => REPLAY_SOUNDS.has(name))).toBe(true);
+    expect(replaySoundName('miss-kinetic', 12)).toBe(replaySoundName('miss-kinetic', 12));
+    // Every other Sound has one Sound name.
+    expect(replaySoundName('hit-kinetic', 12)).toBe('hit-kinetic');
+  });
+
+  it('counts the three Sounds of a kinetic miss as one Sound name among those that start together', () => {
+    const replay = { attacks: Array.from({ length: 12 }, () => ({ shot: 'rifle' as const, hit: false })) };
+    // Twelve rifles that miss in one phase played at once: the misses would choose different Sounds, yet one plays.
+    expect(new Set(replay.attacks.map((_, attack) => replaySoundName('miss-kinetic', attack))).size).toBe(3);
+    const heard = heardBetween(replay, [{ a: 0, b: 12, from: 0.5, to: 0.6 }]);
+    expect(heard).toEqual([{ sound: replaySoundName('miss-kinetic', 0), attack: 0 }]);
   });
 
   it('plays the Sounds of an attack up to 6% lower or higher, always the same for the same attack', () => {

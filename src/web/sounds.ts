@@ -15,7 +15,7 @@ export type SoundName = (typeof SOUND)[keyof typeof SOUND];
 
 /**
  * SOUNDS, Sound set: the Combat replay Sounds: `shot-` followed by a shot with a hyphen for each underscore, the
- * three hit Sounds, and `miss-kinetic`.
+ * three hit Sounds, and the three Sounds of a kinetic miss.
  */
 export const REPLAY_SOUNDS: ReadonlySet<string> = new Set([
   'shot-blade',
@@ -30,8 +30,26 @@ export const REPLAY_SOUNDS: ReadonlySet<string> = new Set([
   'hit-blade',
   'hit-kinetic',
   'hit-energy',
-  'miss-kinetic',
+  'miss-kinetic-1',
+  'miss-kinetic-2',
+  'miss-kinetic-3',
 ]);
+
+/** SOUNDS, Combat replay Sounds: a kinetic miss, which is heard as one of its three Sounds. */
+export const KINETIC_MISS = 'miss-kinetic';
+
+/**
+ * SOUNDS, Combat replay Sounds: the Sound name an attack plays for one of its moments. A kinetic miss is one of
+ * `miss-kinetic-1`, `miss-kinetic-2`, and `miss-kinetic-3`, each chosen about as often as the others, by the
+ * attack's place in the Combat log, so that the same attack always sounds the same.
+ */
+export function replaySoundName(sound: string, attack: number): string {
+  if (sound !== KINETIC_MISS) {
+    return sound;
+  }
+  const s = Math.sin((attack + 1) * 78.233) * 43758.5453;
+  return `${KINETIC_MISS}-${1 + Math.floor((s - Math.floor(s)) * 3)}`;
+}
 
 /** SOUNDS, Combat replay Sounds: at most this many Combat replay Sounds play at the same time. */
 export const REPLAY_SOUND_LIMIT = 6;
