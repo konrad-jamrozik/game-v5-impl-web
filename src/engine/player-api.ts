@@ -424,6 +424,12 @@ export interface HistoryView {
   };
 }
 
+/** One entry of `equipAgents`: the Agent and the Weapon or Armor to put on it, as for `equipAgent`. */
+export interface EquipChangeView {
+  readonly agent: string;
+  readonly equipment: string;
+}
+
 /** One entry of `buyItems` or `sellItems`: an Item or an AmmoType and a count of at least 1. */
 export interface ItemEntryView {
   readonly id: string;
@@ -792,6 +798,8 @@ export interface PlayerApi {
     purchaseUpgrade(upgrade: string): Promise<Result<ActionOutcome>>;
     /** EQUIP, Equipping Agents: puts a Weapon or an Armor on a Serving Agent, through Storage. */
     equipAgent(agent: string, equipment: string): Promise<Result<ActionOutcome>>;
+    /** EQUIP, Equipping Agents: several `equipAgent` changes in one Player action, in order, all or none. */
+    equipAgents(changes: readonly EquipChangeView[]): Promise<Result<ActionOutcome>>;
     /** EQUIP, Buying Items. */
     buyItems(items: readonly ItemEntryView[]): Promise<Result<ActionOutcome>>;
     /** EQUIP, Selling Items: `takeEquipped` lets Items that Agents wear be sold. */

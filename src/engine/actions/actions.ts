@@ -80,6 +80,7 @@ export const PLAYER_ACTIONS = [
   'dismissAgents',
   'purchaseUpgrade',
   'equipAgent',
+  'equipAgents',
   'buyItems',
   'sellItems',
   'startInvestigation',
@@ -438,6 +439,28 @@ function equipAgent(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rej
     return reject('not_in_storage', `Storage holds no ${gdr.name}.`);
   }
   equip(world, agent.state, gdr, gdrs);
+  return null;
+}
+
+/**
+ * EQUIP, Equipping Agents: `equipAgents` applies its entries in order, each as `equipAgent` on what the entries before
+ * it left. A rejected entry rejects the action, and the caller then discards every change, so it equips nothing.
+ */
+function equipAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rejection | null {
+  const changes = args['changes'];
+  if (!Array.isArray(changes) || changes.length === 0) {
+    return reject('invalid_changes', 'The changes must be a non-empty list of entries.', 'invalid_input');
+  }
+  for (const raw of changes as unknown[]) {
+    const entry = raw as { agent?: unknown; equipment?: unknown } | null;
+    if (typeof entry?.agent !== 'string' || typeof entry.equipment !== 'string') {
+      return reject('invalid_changes', 'Each entry names an Agent and a Weapon or Armor.', 'invalid_input');
+    }
+    const rejection = equipAgent(world, { agent: entry.agent, equipment: entry.equipment }, gdrs);
+    if (rejection !== null) {
+      return rejection;
+    }
+  }
   return null;
 }
 
@@ -870,6 +893,8 @@ function dispatchAction(
         return purchaseUpgrade(world, args, gdrs);
       case 'equipAgent':
         return equipAgent(world, args, gdrs);
+      case 'equipAgents':
+        return equipAgents(world, args, gdrs);
       case 'buyItems':
         return buyItems(world, args, gdrs);
       case 'sellItems':

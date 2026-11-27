@@ -65,6 +65,26 @@ describe('EQUIP: Storage and equipping', () => {
     );
   });
 
+  it('equipAgents applies its entries in order, so one can take what an earlier one freed, or equips nothing', () => {
+    let state = stock(newCampaign(), { rifle: 1 });
+    const [a1, a2] = agentIds(state) as [string, string];
+    const fallback = gdrs.combatParameters.fallbackWeapon;
+    state = act(state, 'equipAgents', { changes: [{ agent: a1, equipment: 'rifle' }] });
+    const pistols = storage(state)['combat_pistol'] ?? 0;
+    // a1 frees the rifle, then a2 puts it on.
+    const swap = [
+      { agent: a1, equipment: fallback },
+      { agent: a2, equipment: 'rifle' },
+    ];
+    expectRejected(state, 'equipAgents', { changes: [...swap].reverse() }, 'not_in_storage');
+    state = act(state, 'equipAgents', { changes: swap });
+    expect(agent(state, a1).state.weapon).toBe(fallback);
+    expect(agent(state, a2).state.weapon).toBe('rifle');
+    expect(storage(state)['rifle'] ?? 0).toBe(0);
+    expect(storage(state)['combat_pistol']).toBe(pistols + 1);
+    expectRejected(state, 'equipAgents', { changes: [] }, 'invalid_changes');
+  });
+
   it('a hired Agent wears the Fallback Weapon and the AgentArchetype armor, and brings no Ammo', () => {
     let state = newCampaign({ money: 100 * gdrs.economy.hireCost });
     const before = { ...storage(state) };

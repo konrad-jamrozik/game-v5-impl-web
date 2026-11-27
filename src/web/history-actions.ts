@@ -103,6 +103,14 @@ function lineText(
       return `Bought ${groupDigits(count)} ${names.upgrade(text(item, 'upgrade'))} ${count === 1 ? 'Upgrade' : 'Upgrades'}`;
     case 'equipAgent':
       return `Equipped ${names.agent(text(item, 'agent'))} with ${names.item(text(item, 'equipment'))}`;
+    case 'equipAgents': {
+      // HVIEW, `equipAgents`: N is the number of distinct Agents its entries name.
+      const changes = arg(item, 'changes');
+      const ids = Array.isArray(changes)
+        ? changes.map((entry: { agent?: unknown }) => entry.agent).filter((id) => typeof id === 'string')
+        : [];
+      return `Equipped ${plural(new Set(ids).size, 'Agent')}`;
+    }
     case 'buyItems':
       return `Bought ${entriesText(item, names)}`;
     case 'sellItems':

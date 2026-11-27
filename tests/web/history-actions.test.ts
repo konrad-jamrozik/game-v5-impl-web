@@ -25,6 +25,17 @@ describe('HVIEW: Player actions list', () => {
     ]);
   });
 
+  it('counts the distinct Agents of an equipAgents line', () => {
+    const changes = [
+      { agent: 'agent-7', equipment: 'rifle' },
+      { agent: 'agent-7', equipment: 'ballistic_vest' },
+      { agent: 'agent-9', equipment: 'combat_pistol' },
+    ];
+    expect(actionLines([item('equipAgents', { changes })], names)).toEqual([
+      { numbers: '1', text: 'Equipped 2 Agents', moneyChange: 0 },
+    ]);
+  });
+
   it('groups consecutive equal items into one line with their totals', () => {
     const actions = [
       ...Array.from({ length: 4 }, () => item('hireAgents', { count: 1 }, -50)),

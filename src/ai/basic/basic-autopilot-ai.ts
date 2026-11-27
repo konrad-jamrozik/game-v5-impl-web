@@ -12,6 +12,7 @@ import type {
   CommitOutcome,
   CurrentLiveWorldStateView,
   GameDataView,
+  EquipChangeView,
   ItemEntryView,
   MissionSiteView,
   PlayerApi,
@@ -160,52 +161,62 @@ class Turn {
   // ---- Step 1: equip ------------------------------------------------------------------------------
 
   /**
-   * BASICAI, Equipping: one equipAgent for the first Agent whose plan differs from what it wears. When the Item it is to
-   * wear is not in Storage, the Agent wearing it that is to wear something else first takes the fallback, which frees it.
+   * BASICAI, Equipping: the whole Equipping plan in one equipAgents, an entry for each Weapon or Armor the plan changes.
+   * The entries follow Storage as they change it, so an entry freeing an Item another Agent is to wear comes before the
+   * entry putting it on; when the Agents to change wait on each other's Items, the first of them takes the fallback,
+   * which frees its Item, and later takes its share.
    */
   private async equip(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
     const view = state.agency.equipment;
     const serving = pass.plan.order
       .map((agent) => state.agents.find((item) => item.id === agent.id))
       .filter((agent): agent is AgentView => agent !== undefined);
+    const stored = new Map(view.items.map((item) => [item.id, item.available]));
+    const changes: EquipChangeView[] = [];
     for (const kind of ['weapon', 'armor'] as const) {
-      const worn = (agent: AgentView) => (kind === 'weapon' ? agent.weapon : agent.armor);
+      const fallback = kind === 'weapon' ? view.fallbackWeapon : view.fallbackArmor;
+      const worn = new Map(
+        serving.map((agent) => [agent.id, kind === 'weapon' ? agent.weapon : agent.armor]),
+      );
       const target = (agent: AgentView) => {
         const kit = pass.plan.storage.kit.get(agent.id);
-        const fallback = kind === 'weapon' ? view.fallbackWeapon : view.fallbackArmor;
         return kit === undefined ? fallback : kind === 'weapon' ? kit.weapon : kit.armor;
       };
-      const fallback = kind === 'weapon' ? view.fallbackWeapon : view.fallbackArmor;
-      for (const agent of serving) {
-        const share = target(agent);
-        if (worn(agent) === share) {
-          continue;
+      const put = (agent: AgentView, equipment: string) => {
+        const old = worn.get(agent.id);
+        if (old !== undefined && old !== fallback) {
+          stored.set(old, (stored.get(old) ?? 0) + 1);
         }
-        const stored = view.items.find((item) => item.id === share)?.available ?? 0;
-        if (share === fallback || stored > 0) {
-          if (
-            await this.act(`equip ${agent.id} ${share}`, () =>
-              this.player.actions.equipAgent(agent.id, share),
-            )
-          ) {
-            return true;
-          }
-          continue;
+        if (equipment !== fallback) {
+          stored.set(equipment, (stored.get(equipment) ?? 0) - 1);
         }
-        const wearer = serving.find(
-          (other) => other !== agent && worn(other) === share && target(other) !== share,
+        worn.set(agent.id, equipment);
+        changes.push({ agent: agent.id, equipment });
+      };
+      let pending = serving.filter((agent) => worn.get(agent.id) !== target(agent));
+      while (pending.length > 0) {
+        const ready = pending.find(
+          (agent) => target(agent) === fallback || (stored.get(target(agent)) ?? 0) > 0,
         );
-        if (
-          wearer !== undefined &&
-          (await this.act(`equip ${wearer.id} ${fallback}`, () =>
-            this.player.actions.equipAgent(wearer.id, fallback),
-          ))
-        ) {
-          return true;
+        if (ready !== undefined) {
+          put(ready, target(ready));
+        } else {
+          const frees = (agent: AgentView) =>
+            worn.get(agent.id) !== fallback &&
+            pending.some((other) => other !== agent && target(other) === worn.get(agent.id));
+          const blocked = pending.find(frees) ?? pending.find((agent) => worn.get(agent.id) !== fallback);
+          if (blocked === undefined) {
+            break;
+          }
+          put(blocked, fallback);
         }
+        pending = pending.filter((agent) => worn.get(agent.id) !== target(agent));
       }
     }
-    return false;
+    if (changes.length === 0) {
+      return false;
+    }
+    return this.act(`equip ${JSON.stringify(changes)}`, () => this.player.actions.equipAgents(changes));
   }
 
   // ---- Step 2: deploy and muster ------------------------------------------------------------------

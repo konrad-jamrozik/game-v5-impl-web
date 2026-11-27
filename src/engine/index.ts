@@ -282,6 +282,10 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
       dismissAgents: (agents) => act('dismissAgents', { agents: [...agents] }),
       purchaseUpgrade: (upgrade) => act('purchaseUpgrade', { upgrade }),
       equipAgent: (agent, equipment) => act('equipAgent', { agent, equipment }),
+      equipAgents: (changes) =>
+        act('equipAgents', {
+          changes: changes.map((change) => ({ agent: change.agent, equipment: change.equipment })),
+        }),
       buyItems: (items) => act('buyItems', { items: items.map((item) => ({ ...item })) }),
       sellItems: (items, takeEquipped) =>
         act('sellItems', { items: items.map((item) => ({ ...item })), takeEquipped }),
