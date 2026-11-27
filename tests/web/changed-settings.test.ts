@@ -57,6 +57,7 @@ describe('GUI: Changed settings', () => {
       'lastTurnsCharts',
       'artworkTuning',
       'combatReplayOptionsShown',
+      'globeTilt',
     ]);
   });
 });

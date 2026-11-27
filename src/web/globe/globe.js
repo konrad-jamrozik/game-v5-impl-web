@@ -75,6 +75,9 @@ function controlButton(onClick) {
  * - `background`: the opaque CSS colour behind the planet. Default '#050506'.
  * - `memory`: an object in which the globe keeps its camera and control settings; a new globe given the same object
  *   starts where the old one was.
+ * - `tilt`: the tilt to start with, by name: 'Level', 'Mild', or 'Earth'; it wins over the tilt in `memory`.
+ *   Default 'Level'.
+ * - `onTiltChange`: called with the new tilt's name each time the Tilt button is pressed, e.g. to keep it.
  */
 export function mountGlobe(container, options = {}) {
   const mapBase = options.mapBase ?? './assets/'
@@ -92,7 +95,8 @@ export function mountGlobe(container, options = {}) {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
     memory.controls = { rotating: !reduced, clouds: CLOUD_LEVELS[0], cycleSpeed: reduced ? 0 : 1 }
   }
-  memory.controls.tilt ??= TILTS[0]
+  // an unknown tilt name falls back to the tilt the globe already has, or to Level
+  memory.controls.tilt = TILTS.find((tilt) => tilt.name === options.tilt) ?? memory.controls.tilt ?? TILTS[0]
   memory.view ??= {}
   const { controls, view } = memory
 
@@ -130,6 +134,7 @@ export function mountGlobe(container, options = {}) {
   const tiltButton = controlButton(() => {
     controls.tilt = TILTS[(TILTS.findIndex((tilt) => tilt.name === controls.tilt.name) + 1) % TILTS.length]
     showControls()
+    options.onTiltChange?.(controls.tilt.name)
   })
   bar.append(spinButton, cloudsButton, cycleGroup, tiltButton)
   hud.append(bar, credit)
@@ -254,6 +259,13 @@ export function mountGlobe(container, options = {}) {
       shown = visible
       if (!was && inView()) cameIntoView()
       update()
+    },
+    // leans the axis as the Tilt button would, by tilt name, without calling `onTiltChange`; an unknown name does nothing
+    setTilt(name) {
+      const tilt = TILTS.find((one) => one.name === name)
+      if (tilt === undefined || tilt.name === controls.tilt.name) return
+      controls.tilt = tilt
+      showControls()
     },
     // releases everything the globe created and removes it from `container`
     dispose() {

@@ -169,6 +169,14 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     permitted: 'true or false',
     isPermitted: (value): value is SettingValue => typeof value === 'boolean',
   },
+  // CSCR, Regions: how the globe's Tilt control leans the globe's axis.
+  {
+    setting: 'globeTilt',
+    name: 'Globe tilt',
+    gameBuildDefault: 'Level',
+    permitted: 'Level, Mild, or Earth',
+    isPermitted: (value): value is SettingValue => value === 'Level' || value === 'Mild' || value === 'Earth',
+  },
 ];
 
 function parsedJson(value: unknown): unknown {
