@@ -12,7 +12,7 @@ describe('PLACE: the path mapping of the copies', () => {
   });
 
   it('keeps the globe maps and the globe code where the web UI reads them', () => {
-    expect(copyPathOf('lib/globe/assets/earth-day.webp')).toBe('public/globe/earth-day.webp');
+    expect(copyPathOf('lib/globe/assets/earth-day.jpg')).toBe('public/globe/earth-day.jpg');
     expect(copyPathOf('lib/globe/globe-scene.js')).toBe('src/web/globe/globe-scene.js');
     expect(copyPathOf('lib/globe/globe.d.ts')).toBe('src/web/globe/globe.d.ts');
   });

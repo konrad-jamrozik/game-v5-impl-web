@@ -42,7 +42,11 @@ const worker = self as unknown as ServiceWorkerScope;
 /** Every cache of the game starts with this prefix, so that the worker never touches another site's caches. */
 const PREFIX = 'game-v5-impl-web-';
 const BUILD_CACHE = `${PREFIX}build`;
-const GLOBE_CACHE = `${PREFIX}globe`;
+/**
+ * Named for the set of globe maps, so that a new set, e.g. the full-quality maps in place of the compressed ones,
+ * gets a new cache and activation deletes the old one with the maps no longer used.
+ */
+const GLOBE_CACHE = `${PREFIX}globe-full`;
 
 const scope = worker.registration.scope;
 const buildFiles = new Set(__GAME_BUILD_FILES__.map((path) => new URL(path, scope).href));
