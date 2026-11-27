@@ -818,7 +818,13 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
                 controls shown is on; otherwise the Side panel has no footer. */}
             {snapshot.status.devMode && autopilotSettings(snapshot.configuration.settings).shown ? (
               <footer className="side-footer">
-                <AutopilotBar snapshot={snapshot} />
+                <AutopilotBar
+                  snapshot={snapshot}
+                  onOneTurn={() => {
+                    // TSUM, Showing and dismissing: Autopilot playing one Turn shows its Turn summary once it ends.
+                    setRequestedTurn(state.turn);
+                  }}
+                />
               </footer>
             ) : null}
           </aside>

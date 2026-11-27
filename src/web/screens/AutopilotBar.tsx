@@ -9,7 +9,11 @@ import { groupDigits } from '../format.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { Button } from '../ui.tsx';
 
-export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
+/**
+ * `onOneTurn` is called as the Turns button engages with a count of 1, so that TSUM, Showing and dismissing, shows the
+ * Turn summary of that Advance turn once the engagement ends.
+ */
+export function AutopilotBar({ snapshot, onOneTurn }: { snapshot: Snapshot; onOneTurn: () => void }) {
   const { session } = theEngine();
   const listed = session.autopilot.listAutopilotAis();
   const ais = listed.ok ? listed.value : [];
@@ -167,6 +171,9 @@ export function AutopilotBar({ snapshot }: { snapshot: Snapshot }) {
           testId="autopilot-many"
           disabledReason={reason}
           onClick={() => {
+            if (turns === 1) {
+              onOneTurn();
+            }
             engage({ kind: 'turnAdvancements', count: turns });
           }}
         >
