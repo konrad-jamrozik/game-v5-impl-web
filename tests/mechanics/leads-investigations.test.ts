@@ -520,6 +520,14 @@ describe('LEAD: examples', () => {
     expect(discovered(state)).toEqual(['test_lead']);
     expect(state.world.current.discoveredLeads).toEqual([MEMBER, 'test_lead']);
     expect(leads(state, catalog)['test_never']).toBeUndefined();
+    // LEAD, Turn report: credited to the completed Investigation through a `lead_completed` outside any `not`; the
+    // History entry holds no credits.
+    expect(state.world.history.turnReport!.investigationsCompleted).toEqual([
+      expect.objectContaining({ investigation: i1, discoveredLeads: ['test_lead'] }),
+    ]);
+    expect(state.world.history.historyEntries.at(-1)!.report.investigationsCompleted[0]).not.toHaveProperty(
+      'discoveredLeads',
+    );
   });
 
   it('investigate_again: never Archives a Lead at its completion; always keeps it after a win', () => {
@@ -875,7 +883,13 @@ describe('INVSTG: examples', () => {
     ]);
     // INVSTG, Turn report: only the Advance turn ending Turn 5 lists i1, with the gain 100 of its last Progress gain;
     // its History entry keeps the same list.
-    expect(completedLists).toEqual([[], [], [], [], [{ investigation: i1.id, gain: 100 }]]);
+    expect(completedLists).toEqual([
+      [],
+      [],
+      [],
+      [],
+      [{ investigation: i1.id, gain: 100, discoveredLeads: [] }],
+    ]);
     expect(state.world.history.historyEntries.at(-1)!.report.investigationsCompleted).toEqual([
       { investigation: i1.id, gain: 100 },
     ]);

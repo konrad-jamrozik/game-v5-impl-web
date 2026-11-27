@@ -440,6 +440,15 @@ export interface InvestigationCompletedRecord {
   readonly gain: number;
 }
 
+/** INVSTG, Turn report: one Investigation completed in an Advance turn, with the Leads credited to it. */
+export interface InvestigationCompletedReport extends InvestigationCompletedRecord {
+  /**
+   * LEAD, Turn report: the Leads discovered in this Advance turn that are credited to this Investigation, in the order
+   * of the Leads discovered; absent in a record written before Investigations were credited.
+   */
+  readonly discoveredLeads?: readonly string[];
+}
+
 /** INVSTG, Lead no longer available: one Investigation interrupted in an Advance turn. */
 export interface InvestigationInterruptedRecord {
   readonly investigation: string;
@@ -487,9 +496,9 @@ export interface TurnReport {
   }[];
   /**
    * INVSTG, Turn report: the Investigations completed in this Advance turn, in Campaign state order, each with the
-   * gain of its last Progress gain, in hundredths of a progress point.
+   * gain of its last Progress gain, in hundredths of a progress point, and the Leads credited to it.
    */
-  readonly investigationsCompleted: readonly InvestigationCompletedRecord[];
+  readonly investigationsCompleted: readonly InvestigationCompletedReport[];
   readonly missions: readonly MissionResultRecord[];
   readonly combatReports: readonly CombatReport[];
   /** LEAD, Turn report: the Leads discovered in this Advance turn, by GDR identifier, in Game build order. */

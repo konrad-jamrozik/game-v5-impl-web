@@ -382,13 +382,21 @@ function Sections(props: {
     const lists = missionEquipment(mission, combatOf(mission.mission), catalog);
     return lists.recovered.entries.length + lists.spent.entries.length === 0 ? [] : [{ mission, lists }];
   });
-  // TRVIEW, Sections, Leads discovered: under each Mission it is credited to, then those credited to none.
+  // TRVIEW, Sections, Leads discovered: under each Mission it is credited to, then under each completed Investigation
+  // it is credited to, then those credited to none.
   const credited = report.missions.flatMap((mission) => {
     const leads = report.discoveredLeads.filter((lead) => mission.discoveredLeads.includes(lead));
     return leads.length === 0 ? [] : [{ mission, leads }];
   });
+  const creditedToInvestigations = report.investigationsCompleted.flatMap((item) => {
+    const leads = report.discoveredLeads.filter((lead) => item.discoveredLeads?.includes(lead) === true);
+    const lead = report.investigations.find((one) => one.investigation === item.investigation)?.lead ?? '';
+    return leads.length === 0 ? [] : [{ investigation: item.investigation, name: leadName(lead), leads }];
+  });
   const uncredited = report.discoveredLeads.filter(
-    (lead) => !report.missions.some((mission) => mission.discoveredLeads.includes(lead)),
+    (lead) =>
+      !report.missions.some((mission) => mission.discoveredLeads.includes(lead)) &&
+      !report.investigationsCompleted.some((item) => item.discoveredLeads?.includes(lead) === true),
   );
   const leadRow = (lead: string) => (
     <button
@@ -557,6 +565,11 @@ function Sections(props: {
       <Section title="Leads discovered" count={report.discoveredLeads.length} testId="discovered-leads">
         {credited.map(({ mission, leads }) => (
           <SourceBlock key={mission.mission} title={missionTitle(mission)}>
+            {leads.map(leadRow)}
+          </SourceBlock>
+        ))}
+        {creditedToInvestigations.map(({ investigation, name, leads }) => (
+          <SourceBlock key={investigation} title={{ name, details: '' }}>
             {leads.map(leadRow)}
           </SourceBlock>
         ))}

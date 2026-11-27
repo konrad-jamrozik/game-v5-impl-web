@@ -71,6 +71,8 @@ export interface SummaryInvestigation {
   readonly createdMissionSiteName: string | null;
   /** TSUM, Summary events: its Lead's Completion effect holds unlock_contracting, so Agents can now go to Contracting. */
   readonly unlocksContracting: boolean;
+  /** The names of the Leads discovered that the Turn report credits to it. */
+  readonly leads: readonly string[];
 }
 
 export interface SummaryLead {
@@ -78,8 +80,11 @@ export interface SummaryLead {
   readonly name: string;
   readonly description: string;
   readonly faction: string | null;
-  /** The Mission site name of the Mission the Turn report credits it to, if any. */
-  readonly fromMission: string | null;
+  /**
+   * TSUM, Summary events, Lead discovered: what discovered it, i.e. the Mission site name of each Mission, then the
+   * Lead name of each completed Investigation, that the Turn report credits it to.
+   */
+  readonly from: readonly string[];
 }
 
 export interface SummarySite {
@@ -269,6 +274,7 @@ export function turnSummary(
       createdMissionSite: created,
       createdMissionSiteName: created === null ? null : siteName(created),
       unlocksContracting: lead?.unlocksContracting === true,
+      leads: (item.discoveredLeads ?? []).map((id) => leads.get(id)?.name ?? id),
     };
   });
 
@@ -277,15 +283,19 @@ export function turnSummary(
     if (lead === undefined) {
       return [];
     }
-    const credited = report.missions.find((mission) => mission.discoveredLeads.includes(id));
+    const fromMissions = report.missions
+      .filter((mission) => mission.discoveredLeads.includes(id))
+      .map((mission) => siteName(mission.missionSite, mission.missionSiteArchetype));
+    const fromInvestigations = report.investigationsCompleted
+      .filter((item) => item.discoveredLeads?.includes(id) === true)
+      .map((item) => investigations.get(item.investigation)?.leadName ?? item.investigation);
     return [
       {
         id,
         name: lead.name,
         description: lead.description,
         faction: lead.faction === null ? null : factionName(lead.faction),
-        fromMission:
-          credited === undefined ? null : siteName(credited.missionSite, credited.missionSiteArchetype),
+        from: [...fromMissions, ...fromInvestigations],
       },
     ];
   });

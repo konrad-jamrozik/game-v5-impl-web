@@ -58,6 +58,7 @@ import {
   factionOfLead,
   leadAvailability,
   leadCreditedTo,
+  leadCreditedToInvestigation,
   missionInitiativeLevel,
   wonFactionsByLevel,
 } from '../mechanics/leads/leads.ts';
@@ -887,9 +888,22 @@ export function applyAdvanceTurn(
     // AGENT, Turn report: every Forced return of the Advance turn, whichever step made it, in Agent order.
     forcedReturns: sortByAgent(world, forcedReturns),
     investigations: investigationReports,
+    // LEAD, Turn report: each completed Investigation with the Leads discovered in this Advance turn credited to it.
     investigationsCompleted: investigationReports
       .filter((item) => item.completed)
-      .map((item) => ({ investigation: item.investigation, gain: item.progressGain })),
+      .map((item) => ({
+        investigation: item.investigation,
+        gain: item.progressGain,
+        discoveredLeads: discoveredLeads.filter((id) =>
+          leadCreditedToInvestigation(
+            must(
+              gdrs.leads.find((lead) => lead.id === id),
+              'Lead',
+            ),
+            item.lead,
+          ),
+        ),
+      })),
     // LEAD, Turn report: each Won Mission with the Leads discovered in this Advance turn credited to it, and the rise in
     // the Contracting cap it brings as the first Won Mission against its target Faction at its Initiative operation
     // level: the entry of contracting_cap_per_initiative_level for that Faction's place among those Won against there.
@@ -1039,7 +1053,11 @@ function reduceReport(
           ammo: combat.ammo.map((item) => ({ ...item })),
         };
       }),
-      investigationsCompleted: report.investigationsCompleted.map((item) => ({ ...item })),
+      // LEAD, Turn report: the History entry holds no credits.
+      investigationsCompleted: report.investigationsCompleted.map((item) => ({
+        investigation: item.investigation,
+        gain: item.gain,
+      })),
       discoveredLeads: [...report.discoveredLeads],
       unlockedEquipment: [...report.unlockedEquipment],
       investigationsInterrupted: report.investigationsInterrupted.map((item) => ({ ...item })),

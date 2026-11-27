@@ -105,7 +105,7 @@ function heading(event: SummaryEvent): { tag: string | null; title: string; meta
       };
     case 'lead':
       return {
-        tag: event.lead.fromMission === null ? null : `From ${event.lead.fromMission}`,
+        tag: event.lead.from.length === 0 ? null : `From ${event.lead.from.join(', ')}`,
         title: event.lead.name,
         meta: event.lead.faction ?? '',
       };
@@ -254,6 +254,18 @@ function Details(props: { event: SummaryEvent; links: Links }) {
                 >
                   {item.createdMissionSiteName}
                 </LinkButton>
+              </Block>
+            )}
+            {item.leads.length === 0 ? null : (
+              <Block
+                title={`${plural(item.leads.length, 'new Lead')} discovered`}
+                testId={`summary-investigation-leads-${item.investigation}`}
+              >
+                {item.leads.map((name) => (
+                  <div key={name} className="summary-line tone-notice">
+                    {name}
+                  </div>
+                ))}
               </Block>
             )}
             {item.unlocksContracting ? (

@@ -371,6 +371,34 @@ describe('GUI: Turn summary', () => {
     expect(model.expiredSites).toEqual([]);
   });
 
+  it('counts the Leads a completed Investigation discovered, and tags each with what discovered it', () => {
+    const report = turnReportView(state)!;
+    const retired = currentRetiredWorldStateView(state, gdrs);
+    const lead = retired.leads[0]!;
+    const completed = report.investigationsCompleted[0]!;
+    const credited = {
+      ...report,
+      discoveredLeads: [lead.id],
+      investigationsCompleted: [{ ...completed, discoveredLeads: [lead.id] }],
+    };
+    const model = turnSummary(credited, currentLiveWorldStateView(state, gdrs), retired, siteName);
+    // TSUM, Summary events: the Investigation lists the Leads credited to it, and the Lead names the Investigation.
+    expect(model.investigations[0]!.leads).toEqual([lead.name]);
+    expect(model.leads).toEqual([
+      expect.objectContaining({ id: lead.id, from: [model.investigations[0]!.leadName] }),
+    ]);
+    // A record written before Investigations were credited has no credits, so the Lead has nothing to name.
+    const { discoveredLeads: _, ...old } = completed;
+    const before = turnSummary(
+      { ...credited, investigationsCompleted: [old] },
+      currentLiveWorldStateView(state, gdrs),
+      retired,
+      siteName,
+    );
+    expect(before.investigations[0]!.leads).toEqual([]);
+    expect(before.leads[0]!.from).toEqual([]);
+  });
+
   const NO_CONSEQUENCE = {
     money: 0,
     fundingChange: -1,

@@ -184,6 +184,30 @@ export function leadCreditedTo(
   return names(lead.discoveredWhen);
 }
 
+/**
+ * LEAD, Turn report: whether a discovered Lead is credited to a completed Investigation of the Lead `completedLead`:
+ * the Lead's `discovered_when` holds, outside any `not`, a `lead_completed` naming `completedLead`.
+ */
+export function leadCreditedToInvestigation(lead: LeadGdr, completedLead: string): boolean {
+  if (lead.discoveredWhen === null) {
+    return false;
+  }
+  const names = (condition: Condition): boolean => {
+    switch (condition.kind) {
+      case 'all':
+      case 'any':
+        return condition.conditions.some(names);
+      case 'not':
+      case 'mission_won':
+      case 'mission_won_with_enemy':
+        return false;
+      case 'lead_completed':
+        return condition.lead === completedLead;
+    }
+  };
+  return names(lead.discoveredWhen);
+}
+
 export type LeadStatus = 'Available' | 'Inactive' | 'Archived';
 
 /**

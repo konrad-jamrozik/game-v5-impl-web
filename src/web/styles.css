@@ -3145,10 +3145,13 @@ label:has(> input[type='checkbox']:disabled) {
     grid-template-rows: minmax(0, 1fr);
   }
 
+  /* The room of the scrollbar is kept whether or not a pane scrolls, so that the max-content width of the table pane,
+     and with it the width of every pane, stays the same when another item is selected. */
   .detail-body > .panes > .pane {
     max-height: 100%;
     overflow-y: auto;
     scrollbar-width: thin;
+    scrollbar-gutter: stable;
   }
 }
 
