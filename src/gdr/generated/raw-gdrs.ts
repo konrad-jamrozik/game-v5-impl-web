@@ -5662,7 +5662,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "increment": {
           "$decimal": "0.5"
         },
-        "max_acquisitions": 8
+        "max_acquisitions": 18
       },
       {
         "id": "exhaustion_recovery",
@@ -5671,7 +5671,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "price": 1000,
         "effect": "exhaustion_recovery",
         "increment": 1,
-        "max_acquisitions": 10
+        "max_acquisitions": 20
       },
       {
         "id": "health_recovery",
@@ -5680,7 +5680,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "price": 1000,
         "effect": "health_recovery",
         "increment": 1,
-        "max_acquisitions": 8
+        "max_acquisitions": 18
       }
     ]
   },
