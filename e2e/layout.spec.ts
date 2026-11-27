@@ -112,6 +112,11 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   await id(page, 'seed-input').fill('layout');
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
+  // TSUM, Special events: the welcome stands over the Campaign just created.
+  await expect(id(page, 'special-event')).toBeVisible();
+  await expectFits(page, 'the welcome Special event');
+  await id(page, 'special-event-continue').click();
+  await expect(id(page, 'special-event')).toHaveCount(0);
   await expectFits(page, 'the Campaign screen');
 
   // CSCR, Autopilot controls: expanded, One action and Turn actions share one row of the Side panel.
@@ -299,6 +304,7 @@ test('the Screen limit draws every screen at the size of the Reference window, c
   await id(page, 'seed-input').fill('layout');
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
+  await id(page, 'special-event-continue').click();
   expect(await boxOf(page, '.campaign'), 'the area of the Campaign screen').toEqual(area);
   for (const viewId of ['agents', 'storage', 'missions', 'history']) {
     await open(page, viewId);

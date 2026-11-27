@@ -32,6 +32,7 @@ import { useCtrlHeld } from '../ctrl-held.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate, lostMissionSites } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
+import { clearCampaignStart, pendingCampaignStart, type SpecialEventView } from '../special-events.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
 import { Button, CloseControl, Fact, Meter, typingIn, withShortcut } from '../ui.tsx';
 import { turnsSinceLastFactionActivity } from '../faction-activity.ts';
@@ -57,6 +58,7 @@ import { MissionsView } from './MissionsView.tsx';
 import { SettingsDialog } from './SettingsPanel.tsx';
 import { SituationPanel, type SituationTarget } from './SituationPanel.tsx';
 import { TurnReportView, type ReportTarget } from './TurnReportView.tsx';
+import { SpecialEvent } from './SpecialEvent.tsx';
 import { TurnSummary } from './TurnSummary.tsx';
 import { UpgradesView } from './UpgradesView.tsx';
 import { StorageView } from './EquipmentViews.tsx';
@@ -183,6 +185,18 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       live = false;
     };
   }, [session, snapshot.key]);
+
+  // TSUM, Special events: the Special event of campaign_start, shown once as the GUI first shows a Campaign just
+  // created, until the Player closes it.
+  const [specialEvent, setSpecialEvent] = useState<SpecialEventView | null>(null);
+  const { gameData } = snapshot;
+  useEffect(() => {
+    const pending = pendingCampaignStart(gameData);
+    if (pending !== null) {
+      clearCampaignStart();
+      setSpecialEvent(pending);
+    }
+  }, [gameData]);
 
   // TSUM, Showing and dismissing: the Player reopens the Turn summary from the Turn Report View, at any time.
   const [reopened, setReopened] = useState(false);
@@ -384,6 +398,15 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       const toggled = (wasOpen: boolean) => {
         playSound(wasOpen ? SOUND.back : SOUND.main);
       };
+      // While a Special event is shown, the screen behind it takes no shortcut; Escape closes it.
+      if (specialEvent !== null) {
+        if (key === 'escape') {
+          playSound(SOUND.back);
+          setSpecialEvent(null);
+          event.preventDefault();
+        }
+        return;
+      }
       // While the Turn summary is open, the screen behind it takes no shortcut; Escape dismisses it.
       if (summaryOpen) {
         if (key === 'escape') {
@@ -940,6 +963,15 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           onOpenLeads={(lead) => {
             // TSUM, Summary events, Lead discovered: the Leads View opens with that Lead selected.
             openFromSummary(NOTHING_RESTORED, 'leads', lead);
+          }}
+        />
+      ) : null}
+
+      {specialEvent !== null ? (
+        <SpecialEvent
+          event={specialEvent}
+          onDismiss={() => {
+            setSpecialEvent(null);
           }}
         />
       ) : null}

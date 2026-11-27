@@ -15,6 +15,7 @@ import { orderSaveRows } from '../save-rows.ts';
 const buildUrl = buildCommitUrl(BUILD_INFO);
 import { confirmOrGoBack, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
+import { noteCampaignCreation } from '../special-events.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { Button, CloseControl, NumberField, Section, Grid, typingIn } from '../ui.tsx';
 import { MenuSettingsPanel } from './SettingsPanel.tsx';
@@ -406,7 +407,23 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
               main
               testId="new-campaign"
               onClick={() => {
-                act(() => session.campaign.create(seed.trim() === '' ? {} : { seed: seed.trim() }));
+                // TSUM, Special events: the Campaign screen shows the Special event of campaign_start once this
+                // Campaign is created.
+                const creation = noteCampaignCreation();
+                act(async () => {
+                  try {
+                    const result = await session.campaign.create(
+                      seed.trim() === '' ? {} : { seed: seed.trim() },
+                    );
+                    if (!result.ok) {
+                      creation.failed();
+                    }
+                    return result;
+                  } catch (error) {
+                    creation.failed();
+                    throw error;
+                  }
+                });
               }}
             >
               Start Campaign

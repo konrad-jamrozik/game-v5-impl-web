@@ -30,6 +30,7 @@ test('the globe is kept, not built again, when the Player goes to the Main menu 
   await id(page, 'seed-input').fill('globe');
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toHaveText('1');
+  await id(page, 'special-event-continue').click();
   await expect(page.locator('.globe')).toHaveCount(1);
   await page.locator('.globe').evaluate((globe) => {
     globe.setAttribute('data-kept', 'yes');
@@ -44,6 +45,8 @@ test('the globe is kept, not built again, when the Player goes to the Main menu 
   await expect(page.locator('.globe')).toHaveCount(1);
   await expect(page.locator('.globe')).toHaveAttribute('data-kept', 'yes');
   await expect(id(page, 'globe').locator('.globe')).toHaveCount(1);
+  // TSUM, Special events: the welcome is not shown again for that Campaign.
+  await expect(id(page, 'special-event')).toHaveCount(0);
 });
 
 test('a reload takes the files of the Game build from the service worker', async ({ page }) => {

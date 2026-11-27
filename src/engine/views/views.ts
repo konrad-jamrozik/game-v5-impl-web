@@ -1287,6 +1287,12 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         image: artwork.image,
         opacityPct: artwork.opacityPct,
       })),
+      specialEvents: gdrs.specialEvents.map((event) => ({
+        id: event.id,
+        trigger: event.trigger,
+        title: event.title,
+        text: event.text,
+      })),
       ranks: gdrs.ranks.map((rank) => ({
         id: rank.id,
         name: rank.name,

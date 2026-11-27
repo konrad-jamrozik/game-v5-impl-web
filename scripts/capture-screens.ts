@@ -303,6 +303,8 @@ async function create(page: Page): Promise<void> {
   await id(page, 'seed-input').fill(SEED);
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
+  // TSUM, Special events: the welcome stands over the Campaign just created until Continue closes it.
+  await id(page, 'special-event-continue').click();
   if ((await currentTurn(page)) <= 1) {
     throw new Error(`The ${PRESET} preset handed over the Campaign at Turn 1, without a Prologue`);
   }

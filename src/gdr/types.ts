@@ -417,6 +417,17 @@ export interface NameListGdr {
   readonly femaleLastNames: readonly string[];
 }
 
+/** TSUM, Special events: a story beat the GUI shows when its trigger is met; Display content only. */
+export interface SpecialEventGdr {
+  readonly type: 'SpecialEvent';
+  readonly id: string;
+  /** When the GUI shows it: `campaign_start`, as soon as it first shows a Campaign just created. */
+  readonly trigger: 'campaign_start';
+  readonly title: string;
+  /** One paragraph. */
+  readonly text: string;
+}
+
 /** GUI, Ranks: how skilled an Agent is when rested; Display content only. */
 export interface RankGdr {
   readonly type: 'Rank';
@@ -478,6 +489,7 @@ export type AnyGdr =
   | EndingParametersGdr
   | CompendiumArticleGdr
   | BackgroundArtworkGdr
+  | SpecialEventGdr
   | RankGdr
   | NameListGdr
   | DetachedCombatTeamGdr;
@@ -538,6 +550,8 @@ export interface GdrCatalog {
   readonly compendiumArticles: readonly CatalogCompendiumArticle[];
   /** VIS, Background artwork: every BackgroundArtwork, in Game build order. */
   readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
+  /** TSUM, Special events: every SpecialEvent, in Game build order. */
+  readonly specialEvents: readonly SpecialEventGdr[];
   /** GUI, Ranks: every Rank, highest `min_base_skill` first. */
   readonly ranks: readonly RankGdr[];
   /** AGENT, NameList: every NameList, in Game build order. */

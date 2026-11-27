@@ -21,6 +21,7 @@ import type {
   MissionSiteArchetypeGdr,
   NameListGdr,
   RankGdr,
+  SpecialEventGdr,
 } from './types.ts';
 
 export interface RawGdrFile {
@@ -786,6 +787,16 @@ const schemas = {
       image: g.image,
       opacityPct: g.opacity_pct,
     })),
+  // TSUM, Special events: the exhaustive properties of a SpecialEvent.
+  SpecialEvent: z
+    .strictObject({
+      id,
+      type: z.literal('SpecialEvent'),
+      trigger: z.literal('campaign_start'),
+      title: name,
+      text: name,
+    })
+    .transform((g) => ({ type: g.type, id: g.id, trigger: g.trigger, title: g.title, text: g.text })),
   // AGENT, NameList: the exhaustive properties of a NameList; AGENT, Agent names checks the names themselves.
   NameList: z
     .strictObject({
@@ -1104,6 +1115,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const missionSiteArchetypes = all<MissionSiteArchetypeGdr>('MissionSiteArchetype');
   const articles = all<CompendiumArticleGdr>('CompendiumArticle');
   const backgroundArtworks = all<BackgroundArtworkGdr>('BackgroundArtwork');
+  const specialEvents = all<SpecialEventGdr>('SpecialEvent');
   const detachedCombatTeams = all<DetachedCombatTeamGdr>('DetachedCombatTeam');
   const ranks = [...all<RankGdr>('Rank')].sort((a, b) => b.minBaseSkill - a.minBaseSkill);
   const nameLists = all<NameListGdr>('NameList');
@@ -1151,6 +1163,13 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     }
     shownIn.add(artwork.detailView);
   }
+
+  // TSUM, Special events: no two SpecialEvents share a trigger.
+  specialEvents.forEach((event, index) => {
+    if (specialEvents.slice(0, index).some((other) => other.trigger === event.trigger)) {
+      problems.push(`SpecialEvent ${event.id}: a second SpecialEvent has trigger ${event.trigger}`);
+    }
+  });
 
   // AGENT, AgentArchetype; COMBAT, EnemyArchetype and CombatParameters.
   if (agentArchetype && !weapons.has(agentArchetype.weapon)) {
@@ -1410,6 +1429,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     missionSiteArchetypes,
     compendiumArticles,
     backgroundArtworks,
+    specialEvents,
     ranks,
     nameLists,
     detachedCombatTeams,

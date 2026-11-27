@@ -630,6 +630,13 @@ export interface GameDataView {
     readonly image: string;
     readonly opacityPct: number;
   }[];
+  /** TSUM, Special events: every SpecialEvent GDR, in Game build order; display content. */
+  readonly specialEvents: readonly {
+    readonly id: string;
+    readonly trigger: 'campaign_start';
+    readonly title: string;
+    readonly text: string;
+  }[];
   /** GUI, Ranks: every Rank GDR, highest `min_base_skill` first; display content. */
   readonly ranks: readonly {
     readonly id: string;

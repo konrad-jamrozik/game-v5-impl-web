@@ -31,6 +31,8 @@
   --autopilot: #b4a0e5;
   /* VIS, Colours: Investigation, an Investigation completed among the Summary events of the Turn summary. */
   --investigation: #a77bdb;
+  /* VIS, Colours: Special, a Special event of the Turn summary. */
+  --special: #5cc8b4;
   /* VIS, Colours: the five Enemy colours, which tell the Enemies of the Combat replay apart, from the weakest shape to
      the strongest, and Tracer and Beam, for its shots. */
   --enemy-yellow: #e6d54a;
@@ -1579,6 +1581,28 @@ input::placeholder {
 
 .summary-controls-right {
   justify-self: end;
+}
+
+/* TSUM, Special events: the text centred in the details, and only Continue, centred, in the control row. */
+.special-event-text {
+  max-width: 820px;
+  margin: 0 auto;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.55;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.special-event-details {
+  display: grid;
+  align-items: center;
+}
+
+.special-event-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .summary-pager {

@@ -323,6 +323,7 @@ test('no table cuts the widest values short, and every table fits its view', asy
   await id(page, 'seed-input').fill('table-widths');
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
+  await id(page, 'special-event-continue').click();
   await expect
     .poll(() => page.evaluate(async () => (await indexedDB.databases()).length), { timeout: 10_000 })
     .toBeGreaterThan(0);

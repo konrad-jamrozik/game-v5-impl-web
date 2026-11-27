@@ -103,6 +103,10 @@ async function newCampaign(page: Page, seed: string): Promise<void> {
   await id(page, 'seed-input').fill(seed);
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toHaveText('1');
+  // TSUM, Special events: the welcome stands over a Campaign just created, and Continue closes it.
+  await expect(id(page, 'special-event-text')).toContainText('The year is 2030.');
+  await id(page, 'special-event-continue').click();
+  await expect(id(page, 'special-event')).toHaveCount(0);
 }
 
 /** Opens the Agents View unless it is open; selecting the button of the open Detail view would close it. */
