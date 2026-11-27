@@ -308,6 +308,7 @@ class Turn {
       weaponDamage: member.agent.effectiveWeaponDamage,
       maxHealth: member.agent.effectiveMaxHealth,
       armor: member.agent.effectiveArmor,
+      exhaustion: member.exhaustion,
     }));
     return ratingOf(rated, this.rating);
   }
@@ -462,31 +463,19 @@ class Turn {
   }
 
   /**
-   * BASICAI, Deploying and mustering, Deploy now: once a Winning team exists for a Response Mission site, the team sent
-   * in its place: for one whose loss loses the Campaign, the strongest Deployable Agents the free Transport cap allows;
-   * for any other, the fewest Deployable Agents, strongest first, that reach the Full team share with at least the
-   * Agents a Winning team needs, when they fit, and otherwise the Winning team.
+   * BASICAI, Deploying and mustering, Deploy now: once a Winning team exists for a Response Mission site whose loss
+   * loses the Campaign, the strongest Deployable Agents the free Transport cap allows go in its place; every other
+   * Mission site gets the Winning team.
    */
   private strongerTeam(state: CurrentLiveWorldStateView, site: MissionSiteView, team: string[]): string[] {
-    if (site.kind !== 'Response') {
+    if (site.kind !== 'Response' || !site.penalties.defeat) {
       return team;
     }
     const places = state.agency.transportCap - state.agency.deployedAgents;
     const strongest = this.deployableNow(state).sort(
       (a, b) => b.effectiveSkill - a.effectiveSkill || a.index - b.index,
     );
-    if (site.penalties.defeat) {
-      return strongest.slice(0, Math.max(0, places)).map((member) => member.agent.id);
-    }
-    const full = this.formTeam(
-      strongest,
-      places,
-      site.enemies.length,
-      site.enemiesCombatRating,
-      this.t.fullTeamPct,
-      (members) => this.previewRating(members),
-    );
-    return full === null ? team : full.map((member) => member.agent.id);
+    return strongest.slice(0, Math.max(0, places)).map((member) => member.agent.id);
   }
 
   /** Step 2: deploy a Winning team of Deployable Agents, most urgent first. */

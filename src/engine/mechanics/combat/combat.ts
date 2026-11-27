@@ -200,6 +200,20 @@ export function ratingFactor(combatant: CombatantState, combat: CombatParameters
   return attack.add(health).add(armor).div(2);
 }
 
+/**
+ * COMBAT, Combat rating: the numerator of the exhaustion factor of a Combatant, max(0, s − max(0, exhaustion − f)),
+ * whose denominator is s = rating_exhaustion_span, with f = rating_exhaustion_free_points; a whole number from 0 to s.
+ */
+export function exhaustionFactorPoints(combatant: CombatantState, combat: CombatParametersGdr): number {
+  const above = Math.max(0, exhaustionOf(combatant) - combat.ratingExhaustionFreePoints);
+  return Math.max(0, combat.ratingExhaustionSpan - above);
+}
+
+/** COMBAT, Combat rating: the exhaustion factor of a Combatant, from 0 to 1, exact. */
+export function exhaustionFactor(combatant: CombatantState, combat: CombatParametersGdr): Rational {
+  return q(exhaustionFactorPoints(combatant, combat)).div(combat.ratingExhaustionSpan);
+}
+
 /** One Combatant able to fight, as the Combat rating of its side reads it. */
 export interface RatedCombatant {
   readonly effectiveSkill: number;
@@ -207,8 +221,8 @@ export interface RatedCombatant {
 }
 
 /**
- * COMBAT, Combat rating: ⌊n ^ (rating_team_size_exponent − 1) × S⌋, where S = Σ effective skill × rating factor over
- * the n Combatants able to fight, given here. The team size factor is in general irrational, so it is never computed:
+ * COMBAT, Combat rating: ⌊n ^ (rating_team_size_exponent − 1) × S⌋, where S = Σ effective skill × rating factor ×
+ * exhaustion factor over the n Combatants able to fight, given here. The team size factor is in general irrational, so it is never computed:
  * with rating_team_size_exponent − 1 = p / q in lowest terms, the result is the largest whole R ≥ 0 with
  * R^q ≤ S^q × n^p, decided in whole numbers. A side with none has a Combat rating of 0.
  */
@@ -222,7 +236,11 @@ export function rateSide(members: readonly RatedCombatant[], combat: CombatParam
   }
   let sum = q(0);
   for (const member of members) {
-    sum = sum.add(q(member.effectiveSkill).mul(ratingFactor(member.state, combat)));
+    sum = sum.add(
+      q(member.effectiveSkill)
+        .mul(ratingFactor(member.state, combat))
+        .mul(exhaustionFactor(member.state, combat)),
+    );
   }
   const exponent = combat.ratingTeamSizeExponent.sub(1);
   if (exponent.n === 0n) {
@@ -252,29 +270,40 @@ const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 /**
  * `rateSide` in ordinary whole numbers, exactly; null when a value leaves the safe-integer range or the parameters are
  * not whole, so that `rateSide` decides it with Rational and BigInt instead. With L the least common multiple of the
- * three rating bases, S = N / (2 × L), where N = Σ e × (w × L / bw + h × L / bh + a × L / ba) is a whole number. A
- * side of one has n^p = 1, so its rating is ⌊N / 2L⌋; a larger side takes the binary estimate of n^(p/q) × S and
- * corrects it until it is the largest R with (2L × R)^q ≤ N^q × n^p, decided in BigInt.
+ * three rating bases and s the exhaustion span, S = N / (2 × L × s), where N = Σ e × x × (w × L / bw + h × L / bh +
+ * a × L / ba) is a whole number and x the numerator of the exhaustion factor. A side of one has n^p = 1, so its rating
+ * is ⌊N / 2Ls⌋; a larger side takes the binary estimate of n^(p/q) × S and corrects it until it is the largest R with
+ * (2Ls × R)^q ≤ N^q × n^p, decided in BigInt.
  */
 function rateSideInWholeNumbers(
   members: readonly RatedCombatant[],
   combat: CombatParametersGdr,
 ): number | null {
   const bases = [combat.ratingBaseWeaponDamage, combat.ratingBaseHealth, combat.ratingBaseArmor];
-  if (!bases.every((base) => Number.isSafeInteger(base) && base > 0)) {
+  const span = combat.ratingExhaustionSpan;
+  if (
+    !bases.every((base) => Number.isSafeInteger(base) && base > 0) ||
+    !Number.isSafeInteger(span) ||
+    span < 1
+  ) {
     return null;
   }
   const [bw, bh, ba] = bases as [number, number, number];
   const l = [bw, bh, ba].reduce((acc, base) => (acc / gcd(acc, base)) * base, 1);
   let total = 0;
   for (const { effectiveSkill: e, state } of members) {
-    const term = e * (state.weaponDamage * (l / bw) + state.maxHealth * (l / bh) + state.armor * (l / ba));
+    const x = exhaustionFactorPoints(state, combat);
+    const term =
+      e * x * (state.weaponDamage * (l / bw) + state.maxHealth * (l / bh) + state.armor * (l / ba));
     total += term;
     if (!Number.isSafeInteger(term) || !Number.isSafeInteger(total)) {
       return null;
     }
   }
-  const denominator = 2 * l;
+  const denominator = 2 * l * span;
+  if (!Number.isSafeInteger(denominator)) {
+    return null;
+  }
   const exponent = combat.ratingTeamSizeExponent.sub(1);
   if (exponent.n === 0n || members.length === 1) {
     return floorDivSafe(total, denominator);

@@ -14,8 +14,6 @@ export interface BasicAiThresholds {
   readonly threatWindowTurns: number;
   /** Threat levels ahead: how many Faction operation levels above those seen the Threat looks. */
   readonly threatLevelsAhead: number;
-  /** Full team share: the share of the Enemies' Combat rating a team sent to a Response Mission site reaches when it fits. */
-  readonly fullTeamPct: number;
   /** Research team size: the Agents each Investigation is given. */
   readonly researchTeamSize: number;
   /** Most Investigations: the most Investigations run at once. */
@@ -40,13 +38,12 @@ export interface BasicAiThresholds {
 
 /** BASICAI, Game designer values. */
 export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
-  combatMarginPct: 110,
+  combatMarginPct: 120,
   lossMarginStepPct: 5,
-  enemiesPerAgent: 2.5,
+  enemiesPerAgent: 2,
   recoveryLookaheadTurns: 2,
   threatWindowTurns: 20,
   threatLevelsAhead: 1,
-  fullTeamPct: 150,
   researchTeamSize: 3,
   mostInvestigations: 3,
   farmingPanicPct: 30,

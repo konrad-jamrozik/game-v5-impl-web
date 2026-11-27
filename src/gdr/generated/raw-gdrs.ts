@@ -220,8 +220,10 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "rating_base_armor": 20,
         "rating_base_weapon_damage": 10,
         "rating_team_size_exponent": {
-          "$decimal": "1.2"
+          "$decimal": "1.3"
         },
+        "rating_exhaustion_free_points": 70,
+        "rating_exhaustion_span": 30,
         "fallback_weapon": "knife"
       }
     ]
@@ -2404,11 +2406,23 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
             "$entries": [
               [
                 "label",
+                "Exhaustion factor"
+              ],
+              [
+                "text",
+                "1 up to exhaustion {combat_parameters.rating_exhaustion_free_points}; each point above it takes 1/{combat_parameters.rating_exhaustion_span} of the whole Combat rating, on top of what exhaustion already takes from effective skill"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
                 "One Combatant"
               ],
               [
                 "text",
-                "Its effective skill × its rating factor, rounded down"
+                "Its effective skill × its rating factor × its exhaustion factor, rounded down"
               ]
             ]
           },
@@ -2420,7 +2434,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
               ],
               [
                 "text",
-                "The sum of effective skill × rating factor over its Combatants able to fight, × n ^ ({combat_parameters.rating_team_size_exponent} − 1), where n is their number, rounded down once, so that a larger side counts for more than its sum"
+                "The sum of effective skill × rating factor × exhaustion factor over its Combatants able to fight, × n ^ ({combat_parameters.rating_team_size_exponent} − 1), where n is their number, rounded down once, so that a larger side counts for more than its sum"
               ]
             ]
           },

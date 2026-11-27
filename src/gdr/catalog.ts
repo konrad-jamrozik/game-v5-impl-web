@@ -206,6 +206,9 @@ const combatParameterFields = {
   rating_base_armor: whole(1),
   rating_base_weapon_damage: whole(1),
   rating_team_size_exponent: decimal,
+  // COMBAT, CombatParameters: the exhaustion factor's free points are at least 0 and its span, a divisor, at least 1.
+  rating_exhaustion_free_points: whole(0),
+  rating_exhaustion_span: whole(1),
 };
 
 /** COMBAT, Combat inputs and outputs, item 4: the values of AgentParameters that a Combat reads, by authored name. */
@@ -390,6 +393,8 @@ const schemas = {
       ratingBaseArmor: g.rating_base_armor,
       ratingBaseWeaponDamage: g.rating_base_weapon_damage,
       ratingTeamSizeExponent: g.rating_team_size_exponent,
+      ratingExhaustionFreePoints: g.rating_exhaustion_free_points,
+      ratingExhaustionSpan: g.rating_exhaustion_span,
       fallbackWeapon: g.fallback_weapon,
     })),
   RecoveryParameters: z
@@ -836,6 +841,14 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
       problems.push(`CombatParameters: ${name} must be a whole number of at least 1`);
     }
   }
+  for (const [name, value, least] of [
+    ['rating_exhaustion_free_points', combatParameters.ratingExhaustionFreePoints, 0],
+    ['rating_exhaustion_span', combatParameters.ratingExhaustionSpan, 1],
+  ] as const) {
+    if (!Number.isInteger(value) || value < least) {
+      problems.push(`CombatParameters: ${name} must be a whole number of at least ${least}`);
+    }
+  }
   const exponent = combatParameters.ratingTeamSizeExponent;
   if (exponent.lt(1) || exponent.gt(2) || !exponent.mul(100).isWhole()) {
     problems.push(
@@ -891,6 +904,8 @@ const COMBAT_GDR_VALUE_PROPERTIES: Readonly<Record<string, readonly ['combat' | 
   rating_base_armor: ['combat', 'ratingBaseArmor'],
   rating_base_weapon_damage: ['combat', 'ratingBaseWeaponDamage'],
   rating_team_size_exponent: ['combat', 'ratingTeamSizeExponent'],
+  rating_exhaustion_free_points: ['combat', 'ratingExhaustionFreePoints'],
+  rating_exhaustion_span: ['combat', 'ratingExhaustionSpan'],
   exhaustion_incapacitation: ['agent', 'exhaustionIncapacitation'],
   exhaustion_free_points: ['agent', 'exhaustionFreePoints'],
   skill_penalty_pct_per_exhaustion: ['agent', 'skillPenaltyPctPerExhaustion'],

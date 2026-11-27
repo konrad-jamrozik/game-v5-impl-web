@@ -6,6 +6,8 @@ import {
   combatRating,
   enemyCombatantState,
   ratingFactor,
+  exhaustionFactor,
+  rateSide,
   damageBounds,
   fightCombat,
   hitChance,
@@ -43,12 +45,17 @@ const commander = (id: string) => combatEnemyWith(id, COMMANDER);
  * Fights a Combat and, as the Mission resolution step does, applies its final values to the Combatants it was given,
  * so that a test can read them there.
  */
-function fight(agents: Combatant[], enemies: Combatant[], injected: Injected): CombatReport {
+function fight(
+  agents: Combatant[],
+  enemies: Combatant[],
+  injected: Injected,
+  combat = gdrs.combatParameters,
+): CombatReport {
   const outputs = fightCombat(
     {
       agents,
       enemies,
-      combat: gdrs.combatParameters,
+      combat,
       agentParameters: gdrs.agentParameters,
     },
     injectedRandom(injected),
@@ -521,8 +528,8 @@ describe('COMBAT: examples', () => {
       'combat.damage.a2': [10, 13],
       'combat.hit.e1': [false],
     });
-    // COMBAT, Combat rating: ⌊(31 + 100) × 2 ^ 0.2⌋.
-    expect(report.ratings[0]!.agents).toBe(150);
+    // COMBAT, Combat rating: ⌊(31 × 1/30 + 100) × 2 ^ 0.2⌋, a1's exhaustion 99 leaving it an exhaustion factor of 1/30.
+    expect(report.ratings[0]!.agents).toBe(116);
     // a2 (100) acts before a1 (31); a1 then attacks the wounded initiate and its own attack Incapacitates it.
     expect(report.log[0]).toMatchObject({ attacker: 'a2', defender: 'e1', healthRemovedHundredths: 1000 });
     expect(report.log[1]).toMatchObject({
@@ -547,11 +554,21 @@ describe('COMBAT: examples', () => {
   });
 
   it('Won when neither side can fight on', () => {
-    const report = fight([combatAgent('a1', { exhaustion: 97 })], [initiate('e1')], {
-      'combat.hit.a1': [true, true],
-      'combat.damage.a1': [15, 5],
-      'combat.hit.e1': [false],
-    });
+    // The exhaustion factor is switched off, so that the tired Agent's falling Combat rating does not make it retreat
+    // before both sides stop fighting.
+    const noExhaustionFactor = catalogWith(
+      (raw) => (raw.get('combat_parameters')['rating_exhaustion_free_points'] = 1000),
+    );
+    const report = fight(
+      [combatAgent('a1', { exhaustion: 97 })],
+      [initiate('e1')],
+      {
+        'combat.hit.a1': [true, true],
+        'combat.damage.a1': [15, 5],
+        'combat.hit.e1': [false],
+      },
+      noExhaustionFactor.combatParameters,
+    );
     expect(report.log.map((x) => [x.a, x.d])).toEqual([
       [33, 40],
       [10, 32],
@@ -617,19 +634,22 @@ describe('COMBAT: examples', () => {
       effectiveSkill: 30,
       condition: 'incapacitated',
     });
-    // COMBAT, Combat rating: the initiate's effective skill 19 rates ⌊19 × 11/15⌋.
-    expect(againstInitiate.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 13 });
+    // COMBAT, Combat rating: after 41 rounds both sides have exhaustion 82, an exhaustion factor of 18/30, so the Agent's
+    // effective skill 48 rates ⌊48 × 3/5⌋ and the initiate's effective skill 19 rates ⌊19 × 11/15 × 3/5⌋.
+    expect(againstInitiate.ratings[41]).toEqual({ round: 41, agents: 28, enemies: 8 });
 
     const againstSoldier = fight([combatAgent('a1')], [soldier('e1')], {
       'combat.hit.a1': misses(200),
       'combat.hit.e1': misses(200),
     });
     expect(againstSoldier.outcome).toBe('Retreated');
-    expect(againstSoldier.rounds).toBe(41);
-    expect(againstSoldier.ratings[40]).toMatchObject({ agents: 50 });
-    // COMBAT, Combat rating: the soldier's effective skill 57 rates ⌊57 × 17/10⌋, its rating factor being
+    // The exhaustion factor takes the Agent below half its starting Combat rating at exhaustion 74, after 37 rounds:
+    // ⌊58 × 28/30⌋ = 54 after 36 and ⌊56 × 26/30⌋ = 48 after 37.
+    expect(againstSoldier.rounds).toBe(37);
+    expect(againstSoldier.ratings[36]).toMatchObject({ agents: 54 });
+    // COMBAT, Combat rating: the soldier's effective skill 67 rates ⌊67 × 17/10 × 26/30⌋, its rating factor being
     // (14 / 10 + 30 / 30 + 20 / 20) / 2 for its weapon damage 14 and armor 20.
-    expect(againstSoldier.ratings[41]).toEqual({ round: 41, agents: 48, enemies: 96 });
+    expect(againstSoldier.ratings[37]).toEqual({ round: 37, agents: 48, enemies: 98 });
   });
 
   it('Effects of an attack: current armor absorbs hits before current health, and only within its Combat', () => {
@@ -833,6 +853,35 @@ describe('COMBAT: examples', () => {
     expectDefective(
       (raw) => (raw.get('combat_parameters')['rating_team_size_exponent'] = { $decimal: '1.234' }),
     );
+  });
+
+  it('Combat rating: exhaustion factor', () => {
+    const combat = gdrs.combatParameters;
+    const at = (exhaustion: number) => ({
+      ...combatAgent('a1').state,
+      exactExhaustionHundredths: exhaustion * 100,
+    });
+    // COMBAT, Combat rating, the example: with 70 and 30, an effective skill of 1000 at the rating bases and exhaustion
+    // 95 has an exhaustion factor of 5/30 = 1/6 and a Combat rating of ⌊166.67⌋; 1 up to 70 and 0 from 100.
+    expect(exhaustionFactor(at(95), combat).toString()).toBe('1/6');
+    expect(rateSide([{ effectiveSkill: 1000, state: at(95) }], combat)).toBe(166);
+    expect(exhaustionFactor(at(70), combat).toString()).toBe('1');
+    expect(exhaustionFactor(at(71), combat).toString()).toBe('29/30');
+    expect(exhaustionFactor(at(100), combat).toString()).toBe('0');
+    expect(exhaustionFactor(at(130), combat).toString()).toBe('0');
+    // The exhaustion factor multiplies inside the side's sum, before the team size factor: ⌊(1000 + 1000/6) × 2 ^ 0.2⌋.
+    expect(
+      rateSide(
+        [
+          { effectiveSkill: 1000, state: at(0) },
+          { effectiveSkill: 1000, state: at(95) },
+        ],
+        combat,
+      ),
+    ).toBe(Math.floor((7000 / 6) * 2 ** 0.2));
+    // A non-whole free points or a span below 1 is defective.
+    expectDefective((raw) => (raw.get('combat_parameters')['rating_exhaustion_span'] = 0));
+    expectDefective((raw) => (raw.get('combat_parameters')['rating_exhaustion_free_points'] = -1));
   });
 
   it('GDR validation', () => {

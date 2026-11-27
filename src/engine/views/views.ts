@@ -1208,6 +1208,8 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         ratingBaseArmor: String(gdrs.combatParameters.ratingBaseArmor),
         ratingBaseWeaponDamage: String(gdrs.combatParameters.ratingBaseWeaponDamage),
         ratingTeamSizeExponent: decimalText(gdrs.combatParameters.ratingTeamSizeExponent),
+        ratingExhaustionFreePoints: String(gdrs.combatParameters.ratingExhaustionFreePoints),
+        ratingExhaustionSpan: String(gdrs.combatParameters.ratingExhaustionSpan),
       },
       recoveryParameters: numbers(gdrs.recoveryParameters),
       investigationParameters: {

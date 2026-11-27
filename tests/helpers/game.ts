@@ -284,6 +284,8 @@ export const EXAMPLE_VALUES: Readonly<Record<string, Readonly<Record<string, unk
     rating_base_armor: 20,
     rating_base_weapon_damage: 10,
     rating_team_size_exponent: { $decimal: '1.2' },
+    rating_exhaustion_free_points: 70,
+    rating_exhaustion_span: 30,
   },
   recovery: { health_recovery_pct_per_turn: 2, exhaustion_recovery_per_turn: 5 },
   economy: {

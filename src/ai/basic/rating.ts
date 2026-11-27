@@ -10,13 +10,17 @@ export interface RatedMember {
   readonly weaponDamage: number;
   readonly maxHealth: number;
   readonly armor: number;
+  /** Its exhaustion, which the exhaustion factor reads; absent for a fully rested member. */
+  readonly exhaustion?: number;
 }
 
-/** The rating bases and the team size exponent of CombatParameters. */
+/** The rating bases, the exhaustion factor's values, and the team size exponent of CombatParameters. */
 export interface RatingParameters {
   readonly baseWeapon: number;
   readonly baseHealth: number;
   readonly baseArmor: number;
+  readonly exhaustionFree: number;
+  readonly exhaustionSpan: number;
   readonly exponent: number;
 }
 
@@ -32,15 +36,22 @@ export function ratingParameters(data: GameDataView): RatingParameters {
     baseWeapon: decimal(c['ratingBaseWeaponDamage'], 1),
     baseHealth: decimal(c['ratingBaseHealth'], 1),
     baseArmor: decimal(c['ratingBaseArmor'], 1),
+    exhaustionFree: decimal(c['ratingExhaustionFreePoints'], Infinity),
+    exhaustionSpan: Math.max(1, decimal(c['ratingExhaustionSpan'], 1)),
     exponent: decimal(c['ratingTeamSizeExponent'], 1),
   };
 }
 
-/** COMBAT, Combat rating: what one Combatant adds to the sum, its effective skill times its rating factor. */
+/**
+ * COMBAT, Combat rating: what one Combatant adds to the sum, its effective skill times its rating factor and its
+ * exhaustion factor.
+ */
 export function memberWeight(member: RatedMember, p: RatingParameters): number {
   const factor =
     (member.weaponDamage / p.baseWeapon + member.maxHealth / p.baseHealth + member.armor / p.baseArmor) / 2;
-  return member.effectiveSkill * factor;
+  const above = Math.max(0, (member.exhaustion ?? 0) - p.exhaustionFree);
+  const exhaustionFactor = Math.max(0, p.exhaustionSpan - above) / p.exhaustionSpan;
+  return member.effectiveSkill * factor * exhaustionFactor;
 }
 
 /** COMBAT, Combat rating of a side: ⌊n ^ (exponent − 1) × Σ effective skill × rating factor⌋. */
