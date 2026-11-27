@@ -215,7 +215,14 @@ const RULES: Record<string, TableRules> = {
   },
   'participation-grid': { widest: { Turn: `Turn ${FOUR}` } },
   'storage-table': {
-    widest: { Owned: '12,345', 'Equip.': '123', 'Avail.': '12,345', Price: FOUR, Value: FOUR },
+    widest: {
+      Item: 'Reinforced ballistic vest',
+      Owned: '12,345',
+      'Equip.': '123',
+      'Avail.': '12,345',
+      Price: FOUR,
+      Value: FOUR,
+    },
   },
   'equip-grid': {
     widest: {
