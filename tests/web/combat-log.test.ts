@@ -36,6 +36,8 @@ describe('TRVIEW: Combat log colours', () => {
       tint: 'agent',
       tone: 'good',
       outcome: 'hit for 14, health 6',
+      hit: 'Hit',
+      result: 'Damage 14, Health 20 → 6',
       decisive: null,
     });
     expect(combatLogRow(attack('enemy-1', true), sideOf)).toMatchObject({ tint: 'enemy', tone: 'bad' });
@@ -46,6 +48,8 @@ describe('TRVIEW: Combat log colours', () => {
       tint: 'agent',
       tone: 'muted',
       outcome: 'miss',
+      hit: 'Miss',
+      result: '',
       decisive: null,
     });
     expect(combatLogRow(attack('enemy-1', false), sideOf)).toMatchObject({ tint: 'enemy', tone: 'muted' });
@@ -77,6 +81,36 @@ describe('TRVIEW: Combat log colours', () => {
       defenderAfter: { currentHealthHundredths: 3000, exhaustion: 1, currentArmor: 18 },
     });
     expect(combatLogRow(absorbed, sideOf).outcome).toBe('hit for 7, 7 absorbed, armor 18, health 30');
+  });
+
+  it('TRVIEW, Combat report: splits Hit, with its margin, from Result, with the values before and after a hit', () => {
+    expect(combatLogRow(attack('agent-1', false, { hitChance: 116, hitRoll: 168 }), sideOf)).toMatchObject({
+      hit: 'Miss (margin 5.2%)',
+      result: '',
+    });
+    const hit = attack('agent-1', true, {
+      hitChance: 320,
+      hitRoll: 230,
+      damage: 8,
+      healthRemovedHundredths: 800,
+      defenderAfter: { currentHealthHundredths: 1200, exhaustion: 0, currentArmor: 0 },
+    });
+    expect(combatLogRow(hit, sideOf)).toMatchObject({
+      hit: 'Hit (margin 9.0%)',
+      result: 'Damage 8, Health 20 → 12',
+    });
+    const through = attack('enemy-1', true, {
+      hitChance: 320,
+      hitRoll: 319,
+      damage: 15,
+      armorRemoved: 8,
+      healthRemovedHundredths: 700,
+      defenderAfter: { currentHealthHundredths: 2300, exhaustion: 1, currentArmor: 0 },
+    });
+    expect(combatLogRow(through, sideOf)).toMatchObject({
+      hit: 'Hit (margin 0.1%)',
+      result: 'Damage 15, Absorbed 8, Armor 8 → 0, Health 30 → 23',
+    });
   });
 
   it('CRPLAY, Attack being played: names the margin of a miss and of a hit, and the values before and after a hit', () => {

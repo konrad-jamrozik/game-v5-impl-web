@@ -267,6 +267,7 @@ const RULES: Record<string, TableRules> = {
       Attacker: 'high-commander-12',
       Defender: 'high-commander-12',
       'Hit chance': `99.9% (${FOUR} vs ${FOUR})`,
+      Hit: 'Miss (margin 100.0%)',
     },
   },
   'campaign-*': { widest: { '#0': 'Furthest progress Autosave', '#1': `T${FOUR} A123` } },

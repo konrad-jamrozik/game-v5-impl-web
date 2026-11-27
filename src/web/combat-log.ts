@@ -13,10 +13,20 @@ export interface CombatLogRow {
   /** The outcome's colour: Positive when an Agent hit, Danger when an Enemy hit, Text muted for a miss. */
   readonly tone: 'good' | 'bad' | 'muted';
   /**
-   * The outcome without its decisive word, e.g. "hit for 14, health 0", "hit for 15, 8 absorbed, armor 0, health 23",
-   * or "miss".
+   * The short outcome of a row of the Combat replay's Combat log, without its decisive word, e.g. "hit for 14, health
+   * 0", "hit for 15, 8 absorbed, armor 0, health 23", or "miss".
    */
   readonly outcome: string;
+  /**
+   * TRVIEW, Combat report: the Hit column, whether the attack hit or missed and its margin, e.g. "Hit (margin 9.0%)"
+   * or "Miss (margin 5.2%)"; without a margin for a Combat report written before the Combat log held the hit roll.
+   */
+  readonly hit: string;
+  /**
+   * TRVIEW, Combat report: the Result column without its decisive word, e.g. "Damage 8, Health 20 → 12" or
+   * "Damage 15, Absorbed 8, Armor 8 → 0, Health 31 → 23"; empty for a miss.
+   */
+  readonly result: string;
   /** The word that names a participant made dead or Incapacitated, shown in bold; null when there is none. */
   readonly decisive: 'dead' | 'incapacitated' | null;
 }
@@ -52,20 +62,31 @@ export function armorText(who: Pick<CombatReport['participants'][number], 'start
 
 export function combatLogRow(attack: Attack, sideOf: (id: string) => 'agent' | 'enemy'): CombatLogRow {
   const tint = sideOf(attack.attacker);
+  const roll = attack.hitRoll;
   if (!attack.hit) {
-    return { tint, tone: 'muted', outcome: 'miss', decisive: null };
+    const hit = roll === undefined ? 'Miss' : `Miss (margin ${hitChanceText(roll - attack.hitChance)})`;
+    return { tint, tone: 'muted', outcome: 'miss', hit, result: '', decisive: null };
   }
-  // TRVIEW, Combat report: when the defender had current armor before the hit, the armor removed is named as absorbed,
-  // with the defender's current armor after it, between the damage outcome and the current health.
-  const armorBefore = attack.defenderAfter.currentArmor + attack.armorRemoved;
+  // The short outcome names the armor removed as absorbed, with the defender's current armor after it, between the
+  // damage outcome and the current health.
+  const after = attack.defenderAfter;
+  const armorBefore = after.currentArmor + attack.armorRemoved;
   const armor =
     armorBefore > 0
-      ? `, ${groupDigits(attack.armorRemoved)} absorbed, armor ${groupDigits(attack.defenderAfter.currentArmor)}`
+      ? `, ${groupDigits(attack.armorRemoved)} absorbed, armor ${groupDigits(after.currentArmor)}`
       : '';
+  // TRVIEW, Combat report: Result gives the defender's current armor, when it had any, and health before and after.
+  const resultArmor =
+    armorBefore > 0
+      ? `, Absorbed ${groupDigits(attack.armorRemoved)}, Armor ${groupDigits(armorBefore)} → ${groupDigits(after.currentArmor)}`
+      : '';
+  const healthBefore = after.currentHealthHundredths + attack.healthRemovedHundredths;
   return {
     tint,
     tone: tint === 'agent' ? 'good' : 'bad',
-    outcome: `hit for ${groupDigits(attack.damage ?? 0)}${armor}, health ${wholeText(attack.defenderAfter.currentHealthHundredths)}`,
+    outcome: `hit for ${groupDigits(attack.damage ?? 0)}${armor}, health ${wholeText(after.currentHealthHundredths)}`,
+    hit: roll === undefined ? 'Hit' : `Hit (margin ${hitChanceText(attack.hitChance - roll)})`,
+    result: `Damage ${groupDigits(attack.damage ?? 0)}${resultArmor}, Health ${wholeText(healthBefore)} → ${wholeText(after.currentHealthHundredths)}`,
     decisive: attack.defenderDead ? 'dead' : attack.defenderIncapacitated ? 'incapacitated' : null,
   };
 }

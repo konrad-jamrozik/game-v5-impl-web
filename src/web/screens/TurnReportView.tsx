@@ -680,7 +680,7 @@ const PARTICIPANT_WIDTHS = [
   '60px',
   '116px',
 ];
-const LOG_WIDTHS = ['72px', '160px', '160px', '192px', '300px'];
+const LOG_WIDTHS = ['72px', '160px', '160px', '192px', '160px', '292px'];
 
 /**
  * TRVIEW, Combat report: the Exp of one participant. A survivor shows its Mission experience as one total in Positive,
@@ -875,6 +875,7 @@ function CombatReportDetails(props: {
                 <th>Attacker</th>
                 <th>Defender</th>
                 <th className="num">Hit chance</th>
+                <th>Hit</th>
                 <th>Result</th>
               </tr>
             </thead>
@@ -899,7 +900,10 @@ function CombatReportDetails(props: {
                       {hitChanceText(attack.hitChance)} ({groupDigits(attack.a)} vs {groupDigits(attack.d)})
                     </td>
                     <td className={`log-outcome ${row.tone === 'muted' ? 'muted' : `tone-${row.tone}`}`}>
-                      {row.outcome}
+                      {row.hit}
+                    </td>
+                    <td className={`log-outcome ${row.tone === 'muted' ? 'muted' : `tone-${row.tone}`}`}>
+                      {row.result}
                       {row.decisive === null ? null : (
                         <>
                           , <strong>{row.decisive}</strong>
