@@ -38,7 +38,6 @@ const SET_ELSEWHERE = new Set([
   'lastTurnsCharts',
   'artworkTuning',
   'combatReplayOptionsShown',
-  'globeTilt',
 ]);
 
 /** The label of the checkbox of a setting that is on or off; VIS, Screen limit names the Screen limit's. */

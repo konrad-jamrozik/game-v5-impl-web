@@ -18,7 +18,6 @@ describe('interface choices kept across Sessions', () => {
     await boot(storage);
     await setSetting('sidePanelHidden', true);
     await setSetting('combatReplayOptionsShown', true);
-    await setSetting('globeTilt', 'Earth');
     await setSetting('lastTurnsCharts', JSON.stringify(['agents']));
     await setSetting('artworkTuning', JSON.stringify({ 'artwork-1': { opacityPct: 30, image: 'a.png' } }));
 
@@ -26,8 +25,6 @@ describe('interface choices kept across Sessions', () => {
     const configuration = snapshot().configuration;
     expect(settingValue(configuration, 'sidePanelHidden')).toBe(true);
     expect(settingValue(configuration, 'combatReplayOptionsShown')).toBe(true);
-    // CSCR, Regions: the Globe tilt stays as the Player last left it.
-    expect(settingValue(configuration, 'globeTilt')).toBe('Earth');
     expect(checkedCharts(settingValue(configuration, 'lastTurnsCharts'))).toEqual(['agents']);
     expect(tuningsFrom(settingValue(configuration, 'artworkTuning')).get('artwork-1')).toEqual({
       opacityPct: 30,

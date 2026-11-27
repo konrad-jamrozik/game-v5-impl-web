@@ -8,8 +8,7 @@
  * copied files.
  */
 import { useEffect, useRef } from 'react';
-import { mountGlobe, type GlobeHandle, type GlobeTilt } from '../globe/globe.js';
-import { setGlobeTilt, useGlobeTilt } from '../globe-tilt.ts';
+import { mountGlobe, type GlobeHandle } from '../globe/globe.js';
 import '../globe/globe.css';
 
 interface KeptGlobe {
@@ -20,8 +19,8 @@ interface KeptGlobe {
 /** The globe of the Session and the element it is mounted in, made the first time a Globe stage is shown. */
 let kept: KeptGlobe | null = null;
 
-/** Places the globe of the Session in `stage`, mounting it there the first time with the kept Globe tilt. */
-function placeGlobe(stage: HTMLElement, tilt: GlobeTilt): KeptGlobe {
+/** Places the globe of the Session in `stage`, mounting it there the first time. */
+function placeGlobe(stage: HTMLElement): KeptGlobe {
   if (kept === null) {
     const host = document.createElement('div');
     host.style.position = 'absolute';
@@ -29,10 +28,7 @@ function placeGlobe(stage: HTMLElement, tilt: GlobeTilt): KeptGlobe {
     stage.append(host);
     // VIS, Detail views and navigation: the Globe stage has a Background fill.
     const background = getComputedStyle(stage).getPropertyValue('--background').trim() || '#0d0d0b';
-    kept = {
-      host,
-      handle: mountGlobe(host, { mapBase: './globe/', background, tilt, onTiltChange: setGlobeTilt }),
-    };
+    kept = { host, handle: mountGlobe(host, { mapBase: './globe/', background }) };
   } else {
     stage.append(kept.host);
   }
@@ -43,13 +39,11 @@ function placeGlobe(stage: HTMLElement, tilt: GlobeTilt): KeptGlobe {
 export function Globe({ covered }: { covered: boolean }) {
   const element = useRef<HTMLDivElement>(null);
   const globe = useRef<GlobeHandle | null>(null);
-  const tilt = useGlobeTilt();
-  const tiltAtMount = useRef(tilt);
   useEffect(() => {
     if (element.current === null) {
       return;
     }
-    const { host, handle } = placeGlobe(element.current, tiltAtMount.current);
+    const { host, handle } = placeGlobe(element.current);
     globe.current = handle;
     return () => {
       // GLOBE, Shown only when seen: leaving the Campaign screen hides the globe, so that it stops drawing.
@@ -61,9 +55,5 @@ export function Globe({ covered }: { covered: boolean }) {
   useEffect(() => {
     globe.current?.setVisible(!covered);
   }, [covered]);
-  // GLOBE, Nothing from the game: a Globe tilt changed elsewhere, e.g. reset, reaches the globe already shown.
-  useEffect(() => {
-    globe.current?.setTilt(tilt);
-  }, [tilt]);
   return <div ref={element} data-testid="globe" style={{ position: 'absolute', inset: 0 }} />;
 }
