@@ -139,6 +139,19 @@ describe('CONFIG: examples', () => {
     expect(setting(h, 'autopilotTurns')).toMatchObject({ effectiveValue: 10, stored: false });
   });
 
+  it('two Sessions over one Game storage keep each other’s settings, e.g. two browser tabs', async () => {
+    const a = await startHarness();
+    const b = await startHarness({ storage: a.storage });
+    expectOk(await a.core.setGlobalSetting(CONTROLLER, 'revealHiddenContentOn', true));
+    // The second Session, started before the change, changes another setting and keeps the first Session's one.
+    expectOk(await b.core.setGlobalSetting(CONTROLLER, 'autopilotTurns', 50));
+    expect(setting(b, 'revealHiddenContentOn')).toMatchObject({ effectiveValue: true, stored: true });
+    expectOk(await b.core.resetGlobalSetting(CONTROLLER, 'autopilotTurns'));
+    await a.restart();
+    expect(setting(a, 'revealHiddenContentOn')).toMatchObject({ effectiveValue: true, stored: true });
+    expect(setting(a, 'autopilotTurns')).toMatchObject({ stored: false });
+  });
+
   it('Listing presets and their values', async () => {
     const h = await startHarness();
     expect(presets(h)).toEqual([

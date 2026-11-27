@@ -527,6 +527,7 @@ export class EngineCore<S extends ShellState> {
           `${descriptor.name} does not permit that value: ${descriptor.permitted}.`,
         );
       }
+      await this.refreshGlobalConfiguration();
       const before = this.globalConfiguration.encode();
       this.globalConfiguration.set(setting, value);
       return this.persistGlobalConfiguration(before);
@@ -542,10 +543,29 @@ export class EngineCore<S extends ShellState> {
       if (this.globalConfiguration.descriptor(setting) === null) {
         return fail('invalid_input', `There is no Global configuration setting "${setting}".`);
       }
+      await this.refreshGlobalConfiguration();
       const before = this.globalConfiguration.encode();
       this.globalConfiguration.reset(setting);
       return this.persistGlobalConfiguration(before);
     });
+  }
+
+  /**
+   * Global configuration is one persisted set that every Session shares, e.g. two browser tabs of the GUI. A Session
+   * therefore reads it from Game storage again before it changes one setting, so that it writes back the settings
+   * another Session changed since, rather than its own older copy of them. When Game storage cannot be read, it keeps
+   * the copy it holds.
+   */
+  private async refreshGlobalConfiguration(): Promise<void> {
+    let text: string | null;
+    try {
+      text = await this.env.storage.readGlobalConfiguration();
+    } catch {
+      return;
+    }
+    if (text !== null) {
+      this.globalConfiguration.load(text);
+    }
   }
 
   private async persistGlobalConfiguration(before: string): Promise<Result<null>> {

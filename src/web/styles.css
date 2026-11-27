@@ -845,16 +845,18 @@ input::placeholder {
   color: var(--text-muted);
 }
 
-/* GUI, Changed settings: one line per changed setting, each ending with its Reset button. */
+/* GUI, Changed settings: one line per changed setting, each ending with its Reset button. The lines stand under the
+   heading and take the panel's whole width, so that a line wraps only when the panel itself is too narrow. */
 .settings-changed {
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
 }
 
 .changed-settings {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 340px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -863,7 +865,7 @@ input::placeholder {
 .changed-setting {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 12px;
 }
 
