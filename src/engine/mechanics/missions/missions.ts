@@ -1,5 +1,5 @@
 /** MISSION (Missions): Mission site creation, MissionSiteArchetype selection, and Consequences. */
-import { must, ratio, roundUp } from '../../../kernel/index.ts';
+import { must, ratio, Rational, roundDown, roundUp } from '../../../kernel/index.ts';
 import type {
   AgentParametersGdr,
   ArmorGdr,
@@ -86,6 +86,46 @@ export function missionExhaustion(killed: number, teamSent: number, parameters: 
     parameters.exhaustionPerMission +
     roundUp(ratio(parameters.exhaustionPerPctKilled * 100 * killed, teamSent))
   );
+}
+
+/** One Enemy's values when a Combat ends, as Loss severity reads them. */
+export interface EnemyAtCombatEnd {
+  readonly baseSkill: number;
+  readonly currentHealthHundredths: number;
+  readonly effectiveMaxHealth: number;
+  readonly ableToFight: boolean;
+}
+
+/**
+ * MISSION, Loss severity: the sum of the Health-adjusted base skill (base skill × current health / effective max
+ * health) of the Enemies able to fight at Combat end, over the sum of the base skill of all the Enemies. Exhaustion
+ * and effective skill do not count. It is 1 when the Enemies have no base skill at all.
+ */
+export function lossSeverity(enemies: readonly EnemyAtCombatEnd[]): Rational {
+  let standing = Rational.ZERO;
+  let total = Rational.ZERO;
+  for (const enemy of enemies) {
+    total = total.add(enemy.baseSkill);
+    if (enemy.ableToFight && enemy.effectiveMaxHealth > 0) {
+      standing = standing.add(
+        ratio(enemy.baseSkill * enemy.currentHealthHundredths, enemy.effectiveMaxHealth * 100),
+      );
+    }
+  }
+  return total.gt(0) ? standing.div(total) : Rational.ONE;
+}
+
+/**
+ * MISSION, Loss scaling: a Lost Response Mission's consequences, each Effect value scaled by its Loss severity L.
+ * The funding change is round down( funding × L ), the Panic increase round up( 10 × panic × L ) / 10, i.e. to tenths
+ * of a percentage point, and a `defeat` Effect applies unscaled.
+ */
+export function scaleLossConsequences(amounts: ConsequenceAmounts, severity: Rational): ConsequenceAmounts {
+  return {
+    ...amounts,
+    fundingChange: roundDown(severity.mul(amounts.fundingChange)),
+    panicIncreaseHundredths: roundUp(severity.mul(amounts.panicIncreaseHundredths).div(10)) * 10,
+  };
 }
 
 /** COMBAT, Enemy creation. */

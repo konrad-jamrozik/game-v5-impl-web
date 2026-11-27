@@ -397,6 +397,11 @@ export interface MissionResultRecord {
   /** MISSION, Turn report, and AGENT, Mission growth: what each survivor gained, in the order of the Current team. */
   readonly growth: readonly MissionGrowthRecord[];
   readonly consequence: ConsequenceRecord;
+  /**
+   * MISSION, Turn report: the Loss severity of a Lost Response Mission, as a whole number of ten-thousandths, rounded down; absent for
+   * any other Mission, and in a record written before Loss scaling.
+   */
+  readonly lossSeverityTenThousandths?: number;
   /** EQUIP, Turn report: the Items lost and returned to Storage, and the spoils of war, as counts. */
   readonly equipment: MissionEquipmentRecord;
   /**

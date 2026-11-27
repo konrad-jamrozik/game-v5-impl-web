@@ -5,7 +5,7 @@
  * Within a step, every rule uses Step-start values apart from the exceptions TURN lists, so the order in which
  * Campaign instances are processed does not change the result. `order` lets a test choose that order.
  */
-import { byInstanceId, formatInstanceId, must } from '../../kernel/index.ts';
+import { byInstanceId, formatInstanceId, must, roundDown } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import { GAME_BUILD } from '../game-build.ts';
 import {
@@ -63,6 +63,8 @@ import {
 } from '../mechanics/leads/leads.ts';
 import {
   consequencesOf,
+  lossSeverity,
+  scaleLossConsequences,
   createMissionSite,
   missionExhaustion,
   missionSiteCanExist,
@@ -581,7 +583,27 @@ export function applyAdvanceTurn(
               level.id === site.constants.origin.operationLevel,
           ) ?? null)
         : null;
-    const amounts = consequencesOf(result, archetype, operationLevel);
+    const fullAmounts = consequencesOf(result, archetype, operationLevel);
+    // MISSION, Loss scaling: a Lost Response Mission applies its on_ignored_or_lost scaled by its Loss severity, read
+    // from each Enemy's values and final condition when the Combat ends.
+    const severity =
+      result === 'Lost' && archetype.kind === 'response'
+        ? lossSeverity(
+            siteEnemies.map((enemy) => {
+              const participant = must(
+                report.participants.find((item) => item.id === enemy.id),
+                'Combat report participant',
+              );
+              return {
+                baseSkill: enemy.state.skill,
+                currentHealthHundredths: participant.final.currentHealthHundredths,
+                effectiveMaxHealth: enemy.state.baseHealth,
+                ableToFight: participant.final.condition === 'ableToFight',
+              };
+            }),
+          )
+        : null;
+    const amounts = severity === null ? fullAmounts : scaleLossConsequences(fullAmounts, severity);
     world.agency.state.money += amounts.money;
     missionFunding.push(amounts.fundingChange);
     pendingPanicChange += amounts.panicIncreaseHundredths - amounts.panicReductionHundredths;
@@ -605,6 +627,7 @@ export function applyAdvanceTurn(
       toStandby,
       growth,
       consequence: toRecord(amounts, eliminatedFaction),
+      ...(severity === null ? {} : { lossSeverityTenThousandths: roundDown(severity.mul(10000)) }),
       equipment,
       // LEAD, Turn report: filled in once the Leads of the Advance turn are discovered, in Turn close.
       discoveredLeads: [],
