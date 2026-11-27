@@ -202,7 +202,7 @@ const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
     ),
   },
   Mechanics: {
-    color: 'var(--text-secondary)',
+    color: 'var(--brass)',
     glyph: (
       <>
         <circle cx="50" cy="50" r="13" />
@@ -287,11 +287,22 @@ function ArticleArt(props: { category: string }) {
         {art?.glyph}
       </svg>
       <div className="article-art-fade" />
-      <span className="article-art-crop article-art-crop-tl" />
-      <span className="article-art-crop article-art-crop-tr" />
-      <span className="article-art-crop article-art-crop-bl" />
-      <span className="article-art-crop article-art-crop-br" />
     </div>
+  );
+}
+
+/** COMPV, Article pane: the shade of the pane's top left corner, up to the curve, and the crop marks above it. */
+function ArticleShade() {
+  return (
+    <>
+      <div className="article-shade" aria-hidden="true" />
+      <div className="article-art-frame" aria-hidden="true">
+        <span className="article-art-crop article-art-crop-tl" />
+        <span className="article-art-crop article-art-crop-tr" />
+        <span className="article-art-crop article-art-crop-bl" />
+        <span className="article-art-crop article-art-crop-br" />
+      </div>
+    </>
   );
 }
 
@@ -452,7 +463,12 @@ export function CompendiumView(props: {
           data-testid="compendium-article"
           data-article={article?.id}
         >
-          {artCategory === null ? null : <ArticleArt category={artCategory} />}
+          {artCategory === null ? null : (
+            <>
+              <ArticleArt category={artCategory} />
+              <ArticleShade />
+            </>
+          )}
           {article === null ? null : (
             <div className="article-scroll">
               <div className="article-head">
@@ -491,6 +507,7 @@ export function CompendiumView(props: {
                 </div>
               </div>
               <div className="article-parts">
+                <div className="article-curve" aria-hidden="true" />
                 <p className="article-body" data-testid="article-body">
                   <Segments segments={article.body} onOpen={open} />
                 </p>

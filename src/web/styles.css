@@ -3645,7 +3645,10 @@ label:has(> input[type='checkbox']:disabled) {
 
 /* COMPV, Article pane: the Article art and the column of the parts after the title row over its faded left part. Only
    where the panes stand side by side; in a narrower window, where they stack, the parts keep the whole width. */
-.article-art {
+.article-art,
+.article-art-frame,
+.article-shade,
+.article-curve {
   display: none;
 }
 
@@ -3667,14 +3670,36 @@ label:has(> input[type='checkbox']:disabled) {
     scrollbar-width: thin;
   }
 
+  /* The parts' lines keep to the column, 340 px wide, below the curve and widen within it: a right float shaped like
+     the curve and as tall as any article holds them back. The float reaches far below the parts, so their height clips
+     it and it adds nothing to the scrolling. A block that sets up its own layout, e.g. a Data sheet row or a heading,
+     keeps to the column. */
   .with-article-art .article-parts {
-    width: 340px;
-    max-width: 100%;
+    overflow-y: clip;
+  }
+
+  .article-curve {
+    display: block;
+    float: right;
+    width: calc(100% - 340px);
+    height: 10000px;
+    shape-outside: polygon(
+      441px 0,
+      398px 44px,
+      314px 94px,
+      173px 144px,
+      64px 169px,
+      0 184px,
+      0 100%,
+      100% 100%,
+      100% 0
+    );
   }
 
   /* As tall as the Article pane and 4:3, flush with its top, right, and bottom edges; cropped at its left when the
-     pane is narrower. */
-  .article-art {
+     pane is narrower. Its frame holds the crop marks above the shade. */
+  .article-art,
+  .article-art-frame {
     position: absolute;
     top: 0;
     right: 0;
@@ -3683,7 +3708,27 @@ label:has(> input[type='checkbox']:disabled) {
     max-width: 100%;
     aspect-ratio: 4 / 3;
     overflow: hidden;
+    pointer-events: none;
+  }
+
+  .article-art {
     background: linear-gradient(160deg, #1d1c17, var(--background));
+  }
+
+  /* The pane's top left corner fades into its Background fill up to a smooth curve, a quarter ellipse about 860 px
+     wide and 285 px tall, within which the parts' lines widen. */
+  .article-shade {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+    background: radial-gradient(
+      1000px 330px at 0 0,
+      var(--background) 0%,
+      var(--background) 86%,
+      rgb(13 13 11 / 55%) 93%,
+      transparent 100%
+    );
   }
 }
 
