@@ -400,8 +400,9 @@ test('CSCR, Globe devastation controls: the developer tools show them at the top
   const controls = await id(page, 'globe-devastation').boundingBox();
   expect((controls?.x ?? 0) - (stage?.x ?? 0)).toBeLessThan(40);
   expect((controls?.y ?? 0) - (stage?.y ?? 0)).toBeLessThan(40);
-  // A Session starts with devastation at 0% and every effect on.
+  // A Session starts with the globe following Panic, which is 0 in a new Campaign, and with every effect on.
   await expect(id(page, 'globe-devastation-shown')).toHaveText('0%');
+  await expect(id(page, 'globe-devastation-follow')).toBeDisabled();
   for (const [effect, label] of [
     ['debris', 'Ash in orbit'],
     ['bloom', 'Bloom'],
@@ -419,4 +420,8 @@ test('CSCR, Globe devastation controls: the developer tools show them at the top
   await page.keyboard.press('Escape');
   await expect(id(page, 'globe-devastation-shown')).toHaveText('70%');
   await expect(id(page, 'globe-devastation-bloom')).not.toBeChecked();
+  // "Follow Panic" gives the devastation back to Panic.
+  await id(page, 'globe-devastation-follow').click();
+  await expect(id(page, 'globe-devastation-shown')).toHaveText('0%');
+  await expect(id(page, 'globe-devastation-follow')).toBeDisabled();
 });

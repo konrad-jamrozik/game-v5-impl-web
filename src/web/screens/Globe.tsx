@@ -5,8 +5,8 @@
  * of its own; leaving the Campaign screen hides it and takes its host out of the page, and coming back puts the same
  * host into the new Globe stage, so the globe neither loads its maps nor builds its scene again. Everything else, e.g.
  * loading three.js and the maps on first show, the controls, the messages, and recovery from failures, is done by the
- * copied files. CSCR, Globe devastation controls: the one thing set on the globe is its devastation, which the
- * Campaign screen hands down from those controls.
+ * copied files. CSCR, Globe devastation: the one thing set on the globe is its devastation, which the Campaign
+ * screen hands down, from Panic or from the Globe devastation controls, so this component reads nothing from the game.
  */
 import { useEffect, useRef } from 'react';
 import { mountGlobe, type GlobeHandle } from '../globe/globe.js';
@@ -57,9 +57,12 @@ export function Globe({ covered, devastation }: { covered: boolean; devastation:
   useEffect(() => {
     globe.current?.setVisible(!covered);
   }, [covered]);
+  const { percent, effects } = devastation;
   useEffect(() => {
-    globe.current?.setDevastation(devastation.percent / 100);
-    globe.current?.setDevastationEffects(devastation.effects);
-  }, [devastation]);
+    globe.current?.setDevastation(percent / 100);
+  }, [percent]);
+  useEffect(() => {
+    globe.current?.setDevastationEffects({ debris: effects.debris, bloom: effects.bloom, sky: effects.sky });
+  }, [effects.debris, effects.bloom, effects.sky]);
   return <div ref={element} data-testid="globe" style={{ position: 'absolute', inset: 0 }} />;
 }

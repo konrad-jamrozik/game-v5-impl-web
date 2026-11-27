@@ -2604,10 +2604,39 @@ label:has(> input[type='checkbox']:disabled) {
 
 .globe-devastation-level {
   display: grid;
-  grid-template-columns: auto 150px 40px;
+  grid-template-columns: auto 150px 40px auto;
   align-items: center;
   gap: 10px;
   margin-bottom: 4px;
+}
+
+/* Drawn as the globe's own buttons are: transparent, with a thin light outline. */
+.globe-devastation-follow {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgb(232 228 216 / 28%);
+  border-radius: var(--radius, 2px);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.globe-devastation-follow:hover:not(:disabled) {
+  border-color: rgb(232 228 216 / 60%);
+  background: rgb(232 228 216 / 8%);
+}
+
+.globe-devastation-follow:disabled {
+  border-color: rgb(232 228 216 / 14%);
+  color: var(--text-muted);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.globe-devastation-follow:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .globe-devastation .inline {

@@ -21,7 +21,12 @@ import {
 } from '../view-trail.ts';
 import { SOUND } from '../sounds.ts';
 import { autopilotSettings } from '../autopilot-controls.ts';
-import { devastationControlsShown, shownDevastation, useHeldDevastation } from '../globe-devastation.ts';
+import {
+  devastationControlsShown,
+  panicDevastation,
+  shownDevastation,
+  useHeldDevastation,
+} from '../globe-devastation.ts';
 import { setSidePanelHidden, useSidePanelHidden } from '../side-panel.ts';
 import { useCtrlHeld } from '../ctrl-held.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
@@ -141,10 +146,14 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const sidePanelHidden = useSidePanelHidden();
   // CSCR, Undo and redo: while Ctrl is held, Undo and Redo take their step across Turns.
   const ctrlHeld = useCtrlHeld();
-  // CSCR, Globe devastation controls: shown while their setting is on and Dev mode is enabled; while they are not, the
-  // globe shows the Earth as it is.
+  // CSCR, Globe devastation: the globe shows Panic as a share of the Panic limit. CSCR, Globe devastation controls:
+  // shown while their setting is on and Dev mode is enabled, they can set the devastation by hand instead.
   const devastationControls = devastationControlsShown(snapshot.configuration, snapshot.status);
-  const devastation = shownDevastation(useHeldDevastation(), devastationControls);
+  const devastation = shownDevastation(
+    useHeldDevastation(),
+    devastationControls,
+    panicDevastation(state.panicHundredths, state.panicLimit),
+  );
   const [autosaves, setAutosaves] = useState<AutosaveStatus | null>(null);
   /**
    * TSUM, Showing and dismissing: the Turn ended by the Advance turn the Player requested through this screen, until
@@ -718,7 +727,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         <main className="globe-stage" data-testid="globe-stage">
           <Globe covered={open !== null} devastation={devastation} />
           {/* CSCR, Globe devastation controls: at its top left corner, hidden while a Detail view covers it. */}
-          {open === null && devastationControls ? <GlobeDevastationControls /> : null}
+          {open === null && devastationControls ? <GlobeDevastationControls shown={devastation} /> : null}
           {/* MUSIC, Music control on the Globe stage: at its bottom right corner, hidden while a Detail view covers
               it. */}
           {open === null ? <MusicControl snapshot={snapshot} onGlobeStage /> : null}
