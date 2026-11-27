@@ -3249,6 +3249,13 @@ label:has(> input[type='checkbox']:disabled) {
   .detail-body > .panes > .pane:nth-child(3) {
     scrollbar-gutter: stable;
   }
+
+  /* COMPV, Panes: the Articles pane is as wide as its longest title, so, like the table pane, it keeps the room of its
+     scrollbar whether or not its list scrolls; otherwise the browser leaves that room out of its max-content width
+     after some changes of the article shown, and the pane narrows by it and wraps its longest titles. */
+  .detail-body > .panes-compendium > .pane-list {
+    scrollbar-gutter: stable;
+  }
 }
 
 /* COMPV, Panes, Category tabs: they take the room between the title and the search field, and their row scrolls
