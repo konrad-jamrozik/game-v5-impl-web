@@ -20,6 +20,8 @@ export interface ActionNames {
   upgrade(id: string): string;
   /** The `name` of a Weapon, an Armor, or an AmmoType. */
   item(id: string): string;
+  /** GUI, Agent shown by name: the Agent name of an Agent. */
+  agent(id: string): string;
 }
 
 /** HVIEW, `buyItems` and `sellItems`: each entry's count and `name`, joined by ", ", e.g. "2 Rifles, 100 Pistol ammo". */
@@ -100,7 +102,7 @@ function lineText(
     case 'purchaseUpgrade':
       return `Bought ${groupDigits(count)} ${names.upgrade(text(item, 'upgrade'))} ${count === 1 ? 'Upgrade' : 'Upgrades'}`;
     case 'equipAgent':
-      return `Equipped ${text(item, 'agent')} with ${names.item(text(item, 'equipment'))}`;
+      return `Equipped ${names.agent(text(item, 'agent'))} with ${names.item(text(item, 'equipment'))}`;
     case 'buyItems':
       return `Bought ${entriesText(item, names)}`;
     case 'sellItems':

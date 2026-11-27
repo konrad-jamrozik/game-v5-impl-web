@@ -23,6 +23,7 @@ import {
   type GainLine,
   type MissionSiteTitle,
 } from './mission-gains.ts';
+import { agentNameOf, agentNames } from './agent-names.ts';
 
 /** TSUM, Summary events, Mission: one Equipment line, e.g. "Recovered: 3 Items, 11 rounds · worth 165". */
 export interface SummaryEquipmentLine extends GainLine {
@@ -41,7 +42,7 @@ export interface SummaryMission {
   /** Recovered, then Spent, each left out when empty. */
   readonly equipment: readonly SummaryEquipmentLine[];
   readonly deployed: number;
-  /** The Agents killed, by Instance ID. */
+  /** The Agents killed, by Agent name. */
   readonly killed: readonly string[];
   /** The number of survivors sent to Recovery. */
   readonly wounded: number;
@@ -192,6 +193,7 @@ export function turnSummary(
   siteArchetypeName: (archetype: string) => string,
   gameData: SummaryGameData | null = null,
 ): TurnSummaryModel {
+  const names = agentNames(state.agents, retired?.agents);
   const sites = new Map<string, MissionSiteView>();
   for (const site of [...(retired?.missionSites ?? []), ...state.missionSites]) {
     sites.set(site.id, site);
@@ -249,7 +251,8 @@ export function turnSummary(
           : [{ label: 'Spent' as const, text: equipmentText(spent), tone: 'bad' as const }]),
       ],
       deployed: mission.killed.length + mission.toRecovery.length + mission.toStandby.length,
-      killed: mission.killed,
+      // GUI, Agent shown by name: the Agents killed by their Agent names.
+      killed: mission.killed.map((id) => agentNameOf(names, id)),
       wounded: mission.toRecovery.length,
       leads: mission.discoveredLeads.map((id) => leads.get(id)?.name ?? id),
     };

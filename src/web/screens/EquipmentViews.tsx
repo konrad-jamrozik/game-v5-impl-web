@@ -526,7 +526,7 @@ function strippedAgents(
     const fallbackName = item.kind === 'weapon' ? view.fallbackWeaponName : view.fallbackArmorName;
     for (const agent of wearers) {
       agents.add(agent.id);
-      lines.push(`${agent.id} loses ${item.name} → ${fallbackName}`);
+      lines.push(`${agent.name} loses ${item.name} → ${fallbackName}`);
     }
   }
   return { agents: agents.size, lines };

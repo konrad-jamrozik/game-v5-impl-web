@@ -101,6 +101,7 @@ export function articleVisible(
   switch (article.subjectType) {
     // AGENT, ECON, Player-visible information: in every World state.
     case 'AgentArchetype':
+    case 'NameList':
     case 'Upgrade':
       return true;
     // COMBAT, Player-visible information: in every World state; COMP, Met subjects: the article also needs its

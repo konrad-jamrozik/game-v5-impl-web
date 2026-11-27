@@ -16,6 +16,8 @@ export interface AgentParametersGdr {
   readonly type: 'AgentParameters';
   readonly id: string;
   readonly initialRosterSize: number;
+  /** AGENT, Agent names: the Probability, in percent, that an Agent name is a woman's. */
+  readonly femaleNamePercent: number;
   readonly exhaustionIncapacitation: number;
   readonly exhaustionFreePoints: number;
   readonly skillPenaltyPctPerExhaustion: number;
@@ -398,6 +400,19 @@ export interface BackgroundArtworkGdr {
   readonly opacityPct: number;
 }
 
+/** AGENT, NameList: the first names and last names of one nationality, from which Agent names are drawn. */
+export interface NameListGdr {
+  readonly type: 'NameList';
+  readonly id: string;
+  readonly name: string;
+  readonly weight: number;
+  readonly maleFirstNames: readonly string[];
+  readonly femaleFirstNames: readonly string[];
+  readonly maleLastNames: readonly string[];
+  /** The `female_last_names`, or the `male_last_names` of a NameList without them. */
+  readonly femaleLastNames: readonly string[];
+}
+
 /** GUI, Ranks: how skilled an Agent is when rested; Display content only. */
 export interface RankGdr {
   readonly type: 'Rank';
@@ -460,6 +475,7 @@ export type AnyGdr =
   | CompendiumArticleGdr
   | BackgroundArtworkGdr
   | RankGdr
+  | NameListGdr
   | DetachedCombatTeamGdr;
 
 /**
@@ -520,6 +536,8 @@ export interface GdrCatalog {
   readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
   /** GUI, Ranks: every Rank, highest `min_base_skill` first. */
   readonly ranks: readonly RankGdr[];
+  /** AGENT, NameList: every NameList, in Game build order. */
+  readonly nameLists: readonly NameListGdr[];
   /** COMBAT, DetachedCombatTeam: every DetachedCombatTeam, in Game build order. */
   readonly detachedCombatTeams: readonly DetachedCombatTeamGdr[];
 }

@@ -5,13 +5,21 @@
  */
 import {
   EngineDefect,
+  Rational,
   floorDivSafe,
   fromHundredths,
   roundDown,
   roundUp,
-  type Rational,
+  seedRng,
 } from '../../../kernel/index.ts';
-import type { AgentArchetypeGdr, AgentParametersGdr, ArmorGdr, WeaponGdr } from '../../../gdr/index.ts';
+import type {
+  AgentArchetypeGdr,
+  AgentParametersGdr,
+  ArmorGdr,
+  NameListGdr,
+  WeaponGdr,
+} from '../../../gdr/index.ts';
+import { seededRandom, type RandomOverride } from '../../random.ts';
 import type { Agent, AgentState, Assignment } from '../../state/types.ts';
 
 /**
@@ -307,6 +315,82 @@ export function isAway(agent: Pick<AgentState, 'status' | 'assignment'>): boolea
 }
 
 /** AGENT, Agent creation: the initial values of a new Agent. */
+/** AGENT, Agent names: an Agent name, the first name and last name joined by one space, or the first name alone. */
+export function agentName(names: { readonly firstName: string; readonly lastName: string }): string {
+  return names.lastName === '' ? names.firstName : `${names.firstName} ${names.lastName}`;
+}
+
+/** The name of the Agent name outcome of the Agent `id`, which an override names to fix it. */
+export function agentNameOutcome(id: string): string {
+  return `agent.name.${id}`;
+}
+
+/** AGENT, Agent names: the first name and last name that give the Agent name `name`, or null when no NameList gives it. */
+export function agentNameParts(
+  name: string,
+  nameLists: readonly NameListGdr[],
+): { firstName: string; lastName: string } | null {
+  for (const list of nameLists) {
+    const pairs = [
+      [list.maleFirstNames, list.maleLastNames],
+      [list.femaleFirstNames, list.femaleLastNames],
+    ] as const;
+    for (const [firsts, lasts] of pairs) {
+      for (const lastName of lasts) {
+        const firstName =
+          lastName === '' ? name : name.endsWith(` ${lastName}`) ? name.slice(0, -lastName.length - 1) : null;
+        if (firstName !== null && firsts.includes(firstName)) {
+          return { firstName, lastName };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * AGENT, Agent names: the Agent name outcome of the new Agent `id`. It derives from a seed of its own, derived from the
+ * Campaign seed and the Instance ID, so that naming an Agent changes no other random outcome and an Agent that a redone
+ * creation makes again has the same name. A pending override of the outcome whose value is an Agent name that some
+ * NameList gives fixes it; any other is discarded.
+ */
+export function drawAgentName(input: {
+  campaignSeed: string;
+  id: string;
+  nameLists: readonly NameListGdr[];
+  femaleNamePercent: number;
+  overrides: RandomOverride[];
+}): { firstName: string; lastName: string } {
+  const outcome = agentNameOutcome(input.id);
+  const index = input.overrides.findIndex((item) => item.outcome === outcome);
+  if (index >= 0) {
+    const [override] = input.overrides.splice(index, 1);
+    const fixed =
+      typeof override?.value === 'string' ? agentNameParts(override.value, input.nameLists) : null;
+    if (fixed !== null) {
+      return fixed;
+    }
+  }
+  const random = seededRandom(seedRng(`${input.campaignSeed}\u0000agentName\u0000${input.id}`), []);
+  const listId = random.weighted(
+    `${outcome}.nameList`,
+    input.nameLists.map((list) => [list.id, list.weight] as const),
+  );
+  const list = input.nameLists.find((candidate) => candidate.id === listId);
+  if (list === undefined) {
+    throw new EngineDefect(`No NameList ${listId}`);
+  }
+  const woman = random.chance(`${outcome}.woman`, Rational.from(input.femaleNamePercent, 100));
+  const firsts = woman ? list.femaleFirstNames : list.maleFirstNames;
+  const lasts = woman ? list.femaleLastNames : list.maleLastNames;
+  const firstName = firsts[random.uniform(`${outcome}.firstName`, 0, firsts.length - 1)];
+  const lastName = lasts[random.uniform(`${outcome}.lastName`, 0, lasts.length - 1)];
+  if (firstName === undefined || lastName === undefined) {
+    throw new EngineDefect(`NameList ${list.id} gave no name`);
+  }
+  return { firstName, lastName };
+}
+
 export function createAgent(input: {
   id: string;
   agencyId: string;
@@ -315,13 +399,19 @@ export function createAgent(input: {
   archetype: AgentArchetypeGdr;
   weapon: WeaponGdr;
   armor: ArmorGdr;
+  name: { firstName: string; lastName: string };
 }): Agent {
   // No Upgrade changes an initial value: a new Agent has no health lost, and its effective values follow the Upgrade
   // bonus like every other Serving Agent's.
   return {
     id: input.id,
     archetype: input.archetype.id,
-    constants: { agency: input.agencyId, turnHired: input.turn },
+    constants: {
+      agency: input.agencyId,
+      turnHired: input.turn,
+      firstName: input.name.firstName,
+      lastName: input.name.lastName,
+    },
     state: {
       skillHundredths: input.archetype.skill * 100,
       experience: 0,

@@ -29,10 +29,12 @@ describe('GUI: Warning on deploying tired Agents', () => {
       );
       return Math.floor((state.world.current.agents[id]!.state.skillHundredths * penalty) / 10_000);
     };
+    // GUI, Agent shown by name: the warning names each Agent by its Agent name.
+    const name = (id: string) => view.agents.find((agent) => agent.id === id)!.name;
     const message = tiredDeploymentMessage(view, [a1, a2, a3])!;
-    expect(message).toContain(`${a2}: exhaustion 20, effective skill ${effectiveSkill(a2, 20)}`);
-    expect(message).toContain(`${a3}: exhaustion 47, effective skill ${effectiveSkill(a3, 47)}`);
-    expect(message).not.toContain(`${a1}:`);
+    expect(message).toContain(`- ${name(a2)}: exhaustion 20, effective skill ${effectiveSkill(a2, 20)}`);
+    expect(message).toContain(`- ${name(a3)}: exhaustion 47, effective skill ${effectiveSkill(a3, 47)}`);
+    expect(message).not.toContain(`- ${name(a1)}:`);
     expect(message).toContain('Deploy anyway?');
   });
 });

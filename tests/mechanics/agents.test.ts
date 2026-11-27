@@ -1,8 +1,11 @@
 /** Tests, from the former Acceptance examples, of AGENT (Agents). */
 import { describe, expect, it } from 'vite-plus/test';
 import {
+  agentName,
+  agentNameParts,
   applyMissionGrowth,
   canTakeOrders,
+  drawAgentName,
   clampExhaustion,
   clampHealth,
   effectiveSkill,
@@ -155,7 +158,14 @@ describe('AGENT: examples', () => {
     expect(new Set(roster.map((a) => a.id)).size).toBe(p.initialRosterSize);
     for (const a of roster) {
       expect(a.archetype).toBe(archetype.id);
-      expect(a.constants).toEqual({ agency: state.world.current.agency.id, turnHired: 1 });
+      expect(a.constants).toEqual({
+        agency: state.world.current.agency.id,
+        turnHired: 1,
+        firstName: a.constants.firstName,
+        lastName: a.constants.lastName,
+      });
+      // AGENT, Agent names: every new Agent has an Agent name that some NameList gives.
+      expect(agentNameParts(agentName(a.constants), gdrs.nameLists)).not.toBeNull();
       expect(a.state).toEqual({
         skillHundredths: newAgent.skill * 100,
         experience: 0,
@@ -579,10 +589,58 @@ describe('AGENT: examples', () => {
     expect(checkInvariants(state, gdrs)).toEqual([]);
   });
 
+  it('Agent names', () => {
+    const draw = (seed: string, id: string) =>
+      drawAgentName({
+        campaignSeed: seed,
+        id,
+        nameLists: gdrs.nameLists,
+        femaleNamePercent: p.femaleNamePercent,
+        overrides: [],
+      });
+    // The outcome derives from the Campaign seed and the Instance ID alone, so the same Agent gets the same name.
+    expect(draw('seed-a', 'agent-3')).toEqual(draw('seed-a', 'agent-3'));
+    const names = Array.from({ length: 400 }, (_, i) => draw('seed-a', `agent-${i + 1}`));
+    expect(new Set(names.map(agentName)).size).toBeGreaterThan(300);
+    for (const name of names) {
+      expect(Array.from(agentName(name)).length).toBeLessThanOrEqual(30);
+      expect(agentNameParts(agentName(name), gdrs.nameLists)).not.toBeNull();
+    }
+    // An empty last name gives the first name alone.
+    expect(agentName({ firstName: 'Budi', lastName: '' })).toBe('Budi');
+    expect(agentName({ firstName: 'Jan', lastName: 'Kowalski' })).toBe('Jan Kowalski');
+    // A pending override of the outcome fixes the name when some NameList gives it.
+    const overrides = [{ outcome: 'agent.name.agent-9', value: 'Jan Kowalski' }];
+    expect(
+      drawAgentName({
+        campaignSeed: 'seed-a',
+        id: 'agent-9',
+        nameLists: gdrs.nameLists,
+        femaleNamePercent: p.femaleNamePercent,
+        overrides,
+      }),
+    ).toEqual({ firstName: 'Jan', lastName: 'Kowalski' });
+    expect(overrides).toEqual([]);
+    // Naming an Agent changes no other random outcome: hiring leaves the generator of the Campaign where it was.
+    let state = newCampaign();
+    const before = structuredClone(state.world.current.rng);
+    state = act(state, 'hireAgents', { count: 2 });
+    expect(state.world.current.rng).toEqual(before);
+  });
+
   it('GDR validation', () => {
     expectDefective((raw) =>
       raw.add('agents/agent_archetypes.yaml', { ...raw.get('field_agent'), id: 'second_agent' }),
     );
+    // AGENT, NameList: names are well formed, and every Agent name is at most 30 characters long.
+    expectDefective((raw) => (raw.get('name_list_polish')['male_first_names'] = ['Jan ']));
+    expectDefective((raw) => (raw.get('name_list_polish')['female_first_names'] = ['']));
+    expectDefective((raw) => (raw.get('name_list_polish')['male_last_names'] = ['de  la Vega']));
+    expectDefective(
+      (raw) => (raw.get('name_list_polish')['male_first_names'] = ['Maximilian Alexander Jonathan']),
+    );
+    expectDefective((raw) => (raw.get('name_list_polish')['weight'] = 0));
+    expectDefective((raw) => (raw.get('agent_parameters')['female_name_percent'] = 101));
     expectDefective((raw) => (raw.get('field_agent')['base_health'] = 0));
     expectDefective((raw) => (raw.get('field_agent')['weapon'] = 'no_such_weapon'));
     expectDefective((raw) => (raw.get('field_agent')['rank'] = 1));

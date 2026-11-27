@@ -27,7 +27,7 @@ export function tiredDeploymentMessage(
       'tired, and so will fight worse and drop out of the Combat sooner:',
     ...tired.map(
       (agent) =>
-        `- ${agent.id}: exhaustion ${groupDigits(agent.exhaustion)}, effective skill ${groupDigits(agent.effectiveSkill)}`,
+        `- ${agent.name}: exhaustion ${groupDigits(agent.exhaustion)}, effective skill ${groupDigits(agent.effectiveSkill)}`,
     ),
     'Deploy anyway?',
   ].join('\n');

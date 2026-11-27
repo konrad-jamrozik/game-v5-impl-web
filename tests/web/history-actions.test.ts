@@ -9,6 +9,7 @@ const names: ActionNames = {
   missionSite: () => 'Raid safehouse',
   upgrade: (id) => (id === 'agent_cap' ? 'Agent cap' : id),
   item: (id) => (id === 'rifle' ? 'Rifle' : id === 'pistol_ammo' ? 'Pistol ammo' : id),
+  agent: (id) => (id === 'agent-7' ? 'Jan Kowalski' : id),
 };
 
 const item = (operation: string, args: unknown, moneyChange = 0): ActionRecordItem => ({
@@ -18,6 +19,12 @@ const item = (operation: string, args: unknown, moneyChange = 0): ActionRecordIt
 });
 
 describe('HVIEW: Player actions list', () => {
+  it('names the Agent of an equipAgent line by its Agent name', () => {
+    expect(actionLines([item('equipAgent', { agent: 'agent-7', equipment: 'rifle' })], names)).toEqual([
+      { numbers: '1', text: 'Equipped Jan Kowalski with Rifle', moneyChange: 0 },
+    ]);
+  });
+
   it('groups consecutive equal items into one line with their totals', () => {
     const actions = [
       ...Array.from({ length: 4 }, () => item('hireAgents', { count: 1 }, -50)),

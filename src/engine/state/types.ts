@@ -58,6 +58,10 @@ export interface Participation {
 export interface AgentConstants {
   readonly agency: string;
   readonly turnHired: number;
+  /** AGENT, Agent names: the two parts of the Agent name, kept apart because either can hold a space. */
+  readonly firstName: string;
+  /** Empty for an Agent with one name only, whose Agent name is its first name alone. */
+  readonly lastName: string;
 }
 
 export interface AgentState {

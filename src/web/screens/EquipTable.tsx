@@ -37,7 +37,7 @@ type EquipKey =
 
 /**
  * VIS, Tables, and AVIEW, Equip table: the fixed widths of the condensed Equip table, its text 13 px and its cells 6 px
- * from their sides, so that every column fits the Reference window without scrolling sideways. The Instance ID holds
+ * from their sides, so that every column fits the Reference window without scrolling sideways. The Agent name holds
  * 30 characters; CR, Skill, Base, and Exp. four digits with their comma, e.g. "1,234", and Equip. four after its
  * sign, each with its sort arrow, e.g. "Equip.▼" (69 px); Health "123/123" and Exh. three digits, each with its sort
  * arrow; Rank "Hi Cmdr" and three stars; Weapon and Armor the longest Item `name` of the GDRs with its number, icon,
@@ -109,7 +109,7 @@ export function EquipTable(props: {
   const value = (agent: AgentView, key: EquipKey): number | string => {
     switch (key) {
       case 'id':
-        return agent.id;
+        return agent.name;
       case 'combatRating':
         return agent.combatRating ?? 0;
       case 'equipmentCombatRating':
@@ -190,7 +190,7 @@ export function EquipTable(props: {
                       props.onOpenDetails(agent.id);
                     }}
                   >
-                    {agent.id}
+                    {agent.name}
                   </button>
                 </td>
                 <td className="num">{groupDigits(agent.combatRating ?? 0)}</td>

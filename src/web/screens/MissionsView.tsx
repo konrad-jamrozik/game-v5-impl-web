@@ -14,6 +14,7 @@ import type {
 } from '../../engine/index.ts';
 import { Consequences } from '../consequences.tsx';
 import { enemyGroups } from '../enemy-groups.ts';
+import { agentNameOf, agentNames } from '../agent-names.ts';
 import { enemyLabels } from '../enemy-labels.ts';
 import { decimalText, groupDigits, wholeText } from '../format.ts';
 import {
@@ -329,7 +330,12 @@ function SiteDetails(props: {
         </div>
       )}
       {site.lifecycle === 'Concluded' && record !== null ? (
-        <Participants site={site} record={record} onShow={props.onShow} />
+        <Participants
+          site={site}
+          record={record}
+          agentNames={agentNames(state.agents, snapshot.retired?.agents)}
+          onShow={props.onShow}
+        />
       ) : (
         /* MVIEW, Combat ratings: the Enemies' Combat rating sits on the line of the Enemies heading and ends at the
            right edge of the Enemies lines. */
@@ -384,6 +390,8 @@ function appliedNothing(c: HistoryMission['consequence']): boolean {
 function Participants(props: {
   site: MissionSiteView;
   record: HistoryMission;
+  /** GUI, Agent shown by name: the Agent name of every Agent, Serving or Terminated. */
+  agentNames: ReadonlyMap<string, string>;
   onShow: (target: ReportTarget) => void;
 }) {
   const { site, record } = props;
@@ -427,7 +435,7 @@ function Participants(props: {
                   {which === 'enemy' ? (
                     (labels.get(participant.id) ?? participant.id)
                   ) : (
-                    // MVIEW, Concluded Mission site: an Agent's Instance ID opens its details as a Follow; it keeps
+                    // MVIEW, Concluded Mission site: an Agent's name opens its details as a Follow; it keeps
                     // its row's colour, and the pointer resting on it underlines it.
                     <button
                       type="button"
@@ -438,7 +446,7 @@ function Participants(props: {
                         props.onShow({ kind: 'agent', agent: participant.id });
                       }}
                     >
-                      {participant.id}
+                      {agentNameOf(props.agentNames, participant.id)}
                     </button>
                   )}
                 </td>
@@ -636,13 +644,13 @@ function Deployment(props: {
                     <td className="check">
                       <input
                         type="checkbox"
-                        aria-label={`Deploy ${agent.id}`}
+                        aria-label={`Deploy ${agent.name}`}
                         data-testid={`deploy-pick-${agent.id}`}
                         {...selection.checkbox(agent.id)}
                       />
                     </td>
                     <td className="figure">
-                      {/* MVIEW, Deployment: an Agent's Instance ID opens its details as a Follow, without checking or
+                      {/* MVIEW, Deployment: an Agent's name opens its details as a Follow, without checking or
                         unchecking its row, since the row ignores clicks on a button. */}
                       <button
                         type="button"
@@ -653,7 +661,7 @@ function Deployment(props: {
                           props.onShow({ kind: 'agent', agent: agent.id });
                         }}
                       >
-                        {agent.id}
+                        {agent.name}
                       </button>
                       <DeployRankInsignia baseSkillHundredths={agent.skillHundredths} ranks={ranks} />
                     </td>

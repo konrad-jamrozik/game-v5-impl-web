@@ -14,6 +14,7 @@ import type {
 import { armorText, combatLogRow, finalCondition } from '../combat-log.ts';
 import { buildReplay } from '../combat-replay.ts';
 import { Consequences, GainLineText, toneClass } from '../consequences.tsx';
+import { agentNames, agentShortNames } from '../agent-names.ts';
 import { enemyLabels, shortEnemyLabels } from '../enemy-labels.ts';
 import { groupDigits, hitChanceText, progressGain, progressPoints, wholeText } from '../format.ts';
 import { Exhaustion, exhaustionLevels, healthColor, type ExhaustionLevels } from '../condition.tsx';
@@ -139,10 +140,14 @@ export function TurnReportView(props: {
               (faction) => state.factions.find((item) => item.id === faction)?.name ?? faction,
             ),
           );
-    // GUI, Enemy labels: each Enemy by its Enemy label, each Agent by its Instance ID.
-    // GUI, Enemy labels: the short Enemy label only beside a figure of the Combat replay.
-    const shortLabels = shortEnemyLabels(site?.enemies ?? []);
-    const labels = enemyLabels(site?.enemies ?? []);
+    // GUI, Enemy labels and Agent shown by name: each Enemy by its Enemy label, each Agent by its Agent name; beside a
+    // figure of the Combat replay, the short Enemy label and the Agent's last name.
+    const agentLists = [state.agents, snapshot.retired?.agents] as const;
+    const shortLabels = new Map([
+      ...agentShortNames(...agentLists),
+      ...shortEnemyLabels(site?.enemies ?? []),
+    ]);
+    const labels = new Map([...agentNames(...agentLists), ...enemyLabels(site?.enemies ?? [])]);
     const aside = (
       <>
         {siteName}

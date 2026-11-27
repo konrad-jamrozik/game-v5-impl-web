@@ -42,6 +42,11 @@ export interface AgentView {
   readonly archetypeName: string;
   readonly agency: string;
   readonly turnHired: number;
+  /** AGENT, Agent names: the two parts of the Agent name; the last name is empty for an Agent with one name only. */
+  readonly firstName: string;
+  readonly lastName: string;
+  /** AGENT, Agent names: the Agent name, which the GUI shows in place of the Instance ID. */
+  readonly name: string;
   readonly agentStatus: AgentStatus;
   /** Base skill, a Decimal quantity held in hundredths; see NUMBERS, Decimal quantities. */
   readonly skillHundredths: number;

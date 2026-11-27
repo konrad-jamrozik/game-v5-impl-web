@@ -5,12 +5,14 @@ import { pressHeader } from '../../src/web/table-sort.ts';
 
 const agent = (
   id: string,
+  name: string,
   combatRating: number,
   effectiveSkill: number,
   skill: number,
   exhaustion: number,
 ) => ({
   id,
+  name,
   combatRating,
   effectiveSkill,
   skillHundredths: skill * 100,
@@ -20,16 +22,21 @@ const agent = (
 // The orders by Instance ID, Combat rating, effective skill, base skill, and exhaustion all differ, so that each test
 // shows its own key.
 const candidates = [
-  agent('agent-10', 150, 120, 130, 29),
-  agent('agent-2', 110, 129, 129, 5),
-  agent('agent-9', 160, 100, 125, 23),
-  agent('agent-3', 120, 123, 140, 0),
+  agent('agent-10', 'Jan Kowalski', 150, 120, 130, 29),
+  agent('agent-2', 'Maria Rossi', 110, 129, 129, 5),
+  agent('agent-9', 'Ali Khan', 160, 100, 125, 23),
+  agent('agent-3', 'Emma Smith', 120, 123, 140, 0),
 ];
 const ids = (rows: readonly { id: string }[]) => rows.map((row) => row.id);
 
 describe('MVIEW: Deployment table', () => {
   it('lists the Agents by Instance ID by default', () => {
     expect(ids(deployRows(candidates, []))).toEqual(['agent-2', 'agent-3', 'agent-9', 'agent-10']);
+  });
+
+  it('sorts by Agent name on the first press of the Agent header', () => {
+    const tiers = pressHeader([], 'id', DEPLOY_NUMERIC.has('id'));
+    expect(ids(deployRows(candidates, tiers))).toEqual(['agent-9', 'agent-3', 'agent-10', 'agent-2']);
   });
 
   it('sorts by Combat rating, highest first, on the first press of its header', () => {

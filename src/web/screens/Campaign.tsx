@@ -351,8 +351,21 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     }
   };
 
+  // The keyboard shortcuts read this render's values through a ref, so that one listener stays attached for the
+  // Campaign screen's whole life: a listener swapped on every render misses a key pressed while a render that another
+  // keydown listener caused runs its effects, e.g. that of useCtrlHeld.
+  const onKeyRef = useRef<(event: KeyboardEvent) => void>(() => undefined);
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
+    const listener = (event: KeyboardEvent) => {
+      onKeyRef.current(event);
+    };
+    window.addEventListener('keydown', listener);
+    return () => {
+      window.removeEventListener('keydown', listener);
+    };
+  }, []);
+  useEffect(() => {
+    onKeyRef.current = (event: KeyboardEvent) => {
       if (typingIn(event.target) || event.ctrlKey || event.metaKey || event.altKey) {
         return;
       }
@@ -480,10 +493,6 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         return;
       }
       event.preventDefault();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('keydown', onKey);
     };
   });
 

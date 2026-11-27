@@ -8,8 +8,11 @@ import { must } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
 import {
   agentCombatantValues,
+  agentName,
+  agentNameParts,
   canTakeOrders,
   createAgent,
+  drawAgentName,
   effectiveSkill,
   effectiveWeaponDamage,
   isBaseAssignment,
@@ -130,7 +133,10 @@ function isRejected(value: unknown): value is Rejection {
 function requireOrderable(agents: readonly Agent[]): Rejection | null {
   const blocked = agents.filter((agent) => !canTakeOrders(agent.state));
   return blocked.length > 0
-    ? reject('agents_cannot_be_ordered', `These Agents cannot be ordered: ${list(blocked.map((a) => a.id))}.`)
+    ? reject(
+        'agents_cannot_be_ordered',
+        `These Agents cannot be ordered: ${list(blocked.map((a) => agentName(a.constants)))}.`,
+      )
     : null;
 }
 
@@ -140,7 +146,7 @@ function requireFitForWork(agents: readonly Agent[], gdrs: GdrCatalog): Rejectio
   return tired.length > 0
     ? reject(
         'agents_not_fit_for_work',
-        `These Agents are not Fit to start work: their exhaustion is above ${gdrs.agentParameters.exhaustionWorkStartMax}, or they have health lost: ${list(tired.map((a) => a.id))}.`,
+        `These Agents are not Fit to start work: their exhaustion is above ${gdrs.agentParameters.exhaustionWorkStartMax}, or they have health lost: ${list(tired.map((a) => agentName(a.constants)))}.`,
       )
     : null;
 }
@@ -166,7 +172,7 @@ function requireNotIncapacitated(
   return unfit.length > 0
     ? reject(
         'agents_incapacitated',
-        `These Agents would be Incapacitated at the start of the Combat, so they cannot be deployed: ${list(unfit.map((a) => a.id))}.`,
+        `These Agents would be Incapacitated at the start of the Combat, so they cannot be deployed: ${list(unfit.map((a) => agentName(a.constants)))}.`,
       )
     : null;
 }
@@ -180,7 +186,7 @@ function requireInBase(agents: readonly Agent[]): Rejection | null {
   return away.length > 0
     ? reject(
         'agents_not_in_base',
-        `These Agents are on Contracting or an Investigation and can only be recalled to Standby: ${list(away.map((a) => a.id))}.`,
+        `These Agents are on Contracting or an Investigation and can only be recalled to Standby: ${list(away.map((a) => agentName(a.constants)))}.`,
       )
     : null;
 }
@@ -253,14 +259,22 @@ function addAgent(world: CurrentWorldState, gdrs: GdrCatalog, hired: boolean): v
   // EQUIP, Equipment of new and departing Agents: an Agent that hireAgents hires wears the Fallback Weapon in place of
   // the AgentArchetype's `weapon`, so that the Agency arms it from Storage.
   const weapon = hired ? gdrs.combatParameters.fallbackWeapon : gdrs.agentArchetype.weapon;
+  const id = newInstanceId(world, 'agent');
   const agent = createAgent({
-    id: newInstanceId(world, 'agent'),
+    id,
     agencyId: world.agency.id,
     turn: world.turn,
     initialRoster: false,
     archetype: gdrs.agentArchetype,
     weapon: must(gdrs.weapons.get(weapon), 'Weapon of a new Agent'),
     armor: must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype'),
+    name: drawAgentName({
+      campaignSeed: world.seed,
+      id,
+      nameLists: gdrs.nameLists,
+      femaleNamePercent: gdrs.agentParameters.femaleNamePercent,
+      overrides: world.randomOverrides,
+    }),
   });
   world.agents[agent.id] = agent;
 }
@@ -285,7 +299,7 @@ function assignAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): R
   if (already.length > 0) {
     return reject(
       'already_assigned',
-      `These Agents already have the Current assignment ${assignment}: ${list(already.map((a) => a.id))}.`,
+      `These Agents already have the Current assignment ${assignment}: ${list(already.map((a) => agentName(a.constants)))}.`,
     );
   }
   if (assignment === 'Contracting' || assignment === 'Training') {
@@ -373,18 +387,21 @@ function dismissAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): 
   if (notServing.length > 0) {
     return reject(
       'agents_not_serving',
-      `These Agents are not Serving: ${list(notServing.map((a) => a.id))}.`,
+      `These Agents are not Serving: ${list(notServing.map((a) => agentName(a.constants)))}.`,
     );
   }
   const inTransit = agents.filter((agent) => agent.state.status === 'InTransit');
   if (inTransit.length > 0) {
-    return reject('agents_in_transit', `These Agents are In transit: ${list(inTransit.map((a) => a.id))}.`);
+    return reject(
+      'agents_in_transit',
+      `These Agents are In transit: ${list(inTransit.map((a) => agentName(a.constants)))}.`,
+    );
   }
   const busy = agents.filter((agent) => agent.state.assignment?.kind !== 'Standby');
   if (busy.length > 0) {
     return reject(
       'agents_not_on_standby',
-      `These Agents are not on Standby: ${list(busy.map((a) => a.id))}.`,
+      `These Agents are not on Standby: ${list(busy.map((a) => agentName(a.constants)))}.`,
     );
   }
   const bonus = bonusOf(world, gdrs);
@@ -405,7 +422,7 @@ function equipAgent(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rej
     return reject('agents_unknown', 'That Instance ID identifies no Agent.');
   }
   if (!isServing(agent.state)) {
-    return reject('agents_not_serving', `${agent.id} is not Serving.`);
+    return reject('agents_not_serving', `${agentName(agent.constants)} is not Serving.`);
   }
   const id = args['equipment'];
   const gdr = typeof id === 'string' ? equipmentGdr(gdrs, id) : undefined;
@@ -413,7 +430,7 @@ function equipAgent(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Rej
     return reject('unknown_equipment', 'That identifier names no Weapon or Armor.');
   }
   if (agent.state.weapon === gdr.id || agent.state.armor === gdr.id) {
-    return reject('already_equipped', `${agent.id} already wears the ${gdr.name}.`);
+    return reject('already_equipped', `${agentName(agent.constants)} already wears the ${gdr.name}.`);
   }
   const { weapon, armor } = fallbacks(gdrs);
   const isFallback = gdr.id === weapon.id || gdr.id === armor.id;
@@ -618,7 +635,7 @@ function assignAgentsToInvestigation(
   if (members.length > 0) {
     return reject(
       'already_in_current_team',
-      `These Agents already belong to its Current team: ${list(members.map((a) => a.id))}.`,
+      `These Agents already belong to its Current team: ${list(members.map((a) => agentName(a.constants)))}.`,
     );
   }
   const tired = requireFitForWork(agents, gdrs) ?? requireInBase(agents);
@@ -734,9 +751,11 @@ function addAgents(world: CurrentWorldState, args: Args, gdrs: GdrCatalog): Reje
 const OUTCOME_PATTERNS: readonly {
   readonly pattern: RegExp;
   readonly value: 'boolean' | 'whole' | 'text';
-  readonly instance: 'combatant' | 'agent' | 'lead' | 'faction';
+  readonly instance: 'combatant' | 'agent' | 'newAgent' | 'lead' | 'faction';
 }[] = [
   { pattern: /^agent\.trainingGain\.(.+)$/, value: 'boolean', instance: 'agent' },
+  // AGENT, Agent names: the name of an Agent not created yet, by the Instance ID it will take.
+  { pattern: /^agent\.name\.(agent-[1-9][0-9]*)$/, value: 'text', instance: 'newAgent' },
   { pattern: /^combat\.hit\.(.+)$/, value: 'boolean', instance: 'combatant' },
   { pattern: /^combat\.damage\.(.+)$/, value: 'whole', instance: 'combatant' },
   { pattern: /^investigation\.requiredProgress\.(.+)$/, value: 'whole', instance: 'lead' },
@@ -764,9 +783,11 @@ function overrideRandomOutcome(world: CurrentWorldState, args: Args, gdrs: GdrCa
         ? world.agents[instanceId] !== undefined || world.enemies[instanceId] !== undefined
         : known.instance === 'agent'
           ? world.agents[instanceId] !== undefined
-          : known.instance === 'lead'
-            ? gdrs.leads.some((lead) => lead.id === instanceId)
-            : world.factions[instanceId] !== undefined;
+          : known.instance === 'newAgent'
+            ? world.agents[instanceId] === undefined
+            : known.instance === 'lead'
+              ? gdrs.leads.some((lead) => lead.id === instanceId)
+              : world.factions[instanceId] !== undefined;
     if (!exists) {
       return reject(
         'unknown_instance',
@@ -779,7 +800,7 @@ function overrideRandomOutcome(world: CurrentWorldState, args: Args, gdrs: GdrCa
         : known.value === 'whole'
           ? isWhole(value) && value >= 0
           : typeof value === 'string' && value.length > 0;
-    if (!valid) {
+    if (!valid || (known.instance === 'newAgent' && agentNameParts(String(value), gdrs.nameLists) === null)) {
       return reject('invalid_value', 'That is not a possible value of this random outcome.', 'invalid_input');
     }
     // COMBAT, Damage outcome: a supplied damage outcome is one of the whole numbers from lo to hi.

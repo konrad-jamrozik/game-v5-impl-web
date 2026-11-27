@@ -8,6 +8,7 @@ import type { HistoryEntry } from '../../engine/index.ts';
 import { actionLines, expenditures, type ActionNames } from '../history-actions.ts';
 import { groupDigits, panicText } from '../format.ts';
 import { historyRows } from '../history-rows.ts';
+import { agentNameOf, agentNames } from '../agent-names.ts';
 import { usePlaceState } from '../place.tsx';
 import type { Snapshot } from '../store.ts';
 import { Grid } from '../ui.tsx';
@@ -115,6 +116,7 @@ export function HistoryView({
   const archetypes = snapshot.gameData?.missionSiteArchetypes ?? [];
   const missionSiteName = (archetype: string): string =>
     archetypes.find((item) => item.id === archetype)?.name ?? archetype;
+  const agentNamesById = agentNames(state?.agents, retired?.agents);
   const names: ActionNames = {
     lead: (id) =>
       retired?.leads.find((lead) => lead.id === id)?.name ??
@@ -123,6 +125,7 @@ export function HistoryView({
     investigationLead: (id) => investigations.find((item) => item.id === id)?.leadName ?? id,
     missionSite: (id) => missionSites.find((site) => site.id === id)?.name ?? id,
     upgrade: (id) => state?.agency.upgrades.find((upgrade) => upgrade.id === id)?.name ?? id,
+    agent: (id) => agentNameOf(agentNamesById, id),
     item: (id) =>
       snapshot.gameData?.weapons.find((item) => item.id === id)?.name ??
       snapshot.gameData?.armors.find((item) => item.id === id)?.name ??

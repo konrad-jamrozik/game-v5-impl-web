@@ -3299,7 +3299,7 @@ label:has(> input[type='checkbox']:disabled) {
   flex: none;
 }
 
-/* MVIEW, Deployment: the Rank insignia 6 px after an Agent's Instance ID. */
+/* MVIEW, Deployment: the Rank insignia 6 px after an Agent's name. */
 .deploy-rank {
   display: inline-flex;
   margin-left: 6px;
@@ -3614,7 +3614,7 @@ label:has(> input[type='checkbox']:disabled) {
   text-underline-offset: 3px;
 }
 
-/* AVIEW, Agent details: an Agent's Instance ID opens its details. */
+/* AVIEW, Agent details: an Agent's name opens its details. */
 .id-link {
   padding: 0;
   border: 0;

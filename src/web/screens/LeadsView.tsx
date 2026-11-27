@@ -298,7 +298,9 @@ function Team(props: {
   const team = checked.filter((id) => candidates.some((agent) => agent.id === id));
   // VIS, Tables: up to four sort tiers over the default order of LVIEW, Team.
   const [tiers, setTiers] = useState<SortTier<CandidateKey>[]>([]);
-  const value = (agent: AgentView, key: CandidateKey): number | string => agent[key];
+  // GUI, Agent shown by name: the Agent column sorts by the Agent name.
+  const value = (agent: AgentView, key: CandidateKey): number | string =>
+    key === 'id' ? agent.name : agent[key];
   const rows = sortRows(agentsToAddOrder(candidates), tiers, value);
   const selection = useRowSelection({
     order: rows.map((agent) => agent.id),
@@ -391,13 +393,13 @@ function Team(props: {
                     <td className="check" title={inTransit ? 'In transit' : undefined}>
                       <input
                         type="checkbox"
-                        aria-label={`Recall ${member.agent}`}
+                        aria-label={`Recall ${agentById(member.agent)?.name ?? member.agent}`}
                         data-testid={`recall-pick-${member.agent}`}
                         {...recallSelection.checkbox(member.agent)}
                       />
                     </td>
                     <td>
-                      {/* LVIEW, Team: an Instance ID opens the Agent's details in the Agents View as a Follow, without
+                      {/* LVIEW, Team: an Agent name opens the Agent's details in the Agents View as a Follow, without
                           checking or unchecking its row, since the row ignores clicks on a button. */}
                       <button
                         type="button"
@@ -408,7 +410,7 @@ function Team(props: {
                           props.onShow({ kind: 'agent', agent: member.agent });
                         }}
                       >
-                        {member.agent}
+                        {agentById(member.agent)?.name ?? member.agent}
                       </button>
                       {inTransit ? <InTransitIcon /> : null}
                     </td>
@@ -470,13 +472,13 @@ function Team(props: {
                     <td className="check">
                       <input
                         type="checkbox"
-                        aria-label={`Add ${agent.id}`}
+                        aria-label={`Add ${agent.name}`}
                         data-testid={`team-pick-${agent.id}`}
                         {...selection.checkbox(agent.id)}
                       />
                     </td>
                     <td>
-                      {/* LVIEW, Team: an Instance ID opens the Agent's details in the Agents View as a Follow, without
+                      {/* LVIEW, Team: an Agent name opens the Agent's details in the Agents View as a Follow, without
                         checking or unchecking its row, since the row ignores clicks on a button. */}
                       <button
                         type="button"
@@ -487,7 +489,7 @@ function Team(props: {
                           props.onShow({ kind: 'agent', agent: agent.id });
                         }}
                       >
-                        {agent.id}
+                        {agent.name}
                       </button>
                     </td>
                     <td className="num">{groupDigits(agent.effectiveSkill)}</td>

@@ -42,7 +42,14 @@ import { useRowSelection } from '../row-selection.ts';
 import { confirmOrGoBack, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
-import { pressHeader, pressHeaderUnderLock, sortRows, withLockedTier, type SortTier } from '../table-sort.ts';
+import {
+  compareValues,
+  pressHeader,
+  pressHeaderUnderLock,
+  sortRows,
+  withLockedTier,
+  type SortTier,
+} from '../table-sort.ts';
 import { Button, Grid, SortMark, ariaSort, withShortcut } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 import { EquipmentPicker } from './EquipmentPicker.tsx';
@@ -77,7 +84,7 @@ const SELECTABLE_FIRST = 'selectable';
 
 /**
  * VIS, Tables: the fixed widths of the table of Serving Agents, the checkbox column first. AVIEW, Agent table: the
- * Instance ID holds 30 characters, for the Agents' full names to come. CR holds four digits with their comma, e.g.
+ * Agent name holds 30 characters, the most an Agent name can hold. CR holds four digits with their comma, e.g.
  * "1,234" (65 px), and Exh. three after the warning triangle, each with its sort arrow; Health holds "123/123"; Rank
  * holds the abbreviation "Hi Cmdr" and three stars; Assignment names no Lead or Mission site and marks In transit with
  * an icon, so it holds "Recovery · 99 T left" and the icon.
@@ -187,7 +194,7 @@ export function AgentsView(props: {
   state: CurrentLiveWorldStateView;
   selected: readonly string[];
   locked: string | null;
-  /** The Agent whose details open at once, when the Player followed an Agent's Instance ID from another view. */
+  /** The Agent whose details open at once, when the Player followed an Agent's name from another view. */
   initial: string | null;
   onSelect: (ids: readonly string[]) => void;
   /** CSCR, View trail, Follow: opens another Detail view with an item selected. */
@@ -332,9 +339,11 @@ export function AgentsView(props: {
 
   const columns = useMemo(
     () => [
+      // GUI, Agent shown by name: the column shows the Agent name and sorts by it.
       helper.accessor('id', {
         header: 'Agent',
-        sortingFn: (a, b) => byId(a.original.id, b.original.id),
+        sortingFn: (a, b) =>
+          compareValues(a.original.name, b.original.name) || byId(a.original.id, b.original.id),
         cell: (cell) => (
           <button
             type="button"
@@ -344,7 +353,7 @@ export function AgentsView(props: {
               openDetails(cell.getValue());
             }}
           >
-            {cell.getValue()}
+            {cell.row.original.name}
           </button>
         ),
       }),
@@ -444,12 +453,10 @@ export function AgentsView(props: {
       ? undefined
       : (state.agents.find((agent) => agent.id === details) ??
         terminated.find((agent) => agent.id === details));
-  usePlaceName(
-    shownDetails !== undefined ? `Agent ${shownDetails.id}` : equipOpen && !memorial ? 'Equip' : null,
-  );
+  usePlaceName(shownDetails !== undefined ? shownDetails.name : equipOpen && !memorial ? 'Equip' : null);
   if (shownDetails !== undefined) {
     return (
-      <DetailView id="agents" title={`Agent ${shownDetails.id}`} onClose={props.onClose}>
+      <DetailView id="agents" title={shownDetails.name} onClose={props.onClose}>
         <AgentDetails
           agent={shownDetails}
           snapshot={snapshot}
@@ -776,7 +783,7 @@ export function AgentsView(props: {
                   >
                     <input
                       type="checkbox"
-                      aria-label={`Select ${row.id}`}
+                      aria-label={`Select ${row.original.name}`}
                       data-testid={`select-${row.id}`}
                       data-blocked-by={row.original.blockedBy}
                       {...selection.checkbox(row.id)}
@@ -835,7 +842,7 @@ function Memorial(props: {
   const value = (row: Row, key: MemorialKey): number | string => {
     switch (key) {
       case 'id':
-        return row.agent.id;
+        return row.agent.name;
       case 'skill':
         return row.agent.skillHundredths;
       case 'experience':
@@ -897,7 +904,7 @@ function Memorial(props: {
                     props.onOpen(row.agent.id);
                   }}
                 >
-                  {row.agent.id}
+                  {row.agent.name}
                 </button>
               </td>
               <td className="num">{wholeText(row.agent.skillHundredths)}</td>
@@ -1015,6 +1022,11 @@ function AgentDetails(props: {
   return (
     <div className="stack" data-testid={`agent-details-view-${agent.id}`}>
       <dl className="pairs">
+        {/* GUI, Agent shown by name: the one place where the GUI shows an Agent's Instance ID. */}
+        <dt>Instance ID</dt>
+        <dd className="figure" data-testid="details-instance-id">
+          {agent.id}
+        </dd>
         <dt>Archetype</dt>
         <dd>{agent.archetypeName}</dd>
         <dt>Turn hired</dt>

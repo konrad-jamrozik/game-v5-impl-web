@@ -4,7 +4,7 @@
  */
 
 /**
- * Every column headed Agent: an Agent's Instance ID in 30 characters, so that it can later hold an Agent's full name, at
+ * Every column headed Agent: an Agent name of 30 characters, the most AGENT, NameList allows, at
  * about 8.4 px a character of the Figure style.
  */
 export const AGENT_COLUMN_WIDTH = '274px';

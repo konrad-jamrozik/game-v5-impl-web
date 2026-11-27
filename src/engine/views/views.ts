@@ -8,6 +8,7 @@ import type { GdrCatalog } from '../../gdr/index.ts';
 import { GAME_BUILD } from '../game-build.ts';
 import { applyGameAction } from '../actions/actions.ts';
 import {
+  agentName,
   canTakeOrders,
   effectiveSkill,
   enemyCombatantValues,
@@ -246,6 +247,9 @@ function agentView(
     archetypeName: gdrs.agentArchetype.name,
     agency: agent.constants.agency,
     turnHired: agent.constants.turnHired,
+    firstName: agent.constants.firstName,
+    lastName: agent.constants.lastName,
+    name: agentName(agent.constants),
     agentStatus: s.status,
     skillHundredths: s.skillHundredths,
     experience: s.experience,

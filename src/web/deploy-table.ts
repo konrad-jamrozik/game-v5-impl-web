@@ -17,7 +17,7 @@ export const DEPLOY_NUMERIC: ReadonlySet<DeployKey> = new Set([
 
 type DeployAgent = Pick<
   AgentView,
-  'id' | 'combatRating' | 'effectiveSkill' | 'skillHundredths' | 'exhaustion'
+  'id' | 'name' | 'combatRating' | 'effectiveSkill' | 'skillHundredths' | 'exhaustion'
 >;
 
 /**
@@ -30,6 +30,7 @@ export function deployRows<A extends DeployAgent>(
 ): A[] {
   const byId = [...candidates].sort((a, b) => compareValues(a.id, b.id));
   return sortRows(byId, tiers, (agent, key) =>
-    key === 'combatRating' ? (agent.combatRating ?? 0) : agent[key],
+    // GUI, Agent shown by name: the Agent column sorts by the Agent name.
+    key === 'combatRating' ? (agent.combatRating ?? 0) : key === 'id' ? agent.name : agent[key],
   );
 }

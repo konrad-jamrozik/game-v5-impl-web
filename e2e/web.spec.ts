@@ -344,13 +344,14 @@ test('AVIEW, Equip table: Equip works from the Memorial, covers the whole screen
   await expect(id(page, 'agents-grid')).toBeVisible();
 });
 
-test('LVIEW, Team: an Instance ID opens the Agent details, and Escape returns to the Leads View', async ({
+test('LVIEW, Team: an Agent name opens the Agent details, and Escape returns to the Leads View', async ({
   page,
 }) => {
   await newCampaign(page, 'leads-agent-details');
   await id(page, 'nav-leads').click();
   const candidate = page.locator('[data-testid^="team-candidate-"]').first();
-  const agentId = (await candidate.innerText()).trim();
+  // GUI, Agent shown by name: the button shows the Agent name, so the Agent is told apart by its test ID.
+  const agentId = ((await candidate.getAttribute('data-testid')) ?? '').replace('team-candidate-', '');
   await candidate.click();
   await expect(id(page, `agent-details-view-${agentId}`)).toBeVisible();
   await page.keyboard.press('Escape');

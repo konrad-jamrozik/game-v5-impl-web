@@ -4,7 +4,7 @@
  */
 import { must, seedRng } from '../../kernel/index.ts';
 import type { GdrCatalog } from '../../gdr/index.ts';
-import { createAgent } from '../mechanics/agents/agents.ts';
+import { createAgent, drawAgentName } from '../mechanics/agents/agents.ts';
 import { createFaction } from '../mechanics/factions/factions.ts';
 import { discoverLeads } from '../mechanics/leads/leads.ts';
 import { seededRandom } from '../random.ts';
@@ -58,14 +58,22 @@ export function createCampaignState(
   const weapon = must(gdrs.weapons.get(gdrs.agentArchetype.weapon), 'Weapon of the AgentArchetype');
   const armor = must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype');
   for (let i = 0; i < gdrs.agentParameters.initialRosterSize; i += 1) {
+    const id = newInstanceId(world, 'agent');
     const agent = createAgent({
-      id: newInstanceId(world, 'agent'),
+      id,
       agencyId: agency.id,
       turn: world.turn,
       initialRoster: true,
       archetype: gdrs.agentArchetype,
       weapon,
       armor,
+      name: drawAgentName({
+        campaignSeed: seed,
+        id,
+        nameLists: gdrs.nameLists,
+        femaleNamePercent: gdrs.agentParameters.femaleNamePercent,
+        overrides: [],
+      }),
     });
     world.agents[agent.id] = agent;
   }

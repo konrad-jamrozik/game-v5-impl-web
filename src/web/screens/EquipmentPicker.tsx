@@ -152,7 +152,7 @@ export function EquipmentPicker(props: {
               className="equipment-options"
               style={placement}
               role="listbox"
-              aria-label={`${props.kind === 'weapon' ? 'Weapon' : 'Armor'} for ${props.agent.id}`}
+              aria-label={`${props.kind === 'weapon' ? 'Weapon' : 'Armor'} for ${props.agent.name}`}
             >
               {options.map((option) => (
                 <button

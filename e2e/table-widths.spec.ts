@@ -340,9 +340,12 @@ test('no table cuts the widest values short, and every table fits its view', asy
   await sortByEach(page, 'memorial-sort-', 'the Memorial');
   await id(page, 'filter-all').click();
   // The details of an Agent with a Participation history, for its table.
-  const agents = await id(page, 'agents-grid').locator('[data-testid^="agent-details-"]').allTextContents();
+  // GUI, Agent shown by name: the buttons show Agent names, so the Agents are told apart by their test IDs.
+  const agents = await id(page, 'agents-grid')
+    .locator('[data-testid^="agent-details-"]')
+    .evaluateAll((buttons) => buttons.map((button) => button.getAttribute('data-testid') ?? ''));
   for (const agent of agents) {
-    await id(page, `agent-details-${agent}`).click();
+    await id(page, agent).click();
     if ((await id(page, 'participation-grid').count()) > 0) {
       break;
     }

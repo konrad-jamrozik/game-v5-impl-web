@@ -19,6 +19,7 @@ import type {
   GdrCatalog,
   LeadGdr,
   MissionSiteArchetypeGdr,
+  NameListGdr,
   RankGdr,
 } from './types.ts';
 
@@ -249,6 +250,8 @@ const schemas = {
       id,
       type: z.literal('AgentParameters'),
       initial_roster_size: whole(0),
+      // AGENT, AgentParameters: a Percent value from 0 to 100.
+      female_name_percent: z.int().min(0).max(100),
       ...combatAgentParameterFields,
       exhaustion_per_mission: whole(0),
       exhaustion_per_pct_killed: whole(0),
@@ -265,6 +268,7 @@ const schemas = {
       type: g.type,
       id: g.id,
       initialRosterSize: g.initial_roster_size,
+      femaleNamePercent: g.female_name_percent,
       exhaustionIncapacitation: g.exhaustion_incapacitation,
       exhaustionFreePoints: g.exhaustion_free_points,
       skillPenaltyPctPerExhaustion: g.skill_penalty_pct_per_exhaustion,
@@ -778,6 +782,28 @@ const schemas = {
       image: g.image,
       opacityPct: g.opacity_pct,
     })),
+  // AGENT, NameList: the exhaustive properties of a NameList; AGENT, Agent names checks the names themselves.
+  NameList: z
+    .strictObject({
+      id,
+      type: z.literal('NameList'),
+      name,
+      weight: whole(1),
+      male_first_names: z.array(z.string()).min(1),
+      female_first_names: z.array(z.string()).min(1),
+      male_last_names: z.array(z.string()).min(1),
+      female_last_names: z.array(z.string()).min(1).optional(),
+    })
+    .transform((g) => ({
+      type: g.type,
+      id: g.id,
+      name: g.name,
+      weight: g.weight,
+      maleFirstNames: g.male_first_names,
+      femaleFirstNames: g.female_first_names,
+      maleLastNames: g.male_last_names,
+      femaleLastNames: g.female_last_names ?? g.male_last_names,
+    })),
   // GUI, Ranks: the exhaustive properties of a Rank.
   Rank: z
     .strictObject({
@@ -1069,6 +1095,15 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const backgroundArtworks = all<BackgroundArtworkGdr>('BackgroundArtwork');
   const detachedCombatTeams = all<DetachedCombatTeamGdr>('DetachedCombatTeam');
   const ranks = [...all<RankGdr>('Rank')].sort((a, b) => b.minBaseSkill - a.minBaseSkill);
+  const nameLists = all<NameListGdr>('NameList');
+
+  // AGENT, NameList: a Game build supplies at least one, and every name and Agent name it gives is well formed.
+  if (nameLists.length === 0) {
+    problems.push('The Game build must supply at least one NameList');
+  }
+  for (const list of nameLists) {
+    problems.push(...nameListProblems(list));
+  }
 
   // GUI, Ranks: no two Ranks share a `min_base_skill` or an `abbreviation`.
   ranks.forEach((rank, index) => {
@@ -1365,8 +1400,51 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     compendiumArticles,
     backgroundArtworks,
     ranks,
+    nameLists,
     detachedCombatTeams,
   };
+}
+
+/** AGENT, NameList: the longest an Agent name may be, in Unicode code points. */
+export const AGENT_NAME_MAX_LENGTH = 30;
+
+/**
+ * AGENT, NameList: no name starts or ends with a space or holds two spaces in a row, only a last name may be empty, and
+ * every Agent name the NameList gives is at most AGENT_NAME_MAX_LENGTH code points long.
+ */
+function nameListProblems(list: NameListGdr): string[] {
+  const problems: string[] = [];
+  const length = (text: string) => Array.from(text).length;
+  const lists = [
+    ['male_first_names', list.maleFirstNames, false],
+    ['female_first_names', list.femaleFirstNames, false],
+    ['male_last_names', list.maleLastNames, true],
+    ['female_last_names', list.femaleLastNames, true],
+  ] as const;
+  for (const [property, names, mayBeEmpty] of lists) {
+    for (const entry of names) {
+      if (entry === '' ? !mayBeEmpty : entry !== entry.trim() || entry.includes('  ')) {
+        problems.push(`NameList ${list.id}: ${property} holds the malformed name ${JSON.stringify(entry)}`);
+      }
+    }
+  }
+  const longest = (names: readonly string[]) =>
+    Math.max(...names.map((entry) => (entry === '' ? -1 : length(entry))));
+  const pairs = [
+    [list.maleFirstNames, list.maleLastNames],
+    [list.femaleFirstNames, list.femaleLastNames],
+  ] as const;
+  for (const [firsts, lasts] of pairs) {
+    const last = longest(lasts);
+    for (const first of firsts) {
+      if (length(first) + 1 + last > AGENT_NAME_MAX_LENGTH) {
+        problems.push(
+          `NameList ${list.id}: the first name ${first} gives an Agent name longer than ${AGENT_NAME_MAX_LENGTH} characters`,
+        );
+      }
+    }
+  }
+  return problems;
 }
 
 /** Compares two texts character by character by Unicode code point. */
