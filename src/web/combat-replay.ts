@@ -127,9 +127,23 @@ export interface ReplayFigure {
   readonly baseSkillHundredths: number;
   /** The effective weapon damage at Combat start. */
   readonly weaponDamage: number;
+  /** COMBAT, Combat report, Starting values: its Combat rating at Combat start; null in an older Combat report. */
+  readonly startCombatRating: number | null;
   readonly rank: RankInsignia | null;
   /** Null for an Agent, which is a circle in Positive. */
   readonly look: EnemyLook | null;
+}
+
+/**
+ * CRPLAY, Figures, Name: the Combat rating at a moment out of the one at Combat start, with the share in percent
+ * rounded down to one decimal, e.g. "150/240 (62.5%)"; without a share when the one at Combat start is 0.
+ */
+export function ratingShareText(rating: number, startRating: number): string {
+  if (startRating <= 0) {
+    return `${groupDigits(rating)}/${groupDigits(startRating)}`;
+  }
+  const tenths = Math.floor((rating * 1000) / startRating);
+  return `${groupDigits(rating)}/${groupDigits(startRating)} (${groupDigits(Math.floor(tenths / 10))}.${tenths % 10}%)`;
 }
 
 /**
@@ -152,6 +166,8 @@ export interface FigureValues {
   readonly exhaustion: number;
   /** CRPLAY, Figures, Name: the effective skill at this moment, as the Combat log records it. */
   readonly effectiveSkill: number;
+  /** CRPLAY, Figures, Name: the Combat rating at this moment, as the Combat log records it; null when it does not. */
+  readonly combatRating: number | null;
   readonly condition: Participant['final']['condition'];
 }
 
@@ -381,6 +397,7 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
         startArmor: who.start.armor,
         baseSkillHundredths: who.start.skillHundredths,
         weaponDamage: who.start.weaponDamage,
+        startCombatRating: who.start.combatRating ?? null,
         // GUI, Ranks: an Enemy's shape says how strong its kind is, so it has no Rank insignia.
         rank: side === 'agent' ? rankInsignia(who.start.skillHundredths, source.ranks) : null,
         look: side === 'enemy' ? enemyLook(source.enemyOrder(id)) : null,
@@ -397,6 +414,7 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
       armor: start?.armor ?? 0,
       exhaustion: start?.exhaustion ?? 0,
       effectiveSkill: start?.effectiveSkill ?? 0,
+      combatRating: start?.combatRating ?? null,
       condition: conditionOf(health, start?.incapacitated ?? false),
     };
   });
@@ -429,6 +447,7 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
           healthHundredths: record.defenderAfter.currentHealthHundredths,
           armor: record.defenderAfter.currentArmor,
           exhaustion: record.defenderAfter.exhaustion,
+          combatRating: record.defenderAfter.combatRating ?? null,
           condition: record.defenderDead
             ? 'dead'
             : record.defenderIncapacitated
@@ -440,6 +459,7 @@ export function buildReplay(report: CombatReport, source: ReplaySource): Replay 
         return {
           ...values,
           exhaustion: record.attackerAfter.exhaustion,
+          combatRating: record.attackerAfter.combatRating ?? null,
           condition: record.attackerIncapacitated ? 'incapacitated' : values.condition,
         };
       }

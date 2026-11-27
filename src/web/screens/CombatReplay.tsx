@@ -23,6 +23,7 @@ import {
   roundEnd,
   settledIndex,
   shownRange,
+  ratingShareText,
   skillShareText,
   type Pace,
   type Playback,
@@ -557,6 +558,13 @@ export function CombatReplay(props: {
                 skill {skillShareText(hoveredValues.effectiveSkill, hoveredFigure.baseSkillHundredths)} ·
                 exhaustion {groupDigits(hoveredValues.exhaustion)}
               </div>
+              {/* CRPLAY, Figures, Name: the Combat rating at this moment out of the one at Combat start, left out for a
+                  Combat report that does not hold them. */}
+              {hoveredValues.combatRating === null || hoveredFigure.startCombatRating === null ? null : (
+                <div className="figure secondary" data-testid="replay-tip-rating">
+                  CR {ratingShareText(hoveredValues.combatRating, hoveredFigure.startCombatRating)}
+                </div>
+              )}
               <div className="figure secondary">
                 weapon damage {groupDigits(hoveredFigure.weaponDamage)}
                 {hoveredValues.condition === 'dead'

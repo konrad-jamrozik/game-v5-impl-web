@@ -23,6 +23,7 @@ import {
   roundEnd,
   settledIndex,
   shownRange,
+  ratingShareText,
   skillShareText,
   type PlaybackSettings,
   type ReplayFigure,
@@ -485,6 +486,8 @@ describe('CRPLAY: the values a figure shows', () => {
       armor: 20,
       exhaustion: 0,
       effectiveSkill: 100,
+      // A Combat report without Combat ratings per Combatant gives none to show.
+      combatRating: null,
       condition: 'ableToFight',
     });
     // The first hit takes all of enemy-1's armor and 5 of its health.
@@ -513,6 +516,30 @@ describe('CRPLAY: the values a figure shows', () => {
     expect(skillShareText(350, 35000)).toBe('350/350 (100.0%)');
     expect(skillShareText(0, 35050)).toBe('0/350 (0.0%)');
     expect(skillShareText(0, 0)).toBe('0/0');
+  });
+
+  it('gives the Combat rating out of the one at Combat start, and takes each from the Combat log', () => {
+    expect(ratingShareText(150, 240)).toBe('150/240 (62.5%)');
+    expect(ratingShareText(0, 240)).toBe('0/240 (0.0%)');
+    expect(ratingShareText(0, 0)).toBe('0/0');
+    const combat = report();
+    const participants = combat.participants.map((who) => ({
+      ...who,
+      start: { ...who.start, combatRating: 240 },
+    }));
+    const log = combat.log.map((record, n) => ({
+      ...record,
+      attackerAfter: { ...record.attackerAfter, combatRating: 200 - n },
+      defenderAfter: { ...record.defenderAfter, combatRating: 100 - n },
+    }));
+    const replay = buildReplay({ ...combat, participants, log }, source);
+    const at = (id: string) => replay.figures.findIndex((figure) => figure.id === id);
+    expect(replay.figures.every((figure) => figure.startCombatRating === 240)).toBe(true);
+    expect(replay.frames[0]?.every((values) => values.combatRating === 240)).toBe(true);
+    log.forEach((record, n) => {
+      expect(replay.frames[n + 1]?.[at(record.attacker)]?.combatRating).toBe(200 - n);
+      expect(replay.frames[n + 1]?.[at(record.defender)]?.combatRating).toBe(100 - n);
+    });
   });
 
   it('reads the Combat ratings as of the last Combat round completed', () => {

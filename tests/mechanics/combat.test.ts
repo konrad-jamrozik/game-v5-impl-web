@@ -426,7 +426,13 @@ describe('COMBAT: examples', () => {
     expect(report.log.map((x) => x.damage)).toEqual([12, 15, null, 7, null, 9, null, 5]);
     expect(report.log[5]).toMatchObject({
       defenderDead: true,
-      defenderAfter: { currentHealthHundredths: 0, exhaustion: 3 },
+      // COMBAT, Combat report, item 9: a dead defender is not able to fight, so its Combat rating is 0.
+      defenderAfter: { currentHealthHundredths: 0, exhaustion: 3, combatRating: 0 },
+    });
+    // The unhurt a2 keeps its effective skill of 100 and an agent's rating factor of 1; the last initiate falls.
+    expect(report.log[7]).toMatchObject({
+      attackerAfter: { combatRating: 100 },
+      defenderAfter: { combatRating: 0 },
     });
     expect(report.ratings).toEqual([
       // COMBAT, Combat rating: ⌊200 × 2 ^ 0.2⌋ and ⌊80 × 11/15 × 2 ^ 0.2⌋ at the start, an initiate's rating factor

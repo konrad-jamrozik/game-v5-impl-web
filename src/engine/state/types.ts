@@ -285,12 +285,22 @@ export interface AttackRecord {
   readonly armorRemoved: number;
   /** In hundredths, as is each current health below; exhaustion is whole. */
   readonly healthRemovedHundredths: number;
-  readonly attackerAfter: { readonly currentHealthHundredths: number; readonly exhaustion: number };
+  readonly attackerAfter: {
+    readonly currentHealthHundredths: number;
+    readonly exhaustion: number;
+    /**
+     * COMBAT, Combat report, item 9: its Combat rating after the attack, 0 when not able to fight; absent in a Combat
+     * report written before the Combat log held it.
+     */
+    readonly combatRating?: number;
+  };
   readonly defenderAfter: {
     readonly currentHealthHundredths: number;
     readonly exhaustion: number;
     /** The defender's current armor after the attack. */
     readonly currentArmor: number;
+    /** As the attacker's. */
+    readonly combatRating?: number;
   };
   readonly defenderDead: boolean;
   readonly defenderIncapacitated: boolean;

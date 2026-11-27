@@ -628,14 +628,18 @@ function fight(
       damage,
       armorRemoved,
       healthRemovedHundredths,
+      // COMBAT, Combat report, item 9: each one's Combat rating alone after the attack, 0 when not able to fight, and
+      // after any run-out of Ammo the attack caused, so that a switch to the Fallback Weapon counts.
       attackerAfter: {
         currentHealthHundredths: attacker.state.currentHealthHundredths,
         exhaustion: exhaustionOf(attacker.state),
+        combatRating: rating([attacker]),
       },
       defenderAfter: {
         currentHealthHundredths: defender.state.currentHealthHundredths,
         exhaustion: exhaustionOf(defender.state),
         currentArmor: defender.currentArmor,
+        combatRating: rating([defender]),
       },
       defenderDead: defender.state.currentHealthHundredths === 0,
       defenderIncapacitated,
