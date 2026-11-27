@@ -204,7 +204,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
           "$decimal": "0.5"
         },
         "retreat_below_agent_rating_fraction": {
-          "$decimal": "0.4"
+          "$decimal": "0.5"
         },
         "retreat_at_enemy_to_agent_rating": {
           "$decimal": "0.9"
