@@ -13,7 +13,7 @@ import { summarize } from './summary.ts';
 import type { CampaignState, CurrentWorldState } from './types.ts';
 
 export function createCampaignState(
-  configuration: { startingMoney: number; startingFunding: number; prologue?: number },
+  configuration: { startingMoney: number; startingFunding: number; prologue?: number; tutorials?: number },
   seed: string,
   gdrs: GdrCatalog,
 ): CampaignState {
@@ -108,6 +108,8 @@ export function createCampaignState(
       startingFunding: configuration.startingFunding,
       // TURN, Prologue: the value is kept as configured; the Prologue itself runs after this initial Campaign state.
       prologue: configuration.prologue ?? 0,
+      // TSUM, Tutorials: on unless the configuration turns it off.
+      tutorials: configuration.tutorials ?? 1,
     },
     world: {
       current: world,

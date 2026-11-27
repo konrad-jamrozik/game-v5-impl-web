@@ -40,11 +40,35 @@ export function Speaker({ off }: { off: boolean }) {
 }
 
 /**
+ * MUSIC, Music control: the Music toggle, which sets Music on to the opposite value. MUSIC, Music volume slider: the
+ * Music row of the Settings panel holds one too, showing the same Music on.
+ */
+export function MusicToggle(props: { snapshot: Snapshot; buttonClass: string; testId: string }) {
+  const { session } = theEngine();
+  const { on } = musicSettings(props.snapshot);
+  return (
+    // SOUNDS, Main click: the Music toggle changes a setting of Global configuration, whichever way it turns.
+    <button
+      type="button"
+      className={`${props.buttonClass} speaker-toggle`}
+      aria-label={on ? 'Music on' : 'Music off'}
+      aria-pressed={on}
+      title={on ? 'Turn music off' : 'Turn music on'}
+      data-testid={props.testId}
+      onClick={() => {
+        act(() => session.globalConfiguration.set('musicOn', !on));
+      }}
+    >
+      <Speaker off={!on} />
+    </button>
+  );
+}
+
+/**
  * `onGlobeStage`: MUSIC, Music control on the Globe stage: one row with the Track title first, at the bottom right
  * corner of the Globe stage, its buttons drawn as the globe's own controls are.
  */
 export function MusicControl({ snapshot, onGlobeStage }: { snapshot: Snapshot; onGlobeStage?: boolean }) {
-  const { session } = theEngine();
   const { on } = musicSettings(snapshot);
   const status = useSyncExternalStore(music.subscribe, music.getStatus);
   const buttonClass = onGlobeStage === true ? 'globe-stage-button' : 'btn btn-plain';
@@ -61,20 +85,7 @@ export function MusicControl({ snapshot, onGlobeStage }: { snapshot: Snapshot; o
   );
   const buttons = (
     <>
-      {/* SOUNDS, Main click: the Music toggle changes a setting of Global configuration, whichever way it turns. */}
-      <button
-        type="button"
-        className={`${buttonClass} speaker-toggle`}
-        aria-label={on ? 'Music on' : 'Music off'}
-        aria-pressed={on}
-        title={on ? 'Turn music off' : 'Turn music on'}
-        data-testid="music-toggle"
-        onClick={() => {
-          act(() => session.globalConfiguration.set('musicOn', !on));
-        }}
-      >
-        <Speaker off={!on} />
-      </button>
+      <MusicToggle snapshot={snapshot} buttonClass={buttonClass} testId="music-toggle" />
       <button
         type="button"
         className={`${buttonClass} music-skip`}

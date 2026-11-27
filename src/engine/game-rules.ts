@@ -42,7 +42,7 @@ function isWholeAtLeastZero(value: unknown): value is number {
 
 export { advanceTurnOf, applyActionTo };
 
-/** ECON, Campaign configuration values, and TURN, Prologue: all are fixed after creation. */
+/** ECON, Campaign configuration values, and TURN, Prologue, fixed after creation; TSUM, Tutorials, adjustable. */
 const CONFIGURATION_VALUES: readonly ConfigurationValueDescriptor[] = [
   {
     key: 'startingMoney',
@@ -65,6 +65,14 @@ const CONFIGURATION_VALUES: readonly ConfigurationValueDescriptor[] = [
     permitted: '0 or 1',
     isPermitted: (value) => value === 0 || value === 1,
   },
+  {
+    // TSUM, Tutorials: true or false, kept as 1 or 0; adjustable during play, and read by no rule yet.
+    key: 'tutorials',
+    name: 'Tutorials',
+    adjustable: true,
+    permitted: '1 (on) or 0 (off)',
+    isPermitted: (value) => value === 0 || value === 1,
+  },
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -81,6 +89,7 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
         startingMoney: preset.startingMoney,
         startingFunding: preset.startingFunding,
         prologue: preset.prologue,
+        tutorials: preset.tutorials,
       },
     })),
     defaultPresetId: gdrs.configurationParameters.defaultPreset,
@@ -93,6 +102,7 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
           startingMoney: configuration['startingMoney'] ?? 0,
           startingFunding: configuration['startingFunding'] ?? 0,
           prologue,
+          tutorials: configuration['tutorials'] ?? 1,
         },
         seed,
         gdrs,

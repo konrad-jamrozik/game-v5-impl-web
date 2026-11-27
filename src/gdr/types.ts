@@ -212,6 +212,8 @@ export interface CampaignConfigurationGdr {
   readonly startingFunding: number;
   /** TURN, Prologue: 1 when campaign creation plays a Prologue, else 0. */
   readonly prologue: number;
+  /** TSUM, Tutorials: 1 when the preset's `tutorials` is true, else 0. */
+  readonly tutorials: number;
 }
 
 export interface ConfigurationParametersGdr {

@@ -80,7 +80,12 @@ describe('ECON: examples', () => {
     expect(view.upgrades.map((u) => [u.id, u.acquisitions])).toEqual(gdrs.upgrades.map((u) => [u.id, 0]));
     expect(series(state)).toEqual({ start: [500], end: [] });
     // TURN, Prologue: a Campaign created without a Prologue keeps the value 0.
-    expect(state.configuration).toEqual({ startingMoney: 500, startingFunding: 20, prologue: 0 });
+    expect(state.configuration).toEqual({
+      startingMoney: 500,
+      startingFunding: 20,
+      prologue: 0,
+      tutorials: 1,
+    });
     expect(agents(state).every((a) => a.state.baseWeaponDamage === agentWeaponDamage())).toBe(true);
     const rules = createGameRules(gdrs);
     const starting = rules.configurationValues.find((value) => value.key === 'startingMoney')!;

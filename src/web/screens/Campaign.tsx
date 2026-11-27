@@ -981,6 +981,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       {specialEvent !== null ? (
         <SpecialEvent
           event={specialEvent}
+          snapshot={snapshot}
           onDismiss={() => {
             setSpecialEvent(null);
           }}

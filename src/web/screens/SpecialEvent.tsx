@@ -1,15 +1,17 @@
 /**
  * TSUM, Special events: a Special event shown on its own, in the dialog of the Turn summary, its Event art a backdrop
- * filling the dialog above the control row, its heading and its larger text centred on it from top to bottom, and only
- * Continue, centred, in its control row.
+ * filling the dialog above the control row, its heading and its larger text centred on it from top to bottom, the
+ * Tutorials checkbox below the text, and only Continue, centred, in its control row.
  */
 import { useEffect, useRef } from 'react';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { emphasized, type SpecialEventView } from '../special-events.ts';
+import type { Snapshot } from '../store.ts';
 import { withShortcut } from '../ui.tsx';
+import { TutorialsCheckbox } from './TutorialsCheckbox.tsx';
 
-export function SpecialEvent(props: { event: SpecialEventView; onDismiss: () => void }) {
+export function SpecialEvent(props: { event: SpecialEventView; snapshot: Snapshot; onDismiss: () => void }) {
   const { event } = props;
   const dialog = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -68,6 +70,13 @@ export function SpecialEvent(props: { event: SpecialEventView; onDismiss: () => 
                 ),
               )}
             </p>
+            <div className="special-event-tutorials control-backdrop">
+              <TutorialsCheckbox
+                snapshot={props.snapshot}
+                label="Tutorial"
+                testId="special-event-tutorials"
+              />
+            </div>
           </div>
         </div>
         <footer className="special-event-controls">

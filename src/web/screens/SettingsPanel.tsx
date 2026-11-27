@@ -1,7 +1,8 @@
 /**
  * GUI, Settings panel: the one place where the Player sets Global configuration, on both screens. Its rows, from top
- * to bottom, are the Music volume slider, the Sounds row, one row for each other setting except the Autopilot settings,
- * the Changed settings row, and, on the Campaign screen only, the Tools row. On the Main menu it stands in the right column with the Music control above its rows and no
+ * to bottom, are the Music row, the Sounds row, on the Campaign screen only the Tutorials row, one row for each other
+ * setting except the Autopilot settings, the Changed settings row, and, on the Campaign screen only, the Tools row. On
+ * the Main menu it stands in the right column with the Music control above its rows and no
  * close control; on the Campaign screen it is a dialog over a Scrim with no buttons at its bottom, closed with its
  * close control or the Escape key.
  */
@@ -13,12 +14,10 @@ import { playSound } from '../sound-player.ts';
 import { SOUND, soundSettings } from '../sounds.ts';
 import { act, theEngine, type Snapshot } from '../store.ts';
 import { Button, CloseControl, NumberField, Section, VolumeSlider } from '../ui.tsx';
-import { MusicControl, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
+import { MusicControl, MusicToggle, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
+import { TutorialsCheckbox } from './TutorialsCheckbox.tsx';
 
-/**
- * GUI, Settings panel: Music on is set with the Music control and Sounds on with the Sounds toggle; these four
- * settings have no rows of their own beyond the Music volume and Sounds rows.
- */
+/** GUI, Settings panel: these four settings have no rows of their own beyond the Music and Sounds rows. */
 const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume']);
 
 /**
@@ -137,13 +136,22 @@ function SettingsRows(props: {
   const { session } = theEngine();
   return (
     <>
+      {/* MUSIC, Music volume slider: the Music row holds a Music toggle and the Music volume slider. */}
       <div className="settings-row">
-        <div>Music volume</div>
+        <div>Music</div>
         <div className="settings-input">
+          <MusicToggle snapshot={snapshot} buttonClass="btn btn-plain" testId="settings-music-toggle" />
           <MusicVolumeSlider snapshot={snapshot} />
         </div>
       </div>
       <SoundsRow snapshot={snapshot} />
+      {/* GUI, Settings panel, Tutorials: on the Campaign screen only, Campaign configuration of the current Campaign. */}
+      {tools === undefined ? null : (
+        <div className="settings-row">
+          <div>Tutorials</div>
+          <TutorialsCheckbox snapshot={snapshot} label="Tutorials enabled" testId="settings-tutorials" />
+        </div>
+      )}
       {snapshot.configuration.settings
         .filter((setting) => !OWN_ROWS.has(setting.setting) && !SET_ELSEWHERE.has(setting.setting))
         .map((setting) => (

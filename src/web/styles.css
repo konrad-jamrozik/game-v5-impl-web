@@ -1649,6 +1649,11 @@ input::placeholder {
   font-weight: 600;
 }
 
+/* TSUM, Special events: the Tutorials checkbox stands apart below the text. */
+.special-event-tutorials {
+  margin-top: 40px;
+}
+
 .special-event-controls {
   display: flex;
   align-items: center;
