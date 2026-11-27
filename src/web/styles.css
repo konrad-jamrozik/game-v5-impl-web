@@ -1583,20 +1583,33 @@ input::placeholder {
   justify-self: end;
 }
 
-/* TSUM, Special events: the text centred in the details, and only Continue, centred, in the control row. */
+/* TSUM, Special events: the heading and the larger text centred across the dialog, and together centred between the
+   Event art and the control row; only Continue, centred, in the control row. */
+.special-event-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
+.special-event-heading {
+  text-align: center;
+}
+
 .special-event-text {
-  max-width: 820px;
-  margin: 0 auto;
+  max-width: 900px;
+  margin: 0;
   color: var(--text);
-  font-size: 18px;
-  line-height: 1.55;
+  font-size: 21px;
+  line-height: 1.5;
   text-align: center;
   text-wrap: pretty;
 }
 
-.special-event-details {
-  display: grid;
-  align-items: center;
+.special-event-emphasis {
+  color: var(--special);
+  font-weight: 600;
 }
 
 .special-event-controls {

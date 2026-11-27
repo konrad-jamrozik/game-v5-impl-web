@@ -7,6 +7,31 @@ import type { GameDataView } from '../engine/index.ts';
 
 export type SpecialEventView = GameDataView['specialEvents'][number];
 
+/**
+ * TSUM, Special events: the text of a Special event in parts, each phrase between double asterisks a part drawn in
+ * Special, without the asterisks. An unpaired `**` stays as it is written.
+ */
+export function emphasized(text: string): { readonly text: string; readonly emphasis: boolean }[] {
+  const parts: { text: string; emphasis: boolean }[] = [];
+  let rest = text;
+  for (;;) {
+    const open = rest.indexOf('**');
+    const close = open < 0 ? -1 : rest.indexOf('**', open + 2);
+    if (close < 0) {
+      break;
+    }
+    if (open > 0) {
+      parts.push({ text: rest.slice(0, open), emphasis: false });
+    }
+    parts.push({ text: rest.slice(open + 2, close), emphasis: true });
+    rest = rest.slice(close + 2);
+  }
+  if (rest !== '') {
+    parts.push({ text: rest, emphasis: false });
+  }
+  return parts;
+}
+
 /** Set while a Campaign the Player is creating through the Main menu has not yet been shown. */
 let campaignStartPending = false;
 

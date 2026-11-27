@@ -30697,8 +30697,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "id": "welcome",
         "type": "SpecialEvent",
         "trigger": "campaign_start",
-        "title": "Welcome to Continuity",
-        "text": "The year is 2030. Humanity is waging a secret war against enemies numerous and unknown. You take the helm of a clandestine organization known as Continuity. Your mission is to discover, infiltrate, and neutralize the gravest threats to the human race."
+        "title": "Situation Report",
+        "text": "The year is 2030. Humanity is waging a secret war against enemies numerous and unknown. You take the helm of a clandestine organization known as **Continuity**. Your mission is to discover, infiltrate, and neutralize the gravest threats to the human race."
       }
     ]
   },

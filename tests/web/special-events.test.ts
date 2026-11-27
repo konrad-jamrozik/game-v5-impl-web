@@ -5,6 +5,7 @@ import { buildGdrCatalog } from '../../src/gdr/catalog.ts';
 import { RAW_GDR_FILES } from '../../src/gdr/generated/raw-gdrs.ts';
 import {
   clearCampaignStart,
+  emphasized,
   noteCampaignCreation,
   pendingCampaignStart,
 } from '../../src/web/special-events.ts';
@@ -34,9 +35,25 @@ describe('TSUM: Special events', () => {
     expect(() => buildGdrCatalog(eventsFile([{ ...special('first'), trigger: 'turn_150' }]))).toThrow();
   });
 
-  it('the Game build welcomes a new Campaign with the text of the Game designer', () => {
+  it('the Game build welcomes a new Campaign with a Situation Report, the name of Continuity drawn in Special', () => {
     const welcome = gameDataView(gdrs).specialEvents.find((event) => event.trigger === 'campaign_start');
-    expect(welcome?.text).toMatch(/^The year is 2030\. .* known as Continuity\. /);
+    expect(welcome?.title).toBe('Situation Report');
+    expect(welcome?.text).toMatch(/^The year is 2030\. .* known as \*\*Continuity\*\*\. /);
+  });
+
+  it('draws each phrase between double asterisks in Special, without the asterisks', () => {
+    expect(emphasized('known as **Continuity**. Go')).toEqual([
+      { text: 'known as ', emphasis: false },
+      { text: 'Continuity', emphasis: true },
+      { text: '. Go', emphasis: false },
+    ]);
+    expect(emphasized('**A** and **B**')).toEqual([
+      { text: 'A', emphasis: true },
+      { text: ' and ', emphasis: false },
+      { text: 'B', emphasis: true },
+    ]);
+    // An unpaired `**` stays as it is written.
+    expect(emphasized('plain ** text')).toEqual([{ text: 'plain ** text', emphasis: false }]);
   });
 
   it('shows the Special event of campaign_start only for a Campaign just created, and only once', () => {

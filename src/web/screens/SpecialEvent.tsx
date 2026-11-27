@@ -1,12 +1,12 @@
 /**
  * TSUM, Special events: a Special event shown on its own, in the dialog of the Turn summary and with its layout, but
- * with neither the Turn line nor a tag nor a meta line over its Event art, its text centred, and only Continue,
- * centred, in its control row.
+ * with no text over its Event art, its heading and its larger text centred below it, and only Continue, centred, in
+ * its control row.
  */
 import { useEffect, useRef } from 'react';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
-import type { SpecialEventView } from '../special-events.ts';
+import { emphasized, type SpecialEventView } from '../special-events.ts';
 import { withShortcut } from '../ui.tsx';
 
 export function SpecialEvent(props: { event: SpecialEventView; onDismiss: () => void }) {
@@ -54,19 +54,21 @@ export function SpecialEvent(props: { event: SpecialEventView; onDismiss: () => 
             <path d="M50 16l8 26 26 8-26 8-8 26-8-26-26-8 26-8z" />
           </svg>
           <div className="summary-art-shade" />
-          <div className="summary-caption">
-            <div className="summary-eyebrow" data-testid="summary-kind">
-              <span className="summary-pip" />
-              <span>Special event</span>
-            </div>
-            <h2 id="special-event-title" className="summary-title" data-testid="special-event-title">
-              {event.title}
-            </h2>
-          </div>
         </div>
         <div className="summary-details special-event-details">
+          <h2 id="special-event-title" className="special-event-heading" data-testid="special-event-title">
+            {event.title}
+          </h2>
           <p className="special-event-text" data-testid="special-event-text">
-            {event.text}
+            {emphasized(event.text).map((part, index) =>
+              part.emphasis ? (
+                <span key={index} className="special-event-emphasis">
+                  {part.text}
+                </span>
+              ) : (
+                part.text
+              ),
+            )}
           </p>
         </div>
         <footer className="special-event-controls">
