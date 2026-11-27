@@ -29,13 +29,18 @@ export const instanceNumber = (id: string): number => Number(id.slice(id.lastInd
 export const byAgentOrder = (a: AgentView, b: AgentView): number =>
   b.skillHundredths - a.skillHundredths || instanceNumber(a.id) - instanceNumber(b.id);
 
-/** The Equipping plan of `agents`, which are given out in Agent order. */
+/** BASICAI, Equipping: the Deployed Agents first, then the others, each in Agent order. */
+export const byDeployedFirst = (a: AgentView, b: AgentView): number =>
+  Number(b.assignment?.kind === 'Deployed') - Number(a.assignment?.kind === 'Deployed') || byAgentOrder(a, b);
+
+/** The Equipping plan of `agents`, which are given out in Agent order, or in the order `compare` gives. */
 export function planEquipment(
   agents: readonly AgentView[],
   equipment: EquipmentView,
   mode: AmmoMode,
+  compare: (a: AgentView, b: AgentView) => number = byAgentOrder,
 ): EquipmentPlan {
-  const ordered = [...agents].sort(byAgentOrder);
+  const ordered = [...agents].sort(compare);
   const rounds = new Map<string, number>();
   for (const item of equipment.items) {
     if (item.kind === 'ammo') {

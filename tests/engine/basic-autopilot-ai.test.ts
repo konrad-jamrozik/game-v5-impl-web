@@ -14,7 +14,13 @@ import {
   planEquipment,
   requiredRatingSharePct,
 } from '../../src/ai/index.ts';
-import type { CurrentLiveWorldStateView, EquipmentView, PlayerApi } from '../../src/engine/index.ts';
+import { byDeployedFirst } from '../../src/ai/basic/equipping.ts';
+import type {
+  AgentView,
+  CurrentLiveWorldStateView,
+  EquipmentView,
+  PlayerApi,
+} from '../../src/engine/index.ts';
 import { ok, startEngine } from '../helpers/engine.ts';
 
 describe('BASICAI: Required rating share', () => {
@@ -92,6 +98,26 @@ describe('BASICAI: Equipping', () => {
     // Its Ammo is not Unlocked, so buying cannot add rounds for the third.
     expect(weapons('buying')).toEqual([looted.id, looted.id, pistol, pistol]);
     expect(weapons('unlimited')).toEqual([looted.id, looted.id, looted.id, pistol]);
+  });
+  it('gives the best gear to the Deployed Agents first, then in Agent order', async () => {
+    const { live } = await newCampaign('deployed-first');
+    const ordered = [...live.agents].sort(
+      (a, b) => b.skillHundredths - a.skillHundredths || instance(a.id) - instance(b.id),
+    );
+    const strongest = ordered[0];
+    const weakest = ordered[ordered.length - 1];
+    if (strongest === undefined || weakest === undefined || strongest === weakest) {
+      throw new Error('A new Campaign needs two Agents.');
+    }
+    const deployed: AgentView = { ...weakest, assignment: { kind: 'Deployed', mission: 'mission-1' } };
+    expect([strongest, deployed].sort(byDeployedFirst).map((agent) => agent.id)).toEqual([
+      weakest.id,
+      strongest.id,
+    ]);
+    expect([weakest, strongest].sort(byDeployedFirst).map((agent) => agent.id)).toEqual([
+      strongest.id,
+      weakest.id,
+    ]);
   });
 });
 

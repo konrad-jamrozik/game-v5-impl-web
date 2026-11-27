@@ -9,7 +9,7 @@ import type {
   GameDataView,
   LeadView,
 } from '../../engine/player-api.ts';
-import { byAgentOrder, planEquipment, statOf, type EquipmentPlan } from './equipping.ts';
+import { byAgentOrder, byDeployedFirst, planEquipment, statOf, type EquipmentPlan } from './equipping.ts';
 import {
   memberWeight,
   ratingParameters,
@@ -173,7 +173,9 @@ export function makePlan(
 ): Plan {
   const order = [...live.agents].sort(byAgentOrder);
   const equipment = live.agency.equipment;
-  const storage = planEquipment(order, equipment, 'storage');
+  // BASICAI, Equipping: the gear goes to the Deployed Agents first, then to the others, each in Agent order.
+  const kitOrder = byDeployedFirst;
+  const storage = planEquipment(order, equipment, 'storage', kitOrder);
   const rating = ratingParameters(data);
   const found = threat(live, retired, data, t.threatWindowTurns, t.threatLevelsAhead);
   const won = wonAgainst(retired);
@@ -228,8 +230,8 @@ export function makePlan(
   return {
     order,
     storage,
-    buying: planEquipment(order, equipment, 'buying'),
-    unlimited: planEquipment(order, equipment, 'unlimited'),
+    buying: planEquipment(order, equipment, 'buying', kitOrder),
+    unlimited: planEquipment(order, equipment, 'unlimited', kitOrder),
     rating,
     threat: found,
     rungs,

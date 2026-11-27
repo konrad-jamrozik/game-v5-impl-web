@@ -93,7 +93,7 @@ class Turn {
   private saving = false;
   /** Whether a health recovery Upgrade was bought this Turn. */
   private healthBought = false;
-  /** Whether a Rate Upgrade was bought this Turn (BASICAI, Purchases, item 6: at most one a Turn). */
+  /** Whether a Rate Upgrade was bought this Turn (BASICAI, Purchases, item 7: at most one a Turn). */
   private rateBought = false;
 
   constructor(player: PlayerApi, thresholds: BasicAiThresholds) {
@@ -482,7 +482,21 @@ class Turn {
   private async deploy(state: CurrentLiveWorldStateView): Promise<boolean> {
     for (const site of this.sitesByUrgency(state)) {
       const winning = this.deployTeam(state, site);
-      const team = winning === null ? null : this.strongerTeam(state, site, winning);
+      // BASICAI, Deploying and mustering, Deploy now: a Response Mission site whose loss loses the Campaign and for
+      // which no Winning team forms is still tried on its last Turn, with the strongest Deployable Agents the free
+      // Transport cap allows.
+      const lastChance =
+        winning === null &&
+        site.kind === 'Response' &&
+        site.penalties.defeat &&
+        site.turnsUntilExpiration <= 1;
+      const strongest = lastChance ? this.strongerTeam(state, site, []) : null;
+      const team =
+        winning !== null
+          ? this.strongerTeam(state, site, winning)
+          : strongest !== null && strongest.length > 0
+            ? strongest
+            : null;
       if (
         team !== null &&
         (await this.act(`deploy ${site.id}`, () => this.player.actions.deployAgents(site.id, team)))
@@ -495,12 +509,35 @@ class Turn {
 
   // ---- Step 3: Strike team ------------------------------------------------------------------------
 
+  /**
+   * BASICAI, Deploying and mustering, Hold for an existential site: whether an Active Response Mission site whose loss
+   * loses the Campaign has no Winning team now, so that step 3 recalls every Contractor and step 5 sends none to work.
+   */
+  private existentialHold(state: CurrentLiveWorldStateView): boolean {
+    return state.missionSites.some(
+      (site) =>
+        site.lifecycle === 'Active' &&
+        site.kind === 'Response' &&
+        site.penalties.defeat &&
+        this.deployTeam(state, site) === null,
+    );
+  }
+
   /** Step 3: recall the Contractors of a Muster that is due, then those of the Strike team. */
   private async recall(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
     const atWork = (id: string) => {
       const agent = state.agents.find((item) => item.id === id);
       return agent !== undefined && agent.canTakeOrders && agent.assignment?.kind === 'Contracting';
     };
+    if (this.existentialHold(state)) {
+      const all = state.agents.map((agent) => agent.id).filter(atWork);
+      if (
+        all.length > 0 &&
+        (await this.act(`hold ${all.join(',')}`, () => this.player.actions.assignAgents(all, 'Standby')))
+      ) {
+        return true;
+      }
+    }
     const muster = (pass.muster?.recall ?? []).filter(atWork);
     if (
       muster.length > 0 &&
@@ -591,7 +628,9 @@ class Turn {
    * start work to Training while the Training cap has a place, the Strike team first, then the lowest base skill.
    */
   private async contractAndTrain(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
-    const places = Math.max(0, state.agency.contractingCap - state.agency.contractingAgents);
+    const places = this.existentialHold(state)
+      ? 0
+      : Math.max(0, state.agency.contractingCap - state.agency.contractingAgents);
     const contract = this.freeAgents(state, pass)
       .slice(0, places)
       .map((agent) => agent.id);
@@ -792,7 +831,20 @@ class Turn {
       }
     }
 
-    // 6. The Training cap while the Strike team exceeds it, else the Rate Upgrade with the fewest acquisitions.
+    // BASICAI, Purchases, item 6: Kit, the next Weapon or Armor Kit level for the Eligible Agents due it.
+    const kit = this.kitPurchase(state, plan);
+    if (kit !== null) {
+      let count = kit.count;
+      while (count > 1 && !this.affordable(state, count * kit.price, agency.projectedUpkeep)) {
+        count -= 1;
+      }
+      const id = kit.id;
+      return this.buy(state, `kit ${id}:${count}`, count * kit.price, agency.projectedUpkeep, () =>
+        this.player.actions.buyItems([{ id, count }]),
+      );
+    }
+
+    // 7. The Training cap while the Strike team exceeds it, else the Rate Upgrade with the fewest acquisitions.
     const training = this.upgradeOf(state, 'training_cap');
     if (training !== undefined && strike > agency.trainingCap) {
       return this.buy(state, `buy ${training.id}`, training.price, agency.projectedUpkeep, () =>
@@ -810,6 +862,66 @@ class Turn {
       return bought;
     }
     return false;
+  }
+
+  /**
+   * BASICAI, Purchases, item 6, Kit, with BASICAI, Glossary, Kit level: Weapon Items from 0 and Armor Items from 1 by
+   * their stat. Of the first Transport cap of the Eligible Agents, one whose Weapon Kit level, as the Buying plan gives
+   * it, is at most its Armor Kit level is due the Unlocked Weapon of the next Kit level; any other the best Unlocked
+   * Armor up to its Weapon Kit level. The first Agent due anything sets the Item, and every one due it is counted.
+   */
+  private kitPurchase(
+    state: CurrentLiveWorldStateView,
+    plan: Plan,
+  ): { id: string; price: number; count: number } | null {
+    const equipment = state.agency.equipment;
+    const ladder = (kind: 'weapon' | 'armor') =>
+      equipment.items
+        .filter((item) => item.kind === kind && item.stat !== null)
+        .sort((a, b) => (a.stat ?? 0) - (b.stat ?? 0) || a.id.localeCompare(b.id));
+    const weapons = ladder('weapon');
+    const armors = ladder('armor');
+    const weaponLevel = (id: string) =>
+      id === equipment.fallbackWeapon ? -1 : weapons.findIndex((i) => i.id === id);
+    const armorLevel = (id: string) =>
+      id === equipment.fallbackArmor ? 0 : armors.findIndex((i) => i.id === id) + 1;
+    const due = (agentId: string): string | null => {
+      const kit = plan.buying.kit.get(agentId);
+      if (kit === undefined) {
+        return null;
+      }
+      const w = weaponLevel(kit.weapon);
+      const a = armorLevel(kit.armor);
+      if (w <= a) {
+        const next = weapons.find((item, level) => level > w && item.unlocked);
+        return next?.id ?? null;
+      }
+      const armor = [...armors].reverse().find((item) => {
+        const level = armors.indexOf(item) + 1;
+        return level > a && level <= w && item.unlocked;
+      });
+      return armor?.id ?? null;
+    };
+    let id: string | null = null;
+    let count = 0;
+    const kitted = plan.eligible.slice(0, state.agency.transportCap);
+    for (const { agent } of kitted) {
+      const item = due(agent.id);
+      if (item === null) {
+        continue;
+      }
+      if (id === null) {
+        id = item;
+      }
+      if (item === id) {
+        count += 1;
+      }
+    }
+    if (id === null) {
+      return null;
+    }
+    const price = equipment.items.find((item) => item.id === id)?.price ?? 0;
+    return price > 0 ? { id, price, count } : null;
   }
 
   /**
