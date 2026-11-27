@@ -23,6 +23,7 @@ import { SOUND } from '../sounds.ts';
 import { autopilotSettings } from '../autopilot-controls.ts';
 import { devastationControlsShown, shownDevastation, useHeldDevastation } from '../globe-devastation.ts';
 import { setSidePanelHidden, useSidePanelHidden } from '../side-panel.ts';
+import { useCtrlHeld } from '../ctrl-held.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate, lostMissionSites } from '../situation.ts';
 import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
@@ -138,6 +139,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const [settings, setSettings] = useState(false);
   // CSCR, Hiding the Side panel.
   const sidePanelHidden = useSidePanelHidden();
+  // CSCR, Undo and redo: while Ctrl is held, Undo and Redo take their step across Turns.
+  const ctrlHeld = useCtrlHeld();
   // CSCR, Globe devastation controls: shown while their setting is on and Dev mode is enabled; while they are not, the
   // globe shows the Earth as it is.
   const devastationControls = devastationControlsShown(snapshot.configuration, snapshot.status);
@@ -489,8 +492,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
    * step through Autosave navigation; null when neither is available.
    */
   const steps = {
-    undo: undoRedoStep('undo', timeline?.canUndoAction === true, autosaves?.undoToAutosave ?? null),
-    redo: undoRedoStep('redo', timeline?.canRedoAction === true, autosaves?.redoToAutosave ?? null),
+    undo: undoRedoStep('undo', timeline?.canUndoAction === true, autosaves?.undoToAutosave ?? null, ctrlHeld),
+    redo: undoRedoStep('redo', timeline?.canRedoAction === true, autosaves?.redoToAutosave ?? null, ctrlHeld),
   };
   const takeStep = (which: 'undo' | 'redo') => {
     const step = steps[which];
@@ -596,7 +599,8 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
           <div className="status-actions">
             {(['undo', 'redo'] as const).map((which) => {
               const step = steps[which];
-              const form: UndoRedoForm = step?.form ?? 'action';
+              // CSCR, Undo and redo: with Ctrl held and no Turn step, the disabled button is labelled for a Turn step.
+              const form: UndoRedoForm = step?.form ?? (ctrlHeld ? 'turn' : 'action');
               return (
                 <Button
                   key={which}

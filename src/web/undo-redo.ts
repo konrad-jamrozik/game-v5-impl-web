@@ -28,13 +28,17 @@ export function stepButtonKind(step: UndoRedoStep | null): 'plain' | 'weighty' |
   return step === null || step.form === 'action' ? 'plain' : step.form === 'turn' ? 'weighty' : 'autopilot';
 }
 
-/** The step one undo or redo button takes now, or null when it has none. */
+/**
+ * The step one undo or redo button takes now, or null when it has none. CSCR, Undo and redo: while Ctrl is held,
+ * `acrossTurns`, it takes its step through Autosave navigation even when an Action step is available.
+ */
 export function undoRedoStep(
   which: 'undo' | 'redo',
   actionAvailable: boolean,
   target: AutosaveTarget | null,
+  acrossTurns = false,
 ): UndoRedoStep | null {
-  if (actionAvailable) {
+  if (actionAvailable && !acrossTurns) {
     return { form: 'action', tooltip: undefined };
   }
   if (target === null) {

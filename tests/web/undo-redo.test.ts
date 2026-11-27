@@ -52,4 +52,15 @@ describe('CSCR: Undo and redo', () => {
       }),
     ).toEqual({ form: 'autopilot', tooltip: 'Forward to where Autopilot disengaged, in Turn 35' });
   });
+
+  it('takes the step across Turns while Ctrl is held, even with an Action step available, and none without one', () => {
+    expect(undoRedoStep('undo', true, target, true)).toEqual({
+      form: 'turn',
+      tooltip: 'Back to the end of Turn 12',
+    });
+    expect(undoRedoStep('redo', true, { ...target, crossesAutopilotEngagement: true }, true)?.form).toBe(
+      'autopilot',
+    );
+    expect(undoRedoStep('undo', true, null, true)).toBeNull();
+  });
 });
