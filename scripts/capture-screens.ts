@@ -400,6 +400,9 @@ async function capture(page: Page): Promise<void> {
   // CSCR, Hiding the Side panel: the Compendium View hides the status bar, so it closes before Settings opens.
   await page.keyboard.press('Escape');
   await expect(view(page, 'compendium')).toHaveCount(0);
+  // A Detail view covers the globe again at once: over the globe, drawn in software, a frame takes seconds, and a click
+  // on a control of the Settings panel waits in vain for the control to stay still over new frames.
+  await open(page, 'missions');
 
   await id(page, 'open-settings').click();
   await shootElement(page, 'settings-panel', page.getByRole('dialog'));

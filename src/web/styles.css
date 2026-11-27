@@ -1481,8 +1481,10 @@ input::placeholder {
   font-size: 13px;
 }
 
+/* TSUM, Layout: the title of the Summary event keeps its own case, e.g. "Apprehend member", as the Event art's caption. */
 .summary-title {
   margin: 0;
+  text-transform: none;
   font-family: var(--font-heading);
   font-size: 36px;
   font-weight: 700;
