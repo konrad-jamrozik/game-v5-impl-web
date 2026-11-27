@@ -144,6 +144,14 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     permitted: 'true or false',
     isPermitted: (value): value is SettingValue => typeof value === 'boolean',
   },
+  // CSCR, Globe devastation controls: whether the Globe stage shows them, while Dev mode is enabled.
+  {
+    setting: 'globeDevastationControlsShown',
+    name: 'Globe devastation controls shown',
+    gameBuildDefault: false,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
   // VIS, Charts: the charts whose "Last 100 Turns" checkbox is checked, as a JSON array of chart names.
   {
     setting: 'lastTurnsCharts',

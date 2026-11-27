@@ -2589,6 +2589,32 @@ label:has(> input[type='checkbox']:disabled) {
   border-top: 1px solid var(--divider);
 }
 
+/* CSCR, Globe devastation controls: at the top left corner of the Globe stage, drawn as the globe's own controls are,
+   i.e. with no panel or fill of their own, so that the stars show through. */
+.globe-devastation {
+  position: absolute;
+  left: 16px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.globe-devastation-level {
+  display: grid;
+  grid-template-columns: auto 150px 40px;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.globe-devastation .inline {
+  margin: 2px 0;
+  cursor: pointer;
+}
+
 /* MUSIC, Music control on the Globe stage: at its bottom right corner, level with the row of the globe's controls at
    the bottom left, which sits 12px from the bottom above a 13px imagery credit and an 8px gap (globe.css). The Track
    title comes first, so the buttons at the right end stay in place whatever its length. */

@@ -197,6 +197,23 @@ export function DeveloperDrawer({ snapshot, onClose }: { snapshot: Snapshot; onC
         />
         Show Combat simulator on the Main menu
       </label>
+      {/* CSCR, Globe devastation controls: Dev mode gates it. */}
+      <label className="inline" title={gate ?? undefined}>
+        <input
+          type="checkbox"
+          data-testid="dev-show-devastation"
+          disabled={gate !== null}
+          checked={
+            snapshot.configuration.settings.find(
+              (setting) => setting.setting === 'globeDevastationControlsShown',
+            )?.effectiveValue === true
+          }
+          onChange={(event) => {
+            act(() => session.globalConfiguration.set('globeDevastationControlsShown', event.target.checked));
+          }}
+        />
+        Show Globe devastation controls
+      </label>
 
       <Section title="Cheats">
         <label className="inline">

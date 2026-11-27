@@ -5,10 +5,12 @@
  * of its own; leaving the Campaign screen hides it and takes its host out of the page, and coming back puts the same
  * host into the new Globe stage, so the globe neither loads its maps nor builds its scene again. Everything else, e.g.
  * loading three.js and the maps on first show, the controls, the messages, and recovery from failures, is done by the
- * copied files.
+ * copied files. CSCR, Globe devastation controls: the one thing set on the globe is its devastation, which the
+ * Campaign screen hands down from those controls.
  */
 import { useEffect, useRef } from 'react';
 import { mountGlobe, type GlobeHandle } from '../globe/globe.js';
+import type { GlobeDevastation } from '../globe-devastation.ts';
 import '../globe/globe.css';
 
 interface KeptGlobe {
@@ -35,8 +37,8 @@ function placeGlobe(stage: HTMLElement): KeptGlobe {
   return kept;
 }
 
-/** `covered` is true while a Detail view covers the Globe stage. */
-export function Globe({ covered }: { covered: boolean }) {
+/** `covered` is true while a Detail view covers the Globe stage; `devastation` is what the globe shows of it. */
+export function Globe({ covered, devastation }: { covered: boolean; devastation: GlobeDevastation }) {
   const element = useRef<HTMLDivElement>(null);
   const globe = useRef<GlobeHandle | null>(null);
   useEffect(() => {
@@ -55,5 +57,9 @@ export function Globe({ covered }: { covered: boolean }) {
   useEffect(() => {
     globe.current?.setVisible(!covered);
   }, [covered]);
+  useEffect(() => {
+    globe.current?.setDevastation(devastation.percent / 100);
+    globe.current?.setDevastationEffects(devastation.effects);
+  }, [devastation]);
   return <div ref={element} data-testid="globe" style={{ position: 'absolute', inset: 0 }} />;
 }

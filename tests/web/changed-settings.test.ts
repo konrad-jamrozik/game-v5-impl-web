@@ -54,6 +54,7 @@ describe('GUI: Changed settings', () => {
       'combatSimulatorSetup',
       'screenLimit',
       'sidePanelHidden',
+      'globeDevastationControlsShown',
       'lastTurnsCharts',
       'artworkTuning',
       'combatReplayOptionsShown',

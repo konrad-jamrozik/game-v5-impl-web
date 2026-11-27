@@ -44,6 +44,10 @@ const WORDING: Readonly<Record<string, { readonly name: string; readonly words: 
   },
   screenLimit: { name: 'Screen limit', words: onOff },
   sidePanelHidden: { name: 'Side panel', words: (value) => (value === true ? 'hidden' : 'shown') },
+  globeDevastationControlsShown: {
+    name: 'Globe devastation controls',
+    words: (value) => (value === true ? 'shown' : 'hidden'),
+  },
   lastTurnsCharts: { name: 'Charts on Last 100 Turns', words: (value) => chartList(value) },
   artworkTuning: { name: 'Artwork tuning', words: (value) => (value === '{}' ? 'none' : 'tuned') },
   combatReplayOptionsShown: {

@@ -35,6 +35,7 @@ const SET_ELSEWHERE = new Set([
   'combatSimulatorShown',
   'combatSimulatorSetup',
   'sidePanelHidden',
+  'globeDevastationControlsShown',
   'lastTurnsCharts',
   'artworkTuning',
   'combatReplayOptionsShown',

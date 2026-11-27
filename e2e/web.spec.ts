@@ -382,3 +382,40 @@ test('STVIEW, Trading: the Storage View buys through its trade panel, on the rig
   await id(page, 'trade').click();
   await expect(ammo.locator('td').nth(2)).toHaveText((ownedBefore + 10).toLocaleString('en-US'));
 });
+
+test('CSCR, Globe devastation controls: the developer tools show them at the top left of the Globe stage', async ({
+  page,
+}) => {
+  await newCampaign(page, 'globe-devastation');
+  await expect(id(page, 'globe-devastation')).toHaveCount(0);
+  await id(page, 'open-settings').click();
+  await id(page, 'open-developer').click();
+  await id(page, 'dev-mode').check();
+  await id(page, 'dev-show-devastation').click();
+  await expect(id(page, 'dev-show-devastation')).toBeChecked();
+  await id(page, 'close-developer').click();
+  // At the top left corner of the Globe stage.
+  const stage = await id(page, 'globe-stage').boundingBox();
+  const controls = await id(page, 'globe-devastation').boundingBox();
+  expect((controls?.x ?? 0) - (stage?.x ?? 0)).toBeLessThan(40);
+  expect((controls?.y ?? 0) - (stage?.y ?? 0)).toBeLessThan(40);
+  // A Session starts with devastation at 0% and every effect on.
+  await expect(id(page, 'globe-devastation-shown')).toHaveText('0%');
+  for (const [effect, label] of [
+    ['debris', 'Ash in orbit'],
+    ['bloom', 'Bloom'],
+    ['sky', 'Dim sun'],
+  ] as const) {
+    await expect(id(page, `globe-devastation-${effect}`)).toBeChecked();
+    await expect(id(page, 'globe-devastation').getByLabel(label)).toBeVisible();
+  }
+  await id(page, 'globe-devastation-level').fill('70');
+  await expect(id(page, 'globe-devastation-shown')).toHaveText('70%');
+  await id(page, 'globe-devastation-bloom').uncheck();
+  // Hidden while a Detail view covers the Globe stage, and back holding what they held.
+  await id(page, 'nav-agents').click();
+  await expect(id(page, 'globe-devastation')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'globe-devastation-shown')).toHaveText('70%');
+  await expect(id(page, 'globe-devastation-bloom')).not.toBeChecked();
+});

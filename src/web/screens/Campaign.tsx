@@ -21,6 +21,7 @@ import {
 } from '../view-trail.ts';
 import { SOUND } from '../sounds.ts';
 import { autopilotSettings } from '../autopilot-controls.ts';
+import { devastationControlsShown, shownDevastation, useHeldDevastation } from '../globe-devastation.ts';
 import { setSidePanelHidden, useSidePanelHidden } from '../side-panel.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate, lostMissionSites } from '../situation.ts';
@@ -43,6 +44,7 @@ import {
 import { DeveloperDrawer } from './DeveloperDrawer.tsx';
 import { MusicControl } from './MusicControl.tsx';
 import { Globe } from './Globe.tsx';
+import { GlobeDevastationControls } from './GlobeDevastationControls.tsx';
 import { HistoryView } from './HistoryView.tsx';
 import { LeadsView } from './LeadsView.tsx';
 import { MissionsView } from './MissionsView.tsx';
@@ -136,6 +138,10 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   const [settings, setSettings] = useState(false);
   // CSCR, Hiding the Side panel.
   const sidePanelHidden = useSidePanelHidden();
+  // CSCR, Globe devastation controls: shown while their setting is on and Dev mode is enabled; while they are not, the
+  // globe shows the Earth as it is.
+  const devastationControls = devastationControlsShown(snapshot.configuration, snapshot.status);
+  const devastation = shownDevastation(useHeldDevastation(), devastationControls);
   const [autosaves, setAutosaves] = useState<AutosaveStatus | null>(null);
   /**
    * TSUM, Showing and dismissing: the Turn ended by the Advance turn the Player requested through this screen, until
@@ -697,7 +703,9 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
         }
       >
         <main className="globe-stage" data-testid="globe-stage">
-          <Globe covered={open !== null} />
+          <Globe covered={open !== null} devastation={devastation} />
+          {/* CSCR, Globe devastation controls: at its top left corner, hidden while a Detail view covers it. */}
+          {open === null && devastationControls ? <GlobeDevastationControls /> : null}
           {/* MUSIC, Music control on the Globe stage: at its bottom right corner, hidden while a Detail view covers
               it. */}
           {open === null ? <MusicControl snapshot={snapshot} onGlobeStage /> : null}
