@@ -889,6 +889,7 @@ class Turn {
           grown.length,
           grown.reduce((sum, m) => sum + memberWeight(m, p), 0),
           p,
+          grown.map((m) => m.effectiveSkill),
         ) - plan.strikeRating;
       const id = transport.id;
       consider(gain, transport.price + rookies * state.agency.hireCost, `buy ${id}`, transport.price, () =>

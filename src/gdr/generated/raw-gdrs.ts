@@ -22763,6 +22763,9 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "rating_team_size_exponent": {
           "$decimal": "1.3"
         },
+        "rating_agent_skill_gini_penalty": {
+          "$decimal": "0.25"
+        },
         "rating_exhaustion_free_points": 70,
         "rating_exhaustion_span": 30,
         "fallback_weapon": "knife"
@@ -24975,7 +24978,31 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
               ],
               [
                 "text",
-                "The sum of effective skill × rating factor × exhaustion factor over its Combatants able to fight, × n ^ ({combat_parameters.rating_team_size_exponent} − 1), where n is their number, rounded down once, so that a larger side counts for more than its sum"
+                "The sum of effective skill × rating factor × exhaustion factor over its Combatants able to fight, × its Team Combat rating adjustment, rounded down once"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Enemies: Team Combat rating adjustment"
+              ],
+              [
+                "text",
+                "n ^ ({combat_parameters.rating_team_size_exponent} − 1), where n is the number of Combatants able to fight, so that a larger side counts for more than its sum"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Your team: Team Combat rating adjustment"
+              ],
+              [
+                "text",
+                "The Enemies' adjustment × (1 − {combat_parameters.rating_agent_skill_gini_penalty} × the Gini coefficient of your Agents' effective skill), so that a team carried by a few skilled Agents counts for less: four Agents of skill 300 lose nothing, while Agents of skill 900, 100, 100, and 100 have a Gini coefficient of 0.5"
               ]
             ]
           },

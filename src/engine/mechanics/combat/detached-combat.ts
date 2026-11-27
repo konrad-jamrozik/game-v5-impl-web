@@ -465,13 +465,14 @@ export function detachedCombatRatings(gdrs: GdrCatalog, setup: unknown): Detache
     return combat;
   }
   const { agents, enemies, combat: parameters, agentParameters } = combat.inputs;
-  const rate = (side: CombatInputs['agents']) =>
+  const rate = (side: CombatInputs['agents'], rated: 'agents' | 'enemies') =>
     combatRating(
       side.map((combatant) => combatant.state),
       parameters,
       agentParameters,
+      rated,
     );
-  return { agents: rate(agents), enemies: rate(enemies) };
+  return { agents: rate(agents, 'agents'), enemies: rate(enemies, 'enemies') };
 }
 
 /** `developer.tools.fightCombat(setup)`: a Detached Combat on the Current world state, or the rejection of its setup. */

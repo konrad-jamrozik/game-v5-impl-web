@@ -97,6 +97,7 @@ describe('MISSION: Deployable Agents and Combat ratings', () => {
         ids.map((id) => agentCombatantState(agent(state, id).state, bonus)),
         gdrs.combatParameters,
         gdrs.agentParameters,
+        'agents',
       );
     };
 

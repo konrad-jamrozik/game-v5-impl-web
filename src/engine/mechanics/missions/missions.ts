@@ -233,7 +233,7 @@ export function enemiesCombatRating(
   combat: CombatParametersGdr,
   agentParameters: AgentParametersGdr,
 ): number {
-  return combatRating(enemies.map(enemyCombatantState), combat, agentParameters);
+  return combatRating(enemies.map(enemyCombatantState), combat, agentParameters, 'enemies');
 }
 
 /**

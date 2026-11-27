@@ -220,17 +220,56 @@ export interface RatedCombatant {
   readonly state: CombatantState;
 }
 
+/** COMBAT, Combat rating: which side a Combat rating rates, which decides its Team Combat rating adjustment. */
+export type RatedSide = 'agents' | 'enemies';
+
 /**
- * COMBAT, Combat rating: ⌊n ^ (rating_team_size_exponent − 1) × S⌋, where S = Σ effective skill × rating factor ×
- * exhaustion factor over the n Combatants able to fight, given here. The team size factor is in general irrational, so it is never computed:
- * with rating_team_size_exponent − 1 = p / q in lowest terms, the result is the largest whole R ≥ 0 with
- * R^q ≤ S^q × n^p, decided in whole numbers. A side with none has a Combat rating of 0.
+ * COMBAT, Combat rating: the skill evenness factor of a side, exact: 1 − rating_agent_skill_gini_penalty × G for an
+ * Agents' side, where G = Σ over every ordered pair |e(c) − e(d)| / (2 × n × Σ e(c)) over its n Combatants able to
+ * fight, and G = 0 when Σ e(c) = 0; 1 for an Enemies' side.
  */
-export function rateSide(members: readonly RatedCombatant[], combat: CombatParametersGdr): number {
+export function skillEvennessFactor(
+  members: readonly RatedCombatant[],
+  combat: CombatParametersGdr,
+  side: RatedSide,
+): Rational {
+  if (side !== 'agents' || members.length < 2 || combat.ratingAgentSkillGiniPenalty.n === 0n) {
+    return q(1);
+  }
+  let total = 0n;
+  let differences = 0n;
+  for (const a of members) {
+    total += BigInt(a.effectiveSkill);
+    for (const b of members) {
+      differences += BigInt(Math.abs(a.effectiveSkill - b.effectiveSkill));
+    }
+  }
+  if (total === 0n) {
+    return q(1);
+  }
+  return q(1).sub(
+    combat.ratingAgentSkillGiniPenalty.mul(ratio(differences, 2n * BigInt(members.length) * total)),
+  );
+}
+
+/**
+ * COMBAT, Combat rating: ⌊Team Combat rating adjustment × S⌋, where S = Σ effective skill × rating factor ×
+ * exhaustion factor over the n Combatants able to fight, given here, and the adjustment is the team size factor
+ * n ^ (rating_team_size_exponent − 1), times the skill evenness factor E for an Agents' side. The team size factor is
+ * in general irrational, so it is never computed: with rating_team_size_exponent − 1 = p / q in lowest terms, the
+ * result is the largest whole R ≥ 0 with R^q ≤ (E × S)^q × n^p, decided in whole numbers. A side with none has a
+ * Combat rating of 0.
+ */
+export function rateSide(
+  members: readonly RatedCombatant[],
+  combat: CombatParametersGdr,
+  side: RatedSide = 'enemies',
+): number {
   if (members.length === 0) {
     return 0;
   }
-  const fast = rateSideInWholeNumbers(members, combat);
+  const evenness = skillEvennessFactor(members, combat, side);
+  const fast = rateSideInWholeNumbers(members, combat, evenness);
   if (fast !== null) {
     return fast;
   }
@@ -242,6 +281,7 @@ export function rateSide(members: readonly RatedCombatant[], combat: CombatParam
         .mul(exhaustionFactor(member.state, combat)),
     );
   }
+  sum = sum.mul(evenness);
   const exponent = combat.ratingTeamSizeExponent.sub(1);
   if (exponent.n === 0n) {
     return roundDown(sum);
@@ -278,6 +318,7 @@ const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 function rateSideInWholeNumbers(
   members: readonly RatedCombatant[],
   combat: CombatParametersGdr,
+  evenness: Rational,
 ): number | null {
   const bases = [combat.ratingBaseWeaponDamage, combat.ratingBaseHealth, combat.ratingBaseArmor];
   const span = combat.ratingExhaustionSpan;
@@ -304,9 +345,15 @@ function rateSideInWholeNumbers(
   if (!Number.isSafeInteger(denominator)) {
     return null;
   }
+  // The skill evenness factor E = en / ed scales the numerator and the denominator of S exactly.
+  const en = evenness.n;
+  const ed = evenness.d;
   const exponent = combat.ratingTeamSizeExponent.sub(1);
   if (exponent.n === 0n || members.length === 1) {
-    return floorDivSafe(total, denominator);
+    if (en === ed) {
+      return floorDivSafe(total, denominator);
+    }
+    return Number((BigInt(total) * en) / (BigInt(denominator) * ed));
   }
   if (exponent.n < 0n) {
     return null;
@@ -314,9 +361,11 @@ function rateSideInWholeNumbers(
   const p = exponent.n;
   const qq = exponent.d;
   const n = BigInt(members.length);
-  const right = BigInt(total) ** qq * n ** p;
-  const fits = (r: number): boolean => r >= 0 && (BigInt(denominator) * BigInt(r)) ** qq <= right;
-  let rating = Math.floor((members.length ** (Number(p) / Number(qq)) * total) / denominator);
+  const right = (BigInt(total) * en) ** qq * n ** p;
+  const fits = (r: number): boolean => r >= 0 && (BigInt(denominator) * ed * BigInt(r)) ** qq <= right;
+  let rating = Math.floor(
+    (members.length ** (Number(p) / Number(qq)) * total * (Number(en) / Number(ed))) / denominator,
+  );
   if (!Number.isSafeInteger(rating)) {
     return null;
   }
@@ -334,12 +383,14 @@ export function combatRating(
   side: readonly CombatantState[],
   combat: CombatParametersGdr,
   agentParameters: AgentParametersGdr,
+  rated: RatedSide,
 ): number {
   return rateSide(
     side
       .filter((combatant) => isAbleToFight(combatant, combat, agentParameters))
       .map((state) => ({ effectiveSkill: effectiveSkill(state, agentParameters), state })),
     combat,
+    rated,
   );
 }
 
@@ -505,6 +556,7 @@ function fight(
     rateSide(
       side.filter(able).map((fighter) => ({ effectiveSkill: eff(fighter), state: fighter.state })),
       combat,
+      side[0]?.side === 'agent' ? 'agents' : 'enemies',
     );
   const startRating = rating(agents);
   const ratings = recordReport ? [{ round: 0, agents: startRating, enemies: rating(enemies) }] : [];

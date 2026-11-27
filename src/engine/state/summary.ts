@@ -42,6 +42,7 @@ export function summarize(world: CurrentWorldState, gdrs: GdrCatalog): StateSumm
       agents.map((agent) => agentCombatantState(agent.state, bonus)),
       gdrs.combatParameters,
       gdrs.agentParameters,
+      'agents',
     );
   return {
     money: world.agency.state.money,

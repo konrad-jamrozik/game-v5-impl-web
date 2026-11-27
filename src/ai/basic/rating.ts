@@ -22,6 +22,8 @@ export interface RatingParameters {
   readonly exhaustionFree: number;
   readonly exhaustionSpan: number;
   readonly exponent: number;
+  /** COMBAT, Combat rating: `rating_agent_skill_gini_penalty`, for the skill evenness factor of an Agents' side. */
+  readonly giniPenalty: number;
 }
 
 /** A decimal text of GameDataView, e.g. "0.85", as a number. */
@@ -39,6 +41,7 @@ export function ratingParameters(data: GameDataView): RatingParameters {
     exhaustionFree: decimal(c['ratingExhaustionFreePoints'], Infinity),
     exhaustionSpan: Math.max(1, decimal(c['ratingExhaustionSpan'], 1)),
     exponent: decimal(c['ratingTeamSizeExponent'], 1),
+    giniPenalty: decimal(c['ratingAgentSkillGiniPenalty'], 0),
   };
 }
 
@@ -54,9 +57,40 @@ export function memberWeight(member: RatedMember, p: RatingParameters): number {
   return member.effectiveSkill * factor * exhaustionFactor;
 }
 
-/** COMBAT, Combat rating of a side: ⌊n ^ (exponent − 1) × Σ effective skill × rating factor⌋. */
-export function sideRating(count: number, weightSum: number, p: RatingParameters): number {
-  return count === 0 ? 0 : Math.floor(count ** (p.exponent - 1) * weightSum + 1e-9);
+/**
+ * COMBAT, Combat rating: the skill evenness factor of an Agents' side of the given effective skills, 1 − the Gini
+ * penalty × Σ over every ordered pair |e(c) − e(d)| / (2 × n × Σ e(c)); 1 for fewer than two or a total of 0.
+ */
+export function skillEvenness(skills: readonly number[], p: RatingParameters): number {
+  if (skills.length < 2 || p.giniPenalty <= 0) {
+    return 1;
+  }
+  const total = skills.reduce((sum, value) => sum + value, 0);
+  if (total <= 0) {
+    return 1;
+  }
+  let differences = 0;
+  for (const a of skills) {
+    for (const b of skills) {
+      differences += Math.abs(a - b);
+    }
+  }
+  return 1 - (p.giniPenalty * differences) / (2 * skills.length * total);
+}
+
+/**
+ * COMBAT, Combat rating of an Agents' side: ⌊n ^ (exponent − 1) × skill evenness factor × Σ effective skill × rating
+ * factor⌋, the skill evenness factor read from `skills`, the members' effective skill.
+ */
+export function sideRating(
+  count: number,
+  weightSum: number,
+  p: RatingParameters,
+  skills: readonly number[],
+): number {
+  return count === 0
+    ? 0
+    : Math.floor(count ** (p.exponent - 1) * skillEvenness(skills, p) * weightSum + 1e-9);
 }
 
 export function ratingOf(members: readonly RatedMember[], p: RatingParameters): number {
@@ -64,6 +98,7 @@ export function ratingOf(members: readonly RatedMember[], p: RatingParameters): 
     members.length,
     members.reduce((sum, member) => sum + memberWeight(member, p), 0),
     p,
+    members.map((member) => member.effectiveSkill),
   );
 }
 

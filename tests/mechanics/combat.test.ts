@@ -8,6 +8,7 @@ import {
   ratingFactor,
   exhaustionFactor,
   rateSide,
+  skillEvennessFactor,
   damageBounds,
   fightCombat,
   hitChance,
@@ -718,6 +719,7 @@ describe('COMBAT: examples', () => {
         ),
         gdrs.combatParameters,
         gdrs.agentParameters,
+        'enemies',
       );
     expect(rating([['initiate', 1]])).toBe(29);
     expect(rating([['initiate', 3]])).toBe(109);
@@ -747,6 +749,7 @@ describe('COMBAT: examples', () => {
         four.map((a) => a.state),
         gdrs.combatParameters,
         gdrs.agentParameters,
+        'agents',
       ),
     ).toBe(527);
     // An Agent that is not able to fight adds nothing, and the side counts only those able to fight.
@@ -756,9 +759,39 @@ describe('COMBAT: examples', () => {
         four.map((a) => a.state),
         gdrs.combatParameters,
         gdrs.agentParameters,
+        'agents',
       ),
     ).toBe(373);
-    expect(combatRating([], gdrs.combatParameters, gdrs.agentParameters)).toBe(0);
+    expect(combatRating([], gdrs.combatParameters, gdrs.agentParameters, 'agents')).toBe(0);
+  });
+
+  it("Team Combat rating adjustment: the skill evenness factor lowers an uneven Agents' side only", () => {
+    // COMBAT, Combat rating, the example: Agents of effective skill 900, 100, 100, and 100 have a Gini coefficient of
+    // 6 × 800 / (2 × 4 × 1200) = 1/2, so with rating_agent_skill_gini_penalty 0.25, a Fixture value, a skill evenness
+    // factor of 7/8.
+    const combat = catalogWith(
+      (raw) => (raw.get('combat_parameters')['rating_agent_skill_gini_penalty'] = { $decimal: '0.25' }),
+    ).combatParameters;
+    const uneven = [900, 100, 100, 100].map((skill, i) => combatAgent(`a${i}`, { skill }).state);
+    const members = uneven.map((state) => ({
+      effectiveSkill: effectiveSkill(state, gdrs.agentParameters),
+      state,
+    }));
+    expect(skillEvennessFactor(members, combat, 'agents').toString()).toBe('7/8');
+    expect(skillEvennessFactor(members, combat, 'enemies').toString()).toBe('1');
+    // The same Combatants rated as an Enemies' side lose nothing; as an Agents' side they lose that factor, exactly.
+    const asEnemies = combatRating(uneven, combat, gdrs.agentParameters, 'enemies');
+    const asAgents = combatRating(uneven, combat, gdrs.agentParameters, 'agents');
+    expect(asAgents).toBeLessThan(asEnemies);
+    expect(asAgents).toBe(rateSide(members, combat, 'agents'));
+    // An even side, and a side of one, have a Gini coefficient of 0.
+    const even = [300, 300, 300, 300].map((skill, i) => combatAgent(`b${i}`, { skill }).state);
+    expect(combatRating(even, combat, gdrs.agentParameters, 'agents')).toBe(
+      combatRating(even, combat, gdrs.agentParameters, 'enemies'),
+    );
+    expect(combatRating([uneven[0]!], combat, gdrs.agentParameters, 'agents')).toBe(
+      combatRating([uneven[0]!], combat, gdrs.agentParameters, 'enemies'),
+    );
   });
 
   it('Combat rating: rating factor and team size factor', () => {
@@ -768,13 +801,14 @@ describe('COMBAT: examples', () => {
     // such Agents of effective skill 100 rate ⌊620 × 4 ^ 0.2⌋ = 818.
     const upgraded = (id: string, skill: number) => combatAgent(id, { skill, armor: 10, weaponDamage: 16 });
     expect(ratingFactor(upgraded('a1', 101).state, combat).toString()).toBe('31/20');
-    expect(combatRating([upgraded('a1', 101).state], combat, gdrs.agentParameters)).toBe(156);
+    expect(combatRating([upgraded('a1', 101).state], combat, gdrs.agentParameters, 'agents')).toBe(156);
     const team = ['a1', 'a2', 'a3', 'a4'].map((id) => upgraded(id, 100));
     expect(
       combatRating(
         team.map((a) => a.state),
         combat,
         gdrs.agentParameters,
+        'agents',
       ),
     ).toBe(818);
     expect(
@@ -804,6 +838,7 @@ describe('COMBAT: examples', () => {
         team.map((a) => a.state),
         linear.combatParameters,
         gdrs.agentParameters,
+        'agents',
       ),
     ).toBe(620);
     // Exponent 2, the square law: ⌊620 × 4⌋.
@@ -813,6 +848,7 @@ describe('COMBAT: examples', () => {
         team.map((a) => a.state),
         square.combatParameters,
         gdrs.agentParameters,
+        'agents',
       ),
     ).toBe(2480);
     // In a Combat, Agents and Enemies are rated alike, by their effective values; the Upgrades count only through them.

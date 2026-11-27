@@ -202,7 +202,16 @@ export function makePlan(
   for (const [index, item] of eligible.slice(0, most).entries()) {
     const k = index + 1;
     sum += memberWeight(item.member, rating);
-    if (goal !== null && k >= needed && sideRating(k, sum, rating) >= goal.combatRating) {
+    if (
+      goal !== null &&
+      k >= needed &&
+      sideRating(
+        k,
+        sum,
+        rating,
+        eligible.slice(0, k).map((member) => member.member.effectiveSkill),
+      ) >= goal.combatRating
+    ) {
       wanted = k;
       break;
     }
@@ -214,6 +223,7 @@ export function makePlan(
     size,
     eligible.slice(0, size).reduce((total, item) => total + memberWeight(item.member, rating), 0),
     rating,
+    eligible.slice(0, size).map((item) => item.member.effectiveSkill),
   );
   return {
     order,
@@ -259,6 +269,7 @@ export function strikeCanWin(
     team.length,
     team.reduce((sum, item) => sum + memberWeight(item.member, plan.rating), 0),
     plan.rating,
+    team.map((item) => item.member.effectiveSkill),
   );
   const required = requiredRatingSharePct(
     t,

@@ -207,6 +207,7 @@ const combatParameterFields = {
   rating_base_armor: whole(1),
   rating_base_weapon_damage: whole(1),
   rating_team_size_exponent: decimal,
+  rating_agent_skill_gini_penalty: decimal,
   // COMBAT, CombatParameters: the exhaustion factor's free points are at least 0 and its span, a divisor, at least 1.
   rating_exhaustion_free_points: whole(0),
   rating_exhaustion_span: whole(1),
@@ -397,6 +398,7 @@ const schemas = {
       ratingBaseArmor: g.rating_base_armor,
       ratingBaseWeaponDamage: g.rating_base_weapon_damage,
       ratingTeamSizeExponent: g.rating_team_size_exponent,
+      ratingAgentSkillGiniPenalty: g.rating_agent_skill_gini_penalty,
       ratingExhaustionFreePoints: g.rating_exhaustion_free_points,
       ratingExhaustionSpan: g.rating_exhaustion_span,
       fallbackWeapon: g.fallback_weapon,
@@ -883,6 +885,12 @@ function combatParametersProblems(combatParameters: CombatParametersGdr): string
       'CombatParameters: rating_team_size_exponent must be from 1 to 2 with at most two digits after the decimal point',
     );
   }
+  const gini = combatParameters.ratingAgentSkillGiniPenalty;
+  if (gini.lt(0) || gini.gt(1) || !gini.mul(100).isWhole()) {
+    problems.push(
+      'CombatParameters: rating_agent_skill_gini_penalty must be from 0 to 1 with at most two digits after the decimal point',
+    );
+  }
   if (
     combatParameters.incapacitationSkillFraction.lt(0) ||
     combatParameters.incapacitationSkillFraction.gte(1)
@@ -932,6 +940,7 @@ const COMBAT_GDR_VALUE_PROPERTIES: Readonly<Record<string, readonly ['combat' | 
   rating_base_armor: ['combat', 'ratingBaseArmor'],
   rating_base_weapon_damage: ['combat', 'ratingBaseWeaponDamage'],
   rating_team_size_exponent: ['combat', 'ratingTeamSizeExponent'],
+  rating_agent_skill_gini_penalty: ['combat', 'ratingAgentSkillGiniPenalty'],
   rating_exhaustion_free_points: ['combat', 'ratingExhaustionFreePoints'],
   rating_exhaustion_span: ['combat', 'ratingExhaustionSpan'],
   exhaustion_incapacitation: ['agent', 'exhaustionIncapacitation'],

@@ -137,6 +137,8 @@ export interface CombatParametersGdr {
   readonly ratingBaseWeaponDamage: number;
   /** COMBAT, Combat rating: the exponent of the number of a side's Combatants able to fight; from 1 to 2. */
   readonly ratingTeamSizeExponent: Rational;
+  /** COMBAT, Combat rating: the skill evenness factor of an Agents' side falls by this times the Gini coefficient. */
+  readonly ratingAgentSkillGiniPenalty: Rational;
   /** COMBAT, Combat rating: the exhaustion up to which the exhaustion factor is 1; a whole number of at least 0. */
   readonly ratingExhaustionFreePoints: number;
   /** COMBAT, Combat rating: the points of exhaustion above the free points that take the exhaustion factor to 0. */

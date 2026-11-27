@@ -156,7 +156,7 @@ function equipmentRatings(
     return { restedCombatRating: null, equipmentCombatRating: null };
   }
   const rate = (state: CombatantState): number =>
-    combatRating([state], gdrs.combatParameters, gdrs.agentParameters);
+    combatRating([state], gdrs.combatParameters, gdrs.agentParameters, 'agents');
   const rested = agentCombatant({ ...s, exactExhaustionHundredths: 0, healthLostHundredths: 0 }, bonus);
   const weapon = must(gdrs.weapons.get(gdrs.agentArchetype.weapon), 'Weapon of the AgentArchetype');
   const armor = must(gdrs.armors.get(gdrs.agentArchetype.armor), 'Armor of the AgentArchetype');
@@ -281,7 +281,9 @@ function agentView(
     deployable: isDeployableAgent(s, bonus, gdrs.combatParameters, gdrs.agentParameters),
     baseCombatRating: serving ? base : null,
     // COMBAT, Combat rating: one Agent's Combat rating is that of a side holding it alone.
-    combatRating: serving ? combatRating([values], gdrs.combatParameters, gdrs.agentParameters) : null,
+    combatRating: serving
+      ? combatRating([values], gdrs.combatParameters, gdrs.agentParameters, 'agents')
+      : null,
     ...equipmentRatings(s, values, serving, gdrs, bonus),
     weaponAmmoType: gdrs.weapons.get(s.weapon)?.ammoType ?? null,
     ammoShort: shortAmmo.has(gdrs.weapons.get(s.weapon)?.ammoType ?? ''),
@@ -366,7 +368,7 @@ function enemyView(enemy: Enemy, gdrs: GdrCatalog): EnemyView {
     armor: s.armor,
     armorName: gdrs.armors.get(s.armor)?.name ?? s.armor,
     baseArmor: s.baseArmor,
-    combatRating: combatRating([enemyCombatant(s)], gdrs.combatParameters, gdrs.agentParameters),
+    combatRating: combatRating([enemyCombatant(s)], gdrs.combatParameters, gdrs.agentParameters, 'enemies'),
   };
 }
 
@@ -1032,8 +1034,8 @@ export function previewDeployment(
   const rejection =
     site === undefined ? null : tryAction(world, gdrs, 'deployAgents', { missionSite: site.id, agents: ids });
   return {
-    // COMBAT, Combat rating: Agents and Enemies are rated alike, by their effective values.
-    teamCombatRating: combatRating(team, gdrs.combatParameters, gdrs.agentParameters),
+    // COMBAT, Combat rating: an Agents' side, with its Team Combat rating adjustment.
+    teamCombatRating: combatRating(team, gdrs.combatParameters, gdrs.agentParameters, 'agents'),
     enemiesCombatRating:
       site === undefined
         ? null
@@ -1212,6 +1214,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         ratingBaseArmor: String(gdrs.combatParameters.ratingBaseArmor),
         ratingBaseWeaponDamage: String(gdrs.combatParameters.ratingBaseWeaponDamage),
         ratingTeamSizeExponent: decimalText(gdrs.combatParameters.ratingTeamSizeExponent),
+        ratingAgentSkillGiniPenalty: decimalText(gdrs.combatParameters.ratingAgentSkillGiniPenalty),
         ratingExhaustionFreePoints: String(gdrs.combatParameters.ratingExhaustionFreePoints),
         ratingExhaustionSpan: String(gdrs.combatParameters.ratingExhaustionSpan),
       },
