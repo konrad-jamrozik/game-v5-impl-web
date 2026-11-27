@@ -97,6 +97,7 @@ export function mountGlobe(container, options = {}) {
   }
   // an unknown tilt name falls back to the tilt the globe already has, or to Level
   memory.controls.tilt = TILTS.find((tilt) => tilt.name === options.tilt) ?? memory.controls.tilt ?? TILTS[0]
+  memory.controls.devastation ??= 0
   memory.view ??= {}
   const { controls, view } = memory
 
@@ -118,10 +119,10 @@ export function mountGlobe(container, options = {}) {
     controls.clouds = CLOUD_LEVELS[(CLOUD_LEVELS.indexOf(controls.clouds) + 1) % CLOUD_LEVELS.length]
     showControls()
   })
-  // the day and night speed: a slower and a faster button around the speed it is at
+  // the day and night speed: a slower and a faster button around the speed it is at, wrapping from 32× to 0× and back
   const stepCycle = (step) => {
     const at = CYCLE_SPEEDS.indexOf(controls.cycleSpeed)
-    controls.cycleSpeed = CYCLE_SPEEDS[Math.max(0, Math.min(CYCLE_SPEEDS.length - 1, at + step))]
+    controls.cycleSpeed = CYCLE_SPEEDS[(at + step + CYCLE_SPEEDS.length) % CYCLE_SPEEDS.length]
     showControls()
   }
   const slowerButton = controlButton(() => stepCycle(-1))
@@ -150,15 +151,15 @@ export function mountGlobe(container, options = {}) {
     cloudsButton.title = `Clouds: ${clouds.toLowerCase()}`
     cloudsButton.setAttribute('aria-label', cloudsButton.title)
 
-    const speed = controls.cycleSpeed === 0 ? 'Stopped' : `${controls.cycleSpeed}×`
+    const speed = `${controls.cycleSpeed}×`
     cycleSpeed.innerHTML = `${ICONS.cycle}<span>${speed}</span>`
     cycleSpeed.title = `Day and night: ${controls.cycleSpeed === 0 ? 'stopped' : `${speed} speed`}`
     const at = CYCLE_SPEEDS.indexOf(controls.cycleSpeed)
-    slowerButton.disabled = at === 0
-    slowerButton.title = at === 1 ? 'Stop day and night' : 'Slower day and night'
+    const last = CYCLE_SPEEDS.length - 1
+    slowerButton.title =
+      at === 1 ? 'Stop day and night' : at === 0 ? `Day and night at ${CYCLE_SPEEDS[last]}×` : 'Slower day and night'
     slowerButton.setAttribute('aria-label', `${slowerButton.title}; now ${cycleSpeed.title.toLowerCase()}`)
-    fasterButton.disabled = at === CYCLE_SPEEDS.length - 1
-    fasterButton.title = at === 0 ? 'Start day and night' : 'Faster day and night'
+    fasterButton.title = at === last ? 'Stop day and night' : at === 0 ? 'Start day and night' : 'Faster day and night'
     fasterButton.setAttribute('aria-label', `${fasterButton.title}; now ${cycleSpeed.title.toLowerCase()}`)
 
     tiltButton.innerHTML = `${tiltIcon(controls.tilt.z)}<span>${controls.tilt.name}</span>`
@@ -266,6 +267,10 @@ export function mountGlobe(container, options = {}) {
       if (tilt === undefined || tilt.name === controls.tilt.name) return
       controls.tilt = tilt
       showControls()
+    },
+    // how wrecked the planet looks, from 0, as it is, to 1: smoke, a fouled sky, scorched land, blackouts, and fires
+    setDevastation(level) {
+      controls.devastation = Math.max(0, Math.min(1, Number(level) || 0))
     },
     // releases everything the globe created and removes it from `container`
     dispose() {
