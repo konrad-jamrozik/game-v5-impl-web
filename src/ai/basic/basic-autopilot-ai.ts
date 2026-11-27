@@ -542,10 +542,12 @@ class Turn {
 
   /**
    * Step 4, BASICAI, Roles and Choosing Leads: one Investigation team first; further teams only from the Free Agents
-   * that Contracting leaves. An Active Investigation below the Research team size is reinforced before another starts.
+   * that Contracting leaves. An Active Investigation below the team size is reinforced before another starts. BASICAI,
+   * Choosing Leads: the team size is the Research team size while the Strength gap is open, else the Late research team
+   * size.
    */
   private async research(state: CurrentLiveWorldStateView, pass: Pass): Promise<boolean> {
-    const size = this.t.researchTeamSize;
+    const size = pass.plan.gap ? this.t.researchTeamSize : this.t.lateResearchTeamSize;
     if (size <= 0) {
       return false;
     }

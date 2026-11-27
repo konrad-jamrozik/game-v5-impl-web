@@ -22745,7 +22745,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
           "$decimal": "0.5"
         },
         "retreat_below_agent_rating_fraction": {
-          "$decimal": "0.5"
+          "$decimal": "0.4"
         },
         "retreat_at_enemy_to_agent_rating": {
           "$decimal": "0.9"
@@ -28705,6 +28705,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "FactionOperationLevel",
         "level": 5,
         "name": "Existential",
+        "min_turns_between": 20,
         "on_win": [
           {
             "$entries": [

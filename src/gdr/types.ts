@@ -255,6 +255,8 @@ export interface FactionOperationLevelGdr {
     readonly funding: number;
     readonly defeat: boolean;
   };
+  /** FACTION, Operation level spacing: the fewest Turns between two occurrences of this level, or null for none. */
+  readonly minTurnsBetween: number | null;
 }
 
 export interface LeadGdr {

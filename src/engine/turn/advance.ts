@@ -46,6 +46,7 @@ import {
   applyFactionActivity,
   eliminateFaction,
   type FactionOperationOccurrence,
+  spacedOperationLevel,
 } from '../mechanics/factions/factions.ts';
 import {
   assessmentThreshold,
@@ -772,9 +773,14 @@ export function applyAdvanceTurn(
     }
     const occurrence = occurrences.get(faction.id) ?? null;
     if (occurrence !== null) {
-      const level = must(
-        gdrs.factionOperationLevels.find((item) => item.level === occurrence.operationLevel),
-        `FactionOperationLevel ${occurrence.operationLevel}`,
+      const level = spacedOperationLevel(
+        must(
+          gdrs.factionOperationLevels.find((item) => item.level === occurrence.operationLevel),
+          `FactionOperationLevel ${occurrence.operationLevel}`,
+        ),
+        turn,
+        gdrs.factionOperationLevels,
+        world.missionSites,
       );
       const archetype = selectResponseArchetype(
         random,

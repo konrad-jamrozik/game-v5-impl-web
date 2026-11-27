@@ -3,9 +3,13 @@
  * function receives one Faction, the GDRs it reads, and the random source.
  */
 import { must } from '../../../kernel/index.ts';
-import type { FactionActivityLevelGdr, FactionArchetypeGdr } from '../../../gdr/index.ts';
+import type {
+  FactionActivityLevelGdr,
+  FactionArchetypeGdr,
+  FactionOperationLevelGdr,
+} from '../../../gdr/index.ts';
 import type { Random } from '../../random.ts';
-import type { Faction, FactionState } from '../../state/types.ts';
+import type { Faction, FactionState, MissionSite } from '../../state/types.ts';
 
 type Levels = (id: string) => FactionActivityLevelGdr;
 
@@ -160,6 +164,41 @@ export function applyFactionActivity(
     'Operation interval of a level with operations',
   );
   return { initiatingFaction: factionId, operationLevel, turn };
+}
+
+/**
+ * FACTION, Operation level spacing: the FactionOperationLevel an occurrence of `rolled` in `turn` has. While the level
+ * has a `min_turns_between` M and a kept Response Mission site of an earlier occurrence of it, of any Faction, was
+ * created in a turn after `turn` − M, the occurrence moves to the next lower level; the lowest level never moves.
+ */
+export function spacedOperationLevel(
+  rolled: FactionOperationLevelGdr,
+  turn: number,
+  levels: readonly FactionOperationLevelGdr[],
+  missionSites: Readonly<Record<string, MissionSite>>,
+): FactionOperationLevelGdr {
+  let level = rolled;
+  for (;;) {
+    const spacing = level.minTurnsBetween;
+    if (spacing === null) {
+      return level;
+    }
+    const id = level.id;
+    const recent = Object.values(missionSites).some(
+      (site) =>
+        site.constants.origin.kind === 'FactionOperation' &&
+        site.constants.origin.operationLevel === id &&
+        site.constants.turnCreated > turn - spacing,
+    );
+    if (!recent) {
+      return level;
+    }
+    const lower = levels.filter((item) => item.level < level.level).sort((a, b) => b.level - a.level)[0];
+    if (lower === undefined) {
+      return level;
+    }
+    level = lower;
+  }
 }
 
 /** FACTION, Elimination: permanent; applying it to a Eliminated Faction changes nothing. */

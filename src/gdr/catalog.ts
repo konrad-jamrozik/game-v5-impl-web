@@ -537,6 +537,7 @@ const schemas = {
       name,
       on_win: effectList,
       on_ignored_or_lost: effectList,
+      min_turns_between: whole(1).optional(),
     })
     .transform((g, context) => {
       // MISSION, FactionOperationLevel properties used by Missions: Operation level Consequences are valid. A `panic`
@@ -563,6 +564,7 @@ const schemas = {
           funding: onLost.data.funding ?? 0,
           defeat: onLost.data.defeat === true,
         },
+        minTurnsBetween: g.min_turns_between ?? null,
       };
     }),
   Lead: z

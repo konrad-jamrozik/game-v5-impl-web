@@ -14,8 +14,10 @@ export interface BasicAiThresholds {
   readonly threatWindowTurns: number;
   /** Threat levels ahead: how many Faction operation levels above those seen the Threat looks. */
   readonly threatLevelsAhead: number;
-  /** Research team size: the Agents each Investigation is given. */
+  /** Research team size: the Agents each Investigation is given while the Strength gap is open. */
   readonly researchTeamSize: number;
+  /** Late research team size: the Agents each Investigation is given once the Strength gap is closed. */
+  readonly lateResearchTeamSize: number;
   /** Most Investigations: the most Investigations run at once. */
   readonly mostInvestigations: number;
   /** Farming Panic: the Panic, in percent, from which farming a Won rung qualifies even while a new rung does. */
@@ -45,6 +47,7 @@ export const BASIC_AI_THRESHOLDS: BasicAiThresholds = {
   threatWindowTurns: 20,
   threatLevelsAhead: 1,
   researchTeamSize: 3,
+  lateResearchTeamSize: 6,
   mostInvestigations: 3,
   farmingPanicPct: 30,
   ammoReserve: 2,

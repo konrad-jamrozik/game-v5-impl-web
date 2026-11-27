@@ -1,10 +1,11 @@
 /** Tests, from the former Acceptance examples, of FACTION (Factions). */
 import { describe, expect, it } from 'vite-plus/test';
-import { createFaction } from '../../src/engine/mechanics/factions/factions.ts';
+import { createFaction, spacedOperationLevel } from '../../src/engine/mechanics/factions/factions.ts';
 import { injectedRandom } from '../../src/engine/random.ts';
 import { createCampaignState } from '../../src/engine/state/create.ts';
 import { checkInvariants } from '../../src/engine/state/invariants.ts';
-import type { CampaignState } from '../../src/engine/state/types.ts';
+import type { CampaignState, MissionSite } from '../../src/engine/state/types.ts';
+import type { FactionOperationLevelGdr } from '../../src/gdr/index.ts';
 import {
   currentLiveWorldStateView,
   currentRetiredWorldStateView,
@@ -525,6 +526,39 @@ describe('FACTION: examples', () => {
     expect(gameData.toLowerCase()).not.toContain(
       gdrs.factionActivityLevels.get('total_war')!.name.toLowerCase(),
     );
+  });
+
+  it('Operation level spacing moves a level that came too recently, of any Faction, to the next lower level', () => {
+    const level = (n: number, minTurnsBetween: number | null): FactionOperationLevelGdr => ({
+      type: 'FactionOperationLevel',
+      id: `level_${n}`,
+      level: n,
+      name: `Level ${n}`,
+      onWin: { money: 0, funding: 0 },
+      onIgnoredOrLost: { panicIncreaseHundredths: 0, funding: 0, defeat: false },
+      minTurnsBetween,
+    });
+    const levels = [level(1, null), level(4, null), level(5, 20)];
+    const fifth = levels[2]!;
+    const site = (turnCreated: number, operationLevel: string, initiatingFaction: string): MissionSite => ({
+      id: `missionSite-${turnCreated}`,
+      archetype: 'any',
+      constants: {
+        kind: 'Response',
+        origin: { kind: 'FactionOperation', initiatingFaction, operationLevel },
+        targetFaction: initiatingFaction,
+        turnCreated,
+        creationCombatRating: 0,
+      },
+      state: { lifecycle: 'Expired', turnsUntilExpiration: 0, enemies: [] },
+    });
+    const sites = { a: site(112, 'level_5', 'faction-1') };
+    // The example of FACTION, Operation level spacing: 18 Turns after a level 5 operation of another Faction, level 4.
+    expect(spacedOperationLevel(fifth, 130, levels, sites).level).toBe(4);
+    expect(spacedOperationLevel(fifth, 132, levels, sites).level).toBe(5);
+    // A level without a min_turns_between never moves, and neither does one with no recent occurrence of it.
+    expect(spacedOperationLevel(levels[1]!, 113, levels, sites).level).toBe(4);
+    expect(spacedOperationLevel(fifth, 113, levels, { a: site(112, 'level_4', 'faction-1') }).level).toBe(5);
   });
 
   it('GDR validation', () => {
