@@ -3514,8 +3514,8 @@ label:has(> input[type='checkbox']:disabled) {
   outline-offset: 1px;
 }
 
-/* COMPV, Article pane: the Formulas table and a Data sheet: two columns without a header row, the first in Text muted
-   and as wide as its longest label, the second taking the rest of the pane and wrapping. */
+/* COMPV, Article pane: the Formulas table: two columns without a header row, the first in Text muted and as wide as
+   its longest label, the second taking the rest of the pane and wrapping. */
 .sheet {
   width: 100%;
   border-collapse: collapse;
@@ -3546,6 +3546,146 @@ label:has(> input[type='checkbox']:disabled) {
 .see-also {
   margin: 0;
   font-size: 14px;
+}
+
+/* COMPV, Subject data sheets: each label, in Text muted, above its value, the rows divided as the Formulas table's. */
+.data-sheet {
+  margin: 0;
+  font-size: 14px;
+}
+
+.data-sheet-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--raised);
+}
+
+.data-sheet dt {
+  color: var(--text-muted);
+}
+
+.data-sheet dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/* COMPV, Subject data sheets, Items: each item of a list on a line of its own. */
+.sheet-item {
+  display: block;
+}
+
+/* COMPV, Article pane: the Article art and the column of the parts after the title row over its faded left part. Only
+   where the panes stand side by side; in a narrower window, where they stack, the parts keep the whole width. */
+.article-art {
+  display: none;
+}
+
+@media (min-width: 1101px) {
+  .detail-body > .panes > .pane-article.with-article-art {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .with-article-art > .article-scroll {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .with-article-art .article-parts {
+    width: 340px;
+    max-width: 100%;
+  }
+
+  /* As tall as the Article pane and 4:3, flush with its top, right, and bottom edges; cropped at its left when the
+     pane is narrower. */
+  .article-art {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: block;
+    max-width: 100%;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: linear-gradient(160deg, #1d1c17, var(--background));
+  }
+}
+
+/* COMPV, Article pane: until a picture exists, the placeholder in the colour of the article's category. */
+.article-art-wash {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(110% 120% at 50% 40%, color-mix(in srgb, var(--kind) 25%, transparent), transparent 62%),
+    linear-gradient(rgb(232 228 216 / 4.5%) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, rgb(232 228 216 / 4.5%) 1px, transparent 1px) 0 0 / 24px 24px;
+}
+
+.article-art-glyph {
+  position: absolute;
+  top: 46%;
+  left: 58%;
+  width: 40%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  color: var(--kind);
+  opacity: 0.26;
+  stroke-width: 2.2;
+}
+
+/* The left 17% of the Article art fades into the pane's Background fill. */
+.article-art-fade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    var(--background) 0%,
+    rgb(13 13 11 / 85%) 5%,
+    rgb(13 13 11 / 35%) 11%,
+    transparent 17%
+  );
+}
+
+/* Crop marks at the picture's corners. */
+.article-art-crop {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 0 solid rgb(232 228 216 / 35%);
+}
+
+.article-art-crop-tl {
+  top: 12px;
+  left: 12px;
+  border-width: 1px 0 0 1px;
+}
+
+.article-art-crop-tr {
+  top: 12px;
+  right: 12px;
+  border-width: 1px 1px 0 0;
+}
+
+.article-art-crop-bl {
+  bottom: 12px;
+  left: 12px;
+  border-width: 0 0 1px 1px;
+}
+
+.article-art-crop-br {
+  right: 12px;
+  bottom: 12px;
+  border-width: 0 1px 1px 0;
 }
 
 @media (max-width: 1100px) {

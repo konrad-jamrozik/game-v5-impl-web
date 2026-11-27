@@ -6,7 +6,7 @@
  * content is on, the snapshot holds the Revealed Compendium instead, so every article counts as Player-visible here,
  * and turning it off removes each article that is not, as No longer Player-visible does.
  */
-import { Fragment, useEffect, useRef, type RefObject } from 'react';
+import { Fragment, useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import type {
   ArticleSegmentView,
   CompendiumArticleView,
@@ -169,6 +169,116 @@ function SheetParts(props: { parts: readonly SheetPart[]; onOpen: (article: stri
   );
 }
 
+/** COMPV, Subject data sheets, Items: a value that lists two or more items shows each item on a line of its own. */
+function SheetValue(props: { parts: readonly SheetPart[]; onOpen: (article: string) => void }) {
+  const items: SheetPart[][] = [[]];
+  for (const part of props.parts) {
+    if (part.separator === true) {
+      items.push([]);
+    } else {
+      items[items.length - 1]?.push(part);
+    }
+  }
+  return (
+    <>
+      {items.map((item, index) => (
+        <span key={index} className="sheet-item">
+          <SheetParts parts={item} onOpen={props.onOpen} />
+        </span>
+      ))}
+    </>
+  );
+}
+
+/**
+ * COMPV, Article pane: the colour and the drawing, in a 100 × 100 box, of the Article art placeholder of each category,
+ * as the page "Compendium Image Slot" shows them; a category not named here, e.g. Other, uses the last entry.
+ */
+const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
+  Agents: {
+    color: 'var(--notice)',
+    glyph: (
+      <>
+        <circle cx="50" cy="32" r="16" />
+        <path d="M16 90c0-21 15-34 34-34s34 13 34 34" />
+      </>
+    ),
+  },
+  Armor: {
+    color: 'var(--positive)',
+    glyph: <path d="M50 10l32 12v26c0 22-14 36-32 44-18-8-32-22-32-44V22zM50 22v58" />,
+  },
+  Enemies: {
+    color: 'var(--danger)',
+    glyph: <path d="M50 10c-19 0-29 17-29 36v44h58V46c0-19-10-36-29-36zM36 48l10 5M64 48l-10 5M38 70h24" />,
+  },
+  Factions: {
+    color: 'var(--investigation)',
+    glyph: <path d="M28 92V10M28 14h48l-11 17 11 17H28" />,
+  },
+  Leads: {
+    color: 'var(--beam)',
+    glyph: <path d="M26 14h36l14 14v58H26zM62 14v14h14M36 46h30M36 58h30M36 70h18" />,
+  },
+  'Mission sites': {
+    color: 'var(--warning)',
+    glyph: (
+      <>
+        <path d="M50 90S22 58 22 38a28 28 0 0 1 56 0c0 20-28 52-28 52z" />
+        <circle cx="50" cy="38" r="10" />
+      </>
+    ),
+  },
+  Upgrades: {
+    color: 'var(--accent)',
+    glyph: <path d="M22 60l28-26 28 26M22 82l28-26 28 26M28 18h44" />,
+  },
+  Weapons: {
+    color: 'var(--enemy-amber)',
+    glyph: (
+      <>
+        <circle cx="50" cy="50" r="30" />
+        <circle cx="50" cy="50" r="4" />
+        <path d="M50 8v24M50 68v24M8 50h24M68 50h24" />
+      </>
+    ),
+  },
+  Other: {
+    color: 'var(--text-muted)',
+    glyph: (
+      <path d="M50 26c-10-8-24-10-36-8v58c12-2 26 0 36 8 10-8 24-10 36-8V18c-12-2-26 0-36 8zM50 26v58" />
+    ),
+  },
+};
+
+/**
+ * COMPV, Article pane: the Article art of a Subject article. No picture exists yet, so it is the placeholder of the
+ * article's category: a wash and a line glyph in the category's colour over a faint grid, with crop marks at the
+ * picture's corners, its left part fading into the pane. Decoration only, hidden from assistive technology.
+ */
+function ArticleArt(props: { category: string }) {
+  const art = ART_PLACEHOLDERS[props.category] ?? ART_PLACEHOLDERS.Other;
+  return (
+    <div
+      className="article-art"
+      data-testid="article-art"
+      data-category={props.category}
+      aria-hidden="true"
+      style={{ ['--kind' as string]: art?.color }}
+    >
+      <div className="article-art-wash" />
+      <svg className="article-art-glyph" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+        {art?.glyph}
+      </svg>
+      <div className="article-art-fade" />
+      <span className="article-art-crop article-art-crop-tl" />
+      <span className="article-art-crop article-art-crop-tr" />
+      <span className="article-art-crop article-art-crop-bl" />
+      <span className="article-art-crop article-art-crop-br" />
+    </div>
+  );
+}
+
 export function CompendiumView(props: {
   snapshot: Snapshot;
   state: CurrentLiveWorldStateView;
@@ -190,6 +300,8 @@ export function CompendiumView(props: {
     setHistory(history);
   }
   const article = all.find((item) => item.id === currentArticle(history)) ?? null;
+  // COMPV, Article pane: a Subject article has Article art; any other article gives its parts the whole width.
+  const artCategory = article?.category === 'subject' ? categoryOf(article) : null;
 
   const matching = searchArticles(all, search);
   // COMPV, Panes, Category tabs: a tab for every category with a Player-visible article, whatever the search text;
@@ -319,9 +431,14 @@ export function CompendiumView(props: {
             </button>
           ))}
         </div>
-        <article className="pane pane-article" data-testid="compendium-article" data-article={article?.id}>
+        <article
+          className={`pane pane-article${artCategory === null ? '' : ' with-article-art'}`}
+          data-testid="compendium-article"
+          data-article={article?.id}
+        >
+          {artCategory === null ? null : <ArticleArt category={artCategory} />}
           {article === null ? null : (
-            <>
+            <div className="article-scroll">
               <div className="article-head">
                 <h4 className="pane-title" data-testid="article-title">
                   {article.title}
@@ -357,65 +474,66 @@ export function CompendiumView(props: {
                   </button>
                 </div>
               </div>
-              <p className="article-body" data-testid="article-body">
-                <Segments segments={article.body} onOpen={open} />
-              </p>
-              {article.formulas.length === 0 ? null : (
-                <>
-                  <h4 className="pane-title pane-sub">Formulas</h4>
-                  <table className="sheet" data-testid="article-formulas">
-                    <tbody>
-                      {article.formulas.map((row, index) => (
-                        <tr key={index}>
-                          <th scope="row">
-                            <Segments segments={row.label} onOpen={open} />
-                          </th>
-                          <td>
-                            <Segments segments={row.text} onOpen={open} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </>
-              )}
-              {sheet === null ? null : (
-                <>
-                  <h4 className="pane-title pane-sub">{sheet.heading}</h4>
-                  <table className="sheet" data-testid="article-data-sheet">
-                    <tbody>
+              <div className="article-parts">
+                <p className="article-body" data-testid="article-body">
+                  <Segments segments={article.body} onOpen={open} />
+                </p>
+                {article.formulas.length === 0 ? null : (
+                  <>
+                    <h4 className="pane-title pane-sub">Formulas</h4>
+                    <table className="sheet" data-testid="article-formulas">
+                      <tbody>
+                        {article.formulas.map((row, index) => (
+                          <tr key={index}>
+                            <th scope="row">
+                              <Segments segments={row.label} onOpen={open} />
+                            </th>
+                            <td>
+                              <Segments segments={row.text} onOpen={open} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+                {sheet === null ? null : (
+                  <>
+                    <h4 className="pane-title pane-sub">{sheet.heading}</h4>
+                    {/* COMPV, Subject data sheets: each label above its value. */}
+                    <dl className="data-sheet" data-testid="article-data-sheet">
                       {sheet.rows.map((row) => (
-                        <tr key={row.label}>
-                          <th scope="row">
+                        <div key={row.label} className="data-sheet-row">
+                          <dt>
                             {row.labelArticle === null ? (
                               row.label
                             ) : (
                               <ArticleLink article={row.labelArticle} text={row.label} onOpen={open} />
                             )}
-                          </th>
-                          <td>
-                            <SheetParts parts={row.value} onOpen={open} />
-                          </td>
-                        </tr>
+                          </dt>
+                          <dd>
+                            <SheetValue parts={row.value} onOpen={open} />
+                          </dd>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </>
-              )}
-              {article.seeAlso.length === 0 ? null : (
-                <>
-                  <h4 className="pane-title pane-sub">See also</h4>
-                  <p className="see-also" data-testid="article-see-also">
-                    {article.seeAlso.map((link, index) => (
-                      <Fragment key={link.article}>
-                        {index === 0 ? null : ' · '}
-                        <ArticleLink article={link.article} text={link.text} onOpen={open} />
-                      </Fragment>
-                    ))}
-                  </p>
-                </>
-              )}
-            </>
+                    </dl>
+                  </>
+                )}
+                {article.seeAlso.length === 0 ? null : (
+                  <>
+                    <h4 className="pane-title pane-sub">See also</h4>
+                    <p className="see-also" data-testid="article-see-also">
+                      {article.seeAlso.map((link, index) => (
+                        <Fragment key={link.article}>
+                          {index === 0 ? null : ' · '}
+                          <ArticleLink article={link.article} text={link.text} onOpen={open} />
+                        </Fragment>
+                      ))}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
           )}
         </article>
       </div>

@@ -545,18 +545,18 @@ describe('COMPV: Effects shown', () => {
   it('words each Effect so that the Player reads at once whether it helps or harms', () => {
     expect(effectParts({ money: 100, funding: -1, panicHundredths: -200, eliminateFaction: true })).toEqual([
       { text: '+100 money', style: 'good' },
-      { text: ' · ' },
+      { text: ' · ', separator: true },
       { text: '−1 funding', style: 'bad' },
-      { text: ' · ' },
+      { text: ' · ', separator: true },
       { text: '−2.00% Panic', style: 'good' },
-      { text: ' · ' },
+      { text: ' · ', separator: true },
       { text: 'Eliminates the Faction', style: 'good' },
     ]);
     expect(effectParts({ panicHundredths: 30, funding: 5, defeat: true })).toEqual([
       { text: '+5 funding', style: 'good' },
-      { text: ' · ' },
+      { text: ' · ', separator: true },
       { text: '+0.30% Panic', style: 'bad' },
-      { text: ' · ' },
+      { text: ' · ', separator: true },
       { text: 'Loses the Campaign', style: 'bad' },
     ]);
     // GUI, Decimal quantities shown: a Panic Effect always has two decimals, e.g. "−0.10% Panic".

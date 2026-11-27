@@ -207,6 +207,8 @@ export interface SheetPart {
   readonly text: string;
   readonly style?: 'figure' | 'muted' | 'good' | 'bad';
   readonly article?: string;
+  /** COMPV, Subject data sheets, Items: the break between two items of a list, each shown on a line of its own. */
+  readonly separator?: true;
 }
 
 export interface SheetRow {
@@ -235,7 +237,7 @@ export interface SheetSources {
   readonly articleForTerm: (text: string) => string | null;
 }
 
-const SEPARATOR: SheetPart = { text: ' · ' };
+const SEPARATOR: SheetPart = { text: ' · ', separator: true };
 const MINUS = '−';
 
 function figure(value: number | string): SheetPart {
@@ -253,7 +255,7 @@ function signed(value: number): string {
 
 /**
  * COMPV, Effects shown: the Effects of an Effect list in the order money, funding, Panic, Faction elimination, and
- * defeat, separated by "·", or "None" when it holds none. Panic is shown with two decimals, e.g. "−0.10% Panic", under
+ * defeat, each on a line of its own, or "None" when it holds none. Panic is shown with two decimals, e.g. "−0.10% Panic", under
  * GUI, Decimal quantities shown, and `defeat` as "Loses the Campaign". A gain for the Player is in Positive and a loss
  * in Danger.
  */
@@ -323,7 +325,7 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
     const about = aboutSubject(subjectType, id);
     return about === undefined ? { text: name } : { text: name, article: about.id };
   };
-  /** Subject articles listed: each by its displayed title as an Article link, sorted by it and separated by "·". */
+  /** Subject articles listed: each by its displayed title as an Article link, sorted by it, one a line. */
   const listed = (subjectType: string | readonly string[], includes: (id: string) => boolean): SheetPart[] =>
     joined(
       articles
