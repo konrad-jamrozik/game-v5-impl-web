@@ -2,7 +2,7 @@
  * MVIEW: the Missions View. Three panes read left to right as the Player decides: which Mission site, what is there,
  * and who goes.
  */
-import { AGENT_COLUMN_WIDTH } from '../table-widths.ts';
+import { AGENT_COLUMN_WIDTH, AGENT_WITH_RANK_COLUMN_WIDTH, CR_COLUMN_WIDTH } from '../table-widths.ts';
 import { rankOf, type RankThreshold } from '../rank.ts';
 import { RankInsigniaIcon } from '../rank-insignia.tsx';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -604,7 +604,7 @@ function Deployment(props: {
             Showing deployable agents
           </p>
           <Grid
-            widths={['36px', AGENT_COLUMN_WIDTH, '76px', '76px']}
+            widths={['36px', AGENT_WITH_RANK_COLUMN_WIDTH, CR_COLUMN_WIDTH, '76px']}
             className="compact pick-grid"
             testId="deploy-grid"
           >

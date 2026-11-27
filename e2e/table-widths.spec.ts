@@ -101,6 +101,11 @@ interface TableRules {
   readonly freeText?: string;
   /** The widest value of a column, by its header, or by "#" and its index for a table without headers. */
   readonly widest?: Readonly<Record<string, string>>;
+  /**
+   * The columns whose widest value is followed by the widest Rank insignia, by header, with that insignia's width in
+   * px; the value replaces the text of the cell's button and the insignia stands after it, 6 px away.
+   */
+  readonly widestInsignia?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -177,7 +182,27 @@ function tableProblems(rules: Record<string, TableRules>): { problems: string[];
       full.parentElement?.appendChild(copy);
       [...copy.children].forEach((cell, column) => {
         const value = widest[columnName(column)];
-        if (value !== undefined) {
+        const insignia = rule.widestInsignia?.[columnName(column)];
+        const button = cell.querySelector('button');
+        if (value !== undefined && insignia !== undefined && button !== null) {
+          button.textContent = value;
+          cell.querySelectorAll('.deploy-rank').forEach((mark) => {
+            mark.remove();
+          });
+          const mark = document.createElement('span');
+          mark.className = 'deploy-rank';
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          svg.setAttribute('class', 'rank-insignia');
+          svg.setAttribute('width', String(insignia));
+          svg.setAttribute('height', '14');
+          mark.appendChild(svg);
+          cell.appendChild(mark);
+          if (isCut(cell)) {
+            problems.push(
+              `${name}, ${columnName(column)}: the widest value "${value}" and its insignia need ${cell.scrollWidth} px of ${cell.clientWidth} px`,
+            );
+          }
+        } else if (value !== undefined) {
           cell.textContent = value;
           if (isCut(cell)) {
             problems.push(`${name}, ${columnName(column)}: the widest value "${value}" is cut short`);
@@ -237,7 +262,11 @@ const RULES: Record<string, TableRules> = {
   },
   'current-team': { widest: { Skill: FOUR } },
   'agents-to-add': { widest: { Skill: FOUR, 'Exh.': '123' } },
-  'deploy-grid': { widest: { CR: FOUR, 'Exh.': '123' } },
+  // VIS, Tables: an Agent name of 30 characters followed by the widest Rank insignia, three stars of 33 px.
+  'deploy-grid': {
+    widest: { Agent: 'W'.repeat(30), CR: FOUR, 'Exh.': '123' },
+    widestInsignia: { Agent: 33 },
+  },
   'concluded-agents': { widest: { Skill: `${FOUR} → ${FOUR}`, Health: '123 → 123' } },
   'concluded-enemies': {
     widest: { Enemy: 'high-commander-12', Skill: `${FOUR} → ${FOUR}`, Health: '123 → 123' },

@@ -1019,6 +1019,7 @@ function AgentDetails(props: {
   /** AVIEW, Agent details: a Terminated Agent shows its Final max health and no exhaustion. */
   const terminated = agent.agentStatus === 'Killed' || agent.agentStatus === 'Dismissed';
   const participation = participationRows(agent, state, snapshot.retired);
+  const rank = rankOf(agent.skillHundredths, snapshot.gameData?.ranks ?? NO_RANKS);
   return (
     <div className="stack" data-testid={`agent-details-view-${agent.id}`}>
       <dl className="pairs">
@@ -1027,6 +1028,10 @@ function AgentDetails(props: {
         <dd className="figure" data-testid="details-instance-id">
           {agent.id}
         </dd>
+        {/* AVIEW, Agent details: under the Instance ID, the Rank's `name` followed by its Rank insignia; an Agent
+            without a Rank shows nothing in its place (GUI, Ranks). */}
+        <dt>Rank</dt>
+        <dd data-testid="details-rank">{rank === null ? null : <RankText rank={rank} />}</dd>
         <dt>Archetype</dt>
         <dd>{agent.archetypeName}</dd>
         <dt>Turn hired</dt>
