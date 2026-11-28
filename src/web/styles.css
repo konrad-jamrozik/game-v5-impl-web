@@ -1649,13 +1649,15 @@ input::placeholder {
   font-weight: 600;
 }
 
-/* TSUM, Special events: the Tutorials checkbox stands centred near the bottom of the Event art, 72 px above the
-   control row, apart from the text. */
+/* TSUM, Special events: the Tutorials checkbox has its middle halfway between the outer edge of the glyph's circle and
+   the top of the control row. The glyph is 520 px, centred on the Event art; its circle's outer edge, r 38 plus half
+   its 1.6 stroke in a 100-unit view box, is 202 px below the centre, so the midpoint is (50% - 202px) / 2 above the
+   bottom. */
 .special-event-tutorials {
   position: absolute;
-  bottom: 72px;
+  bottom: calc(25% - 101px);
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, 50%);
 }
 
 .special-event-controls {
