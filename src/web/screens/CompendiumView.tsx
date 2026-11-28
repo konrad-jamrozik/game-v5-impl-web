@@ -199,7 +199,7 @@ function SheetValue(props: { parts: readonly SheetPart[]; onOpen: (article: stri
  * One upright sword in the 100 × 100 box, its blade crossing the centre: the pointed blade, the crossguard below it,
  * the grip, and the pommel.
  */
-const SWORD = 'M47 66V18l3-10 3 10v48zM36 66h28v5H36zM47.5 71h5v14h-5zM50 85a4 4 0 1 1 0 8a4 4 0 1 1 0-8z';
+const SWORD = 'M47 66V18l3-10 3 10v48zM38 66h24v5H38zM47.5 71h5v14h-5zM50 85a4 4 0 1 1 0 8a4 4 0 1 1 0-8z';
 
 const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
   Guide: {
