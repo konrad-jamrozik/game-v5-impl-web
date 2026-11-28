@@ -2629,13 +2629,6 @@ label:has(> input[type='checkbox']:disabled) {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* VIS, Detail views and navigation: the Compendium View and the Storage View, which cover the whole screen, fill the window without the
-   inset and without the Accent top edge. */
-.campaign.whole-screen-open .detail-view {
-  inset: 0;
-  border-top: none;
-}
-
 .side-strip {
   display: flex;
   justify-content: center;
@@ -3012,15 +3005,15 @@ label:has(> input[type='checkbox']:disabled) {
   fill: var(--text-muted);
 }
 
-/* VIS, Detail views and navigation: a Detail view covers the Globe stage inset by 16 px. */
+/* VIS, Detail views and navigation: a Detail view covers the whole Globe stage, edge to edge, with no top edge of its
+   own, since the status bar's Accent bottom edge runs along its top. */
 .detail-view {
   position: absolute;
-  inset: 16px;
+  inset: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
   background: var(--surface);
-  border-top: 2px solid var(--accent);
 }
 
 /* VIS, Background artwork: between the Surface fill and the content, below the top edge, covering the whole Detail
@@ -4249,12 +4242,6 @@ label:has(> input[type='checkbox']:disabled) {
   z-index: 7;
   width: var(--screen-w);
   height: var(--screen-h);
-}
-
-.replay-whole-screen > .detail-view,
-.whole-screen > .detail-view {
-  inset: 0;
-  border-top: none;
 }
 
 /* CRPLAY: the Battlefield beside the attack being played, the buttons, and the Combat log. */

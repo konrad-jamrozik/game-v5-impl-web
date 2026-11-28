@@ -1,6 +1,6 @@
 /**
- * CSCR, Detail views; VIS, Detail views and navigation: the frame every Detail view shares. It covers the Globe stage
- * inset by 16 px, with its title on the left, its buttons in one row on the right ending 8 px before the close
+ * CSCR, Detail views; VIS, Detail views and navigation: the frame every Detail view shares. It covers the whole Globe
+ * stage, edge to edge, with its title on the left, its buttons in one row on the right ending 8 px before the close
  * control, and the close control ending that row as one of its controls under VIS, Close controls. While the View
  * trail is not empty, the Back control is the last button of the row. A Detail view taller than the Globe stage scrolls
  * inside, keeping its title row in view.
