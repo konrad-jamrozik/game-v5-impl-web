@@ -55,6 +55,7 @@ const WORDING: Readonly<Record<string, { readonly name: string; readonly words: 
     name: 'Combat replay Options',
     words: (value) => (value === true ? 'shown' : 'hidden'),
   },
+  combatReplayAttackerMark: { name: 'Combat replay Attacker mark', words: onOff },
 };
 
 /** The line of one changed setting, e.g. "Autopilot Turns: 100 (default 10)" or "Music volume: 30% (default 50%)". */

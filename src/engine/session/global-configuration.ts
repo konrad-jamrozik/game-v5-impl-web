@@ -185,6 +185,14 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     permitted: 'true or false',
     isPermitted: (value): value is SettingValue => typeof value === 'boolean',
   },
+  // CRPLAY, Options, Attacker mark: whether each attack begins with the ring around its attacker.
+  {
+    setting: 'combatReplayAttackerMark',
+    name: 'Combat replay Attacker mark',
+    gameBuildDefault: true,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
 ];
 
 function parsedJson(value: unknown): unknown {

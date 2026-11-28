@@ -32,7 +32,7 @@ import {
 } from '../combat-replay.ts';
 import { drawReplay, figureAt, readPalette, type ReplayPalette } from '../combat-replay-draw.ts';
 import { groupDigits, hitChanceText, wholeText } from '../format.ts';
-import { replayOptionsShown } from '../replay-options.ts';
+import { replayAttackerMark, replayOptionsShown } from '../replay-options.ts';
 import { sliderFill } from '../slider.ts';
 import { heardBetween } from '../combat-replay-shots.ts';
 import { playReplaySound, playSound } from '../sound-player.ts';
@@ -216,8 +216,24 @@ export function CombatReplay(props: {
   const settings: PlaybackSettings = activePace === null ? options : paceSettings(activePace);
   const shownAimLines = activePace === null ? aimLines : activePace.aimLines;
   // What the drawing loop reads: it outlives the render that started it, so it reads the newest values from here.
-  const live = useRef({ replay, settings, size, aimLines: shownAimLines, armorScale: props.armorScale });
-  live.current = { replay, settings, size, aimLines: shownAimLines, armorScale: props.armorScale };
+  // CRPLAY, Options, Attacker mark: kept in Global configuration, and read by the pace buttons too.
+  const attackerMark = replayAttackerMark.use();
+  const live = useRef({
+    replay,
+    settings,
+    size,
+    aimLines: shownAimLines,
+    attackerMark,
+    armorScale: props.armorScale,
+  });
+  live.current = {
+    replay,
+    settings,
+    size,
+    aimLines: shownAimLines,
+    attackerMark,
+    armorScale: props.armorScale,
+  };
   /** CRPLAY, Options: every button but a pace plays with the Options; the drawing loop reads them from here at once. */
   const withOptions = () => {
     setActivePace(null);
@@ -259,6 +275,7 @@ export function CombatReplay(props: {
           palette: paletteRef.current,
           instant: now.settings.instant,
           aimLines: now.aimLines,
+          attackerMark: now.attackerMark,
           armorScale: now.armorScale,
           reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
         });
@@ -773,6 +790,9 @@ export function CombatReplay(props: {
             })}
             {check('replay-overlap', 'Overlap', overlap, () => {
               setOverlap(!overlap);
+            })}
+            {check('replay-attacker-mark', 'Attacker mark', attackerMark, () => {
+              replayAttackerMark.set(!attackerMark);
             })}
           </div>
           <div className="replay-settings-row">

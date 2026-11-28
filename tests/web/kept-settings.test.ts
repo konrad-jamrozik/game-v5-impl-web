@@ -18,6 +18,8 @@ describe('interface choices kept across Sessions', () => {
     await boot(storage);
     await setSetting('sidePanelHidden', true);
     await setSetting('combatReplayOptionsShown', true);
+    expect(settingValue(snapshot().configuration, 'combatReplayAttackerMark')).toBe(true);
+    await setSetting('combatReplayAttackerMark', false);
     await setSetting('lastTurnsCharts', JSON.stringify(['agents']));
     await setSetting('artworkTuning', JSON.stringify({ 'artwork-1': { opacityPct: 30, image: 'a.png' } }));
 
@@ -25,6 +27,7 @@ describe('interface choices kept across Sessions', () => {
     const configuration = snapshot().configuration;
     expect(settingValue(configuration, 'sidePanelHidden')).toBe(true);
     expect(settingValue(configuration, 'combatReplayOptionsShown')).toBe(true);
+    expect(settingValue(configuration, 'combatReplayAttackerMark')).toBe(false);
     expect(checkedCharts(settingValue(configuration, 'lastTurnsCharts'))).toEqual(['agents']);
     expect(tuningsFrom(settingValue(configuration, 'artworkTuning')).get('artwork-1')).toEqual({
       opacityPct: 30,

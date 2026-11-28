@@ -11,3 +11,14 @@ export const replayOptionsShown = {
     void setSetting('combatReplayOptionsShown', next);
   },
 };
+
+/**
+ * CRPLAY, Options, Attacker mark: whether each attack begins with the ring around its attacker, the Global
+ * configuration setting Combat replay Attacker mark, on by default. It holds for the pace buttons too.
+ */
+export const replayAttackerMark = {
+  use: (): boolean => settingValue(useSnapshot().configuration, 'combatReplayAttackerMark') !== false,
+  set: (next: boolean): void => {
+    void setSetting('combatReplayAttackerMark', next);
+  },
+};

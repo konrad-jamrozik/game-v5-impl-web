@@ -88,6 +88,8 @@ export interface DrawInput {
   readonly instant: boolean;
   /** CRPLAY, Playback, Aim lines: whether a faint dashed line joins each attacker to its defender. */
   readonly aimLines: boolean;
+  /** CRPLAY, Options, Attacker mark: whether each attack begins with the ring around its attacker. */
+  readonly attackerMark: boolean;
   /** The current armor that gets the thickest rim: the largest armor of any Armor of the Game build. */
   readonly armorScale: number;
   /** Under reduced motion a hit does not shake its defender. */
@@ -466,7 +468,7 @@ function drawShot(
   }
   const { from, to, r, cell } = geometry;
 
-  if (t < T_MARK) {
+  if (input.attackerMark && t < T_MARK) {
     const k = t / T_MARK;
     ctx.save();
     ctx.globalAlpha = 1 - k;

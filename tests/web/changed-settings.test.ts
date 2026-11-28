@@ -60,6 +60,7 @@ describe('GUI: Changed settings', () => {
       'lastTurnsCharts',
       'artworkTuning',
       'combatReplayOptionsShown',
+      'combatReplayAttackerMark',
     ]);
   });
 });
