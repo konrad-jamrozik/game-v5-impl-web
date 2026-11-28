@@ -31912,7 +31912,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "id": "leads_view_artwork",
         "type": "BackgroundArtwork",
         "detail_view": "leads",
-        "image": "assets/images/chatgpt-investigation-i2.png",
+        "image": "assets/images/chatgpt-investigation-i3.png",
         "opacity_pct": 30
       }
     ]
