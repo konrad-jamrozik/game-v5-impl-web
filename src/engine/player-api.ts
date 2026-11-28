@@ -405,8 +405,6 @@ export interface CampaignConfigurationView {
   readonly startingFunding: number;
   /** TURN, Prologue: 1 when campaign creation played a Prologue, else 0. */
   readonly prologue: number;
-  /** TSUM, Tutorials: 1 when on, else 0; adjustable during play, and read by no rule yet. */
-  readonly tutorials: number;
 }
 
 /**

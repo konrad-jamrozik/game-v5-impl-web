@@ -23,6 +23,7 @@ const WORDING: Readonly<Record<string, { readonly name: string; readonly words: 
   musicVolume: { name: 'Music volume', words: percent },
   soundsOn: { name: 'Sounds', words: onOff },
   soundsVolume: { name: 'Sounds volume', words: percent },
+  tutorialsOn: { name: 'Tutorials', words: onOff },
   autopilotControlsShown: {
     name: 'Autopilot controls',
     words: (value) => (value === true ? 'shown' : 'hidden'),

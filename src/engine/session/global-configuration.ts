@@ -64,6 +64,14 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     isPermitted: (value): value is SettingValue =>
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 100,
   },
+  // TSUM, Tutorials: whether the game teaches the Player as they play; nothing reads it yet.
+  {
+    setting: 'tutorialsOn',
+    name: 'Tutorials on',
+    gameBuildDefault: true,
+    permitted: 'true or false',
+    isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
   // CSCR, Autopilot settings: whether the Autopilot controls are shown, and the number of Turns of the Turns field.
   {
     setting: 'autopilotControlsShown',

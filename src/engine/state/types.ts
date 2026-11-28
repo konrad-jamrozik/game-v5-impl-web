@@ -726,7 +726,7 @@ export interface WorldHistory {
   moneyAtEndOfTurn: TurnSeriesValue[];
 }
 
-/** ECON, Campaign configuration values, and TURN, Prologue, fixed after creation; TSUM, Tutorials, adjustable. */
+/** ECON, Campaign configuration values, and TURN, Prologue. All are fixed after creation. */
 export interface CampaignConfiguration {
   readonly startingMoney: number;
   readonly startingFunding: number;
@@ -735,8 +735,6 @@ export interface CampaignConfiguration {
    * lacks it, which means 0.
    */
   readonly prologue: number;
-  /** TSUM, Tutorials: 1 when on, else 0. A Campaign save written before it was kept lacks it, which means 1. */
-  readonly tutorials: number;
   readonly [key: string]: number;
 }
 

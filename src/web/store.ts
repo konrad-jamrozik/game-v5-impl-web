@@ -44,8 +44,6 @@ export interface Snapshot {
   readonly actions: AvailableActionsView | null;
   readonly report: TurnReport | null;
   readonly history: HistoryView | null;
-  /** TSUM, Tutorials: whether the Current campaign's Tutorials is on; absent without a Current campaign. */
-  readonly tutorials: boolean | null;
   readonly gameData: GameDataView | null;
   /**
    * COMP: the Player-visible Compendium articles, in their resolved form; under Revealed presentation, the Revealed
@@ -366,7 +364,6 @@ export function snapshot(): Snapshot {
     actions: has ? valueOf(game.player.queries.getAvailableActions()) : null,
     report: has ? valueOf(game.player.queries.getTurnReport()) : null,
     history: has ? valueOf(game.player.queries.getHistory()) : null,
-    tutorials: has ? valueOf(game.player.queries.getCampaignConfiguration())?.tutorials !== 0 : null,
     gameData: has ? valueOf(game.player.queries.getGameData()) : null,
     articles:
       compendium !== null

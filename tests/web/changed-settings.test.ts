@@ -26,6 +26,7 @@ describe('GUI: Changed settings', () => {
     expect(changedSettingLine(stored('soundsOn', false))).toBe('Sounds: off (default on)');
     expect(changedSettingLine(stored('musicVolume', 30))).toBe('Music volume: 30% (default 50%)');
     expect(changedSettingLine(stored('soundsVolume', 20))).toBe('Sounds volume: 20% (default 100%)');
+    expect(changedSettingLine(stored('tutorialsOn', false))).toBe('Tutorials: off (default on)');
     expect(changedSettingLine(stored('autosaveLimit', 3))).toBe('Autosave limit: 3 (default 5)');
     expect(changedSettingLine(stored('autopilotAutosaveLimit', 0))).toBe(
       'Autopilot Autosave limit: 0 (default 5)',
@@ -44,6 +45,7 @@ describe('GUI: Changed settings', () => {
       'musicVolume',
       'soundsOn',
       'soundsVolume',
+      'tutorialsOn',
       'autopilotControlsShown',
       'autopilotTurns',
       'autopilotControlsExpanded',

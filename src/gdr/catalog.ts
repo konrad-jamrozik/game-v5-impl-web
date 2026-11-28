@@ -486,8 +486,6 @@ const schemas = {
       starting_funding: whole(0),
       // TURN, Prologue: 0 or 1.
       prologue: whole(0).max(1),
-      // TSUM, Tutorials: true or false.
-      tutorials: z.boolean(),
     })
     .transform((g) => ({
       type: g.type,
@@ -496,7 +494,6 @@ const schemas = {
       startingMoney: g.starting_money,
       startingFunding: g.starting_funding,
       prologue: g.prologue,
-      tutorials: g.tutorials ? 1 : 0,
     })),
   ConfigurationParameters: z
     .strictObject({ id, type: z.literal('ConfigurationParameters'), default_preset: id })

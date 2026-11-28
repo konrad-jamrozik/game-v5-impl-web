@@ -1649,9 +1649,13 @@ input::placeholder {
   font-weight: 600;
 }
 
-/* TSUM, Special events: the Tutorials checkbox stands apart below the text. */
+/* TSUM, Special events: the Tutorials checkbox stands centred near the bottom of the Event art, 72 px above the
+   control row, apart from the text. */
 .special-event-tutorials {
-  margin-top: 40px;
+  position: absolute;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .special-event-controls {

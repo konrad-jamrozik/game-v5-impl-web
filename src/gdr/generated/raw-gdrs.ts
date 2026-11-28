@@ -28154,8 +28154,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "name": "Standard",
         "starting_money": 500,
         "starting_funding": 100,
-        "prologue": 0,
-        "tutorials": true
+        "prologue": 0
       },
       {
         "id": "showcase",
@@ -28163,8 +28162,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "name": "Showcase",
         "starting_money": 500,
         "starting_funding": 100,
-        "prologue": 1,
-        "tutorials": true
+        "prologue": 1
       }
     ]
   },

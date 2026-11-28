@@ -872,8 +872,6 @@ export function campaignConfigurationView(state: CampaignState): CampaignConfigu
     startingFunding: state.configuration.startingFunding,
     // A Campaign save written before the Prologue existed lacks the value: its Campaign had none.
     prologue: state.configuration.prologue ?? 0,
-    // A Campaign save written before Tutorials existed lacks the value, which means on.
-    tutorials: state.configuration.tutorials ?? 1,
   };
 }
 

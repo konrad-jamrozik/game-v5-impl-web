@@ -1,6 +1,6 @@
 /**
  * GUI, Settings panel: the one place where the Player sets Global configuration, on both screens. Its rows, from top
- * to bottom, are the Music row, the Sounds row, on the Campaign screen only the Tutorials row, one row for each other
+ * to bottom, are the Music row, the Sounds row, the Tutorials row, one row for each other
  * setting except the Autopilot settings, the Changed settings row, and, on the Campaign screen only, the Tools row. On
  * the Main menu it stands in the right column with the Music control above its rows and no
  * close control; on the Campaign screen it is a dialog over a Scrim with no buttons at its bottom, closed with its
@@ -17,8 +17,8 @@ import { Button, CloseControl, NumberField, Section, VolumeSlider } from '../ui.
 import { MusicControl, MusicToggle, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
 import { TutorialsCheckbox } from './TutorialsCheckbox.tsx';
 
-/** GUI, Settings panel: these four settings have no rows of their own beyond the Music and Sounds rows. */
-const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume']);
+/** GUI, Settings panel: these settings have no rows of their own beyond the Music, Sounds, and Tutorials rows. */
+const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume', 'tutorialsOn']);
 
 /**
  * GUI, Settings panel, Other settings: a setting that a control elsewhere sets where the Player uses it has no row,
@@ -145,13 +145,10 @@ function SettingsRows(props: {
         </div>
       </div>
       <SoundsRow snapshot={snapshot} />
-      {/* GUI, Settings panel, Tutorials: on the Campaign screen only, Campaign configuration of the current Campaign. */}
-      {tools === undefined ? null : (
-        <div className="settings-row">
-          <div>Tutorials</div>
-          <TutorialsCheckbox snapshot={snapshot} label="Tutorials enabled" testId="settings-tutorials" />
-        </div>
-      )}
+      <div className="settings-row">
+        <div>Tutorials</div>
+        <TutorialsCheckbox snapshot={snapshot} label="Tutorials enabled" testId="settings-tutorials" />
+      </div>
       {snapshot.configuration.settings
         .filter((setting) => !OWN_ROWS.has(setting.setting) && !SET_ELSEWHERE.has(setting.setting))
         .map((setting) => (
