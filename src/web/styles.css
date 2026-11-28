@@ -770,11 +770,36 @@ input::placeholder {
   margin-top: 12px;
 }
 
+/* MENU, Layout: the Music control and the Settings button, in one row of the header. */
+.menu-head-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.menu-settings-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* MENU, Layout: the New Campaign panel in the left column, the Campaign saves in the wider right column. */
 .menu-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 472px);
+  grid-template-columns: minmax(0, 472px) minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+}
+
+/* MENU, New Campaign: Advanced options below Start a new Campaign, and the fields it unfolds below it. */
+.menu-advanced-toggle {
+  margin-top: 12px;
+}
+
+.menu-advanced {
+  margin-top: 16px;
 }
 
 .menu-side,

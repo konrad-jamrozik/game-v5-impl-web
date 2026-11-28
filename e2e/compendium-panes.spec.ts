@@ -16,6 +16,7 @@ const id = (page: Page, testId: string) => page.getByTestId(testId);
  */
 test('the Articles pane keeps its width whichever article is shown', async ({ page }) => {
   await page.goto('/');
+  await id(page, 'advanced-options').click();
   await id(page, 'preset-select').selectOption('showcase');
   await id(page, 'seed-input').fill('compendium');
   await id(page, 'new-campaign').click();

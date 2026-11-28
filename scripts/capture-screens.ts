@@ -299,6 +299,7 @@ async function deployable(page: Page): Promise<string[]> {
  */
 async function create(page: Page): Promise<void> {
   await page.goto(baseURL);
+  await id(page, 'advanced-options').click();
   await id(page, 'preset-select').selectOption(PRESET);
   await id(page, 'seed-input').fill(SEED);
   await id(page, 'new-campaign').click();

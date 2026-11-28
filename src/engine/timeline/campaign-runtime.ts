@@ -17,6 +17,8 @@ import type { ActionRecord, GameRules, ShellState } from '../rules.ts';
  */
 export interface CampaignRuntime<S extends ShellState> {
   readonly campaignId: string;
+  /** SAVES, Identifiers: the Campaign name, fixed at creation; empty when none was supplied. Not Campaign state. */
+  readonly campaignName: string;
   /** The stamps of every World state of earlier Turns on this line of play, in order. */
   pastStamps: string[];
   states: S[];
@@ -31,9 +33,11 @@ export function newCampaignRuntime<S extends ShellState>(
   campaignId: string,
   initial: S,
   stamp: string,
+  campaignName = '',
 ): CampaignRuntime<S> {
   return {
     campaignId,
+    campaignName,
     pastStamps: [],
     states: [initial],
     entries: [],
@@ -142,6 +146,7 @@ export function fromSaved<S extends ShellState>(
   campaignId: string,
   saved: SavedCampaign<S>,
   rules: GameRules<S>,
+  campaignName = '',
 ): CampaignRuntime<S> | Rejection {
   const states: S[] = [saved.turnStart];
   let state = saved.turnStart;
@@ -161,6 +166,7 @@ export function fromSaved<S extends ShellState>(
   }
   return {
     campaignId,
+    campaignName,
     pastStamps: [...saved.pastStamps],
     states,
     entries: [...saved.entries],

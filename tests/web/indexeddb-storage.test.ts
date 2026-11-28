@@ -53,7 +53,7 @@ describe('IndexedDB storage', () => {
   it('keeps a Campaign across Sessions through the Current Autosave', async () => {
     const factory = new IDBFactory();
     const first = await start(factory);
-    ok(await first.session.campaign.create({ seed: 'web-seed' }));
+    ok(await first.session.campaign.create({ seed: 'web-seed', campaignName: 'Campaign 2026-11-27 #2' }));
     ok(await first.player.actions.hireAgents(1));
     ok(await first.player.actions.advanceTurn());
     ok(await first.player.actions.hireAgents(1));
@@ -72,5 +72,18 @@ describe('IndexedDB storage', () => {
     ok(await second.session.saves.load(current?.saveId ?? ''));
     expect(ok(second.player.queries.getCurrentLiveWorldState())).toEqual(before);
     expect(ok(second.session.timeline.getStatus()).canUndoAction).toBe(true);
+    // SAVES, Identifiers: the Campaign name is kept by every Campaign save, also by those written after a load.
+    ok(await second.player.actions.advanceTurn());
+    const after = ok(await second.session.saves.list()).filter((save) => save.campaignId === campaignId);
+    expect(after.length).toBeGreaterThan(1);
+    expect(new Set(after.map((save) => save.campaignName))).toEqual(new Set(['Campaign 2026-11-27 #2']));
+  });
+
+  it('gives a Campaign created without a Campaign name an empty one, and refuses one that is not text', async () => {
+    const engine = await start(new IDBFactory());
+    ok(await engine.session.campaign.create({ seed: 'unnamed' }));
+    expect(ok(await engine.session.saves.list()).map((save) => save.campaignName)).toEqual(['']);
+    const refused = await engine.session.campaign.create({ campaignName: 7 as unknown as string });
+    expect(refused.ok).toBe(false);
   });
 });

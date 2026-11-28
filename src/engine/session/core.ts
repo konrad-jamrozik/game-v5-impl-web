@@ -167,6 +167,8 @@ export interface SessionStatus {
 export interface SaveListEntry {
   readonly saveId: string;
   readonly campaignId: string;
+  /** SAVES, Listing Campaign saves: the Campaign name, empty when the Campaign has none. */
+  readonly campaignName: string;
   readonly isAutosave: boolean;
   readonly autosaveKind:
     | 'current'
@@ -833,12 +835,17 @@ export class EngineCore<S extends ShellState> {
 
   createCampaign(
     principal: Principal,
-    options: { seed?: unknown; setupSeed?: unknown } = {},
+    options: { seed?: unknown; setupSeed?: unknown; campaignName?: unknown } = {},
   ): Promise<Result<CreateCampaignReport | null>> {
     return this.runExclusive(async () => {
       const denied = this.checkSession(principal, { needsCampaign: false, duringAutopilot: false });
       if (denied) {
         return denied;
+      }
+      // SAVES, Identifiers: the Campaign name the Session controller supplies, or none.
+      const campaignName = options.campaignName ?? '';
+      if (typeof campaignName !== 'string') {
+        return fail('invalid_input', 'A Campaign name is text.');
       }
       // CONFIG, Campaign setup seed, Creating from it: in place of a Campaign seed, and ignoring the new-Campaign setup.
       const setupText = isCampaignSetupSeedText(options.setupSeed)
@@ -886,7 +893,7 @@ export class EngineCore<S extends ShellState> {
       } catch (error) {
         return this.defectResult(error);
       }
-      this.campaign = newCampaignRuntime(this.env.newId(), state, this.env.newId());
+      this.campaign = newCampaignRuntime(this.env.newId(), state, this.env.newId(), campaignName);
       this.devMode = false;
       this.presetEdits.clear();
       this.selectedPreset = this.rules.defaultPresetId;
@@ -941,6 +948,7 @@ export class EngineCore<S extends ShellState> {
       const entries = [...this.headers.values()].map((header) => ({
         saveId: header.saveId,
         campaignId: header.campaignId,
+        campaignName: header.campaignName ?? '',
         isAutosave: header.kind !== 'manual',
         autosaveKind: autosaveKindOf(header.kind),
         turn: header.turn,
@@ -1042,6 +1050,7 @@ export class EngineCore<S extends ShellState> {
     return {
       saveId,
       campaignId: campaign.campaignId,
+      campaignName: campaign.campaignName,
       kind,
       turn: currentState(campaign).world.current.turn,
       // The Timeline entries before the position are the Turn's actions that are not Undone; only Player actions count.
@@ -1255,7 +1264,7 @@ export class EngineCore<S extends ShellState> {
       );
     }
     try {
-      const campaign = fromSaved(decoded.campaignId, decoded.saved, this.rules);
+      const campaign = fromSaved(decoded.campaignId, decoded.saved, this.rules, decoded.campaignName);
       if (isRejection(campaign)) {
         return fail(
           'corrupt_campaign_save',

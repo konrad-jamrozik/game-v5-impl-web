@@ -33,6 +33,7 @@ export function encodeSave<S extends ShellState>(header: SaveHeader, saved: Save
     gameBuild: header.gameBuild,
     saveId: header.saveId,
     campaignId: header.campaignId,
+    campaignName: header.campaignName ?? '',
     kind: header.kind,
     writtenAt: header.writtenAt,
   });
@@ -60,6 +61,8 @@ export function utf8ByteLength(text: string): number {
 
 export interface DecodedSave<S extends ShellState> {
   readonly campaignId: string;
+  /** Empty for a Campaign save written before the Campaign name was kept. */
+  readonly campaignName: string;
   readonly saveId: string;
   readonly kind: SaveKind;
   readonly writtenAt: string;
@@ -124,6 +127,7 @@ export function decodeSave<S extends ShellState>(
   }
   const {
     campaignId,
+    campaignName,
     saveId,
     kind,
     writtenAt,
@@ -136,6 +140,7 @@ export function decodeSave<S extends ShellState>(
   } = parsed;
   if (
     typeof campaignId !== 'string' ||
+    !(campaignName === undefined || typeof campaignName === 'string') ||
     typeof saveId !== 'string' ||
     typeof kind !== 'string' ||
     !KINDS.includes(kind) ||
@@ -156,6 +161,7 @@ export function decodeSave<S extends ShellState>(
   }
   return {
     campaignId,
+    campaignName: campaignName ?? '',
     saveId,
     kind: kind as SaveKind,
     writtenAt,

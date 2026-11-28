@@ -133,9 +133,13 @@ export interface Engine {
       /**
        * LIFE, Campaign selection, Create; CONFIG, Campaign setup seed: `seed` takes a Campaign seed or a Campaign setup
        * seed, and `setupSeed` a Campaign setup seed; one created from a Campaign setup seed reports whether its Game
-       * build differs.
+       * build differs. `campaignName` supplies the Campaign name; see SAVES, Identifiers.
        */
-      create(options?: { seed?: string; setupSeed?: string }): Promise<Result<CreateCampaignReport | null>>;
+      create(options?: {
+        seed?: string;
+        setupSeed?: string;
+        campaignName?: string;
+      }): Promise<Result<CreateCampaignReport | null>>;
       close(): Promise<Result<null>>;
     };
     readonly saves: {

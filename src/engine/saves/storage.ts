@@ -15,6 +15,8 @@ export type SaveKind =
 export interface SaveHeader {
   readonly saveId: string;
   readonly campaignId: string;
+  /** SAVES, Identifiers: the Campaign name; absent from a header that an earlier Game build wrote, i.e. empty. */
+  readonly campaignName?: string;
   readonly kind: SaveKind;
   /** The Turn the saved World state belongs to. */
   readonly turn: number;

@@ -100,6 +100,7 @@ async function afterAdvance(page: Page, turn: string): Promise<void> {
 
 async function newCampaign(page: Page, seed: string): Promise<void> {
   await page.goto('/');
+  await id(page, 'advanced-options').click();
   await id(page, 'seed-input').fill(seed);
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toHaveText('1');

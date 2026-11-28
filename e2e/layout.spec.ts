@@ -108,6 +108,7 @@ async function deployable(page: Page): Promise<string[]> {
 
 test('every screen of the Campaign screen fits the Reference window', async ({ page }) => {
   await page.goto('/');
+  await id(page, 'advanced-options').click();
   await id(page, 'preset-select').selectOption('showcase');
   await id(page, 'seed-input').fill('layout');
   await id(page, 'new-campaign').click();
@@ -247,7 +248,13 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
 test('the Main menu and the Combat simulator fit the Reference window', async ({ page }) => {
   await page.goto('/');
   await expect(id(page, 'new-campaign')).toBeVisible();
+  // MENU, New Campaign: the fields under Advanced options are folded when the Main menu opens.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Continuity Demo');
+  await expect(id(page, 'advanced-fields')).toHaveCount(0);
   await expectFits(page, 'the Main menu');
+  await id(page, 'advanced-options').click();
+  await expect(id(page, 'preset-select')).toBeVisible();
+  await expectFits(page, 'the Main menu with its Advanced options unfolded');
   await page.goto('/?combat-simulator');
   await expect(id(page, 'combat-simulator')).toBeVisible();
   await expectFits(page, 'the Combat simulator');
@@ -297,13 +304,17 @@ test('the Screen limit draws every screen at the size of the Reference window, c
     1920,
   );
 
+  // MENU, Layout: the Settings panel opens from the Settings button of the header.
+  await id(page, 'open-settings').click();
   // The store applies a setting after the click returns, so the checkbox is clicked and then waited for.
   await id(page, 'setting-screenLimit').click();
   await expect(id(page, 'setting-screenLimit')).toBeChecked();
   expect(await boxOf(page, '#root'), 'the area of the Main menu').toEqual(area);
   await expect(id(page, 'changed-settings')).toContainText('Screen limit: on (default off)');
+  await id(page, 'close-settings').click();
   await expectFits(page, 'the Main menu under the Screen limit');
 
+  await id(page, 'advanced-options').click();
   await id(page, 'preset-select').selectOption('showcase');
   await id(page, 'seed-input').fill('layout');
   await id(page, 'new-campaign').click();

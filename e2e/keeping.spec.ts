@@ -27,6 +27,7 @@ test('the globe is kept, not built again, when the Player goes to the Main menu 
   page,
 }) => {
   await page.goto('/');
+  await id(page, 'advanced-options').click();
   await id(page, 'seed-input').fill('globe');
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toHaveText('1');

@@ -348,6 +348,7 @@ async function sortByEach(page: Page, headerPrefix: string, screen: string): Pro
 
 test('no table cuts the widest values short, and every table fits its view', async ({ page }) => {
   await page.goto('/');
+  await id(page, 'advanced-options').click();
   await id(page, 'preset-select').selectOption('showcase');
   await id(page, 'seed-input').fill('table-widths');
   await id(page, 'new-campaign').click();
@@ -439,6 +440,8 @@ test('no table cuts the widest values short, and every table fits its view', asy
 
   await id(page, 'to-menu').click();
   await expect(id(page, 'saves-table')).toBeVisible();
+  // MENU, New Campaign: the GUI names the Campaign for the day of its creation and its number on that day.
+  await expect(id(page, 'campaign-name').first()).toHaveText(/^Campaign \d{4}-\d{2}-\d{2} #\d+$/);
   await expectWhole(page, 'the Main menu');
   expect([...looked].sort(), 'the tables looked at').toEqual(Object.keys(RULES).sort());
 });

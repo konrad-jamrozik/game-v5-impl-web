@@ -314,6 +314,7 @@ describe('SAVES: examples', () => {
       'actions',
       'autosaveKind',
       'campaignId',
+      'campaignName',
       'isAutosave',
       'saveId',
       'turn',

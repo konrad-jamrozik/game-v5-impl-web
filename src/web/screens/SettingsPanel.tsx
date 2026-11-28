@@ -2,8 +2,7 @@
  * GUI, Settings panel: the one place where the Player sets Global configuration, on both screens. Its rows, from top
  * to bottom, are the Music row, the Sounds row, the Tutorials row, one row for each other
  * setting except the Autopilot settings, the Changed settings row, and, on the Campaign screen only, the Tools row. On
- * the Main menu it stands in the right column with the Music control above its rows and no
- * close control; on the Campaign screen it is a dialog over a Scrim with no buttons at its bottom, closed with its
+ * both screens it opens from a Settings button as a dialog over a Scrim with no buttons at its bottom, closed with its
  * close control or the Escape key.
  */
 import { useEffect, useRef, useState } from 'react';
@@ -13,8 +12,8 @@ import { REFERENCE_WINDOW } from '../screen-limit.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND, soundSettings } from '../sounds.ts';
 import { act, resetSetting, theEngine, type Snapshot } from '../store.ts';
-import { Button, CloseControl, NumberField, Section, VolumeSlider } from '../ui.tsx';
-import { MusicControl, MusicToggle, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
+import { Button, CloseControl, NumberField, VolumeSlider } from '../ui.tsx';
+import { MusicToggle, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
 import { TutorialsCheckbox } from './TutorialsCheckbox.tsx';
 
 /** GUI, Settings panel: these settings have no rows of their own beyond the Music, Sounds, and Tutorials rows. */
@@ -243,25 +242,34 @@ function SettingsRows(props: {
   );
 }
 
-/** MENU, Layout: the Settings panel of the Main menu, opening with the Music control labelled Music. */
-export function MenuSettingsPanel({ snapshot }: { snapshot: Snapshot }) {
+/** GUI, Settings panel: the cogwheel of a Settings button. */
+export function Cogwheel() {
   return (
-    <Section title="Settings" testId="settings">
-      <div className="settings-row settings-music">
-        <div>Music</div>
-        <MusicControl snapshot={snapshot} />
-      </div>
-      <SettingsRows snapshot={snapshot} />
-    </Section>
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    </svg>
   );
 }
 
-/** CSCR, Side panel: the Settings panel of the Campaign screen, a dialog opened from the Settings button. */
+/**
+ * GUI, Settings panel: the dialog opened from the Settings button of the Main menu's header or the Campaign screen's
+ * status bar; the Tools row only on the Campaign screen.
+ */
 export function SettingsDialog(props: {
   snapshot: Snapshot;
   onClose: () => void;
-  onShortcuts: () => void;
-  onDeveloper: () => void;
+  tools?: { onShortcuts: () => void; onDeveloper: () => void };
 }) {
   const dialog = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -282,10 +290,11 @@ export function SettingsDialog(props: {
         </header>
         <CloseControl testId="close-settings" onClose={props.onClose} />
         <div className="dialog-body settings-body">
-          <SettingsRows
-            snapshot={props.snapshot}
-            tools={{ onShortcuts: props.onShortcuts, onDeveloper: props.onDeveloper }}
-          />
+          {props.tools === undefined ? (
+            <SettingsRows snapshot={props.snapshot} />
+          ) : (
+            <SettingsRows snapshot={props.snapshot} tools={props.tools} />
+          )}
         </div>
       </div>
     </div>
