@@ -18,18 +18,12 @@ export function App() {
     new URLSearchParams(window.location.search).has('combat-simulator'),
   );
 
-  // MUSIC, Playback: one player for the whole page, so changing screen never restarts the Current Track.
+  // MUSIC, Playback: one player for the whole page, so changing screen never restarts the Current Track; Start: the
+  // first Track starts when the GUI opens, or at the first click or key press where the browser blocks sound until then.
   const { on: musicOn, volume: musicVolume } = musicSettings(snapshot);
   useEffect(() => {
     music.configure(musicOn, musicVolume);
   }, [musicOn, musicVolume]);
-  // MUSIC, Playback, Start: the music begins with the first Campaign created or loaded, and plays on at the Main menu.
-  const campaignCurrent = snapshot.status.hasCurrentCampaign;
-  useEffect(() => {
-    if (campaignCurrent) {
-      music.begin();
-    }
-  }, [campaignCurrent]);
 
   // SOUNDS, Sound settings and When Sounds play: one listener answers every button of every screen.
   const { on: soundsOn, volume: soundsVolume } = soundSettings(snapshot.configuration.settings);

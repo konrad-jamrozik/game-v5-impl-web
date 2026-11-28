@@ -44,8 +44,6 @@ class MusicPlayer {
   private skipFade: number | null = null;
   private paused = false;
   private configured = false;
-  /** MUSIC, Playback, Start: whether a Campaign has been created or loaded in this Session. */
-  private begun = false;
   private waitingForInteraction = false;
   private consecutiveFailures = 0;
   /** Whether the Current Track was loaded once more after a failure to read its file. */
@@ -82,27 +80,15 @@ class MusicPlayer {
   }
 
   /**
-   * MUSIC, Playback, Start: the music begins when a Campaign is first created or loaded in the Session, and then plays
-   * on whatever screen is shown; later calls do nothing.
+   * Applies the effective Music on and Music volume. MUSIC, Playback, Start: the first call, made when the GUI opens,
+   * starts the first Track when Music on is true, on whatever screen is shown.
    */
-  begin(): void {
-    if (this.begun) {
-      return;
-    }
-    this.begun = true;
-    if (this.configured && this.on && this.current === null) {
-      this.toggle = 1;
-      this.next();
-    }
-  }
-
-  /** Applies the effective Music on and Music volume; no Track starts before `begin`. */
   configure(on: boolean, volume: number): void {
     this.volume = volume;
     if (!this.configured) {
       this.configured = true;
       this.on = on;
-      if (on && this.begun) {
+      if (on) {
         this.next();
       }
       this.startTicking();
@@ -128,7 +114,7 @@ class MusicPlayer {
     }
     // A new fade starts from the current value of f.
     this.toggle = Math.min(this.toggle, this.trackFade());
-    if (on && this.begun) {
+    if (on) {
       if (this.current === null) {
         this.toggle = 1;
         this.next();

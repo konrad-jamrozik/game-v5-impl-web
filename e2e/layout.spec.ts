@@ -255,11 +255,13 @@ test('the Main menu and the Combat simulator fit the Reference window', async ({
   await expect(id(page, 'music-title')).toHaveCount(0);
   await expect(id(page, 'advanced-fields')).toHaveCount(0);
   await id(page, 'open-settings').click();
-  // MUSIC, Music control in the Settings panel: the Playback row; before the music starts its Skip button is disabled.
+  // MUSIC, Music control in the Settings panel: the Music playback row; MUSIC, Playback, Start: the music plays on the
+  // Main menu, at the latest from the first click, so the Track title names the Current Track and Skip is enabled.
   await expect(id(page, 'settings-music-toggle')).toBeVisible();
-  await expect(id(page, 'settings-music-skip')).toBeDisabled();
+  await expect(id(page, 'settings-music-title')).toContainText('♪');
+  await expect(id(page, 'settings-music-skip')).toBeEnabled();
   // VIS, Close controls: the Settings panel's close control stands in the dialog's upper right corner, on the title's
-  // line, above the Playback row rather than over it.
+  // line, above the Music playback row rather than over it.
   const dialogBox = await id(page, 'settings').boundingBox();
   const closeBox = await id(page, 'close-settings').boundingBox();
   const playbackBox = await id(page, 'settings-music-control').boundingBox();

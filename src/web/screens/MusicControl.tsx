@@ -1,6 +1,6 @@
 /**
  * MUSIC, Music control: the Music toggle, the Skip button, and the Track title of the Current Track. It is shown on the
- * Globe stage of the Campaign screen and as the Playback row of the Settings panel on both screens. MUSIC, Music
+ * Globe stage of the Campaign screen and as the Music playback row of the Settings panel on both screens. MUSIC, Music
  * volume slider: the row of the Settings panel that sets the Music volume.
  */
 import { useState, useSyncExternalStore } from 'react';
@@ -66,7 +66,7 @@ export function MusicToggle(props: { snapshot: Snapshot; buttonClass: string; te
 /**
  * `onGlobeStage`: MUSIC, Music control on the Globe stage: one row with the Track title first, at the bottom right
  * corner of the Globe stage, its buttons drawn as the globe's own controls are. Otherwise, MUSIC, Music control in the
- * Settings panel: the Playback row, with neutral buttons first and the Track title after them; `testIdPrefix` keeps
+ * Settings panel: the Music playback row, with neutral buttons first and the Track title after them; `testIdPrefix` keeps
  * its test IDs apart from those of the Music control on the Globe stage.
  */
 export function MusicControl({

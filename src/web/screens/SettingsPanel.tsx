@@ -1,6 +1,6 @@
 /**
  * GUI, Settings panel: the one place where the Player sets Global configuration, on both screens. Its rows, from top
- * to bottom, are the Playback row, the Music volume row, the Sounds volume row, the Tutorials row, one row for each other
+ * to bottom, are the Music playback row, the Music volume row, the Sounds volume row, the Tutorials row, one row for each other
  * setting except the Autopilot settings, the Changed settings row, and, on the Campaign screen only, the Tools row. On
  * both screens it opens from a Settings button as a dialog over a Scrim with no buttons at its bottom, closed with its
  * close control or the Escape key.
@@ -17,7 +17,7 @@ import { MusicControl, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
 import { TutorialsCheckbox } from './TutorialsCheckbox.tsx';
 
 /**
- * GUI, Settings panel: these settings have no rows of their own beyond the Playback, Music volume, Sounds volume, and
+ * GUI, Settings panel: these settings have no rows of their own beyond the Music playback, Music volume, Sounds volume, and
  * Tutorials rows.
  */
 const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume', 'tutorialsOn']);
@@ -142,10 +142,9 @@ function SettingsRows(props: {
   const { session } = theEngine();
   return (
     <>
-      {/* MUSIC, Music control in the Settings panel: the Playback row, on both screens; before the music starts on
-          the Main menu its Skip button is disabled and its Track title reads nothing. */}
+      {/* MUSIC, Music control in the Settings panel: the Music playback row, on both screens. */}
       <div className="settings-row settings-music">
-        <div>Playback</div>
+        <div>Music playback</div>
         <MusicControl snapshot={snapshot} testIdPrefix="settings-" />
       </div>
       {/* MUSIC, Music volume slider: the Music volume row holds the Music volume slider alone. */}
