@@ -5061,6 +5061,38 @@ label:has(> input[type='checkbox']:disabled) {
   animation-name: window-check-pulse-down;
 }
 
+.window-check-picture .wc-arrow-left {
+  animation-name: window-check-pulse-left;
+}
+
+.window-check-picture .wc-arrow-up {
+  animation-name: window-check-pulse-up;
+}
+
+@keyframes window-check-pulse-left {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-40%);
+  }
+}
+
+@keyframes window-check-pulse-up {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-40%);
+  }
+}
+
 @keyframes window-check-pulse-right {
   0%,
   100% {

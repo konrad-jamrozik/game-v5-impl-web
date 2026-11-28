@@ -11,18 +11,18 @@ describe('MENU: the Campaign name', () => {
     expect(localDay(new Date(2026, 0, 5, 0, 1))).toBe('2026-01-05');
   });
 
-  it('numbers the first Campaign of a day 1', () => {
-    expect(newCampaignName([], evening)).toBe('Campaign 2026-11-27 #1');
-    expect(newCampaignName(['Campaign 2026-11-26 #4', ''], evening)).toBe('Campaign 2026-11-27 #1');
+  it('names the first Campaign of a day by the date alone', () => {
+    expect(newCampaignName([], evening)).toBe('Campaign 2026-11-27');
+    expect(newCampaignName(['Campaign 2026-11-26 #4', ''], evening)).toBe('Campaign 2026-11-27');
+    expect(newCampaignName(['Campaign 2026-11-27 #2x'], evening)).toBe('Campaign 2026-11-27');
   });
 
-  it('numbers a Campaign one more than the highest listed number of that day', () => {
+  it('numbers a later Campaign one more than the highest listed number of that day, the first counting as 1', () => {
+    expect(newCampaignName(['Campaign 2026-11-27'], evening)).toBe('Campaign 2026-11-27 #2');
     expect(
-      newCampaignName(
-        ['Campaign 2026-11-27 #1', 'Campaign 2026-11-27 #3', 'Campaign 2026-11-26 #9'],
-        evening,
-      ),
+      newCampaignName(['Campaign 2026-11-27', 'Campaign 2026-11-27 #3', 'Campaign 2026-11-26 #9'], evening),
     ).toBe('Campaign 2026-11-27 #4');
-    expect(newCampaignName(['Campaign 2026-11-27 #2x'], evening)).toBe('Campaign 2026-11-27 #1');
+    // Earlier Game builds numbered the first Campaign of a day #1.
+    expect(newCampaignName(['Campaign 2026-11-27 #1'], evening)).toBe('Campaign 2026-11-27 #2');
   });
 });

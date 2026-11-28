@@ -440,8 +440,8 @@ test('no table cuts the widest values short, and every table fits its view', asy
 
   await id(page, 'to-menu').click();
   await expect(id(page, 'saves-table')).toBeVisible();
-  // MENU, New Campaign: the GUI names the Campaign for the day of its creation and its number on that day.
-  await expect(id(page, 'campaign-name').first()).toHaveText(/^Campaign \d{4}-\d{2}-\d{2} #\d+$/);
+  // MENU, New Campaign: the GUI names the first Campaign of the day by the date of its creation alone.
+  await expect(id(page, 'campaign-name').first()).toHaveText(/^Campaign \d{4}-\d{2}-\d{2}$/);
   await expectWhole(page, 'the Main menu');
   expect([...looked].sort(), 'the tables looked at').toEqual(Object.keys(RULES).sort());
 });

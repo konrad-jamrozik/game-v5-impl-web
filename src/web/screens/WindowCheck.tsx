@@ -159,14 +159,11 @@ export function WindowCheckDialog(props: {
               )}
             </>
           )}
-          <WindowPicture
-            measure={measure}
-            fixed={fixed}
-            lackWidth={assessment.lackWidth > 0}
-            lackHeight={assessment.lackHeight > 0}
-          />
+          <WindowPicture measure={measure} fixed={fixed} />
           <div className="window-check-legend label">
-            <span className="legend-screen">Screen {size(measure.screen.width, measure.screen.height)}</span>
+            <span className="legend-screen">
+              Screen {size(Math.round(measure.screen.width), Math.round(measure.screen.height))}
+            </span>
             <span className="legend-viewport">
               Window {size(measure.viewport.width, measure.viewport.height)}
             </span>
@@ -186,12 +183,7 @@ export function WindowCheckDialog(props: {
 }
 
 /** VIS, Window check, Picture: the screen, the viewport on it, the Reference window, and the arrows. */
-function WindowPicture(props: {
-  measure: WindowMeasure;
-  fixed: boolean;
-  lackWidth: boolean;
-  lackHeight: boolean;
-}) {
+function WindowPicture(props: { measure: WindowMeasure; fixed: boolean }) {
   const picture = windowPicture(props.measure);
   const { bounds } = picture;
   const pad = Math.max(bounds.width, bounds.height) * 0.06;
@@ -219,20 +211,35 @@ function WindowPicture(props: {
       {box(picture.screen, 'wc-screen')}
       {box(v, props.fixed ? 'wc-viewport fixed' : 'wc-viewport')}
       {box(picture.reference, 'wc-reference')}
-      {!props.fixed && props.lackWidth ? (
-        <g className="wc-arrow wc-arrow-right" data-testid="window-check-arrow-right">
-          <path
-            d={`M ${v.x + v.width + arrow * 0.3} ${v.y + v.height / 2 - arrow * 0.6} l ${arrow} ${arrow * 0.6} l ${-arrow} ${arrow * 0.6} z`}
-          />
+      {props.fixed || picture.across === null ? null : (
+        <g
+          className={`wc-arrow wc-arrow-${picture.across}`}
+          data-testid={`window-check-arrow-${picture.across}`}
+        >
+          {picture.across === 'right' ? (
+            <path
+              d={`M ${v.x + v.width + arrow * 0.3} ${v.y + v.height / 2 - arrow * 0.6} l ${arrow} ${arrow * 0.6} l ${-arrow} ${arrow * 0.6} z`}
+            />
+          ) : (
+            <path
+              d={`M ${v.x - arrow * 0.3} ${v.y + v.height / 2 - arrow * 0.6} l ${-arrow} ${arrow * 0.6} l ${arrow} ${arrow * 0.6} z`}
+            />
+          )}
         </g>
-      ) : null}
-      {!props.fixed && props.lackHeight ? (
-        <g className="wc-arrow wc-arrow-down" data-testid="window-check-arrow-down">
-          <path
-            d={`M ${v.x + v.width / 2 - arrow * 0.6} ${v.y + v.height + arrow * 0.3} l ${arrow * 0.6} ${arrow} l ${arrow * 0.6} ${-arrow} z`}
-          />
+      )}
+      {props.fixed || picture.down === null ? null : (
+        <g className={`wc-arrow wc-arrow-${picture.down}`} data-testid={`window-check-arrow-${picture.down}`}>
+          {picture.down === 'down' ? (
+            <path
+              d={`M ${v.x + v.width / 2 - arrow * 0.6} ${v.y + v.height + arrow * 0.3} l ${arrow * 0.6} ${arrow} l ${arrow * 0.6} ${-arrow} z`}
+            />
+          ) : (
+            <path
+              d={`M ${v.x + v.width / 2 - arrow * 0.6} ${v.y - arrow * 0.3} l ${arrow * 0.6} ${-arrow} l ${arrow * 0.6} ${arrow} z`}
+            />
+          )}
         </g>
-      ) : null}
+      )}
     </svg>
   );
 }
