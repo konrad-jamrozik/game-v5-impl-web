@@ -139,9 +139,9 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
 
   await open(page, 'agents');
   await expectFits(page, 'the Agents View');
-  await id(page, 'filter-memorial').click();
+  await id(page, 'open-memorial').click();
   await expectFits(page, 'the Memorial');
-  await id(page, 'filter-all').click();
+  await page.keyboard.press('Escape');
   await id(page, 'agents-grid').locator('[data-testid^="agent-details-"]').first().click();
   await expectFits(page, 'the Agent details');
 

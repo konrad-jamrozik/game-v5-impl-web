@@ -592,7 +592,8 @@ input::placeholder {
   margin-bottom: 8px;
 }
 
-.agents-second-row > .agents-filters {
+.agents-second-row > .agents-filters,
+.detail-lead > .agents-filters {
   margin-bottom: 0;
 }
 

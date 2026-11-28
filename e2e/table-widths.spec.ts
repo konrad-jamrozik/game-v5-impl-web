@@ -365,10 +365,10 @@ test('no table cuts the widest values short, and every table fits its view', asy
   await open(page, 'agents');
   await expectWhole(page, 'the Agents View');
   await sortByEach(page, 'agents-sort-', 'the Agents View');
-  await id(page, 'filter-memorial').click();
+  await id(page, 'open-memorial').click();
   await expectWhole(page, 'the Memorial');
   await sortByEach(page, 'memorial-sort-', 'the Memorial');
-  await id(page, 'filter-all').click();
+  await page.keyboard.press('Escape');
   // The details of an Agent with a Participation history, for its table.
   // GUI, Agent shown by name: the buttons show Agent names, so the Agents are told apart by their test IDs.
   const agents = await id(page, 'agents-grid')

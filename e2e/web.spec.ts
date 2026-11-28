@@ -333,19 +333,29 @@ test('VIS, Charts: the Full screen button shows a chart alone over the whole scr
   await expect(id(page, 'panic-chart')).toBeVisible();
 });
 
-test('AVIEW, Equip table: Equip works from the Memorial, covers the whole screen, and Escape returns', async ({
+test('AVIEW, Equip table and Memorial: each covers the whole screen, and Escape returns to the Agent table', async ({
   page,
 }) => {
-  await newCampaign(page, 'equip-from-memorial');
+  await newCampaign(page, 'equip-and-memorial');
   await openAgents(page);
-  await id(page, 'filter-inBase').click();
-  await id(page, 'filter-memorial').click();
-  await id(page, 'open-equip').click();
   const whole = page.locator('.whole-screen');
+  await id(page, 'filter-inBase').click();
+  await id(page, 'open-equip').click();
   await expect(whole.getByTestId('equip-view')).toBeVisible();
+  // AVIEW, Row filters: the Equip table shows the Agent table's own row filters and Hide checkboxes.
+  await expect(whole.getByTestId('filter-inBase')).toHaveAttribute('aria-pressed', 'true');
+  await expect(whole.getByTestId('hide-recovering')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(whole).toHaveCount(0);
   await expect(id(page, 'agents-grid')).toBeVisible();
+  // AVIEW, Memorial: its table alone, without the row filters or the buttons of the Agents View.
+  await id(page, 'open-memorial').click();
+  await expect(whole.getByTestId('memorial-grid')).toBeVisible();
+  await expect(whole.getByTestId('filter-all')).toHaveCount(0);
+  await expect(whole.getByTestId('hire')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(whole).toHaveCount(0);
+  await expect(id(page, 'filter-inBase')).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('LVIEW, Team: an Agent name opens the Agent details, and Escape returns to the Leads View', async ({

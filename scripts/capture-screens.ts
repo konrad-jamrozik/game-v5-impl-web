@@ -364,7 +364,7 @@ async function capture(page: Page): Promise<void> {
   await selectAgents(page, onStandby.slice(0, 2));
   await shootWindow(page, 'campaign-screen-view');
   await shootElement(page, 'agents-view', view(page, 'agents'));
-  await id(page, 'filter-memorial').click();
+  await id(page, 'open-memorial').click();
   await shootElement(page, 'agents-memorial', view(page, 'agents'));
   // The Killed Agent, whose Participation history holds its Missions.
   await id(page, 'memorial-grid').locator('[data-testid^="agent-details-"]').first().click();
