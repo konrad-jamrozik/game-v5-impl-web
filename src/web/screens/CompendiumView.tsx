@@ -194,6 +194,12 @@ function SheetValue(props: { parts: readonly SheetPart[]; onOpen: (article: stri
  * COMPV, Article pane: the colour and the drawing, in a 100 × 100 box, of the Article art placeholder of each category,
  * as the page "Compendium Image Slot" shows them; a category not named here, e.g. Other, uses the last entry.
  */
+/**
+ * One pistol pointing right in the 100 × 100 box: the slide, the grip raked back, and the trigger guard. Its barrel
+ * passes through (50, 42) near the muzzle, where the two pistols of the Combat placeholder cross.
+ */
+const PISTOL = 'M8 36h56v12H8zM12 48h13l-6 24H6zM25 48v6a5 5 0 0 0 10 0v-6';
+
 const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
   Guide: {
     color: 'var(--text-muted)',
@@ -220,10 +226,15 @@ const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
       </>
     ),
   },
-  // Two crossed blades, each with a guard near its hilt.
+  // Two crossed pistols, muzzles up and outward, barrels crossing at the centre: one pistol, tilted, and its mirror.
   Combat: {
     color: 'var(--tracer-red)',
-    glyph: <path d="M18 18l60 60M82 18L22 78M64 84l20-20M16 64l20 20M70 78l8 8M30 78l-8 8" />,
+    glyph: (
+      <>
+        <path transform="rotate(-40 50 42)" d={PISTOL} />
+        <path transform="translate(100 0) scale(-1 1) rotate(-40 50 42)" d={PISTOL} />
+      </>
+    ),
   },
   Armor: {
     color: 'var(--positive)',
