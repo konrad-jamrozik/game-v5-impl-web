@@ -4983,3 +4983,124 @@ label:has(> input[type='checkbox']:disabled) {
 .replay-log-row.ahead {
   opacity: 0.45;
 }
+
+/* VIS, Window check: the dialog covers most of the window, over the Scrim and above everything else, with a Warning
+   top edge, which turns Positive bright once the window is large enough. */
+.window-check-scrim {
+  z-index: 100;
+  padding: 3vh 3vw;
+}
+
+.dialog.window-check {
+  max-width: none;
+  width: 94vw;
+  height: 94vh;
+  border-top-color: var(--warning);
+}
+
+.dialog.window-check.fixed {
+  border-top-color: var(--positive-bright);
+}
+
+.window-check.fixed .dialog-head h2 {
+  color: var(--positive-bright);
+}
+
+.window-check-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.window-check-body p {
+  margin: 0;
+}
+
+.window-check-picture {
+  flex: 1;
+  min-height: 80px;
+  width: 100%;
+}
+
+.window-check-picture rect {
+  fill: none;
+  stroke-width: 2px;
+}
+
+.window-check-picture .wc-screen {
+  fill: var(--background);
+  stroke: var(--border);
+}
+
+.window-check-picture .wc-viewport {
+  fill: var(--surface);
+  stroke: var(--text);
+}
+
+.window-check-picture .wc-viewport.fixed {
+  stroke: var(--positive-bright);
+}
+
+.window-check-picture .wc-reference {
+  stroke: var(--accent);
+  stroke-dasharray: 8 6;
+}
+
+.window-check-picture .wc-arrow {
+  fill: var(--accent);
+  transform-box: fill-box;
+  animation: window-check-pulse-right 1s ease-in-out infinite;
+}
+
+.window-check-picture .wc-arrow-down {
+  animation-name: window-check-pulse-down;
+}
+
+@keyframes window-check-pulse-right {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(40%);
+  }
+}
+
+@keyframes window-check-pulse-down {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(40%);
+  }
+}
+
+.window-check-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.window-check-legend .legend-screen {
+  color: var(--text-muted);
+}
+
+.window-check-legend .legend-viewport {
+  color: var(--text);
+}
+
+.window-check-legend .legend-reference {
+  color: var(--accent);
+}
+
+/* VIS, Window check, Blocking: the screen beneath is disabled as a whole, so it takes no part in the layout. */
+.window-check-gate {
+  display: contents;
+}

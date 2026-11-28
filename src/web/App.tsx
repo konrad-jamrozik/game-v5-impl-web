@@ -3,6 +3,7 @@ import { Campaign } from './screens/Campaign.tsx';
 import { CombatSimulator } from './screens/CombatSimulator.tsx';
 import { MainMenu } from './screens/MainMenu.tsx';
 import { musicSettings } from './screens/MusicControl.tsx';
+import { useBlockedKeys, useWindowCheck, WindowCheckDialog } from './screens/WindowCheck.tsx';
 import { music } from './music-player.ts';
 import { applyScreenLimit, screenLimitOn } from './screen-limit.ts';
 import { configureSounds, installButtonSounds } from './sound-player.ts';
@@ -43,29 +44,48 @@ export function App() {
     applyScreenLimit(limited);
   }, [limited]);
 
+  // VIS, Window check: while its dialog stands, every button, input, and keyboard shortcut beneath it is disabled.
+  const windowCheck = useWindowCheck();
+  const blocked = windowCheck.state !== 'ok';
+  useBlockedKeys(blocked);
+
   return (
     <>
-      {snapshot.status.hasCurrentCampaign && snapshot.state !== null ? (
-        <Campaign snapshot={snapshot} state={snapshot.state} />
-      ) : simulator ? (
-        <CombatSimulator
-          onClose={() => {
-            setSimulator(false);
-          }}
-        />
-      ) : (
-        <MainMenu
-          snapshot={snapshot}
-          onOpenSimulator={() => {
-            setSimulator(true);
-          }}
-        />
-      )}
+      <fieldset
+        className="window-check-gate"
+        disabled={blocked}
+        inert={blocked}
+        data-testid="window-check-gate"
+      >
+        {snapshot.status.hasCurrentCampaign && snapshot.state !== null ? (
+          <Campaign snapshot={snapshot} state={snapshot.state} />
+        ) : simulator ? (
+          <CombatSimulator
+            onClose={() => {
+              setSimulator(false);
+            }}
+          />
+        ) : (
+          <MainMenu
+            snapshot={snapshot}
+            onOpenSimulator={() => {
+              setSimulator(true);
+            }}
+          />
+        )}
+      </fieldset>
       <div className="notices" aria-live="polite">
         {snapshot.notices.map((notice) => (
           <NoticeToast key={notice.id} notice={notice} />
         ))}
       </div>
+      {windowCheck.state === 'ok' ? null : (
+        <WindowCheckDialog
+          state={windowCheck.state}
+          measure={windowCheck.measure}
+          onContinue={windowCheck.dismiss}
+        />
+      )}
     </>
   );
 }
