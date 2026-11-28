@@ -4000,6 +4000,9 @@ label:has(> input[type='checkbox']:disabled) {
     min-height: 0;
     overflow-y: auto;
     scrollbar-width: thin;
+    /* The room of the scrollbar is kept whether or not the article scrolls, so the Article history buttons stay in
+       place when another article is shown. */
+    scrollbar-gutter: stable;
   }
 
   /* The Article history buttons keep 8 px clear of the scrollbar of a long article. */
@@ -4087,12 +4090,12 @@ label:has(> input[type='checkbox']:disabled) {
   );
 }
 
-/* Crop marks at the picture's corners. */
+/* Crop marks at the picture's corners, faint so that they never draw the eye. */
 .article-art-crop {
   position: absolute;
   width: 18px;
   height: 18px;
-  border: 0 solid rgb(232 228 216 / 35%);
+  border: 0 solid rgb(232 228 216 / 12%);
 }
 
 .article-art-crop-tl {
