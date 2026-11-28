@@ -313,6 +313,31 @@ export function heardBetween(
   return [...heard].map(([sound, attack]) => ({ sound: replaySoundName(sound, attack), attack }));
 }
 
+/** How long before a shot first shows an attack with Attacker mark off starts, so that its first moment is not cut. */
+const LEAD_IN = 0.03;
+
+/** When the brackets of a `sighted_rifle` start to close on its defender. */
+const RETICLE_FROM = 0.08;
+
+/**
+ * CRPLAY, Options, Attacker mark: how far into an attack its shot first shows, less a short lead-in, which is where the
+ * attack starts while Attacker mark is off: a gun's flash, the brackets of the `sighted_rifle`, a laser's gathering
+ * light, or a blade's lunge.
+ */
+export function shotLead(shot: ShotKind): number {
+  const kinetic = KINETIC[shot];
+  const energy = ENERGY[shot];
+  const first =
+    kinetic !== undefined
+      ? kinetic.reticle
+        ? RETICLE_FROM
+        : kinetic.fire
+      : energy !== undefined
+        ? energy.gather
+        : T_AIM;
+  return Math.max(0, first - LEAD_IN);
+}
+
 /** When a shot that misses has passed its defender, which is when the word that says so appears. */
 export function missShownAt(shot: ShotKind): number {
   const kinetic = KINETIC[shot];
@@ -421,7 +446,7 @@ function reticle(ctx: Ctx, palette: ShotPalette, g: ShotGeometry, fire: number, 
   if (t >= fire + 0.08) {
     return;
   }
-  const closed = clamp((t - 0.08) / (fire - 0.14), 0, 1);
+  const closed = clamp((t - RETICLE_FROM) / (fire - 0.14), 0, 1);
   const size = g.r * (2.6 - 1.2 * ease(closed));
   const arm = size * 0.4;
   ctx.save();

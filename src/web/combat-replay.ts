@@ -562,6 +562,8 @@ export interface Playback {
   last: readonly [number, number] | null;
   /** CRPLAY, Options, Aim lines: the attack being played was picked with the slider or the Combat log. */
   picked: boolean;
+  /** CRPLAY, Options, Attacker mark: how far into its attacks the step started last began, 0 with the mark on. */
+  lead: number;
 }
 
 /** CRPLAY, Transport buttons: a pace, i.e. the values a pace button sets the Options to. */
@@ -652,7 +654,7 @@ export const SPEEDS_MS = [
 export const DELAYS_MS = [2000, 1750, 1500, 1250, 1000, 750, 500, 250, 100] as const;
 
 export function newPlayback(): Playback {
-  return { index: 0, active: [], since: 0, target: 0, playing: false, last: null, picked: false };
+  return { index: 0, active: [], since: 0, target: 0, playing: false, last: null, picked: false, lead: 0 };
 }
 
 /** How many attacks have finished playing: those before the oldest step still playing. */
@@ -723,8 +725,17 @@ export function playAttack(playback: Playback, replay: Replay, attack: number): 
  * the gap since the last start has passed, which is the Delay with Overlap on and otherwise the Speed, i.e. when the
  * last step ends. A step is one attack, or with Instant on the rest of the phase, and never goes past the target, so
  * that the Combat turn button plays one attack also with Instant on.
+ *
+ * CRPLAY, Options, Attacker mark: `leads`, given while the mark is off, holds how far into each attack its shot first
+ * shows; a step then starts at the least lead of its attacks, and without Overlap the next one follows when it ends.
  */
-export function advance(playback: Playback, replay: Replay, dtMs: number, settings: PlaybackSettings): void {
+export function advance(
+  playback: Playback,
+  replay: Replay,
+  dtMs: number,
+  settings: PlaybackSettings,
+  leads: readonly number[] | null = null,
+): void {
   if (!playback.playing) {
     return;
   }
@@ -735,12 +746,14 @@ export function advance(playback: Playback, replay: Replay, dtMs: number, settin
     playback.active.shift();
   }
   playback.since += dtMs;
-  const gap = settings.overlap ? settings.delayMs : settings.speedMs;
+  const gap = settings.overlap ? settings.delayMs : settings.speedMs * (1 - playback.lead);
   if (playback.index < playback.target && playback.since >= gap) {
     const end = settings.instant
       ? Math.min(phaseEnd(replay, playback.index), playback.target)
       : playback.index + 1;
-    playback.active.push({ a: playback.index, b: end, t: 0 });
+    const lead = leads === null ? 0 : Math.min(...leads.slice(playback.index, end));
+    playback.lead = lead;
+    playback.active.push({ a: playback.index, b: end, t: lead });
     playback.last = [playback.index, end];
     playback.index = end;
     const over = playback.since - gap;

@@ -34,7 +34,7 @@ import { drawReplay, figureAt, readPalette, type ReplayPalette } from '../combat
 import { groupDigits, hitChanceText, wholeText } from '../format.ts';
 import { replayAttackerMark, replayOptionsShown } from '../replay-options.ts';
 import { sliderFill } from '../slider.ts';
-import { heardBetween } from '../combat-replay-shots.ts';
+import { heardBetween, shotLead } from '../combat-replay-shots.ts';
 import { playReplaySound, playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { Button, typingIn } from '../ui.tsx';
@@ -53,6 +53,17 @@ interface TakenStep {
   combatKey: string | number | undefined;
   /** The pace whose last step this is, which Repeat plays it at in place of the Options. */
   pace?: Pace;
+}
+
+/** CRPLAY, Options, Attacker mark: how far into each attack of a replay its shot first shows, worked out once. */
+const LEADS = new WeakMap<Replay, readonly number[]>();
+function leadsOf(replay: Replay): readonly number[] {
+  let leads = LEADS.get(replay);
+  if (leads === undefined) {
+    leads = replay.attacks.map((attack) => shotLead(attack.shot));
+    LEADS.set(replay, leads);
+  }
+  return leads;
 }
 
 const STEP_NAMES: Record<Exclude<StepKind, 'pace'>, string> = {
@@ -297,6 +308,7 @@ export function CombatReplay(props: {
       live.current.replay,
       Math.min(MAX_STEP_MS, time - lastTime.current),
       live.current.settings,
+      live.current.attackerMark ? null : leadsOf(live.current.replay),
     );
     for (const heard of heardBetween(
       live.current.replay,

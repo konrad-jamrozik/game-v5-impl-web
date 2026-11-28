@@ -29,6 +29,7 @@ import {
   type ReplayFigure,
   type ReplaySource,
 } from '../../src/web/combat-replay.ts';
+import { shotLead, shotMoments } from '../../src/web/combat-replay-shots.ts';
 import { rankOf } from '../../src/web/rank.ts';
 
 type Attack = CombatReport['log'][number];
@@ -580,6 +581,30 @@ describe('CRPLAY: Playback', () => {
     expect(playback.index).toBe(2);
     expect(playback.active).toHaveLength(1);
     expect(settledIndex(playback)).toBe(1);
+  });
+
+  it('with Attacker mark off, starts each attack where its shot first shows and the next when it ends', () => {
+    const replay = buildReplay(report(), source);
+    const playback = newPlayback();
+    const leads = replay.attacks.map(() => 0.4);
+    playTo(playback, replay, replay.attacks.length, false);
+    advance(playback, replay, 16, settings, leads);
+    expect(playback.active[0]?.t).toBeCloseTo(0.4);
+    advance(playback, replay, 500, settings, leads);
+    // The first attack, begun 40% of the way in, has ended after 600 ms, and the second has started in its place.
+    expect(playback.index).toBe(1);
+    advance(playback, replay, 100, settings, leads);
+    expect(playback.index).toBe(2);
+    expect(settledIndex(playback)).toBe(1);
+  });
+
+  it('gives every shot a lead before its first sound, and the latest to a gun without brackets', () => {
+    for (const shot of ['blade', 'light_pistol', 'sighted_rifle', 'machine_gun', 'laser_pistol'] as const) {
+      const first = Math.min(...shotMoments(shot, true).map((moment) => moment.at));
+      expect(shotLead(shot)).toBeGreaterThan(0);
+      expect(shotLead(shot)).toBeLessThan(first);
+    }
+    expect(shotLead('sighted_rifle')).toBeLessThan(shotLead('light_pistol'));
   });
 
   it('stops at the target and when every step has finished', () => {
