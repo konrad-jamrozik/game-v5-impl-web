@@ -295,7 +295,17 @@ function ArticleArt(props: { category: string }) {
 function ArticleShade() {
   return (
     <>
-      <div className="article-shade" aria-hidden="true" />
+      {/* A band across the top about 130 px deep whose edge falls steeply from about 860 px, runs flat under the
+          widened lines, and rounds down into the column's edge, softened by a blur. */}
+      <svg className="article-shade" aria-hidden="true">
+        <filter id="article-shade-blur" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="20" />
+        </filter>
+        <path
+          filter="url(#article-shade-blur)"
+          d="M-80 -80H920L860 0C830 90 790 132 680 132H470C400 132 380 160 380 220V4000H-80Z"
+        />
+      </svg>
       <div className="article-art-frame" aria-hidden="true">
         <span className="article-art-crop article-art-crop-tl" />
         <span className="article-art-crop article-art-crop-tr" />
