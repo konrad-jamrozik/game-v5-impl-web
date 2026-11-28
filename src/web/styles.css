@@ -4535,14 +4535,14 @@ label:has(> input[type='checkbox']:disabled) {
   pointer-events: none;
 }
 
-/* CRPLAY, Attack being played: one height, that of its longest content, so that the buttons below never move; the
-   figures are small enough that the longest result takes two lines. */
+/* CRPLAY, Attack being played: one height, that of its longest content, so that the buttons below never move nor
+   cover it; it holds a result of three lines, e.g. a hit through armor that kills its defender. */
 .replay-readout {
   flex: none;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  height: 116px;
+  height: 138px;
   overflow: hidden;
 }
 
