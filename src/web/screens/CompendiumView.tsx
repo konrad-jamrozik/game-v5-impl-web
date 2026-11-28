@@ -287,32 +287,11 @@ function ArticleArt(props: { category: string }) {
         {art?.glyph}
       </svg>
       <div className="article-art-fade" />
+      <span className="article-art-crop article-art-crop-tl" />
+      <span className="article-art-crop article-art-crop-tr" />
+      <span className="article-art-crop article-art-crop-bl" />
+      <span className="article-art-crop article-art-crop-br" />
     </div>
-  );
-}
-
-/** COMPV, Article pane: the shade of the pane's top left corner, up to the curve, and the crop marks above it. */
-function ArticleShade() {
-  return (
-    <>
-      {/* A band across the top about 130 px deep whose edge falls steeply from about 860 px, runs flat under the
-          widened lines, and rounds down into the column's edge, softened by a blur. */}
-      <svg className="article-shade" aria-hidden="true">
-        <filter id="article-shade-blur" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="20" />
-        </filter>
-        <path
-          filter="url(#article-shade-blur)"
-          d="M-80 -80H920L860 0C830 90 790 132 680 132H470C400 132 380 160 380 220V4000H-80Z"
-        />
-      </svg>
-      <div className="article-art-frame" aria-hidden="true">
-        <span className="article-art-crop article-art-crop-tl" />
-        <span className="article-art-crop article-art-crop-tr" />
-        <span className="article-art-crop article-art-crop-bl" />
-        <span className="article-art-crop article-art-crop-br" />
-      </div>
-    </>
   );
 }
 
@@ -473,12 +452,7 @@ export function CompendiumView(props: {
           data-testid="compendium-article"
           data-article={article?.id}
         >
-          {artCategory === null ? null : (
-            <>
-              <ArticleArt category={artCategory} />
-              <ArticleShade />
-            </>
-          )}
+          {artCategory === null ? null : <ArticleArt category={artCategory} />}
           {article === null ? null : (
             <div className="article-scroll">
               <div className="article-head">
@@ -517,7 +491,6 @@ export function CompendiumView(props: {
                 </div>
               </div>
               <div className="article-parts">
-                <div className="article-curve" aria-hidden="true" />
                 <p className="article-body" data-testid="article-body">
                   <Segments segments={article.body} onOpen={open} />
                 </p>

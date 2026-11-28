@@ -3654,10 +3654,7 @@ label:has(> input[type='checkbox']:disabled) {
 
 /* COMPV, Article pane: the Article art and the column of the parts after the title row over its faded left part. Only
    where the panes stand side by side; in a narrower window, where they stack, the parts keep the whole width. */
-.article-art,
-.article-art-frame,
-.article-shade,
-.article-curve {
+.article-art {
   display: none;
 }
 
@@ -3679,27 +3676,26 @@ label:has(> input[type='checkbox']:disabled) {
     scrollbar-width: thin;
   }
 
-  /* The parts' lines keep to the column, 340 px wide, below the curve and widen within it: a right float shaped like
-     the curve and as tall as any article holds them back. The float reaches far below the parts, so their height clips
-     it and it adds nothing to the scrolling. A block that sets up its own layout, e.g. a Data sheet row or a heading,
-     keeps to the column. */
   .with-article-art .article-parts {
-    overflow-y: clip;
+    width: 340px;
+    max-width: 100%;
   }
 
-  .article-curve {
-    display: block;
-    float: right;
-    width: calc(100% - 340px);
-    height: 10000px;
-    /* The first three lines of the parts, 65 px, widen under the band, each up to about 40 px short of its edge. */
-    shape-outside: polygon(438px 0, 398px 30px, 338px 65px, 0 65px, 0 100%, 100% 100%, 100% 0);
+  /* Text that reaches over the Article art, e.g. the title or the column of a pane narrower than the Reference
+     window's, has a thin outline in the Background colour, so it stays readable over a bright picture; over the dark
+     fade the outline cannot be seen. */
+  .with-article-art > .article-scroll {
+    text-shadow:
+      -1px -1px 0 var(--background),
+      1px -1px 0 var(--background),
+      -1px 1px 0 var(--background),
+      1px 1px 0 var(--background),
+      0 0 4px var(--background);
   }
 
   /* As tall as the Article pane and 4:3, flush with its top, right, and bottom edges; cropped at its left when the
-     pane is narrower. Its frame holds the crop marks above the shade. */
-  .article-art,
-  .article-art-frame {
+     pane is narrower. */
+  .article-art {
     position: absolute;
     top: 0;
     right: 0;
@@ -3708,24 +3704,7 @@ label:has(> input[type='checkbox']:disabled) {
     max-width: 100%;
     aspect-ratio: 4 / 3;
     overflow: hidden;
-    pointer-events: none;
-  }
-
-  .article-art {
     background: linear-gradient(160deg, #1d1c17, var(--background));
-  }
-
-  /* The pane's top fades into its Background fill as a band, drawn by its path, within which the parts' first lines
-     widen. */
-  .article-shade {
-    position: absolute;
-    inset: 0;
-    display: block;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    pointer-events: none;
-    fill: var(--background);
   }
 }
 
