@@ -248,9 +248,15 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
 test('the Main menu and the Combat simulator fit the Reference window', async ({ page }) => {
   await page.goto('/');
   await expect(id(page, 'new-campaign')).toBeVisible();
-  // MENU, New Campaign: the fields under Advanced options are folded when the Main menu opens.
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Continuity Demo');
+  // MENU, Layout: the title, the browser tab's title, and no Music control; MENU, New Campaign: the fields under
+  // Advanced options are folded when the Main menu opens.
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Continuity – Demo');
+  await expect(page).toHaveTitle('Continuity Demo');
+  await expect(id(page, 'music-title')).toHaveCount(0);
   await expect(id(page, 'advanced-fields')).toHaveCount(0);
+  await id(page, 'open-settings').click();
+  await expect(id(page, 'settings-music-toggle')).toHaveCount(0);
+  await id(page, 'close-settings').click();
   await expectFits(page, 'the Main menu');
   await id(page, 'advanced-options').click();
   await expect(id(page, 'preset-select')).toBeVisible();

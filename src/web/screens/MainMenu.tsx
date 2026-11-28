@@ -19,7 +19,6 @@ import { SOUND } from '../sounds.ts';
 import { noteCampaignCreation } from '../special-events.ts';
 import { act, run, theEngine, type Snapshot } from '../store.ts';
 import { Button, CloseControl, NumberField, Section, Grid, typingIn } from '../ui.tsx';
-import { MusicControl } from './MusicControl.tsx';
 import { Cogwheel, SettingsDialog } from './SettingsPanel.tsx';
 
 const KIND_NAMES: Record<string, string> = {
@@ -166,20 +165,19 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
       )}
       <header className="menu-head">
         <div>
-          <h1>Continuity Demo</h1>
+          <h1>Continuity – Demo</h1>
           <p className="secondary" data-testid="menu-subtitle">
-            Defend humanity against enemy unknown
+            Lead a clandestine organization to wage a secret war to protect humanity, in a turn-based strategy
           </p>
         </div>
         <div className="menu-head-side">
-          {/* MENU, Layout: the Music control and the Settings button, which opens the Settings panel. */}
+          {/* MENU, Layout: the Settings button, which opens the Settings panel; no Music control. */}
           <div className="menu-head-controls">
             {simulatorShown ? (
               <Button testId="open-combat-simulator" onClick={onOpenSimulator}>
                 Combat simulator
               </Button>
             ) : null}
-            <MusicControl snapshot={snapshot} />
             <button
               type="button"
               className="btn btn-plain menu-settings-button"

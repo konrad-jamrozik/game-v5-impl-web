@@ -22,6 +22,13 @@ export function App() {
   useEffect(() => {
     music.configure(musicOn, musicVolume);
   }, [musicOn, musicVolume]);
+  // MUSIC, Playback, Start: the music begins with the first Campaign created or loaded, and plays on at the Main menu.
+  const campaignCurrent = snapshot.status.hasCurrentCampaign;
+  useEffect(() => {
+    if (campaignCurrent) {
+      music.begin();
+    }
+  }, [campaignCurrent]);
 
   // SOUNDS, Sound settings and When Sounds play: one listener answers every button of every screen.
   const { on: soundsOn, volume: soundsVolume } = soundSettings(snapshot.configuration.settings);

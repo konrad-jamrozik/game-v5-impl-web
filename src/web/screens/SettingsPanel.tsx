@@ -139,14 +139,17 @@ function SettingsRows(props: {
   const { session } = theEngine();
   return (
     <>
-      {/* MUSIC, Music volume slider: the Music row holds a Music toggle and the Music volume slider. */}
-      <div className="settings-row">
-        <div>Music</div>
-        <div className="settings-input">
-          <MusicToggle snapshot={snapshot} buttonClass="btn btn-plain" testId="settings-music-toggle" />
-          <MusicVolumeSlider snapshot={snapshot} />
+      {/* MUSIC, Music volume slider: the Music row holds a Music toggle and the Music volume slider; GUI, Settings
+          panel: on the Campaign screen only. */}
+      {tools === undefined ? null : (
+        <div className="settings-row">
+          <div>Music</div>
+          <div className="settings-input">
+            <MusicToggle snapshot={snapshot} buttonClass="btn btn-plain" testId="settings-music-toggle" />
+            <MusicVolumeSlider snapshot={snapshot} />
+          </div>
         </div>
-      </div>
+      )}
       <SoundsRow snapshot={snapshot} />
       {/* TUTOR, Tutorials settings: the Tutorials checkbox, then the neutral button that empties Tutorial progress, so
           that every bubble is new again; it leaves the Player Turn count as it is. */}
@@ -171,8 +174,7 @@ function SettingsRows(props: {
             <div>
               {setting.name}
               <span className="hint">
-                {typeof setting.gameBuildDefault === 'boolean' ? 'On or off' : setting.permitted} ·{' '}
-                {setting.stored ? 'your value' : 'build default'}
+                {typeof setting.gameBuildDefault === 'boolean' ? 'On or off' : setting.permitted}
               </span>
             </div>
             {typeof setting.gameBuildDefault === 'boolean' ? (
