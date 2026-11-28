@@ -765,18 +765,23 @@ input::placeholder {
   gap: 12px;
 }
 
+/* MENU, Layout: the subtitle takes the width the header's buttons leave, so that it stays on one line. */
 .menu-head .secondary {
-  max-width: 640px;
   margin-top: 12px;
 }
 
-/* MENU, Layout: the Music control and the Settings button, in one row of the header. */
+/* MENU, Layout: the header's buttons in one row, with the close control at its right end. */
 .menu-head-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.menu-head-controls > .close-control {
+  position: static;
+  flex: none;
 }
 
 .menu-settings-button {

@@ -153,16 +153,6 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
 
   return (
     <main className="menu">
-      {/* MENU, Layout: the close control sits at the upper right corner of the Main menu's content. */}
-      {left === null ? null : (
-        <CloseControl
-          testId="menu-close"
-          title="Back to the Campaign"
-          onClose={() => {
-            resume(left);
-          }}
-        />
-      )}
       <header className="menu-head">
         <div>
           <h1>Continuity – Demo</h1>
@@ -188,6 +178,17 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
             >
               Settings <Cogwheel />
             </button>
+            {/* MENU, Layout: the close control sits at the upper right corner of the Main menu's content, beside the
+                header's buttons. */}
+            {left === null ? null : (
+              <CloseControl
+                testId="menu-close"
+                title="Back to the Campaign"
+                onClose={() => {
+                  resume(left);
+                }}
+              />
+            )}
           </div>
           {/* MENU, Layout: the build label, the Game build ID after the word "build", linking to its commit. */}
           <p className="figure muted small">

@@ -42,6 +42,11 @@ test('the globe is kept, not built again, when the Player goes to the Main menu 
 
   await id(page, 'to-menu').click();
   await expect(id(page, 'menu-close')).toBeVisible();
+  // MENU, Layout: the close control stands beside the header's buttons, at the right end of their row.
+  const close = (await id(page, 'menu-close').boundingBox())!;
+  const settings = (await id(page, 'open-settings').boundingBox())!;
+  expect(close.x).toBeGreaterThan(settings.x + settings.width);
+  expect(Math.abs(close.y + close.height / 2 - (settings.y + settings.height / 2))).toBeLessThan(2);
   await expect(page.locator('.globe')).toHaveCount(0);
   await id(page, 'menu-close').click();
 
