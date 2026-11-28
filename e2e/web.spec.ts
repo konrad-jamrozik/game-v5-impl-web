@@ -190,6 +190,24 @@ test('the web interface, the terminal CLI, and the engine API play the same Camp
   expect(await viaWeb(page)).toEqual(api);
 });
 
+test('MENU, Layout: the large Resume button names the Campaign played last and its Campaign save, and resumes it', async ({
+  page,
+}) => {
+  // Without a listed Campaign save the button is not shown.
+  await page.goto('/');
+  await expect(id(page, 'new-campaign')).toBeVisible();
+  await expect(id(page, 'resume-latest')).toHaveCount(0);
+  await newCampaign(page, 'resume');
+  await id(page, 'to-menu').click();
+  await expect(id(page, 'resume-latest')).toHaveText(/^Resume Campaign \d{4}-\d{2}-\d{2} T1 A0$/);
+  // It stands above the New Campaign panel.
+  const resume = (await id(page, 'resume-latest').boundingBox())!;
+  const create = (await id(page, 'new-campaign').boundingBox())!;
+  expect(resume.y + resume.height).toBeLessThan(create.y);
+  await id(page, 'resume-latest').click();
+  await expect(id(page, 'turn')).toHaveText('1');
+});
+
 test('a reload continues the Campaign from its Current Autosave, with its Undone actions', async ({
   page,
 }) => {

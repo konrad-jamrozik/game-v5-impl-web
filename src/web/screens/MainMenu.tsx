@@ -123,6 +123,7 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
     (best, group) => (best === null || group.writtenAt > best.writtenAt ? group : best),
     null,
   );
+  const likelySave = likely === null ? null : resumeSave(likely);
 
   // MENU, Layout: with a close control, the Escape key does what Resume does for the Campaign the Player left.
   const left = campaigns.find((group) => group.campaignId === snapshot.leftCampaign) ?? null;
@@ -212,6 +213,20 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
 
       <div className="menu-columns">
         <div className="menu-side">
+          {/* MENU, Layout: above the New Campaign panel, a large primary button does what Resume does for the Campaign
+              of the most recent Campaign save, labelled with it and the Campaign save it loads; not shown without one. */}
+          {likely === null || likelySave === null ? null : (
+            <Button
+              kind="primary"
+              main
+              testId="resume-latest"
+              onClick={() => {
+                resume(likely);
+              }}
+            >
+              Resume {likely.label} T{groupDigits(likelySave.turn)} A{groupDigits(likelySave.actions)}
+            </Button>
+          )}
           <Section title="New Campaign">
             <Button
               kind="primary"
@@ -399,8 +414,8 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
                       <span className="label">Turn {groupDigits(group.turn)}</span>
                     </div>
                     <div className="actions">
+                      {/* MENU, Layout: Resume is a neutral button on every card. */}
                       <Button
-                        kind={group === likely ? 'primary' : 'plain'}
                         testId={`resume-${group.campaignId}`}
                         onClick={() => {
                           resume(group);
