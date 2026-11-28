@@ -24761,7 +24761,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Agents",
-        "section": "Agents",
+        "section": "Campaign",
         "terms": [
           "Agent",
           "Agents"

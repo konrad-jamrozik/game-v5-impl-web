@@ -298,21 +298,19 @@ describe('COMPV: Article sections', () => {
     expect(firstArticle(list, plain)).toBe('guide_y');
   });
 
-  it('Mechanics: Campaign, Leads and Missions, and Agents, by each article’s section', () => {
+  it('Mechanics: Campaign, then Leads and Missions, by each article’s section', () => {
     const list = [
-      mechanics('agents', 'Agents', 'Agents'),
       mechanics('missions', 'Missions', 'Leads and Missions'),
       mechanics('turns', 'Turns', 'Campaign'),
+      mechanics('agents', 'Agents', 'Campaign'),
       mechanics('panic', 'Panic', 'Campaign'),
-      mechanics('upkeep', 'upkeep', 'Agents'),
     ];
     expect(shownSections(list, 'Mechanics')).toEqual([
-      ['Campaign', ['Panic', 'Turns']],
+      ['Campaign', ['Agents', 'Panic', 'Turns']],
       ['Leads and Missions', ['Missions']],
-      ['Agents', ['Agents', 'upkeep']],
     ]);
     // A section with no article is left out with its heading.
-    expect(shownSections([list[0]!], 'Mechanics')).toEqual([['Agents', ['Agents']]]);
+    expect(shownSections([list[0]!], 'Mechanics')).toEqual([['Leads and Missions', ['Missions']]]);
   });
 
   it('Mechanics: an article in no section the table names, a data defect, is listed after the sections', () => {
