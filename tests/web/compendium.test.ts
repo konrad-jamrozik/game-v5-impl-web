@@ -37,7 +37,6 @@ import {
   type SheetPart,
 } from '../../src/web/compendium.ts';
 import { tutorialArticles } from '../../src/web/tutorials.ts';
-import type { Condition } from '../../src/gdr/index.ts';
 import { q, roundDown, roundUp } from '../../src/kernel/index.ts';
 import { catalogWith, completeLead, gdrs, newCampaign, tweak } from '../helpers/game.ts';
 
@@ -129,8 +128,8 @@ const plain = sectioning({ missionSiteArchetypes: [], upgrades: [] });
 describe('COMPV: Panes', () => {
   const articles = [
     subject('rifle', 'Rifle', 'Weapon'),
-    article('mechanics_skill', 'skill gain', { category: 'mechanics', section: 'Agent strength' }),
-    article('mechanics_combat', 'Combat', { category: 'mechanics', section: 'Operations' }),
+    article('mechanics_skill', 'skill gain', { category: 'mechanics', section: 'Agents' }),
+    article('mechanics_combat', 'Combat', { category: 'mechanics', section: 'Leads and Missions' }),
     subject('soldier', 'Soldier', 'EnemyArchetype'),
     article('guide_b', 'b guide'),
     article('guide_a', 'A guide'),
@@ -265,12 +264,12 @@ describe('COMPV: Article sections', () => {
     ]);
   const mechanics = (id: string, title: string, section: string | null) =>
     article(id, title, { category: 'mechanics', section });
-  const lead = (id: string, title: string, createsMissionSite: boolean, discoveredByWonMission: boolean) =>
+  const lead = (id: string, title: string, createsMissionSite: boolean, investigatedOnlyOnce: boolean) =>
     article(`${id}_article`, title, {
       category: 'subject',
       subject: id,
       subjectType: 'Lead',
-      subjectLead: { createsMissionSite, discoveredByWonMission },
+      subjectLead: { createsMissionSite, investigatedOnlyOnce },
     });
 
   it('Guide: the Guides, then the Tutorial bubbles, each sorted by displayed title ignoring case', () => {
@@ -298,23 +297,23 @@ describe('COMPV: Article sections', () => {
     expect(firstArticle(list, plain)).toBe('guide_y');
   });
 
-  it('Mechanics: Campaign, Operations, Agent work, and Agent strength, by each article’s section', () => {
+  it('Mechanics: Campaign, Leads and Missions, Agents, and Assignments, by each article’s section', () => {
     const list = [
-      mechanics('skill', 'Skill', 'Agent strength'),
-      mechanics('training', 'Training', 'Agent work'),
-      mechanics('missions', 'Missions', 'Operations'),
+      mechanics('skill', 'Skill', 'Agents'),
+      mechanics('training', 'Training', 'Assignments'),
+      mechanics('missions', 'Missions', 'Leads and Missions'),
       mechanics('turns', 'Turns', 'Campaign'),
       mechanics('panic', 'Panic', 'Campaign'),
-      mechanics('health', 'health', 'Agent strength'),
+      mechanics('health', 'health', 'Agents'),
     ];
     expect(shownSections(list, 'Mechanics')).toEqual([
       ['Campaign', ['Panic', 'Turns']],
-      ['Operations', ['Missions']],
-      ['Agent work', ['Training']],
-      ['Agent strength', ['health', 'Skill']],
+      ['Leads and Missions', ['Missions']],
+      ['Agents', ['health', 'Skill']],
+      ['Assignments', ['Training']],
     ]);
     // A section with no article is left out with its heading.
-    expect(shownSections([list[0]!], 'Mechanics')).toEqual([['Agent strength', ['Skill']]]);
+    expect(shownSections([list[0]!], 'Mechanics')).toEqual([['Agents', ['Skill']]]);
   });
 
   it('Mechanics: an article in no section the table names, a data defect, is listed after the sections', () => {
@@ -381,29 +380,36 @@ describe('COMPV: Article sections', () => {
     ]);
   });
 
-  it('Leads: One-time, Initiative, and Interrogations, Initiative winning over Interrogations', () => {
+  it('Leads: Initiative first, then Interrogations by identifier, then One-time when investigated only once', () => {
     const list = [
-      lead('interrogate', 'Interrogate', false, true),
-      lead('locate_hq', 'Locate HQ', true, true),
-      lead('profile', 'Profile', false, false),
+      lead('interrogate_member', 'Interrogate member', false, true),
+      lead('interrogate_hq', 'Interrogate HQ', true, true),
+      lead('profile', 'Profile', false, true),
       lead('locate_member', 'Locate member', true, false),
+      lead('recurring', 'Recurring', false, false),
     ];
     expect(shownSections(list, 'Leads')).toEqual([
       ['One-time', ['Profile']],
-      ['Initiative', ['Locate HQ', 'Locate member']],
-      ['Interrogations', ['Interrogate']],
+      ['Initiative', ['Interrogate HQ', 'Locate member']],
+      ['Interrogations', ['Interrogate member']],
+      // A Lead of none of these kinds is listed after the sections, without a heading.
+      [null, ['Recurring']],
+    ]);
+  });
+
+  it('Combat: Overview for the Combat article, then Combat mechanics', () => {
+    const list = [
+      article('mechanics_hit_chance', 'Hit chance', { category: 'mechanics', listedUnder: 'combat' }),
+      article('mechanics_combat', 'Combat', { category: 'mechanics', listedUnder: 'combat' }),
+      article('mechanics_damage', 'Damage', { category: 'mechanics', listedUnder: 'combat' }),
+    ];
+    expect(shownSections(list, 'Combat')).toEqual([
+      ['Overview', ['Combat']],
+      ['Combat mechanics', ['Damage', 'Hit chance']],
     ]);
   });
 
   it('Leads: each Lead of the Game build is of the kind its GDR tells', () => {
-    const namesWonMission = (condition: Condition): boolean =>
-      condition.kind === 'mission_won' || condition.kind === 'mission_won_with_enemy'
-        ? true
-        : condition.kind === 'all' || condition.kind === 'any'
-          ? condition.conditions.some(namesWonMission)
-          : condition.kind === 'not'
-            ? namesWonMission(condition.condition)
-            : false;
     const state = newCampaign();
     const revealed = revealedCompendiumView(state, gdrs).articles;
     const sectionOf = sectioning({
@@ -418,16 +424,20 @@ describe('COMPV: Article sections', () => {
       const expected =
         item.onCompletion.createMissionSite !== null
           ? 'Initiative'
-          : item.discoveredWhen !== null && namesWonMission(item.discoveredWhen)
+          : item.id.startsWith('interrogate')
             ? 'Interrogations'
-            : 'One-time';
+            : item.investigateAgain === 'never'
+              ? 'One-time'
+              : null;
       expect(sectionOf(about), item.id).toBe(expected);
     }
     // Every article of the Game build is in a section of a category that has them.
     for (const item of revealed) {
       const category = categoryOf(item);
       if (
-        ['Guide', 'Mechanics', 'Agents', 'Weapons', 'Upgrades', 'Mission sites', 'Leads'].includes(category)
+        ['Guide', 'Mechanics', 'Agents', 'Combat', 'Weapons', 'Upgrades', 'Mission sites', 'Leads'].includes(
+          category,
+        )
       ) {
         expect(sectionOf(item), item.id).not.toBeNull();
       }
@@ -445,11 +455,11 @@ describe('COMPV: Article sections', () => {
   it('the search leaves out a section without a match, and Enter shows the first article of the first section', () => {
     const list = [
       mechanics('zeta', 'Zeta rate', 'Campaign'),
-      mechanics('alpha', 'Alpha rate', 'Operations'),
+      mechanics('alpha', 'Alpha rate', 'Leads and Missions'),
       mechanics('turns', 'Turns', 'Campaign'),
     ];
     expect(shownSections(searchArticles(list, 'alpha'), 'Mechanics')).toEqual([
-      ['Operations', ['Alpha rate']],
+      ['Leads and Missions', ['Alpha rate']],
     ]);
     expect(firstMatchingArticle(list, 'rate', plain)).toBe('zeta');
     expect(firstMatchingArticle(list, '', plain)).toBe('turns');

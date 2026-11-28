@@ -69,6 +69,7 @@ const CATEGORY_SECTIONS: Readonly<Record<string, readonly string[]>> = {
   [GUIDE]: ['Guides', TUTORIALS],
   [MECHANICS]: MECHANICS_SECTIONS,
   Agents: ['Overview', 'Agent properties'],
+  [COMBAT]: ['Overview', 'Combat mechanics'],
   Weapons: ['Weapons', 'Ammo'],
   Upgrades: ['Cap upgrades', 'Other upgrades'],
   'Mission sites': ['Initiative', 'Response'],
@@ -88,8 +89,8 @@ export type SectionOf = (article: Article) => string | null;
 
 /**
  * COMPV, Article sections: the Article section of each article, read from its GDRs as Player API reports them. A Lead
- * is Initiative when its `on_completion` creates a Mission site, otherwise Interrogations when its `discovered_when`
- * names a Won Mission, otherwise One-time.
+ * is Initiative when its `on_completion` creates a Mission site, otherwise Interrogations when its identifier starts
+ * with `interrogate`, otherwise One-time when it can be investigated only once, and otherwise in no section.
  */
 export function sectioning(sources: SectionSources): SectionOf {
   const caps = capUpgradeIds(sources.upgrades);
@@ -123,14 +124,19 @@ export function sectioning(sources: SectionSources): SectionOf {
       }
       case 'Leads': {
         const lead = article.subjectLead;
-        return lead === null
-          ? null
-          : lead.createsMissionSite
-            ? 'Initiative'
-            : lead.discoveredByWonMission
-              ? 'Interrogations'
-              : 'One-time';
+        if (lead === null) {
+          return null;
+        }
+        if (lead.createsMissionSite) {
+          return 'Initiative';
+        }
+        if ((article.subject ?? '').startsWith('interrogate')) {
+          return 'Interrogations';
+        }
+        return lead.investigatedOnlyOnce ? 'One-time' : null;
       }
+      case COMBAT:
+        return article.title === COMBAT ? 'Overview' : 'Combat mechanics';
       default:
         return null;
     }

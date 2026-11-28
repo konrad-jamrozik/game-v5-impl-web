@@ -567,7 +567,7 @@ describe('COMP: Article links', () => {
       });
       addArticle(raw, 'mechanics_exhaustion', {
         category: 'mechanics',
-        section: 'Agent strength',
+        section: 'Agents',
         title: 'Exhaustion',
         terms: ['exhaustion', 'exhausted'],
         body: 'Exhaustion measures how tired an Agent is. Work and fighting raise it, and rest lowers it.',

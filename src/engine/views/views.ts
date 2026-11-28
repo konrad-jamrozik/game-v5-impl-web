@@ -48,7 +48,6 @@ import {
 import {
   activeInvestigationOf,
   createsMissionSite,
-  discoveredByWonMission,
   completionCount,
   factionOfLead,
   initiativeOperationLevels,
@@ -1129,7 +1128,7 @@ function articleView(
         ? null
         : {
             createsMissionSite: createsMissionSite(lead),
-            discoveredByWonMission: discoveredByWonMission(lead),
+            investigatedOnlyOnce: lead.investigateAgain === 'never',
           },
     body: body.map((segment) => ({ ...segment })),
     formulas: formulas.map((row) => ({

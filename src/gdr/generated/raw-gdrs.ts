@@ -24761,7 +24761,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Agents",
-        "section": "Agent work",
+        "section": "Agents",
         "terms": [
           "Agent",
           "Agents"
@@ -24927,7 +24927,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Assignments",
-        "section": "Agent work",
+        "section": "Assignments",
         "terms": [
           "Assignment",
           "Assignments",
@@ -25816,7 +25816,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Contracting",
-        "section": "Agent work",
+        "section": "Assignments",
         "visible_when": {
           "$entries": [
             [
@@ -26146,7 +26146,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Equipment and Storage",
-        "section": "Agent strength",
+        "section": "Agents",
         "terms": [
           "Storage",
           "equipment",
@@ -26271,7 +26271,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Exhaustion",
-        "section": "Agent strength",
+        "section": "Agents",
         "terms": [
           "exhaustion",
           "exhausted",
@@ -26441,7 +26441,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Experience",
-        "section": "Agent strength",
+        "section": "Agents",
         "terms": [
           "Experience"
         ],
@@ -26899,7 +26899,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Health",
-        "section": "Agent strength",
+        "section": "Agents",
         "terms": [
           "health",
           "max health"
@@ -26972,7 +26972,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Hiring and upkeep",
-        "section": "Agent work",
+        "section": "Agents",
         "terms": [
           "hire",
           "hires",
@@ -27245,7 +27245,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Investigations",
-        "section": "Operations",
+        "section": "Leads and Missions",
         "terms": [
           "Investigation",
           "Investigations"
@@ -27378,7 +27378,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Leads",
-        "section": "Operations",
+        "section": "Leads and Missions",
         "terms": [
           "Lead",
           "Leads"
@@ -27474,7 +27474,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Mission sites",
-        "section": "Operations",
+        "section": "Leads and Missions",
         "terms": [
           "Mission site",
           "Mission sites"
@@ -27582,7 +27582,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Missions",
-        "section": "Operations",
+        "section": "Leads and Missions",
         "terms": [
           "Mission",
           "Missions",
@@ -27912,7 +27912,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Recovery",
-        "section": "Agent strength",
+        "section": "Agents",
         "terms": [
           "Recovery",
           "recovering",
@@ -28071,7 +28071,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Skill",
-        "section": "Agent strength",
+        "section": "Agents",
         "terms": [
           "skill",
           "effective skill"
@@ -28143,7 +28143,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Skill gain",
-        "section": "Agent strength",
+        "section": "Agents",
         "terms": [
           "skill gain"
         ],
@@ -28276,7 +28276,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Training",
-        "section": "Agent work",
+        "section": "Assignments",
         "terms": [
           "Training",
           "Training cap"
@@ -28361,7 +28361,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Transit",
-        "section": "Agent work",
+        "section": "Assignments",
         "terms": [
           "transit",
           "in transit"

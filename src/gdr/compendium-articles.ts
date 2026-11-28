@@ -38,7 +38,7 @@ const PROPERTIES = [
  * COMPV, Article sections: the `section` names the Compendium View accepts for a Mechanics article, in the order it
  * lists them. A Mechanics article without `listed_under` whose `section` is none of them is a data defect.
  */
-export const MECHANICS_SECTIONS = ['Campaign', 'Operations', 'Agent work', 'Agent strength'] as const;
+export const MECHANICS_SECTIONS = ['Campaign', 'Leads and Missions', 'Agents', 'Assignments'] as const;
 
 /** COMP, Displayed title: two texts are equal ignoring case exactly when they are equal in lower case. */
 export function ignoringCase(text: string): string {

@@ -40,28 +40,6 @@ export function createsMissionSite(lead: LeadGdr): boolean {
   return lead.onCompletion.createMissionSite !== null;
 }
 
-/**
- * COMPV, Article sections: whether a Lead's `discovered_when` names a Won Mission, i.e. holds a `mission_won` or a
- * `mission_won_with_enemy` Condition anywhere in it.
- */
-export function discoveredByWonMission(lead: LeadGdr): boolean {
-  const names = (condition: Condition): boolean => {
-    switch (condition.kind) {
-      case 'all':
-      case 'any':
-        return condition.conditions.some(names);
-      case 'not':
-        return names(condition.condition);
-      case 'lead_completed':
-        return false;
-      case 'mission_won':
-      case 'mission_won_with_enemy':
-        return true;
-    }
-  };
-  return lead.discoveredWhen !== null && names(lead.discoveredWhen);
-}
-
 /** The Lead that created a Mission site: the Lead of its origin Investigation; none for a Response Mission site. */
 export function leadOfMissionSite(
   site: MissionSite,
