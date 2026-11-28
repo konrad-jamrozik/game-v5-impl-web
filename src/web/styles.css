@@ -3678,6 +3678,11 @@ label:has(> input[type='checkbox']:disabled) {
     scrollbar-width: thin;
   }
 
+  /* The Article history buttons keep 8 px clear of the scrollbar of a long article. */
+  .with-article-art .article-head {
+    padding-right: 8px;
+  }
+
   /* The column holds about 80 characters a line, the most that reads comfortably, so its right part lies over the
      Article art. */
   .with-article-art .article-parts {
