@@ -3671,21 +3671,34 @@ label:has(> input[type='checkbox']:disabled) {
     scrollbar-width: thin;
   }
 
+  /* The column holds about 80 characters a line, the most that reads comfortably, so its right part lies over the
+     Article art. */
   .with-article-art .article-parts {
-    width: 340px;
+    width: 520px;
     max-width: 100%;
   }
 
-  /* Text that reaches over the Article art, e.g. the title or the column of a pane narrower than the Reference
-     window's, has a thin outline in the Background colour, so it stays readable over a bright picture; over the dark
-     fade the outline cannot be seen. */
+  /* Text over the Article art has an outline in the Background colour, 1 px all round and a soft glow beyond, so it
+     stays readable over a bright picture; over the dark fade the outline cannot be seen. */
   .with-article-art > .article-scroll {
     text-shadow:
       -1px -1px 0 var(--background),
+      0 -1px 0 var(--background),
       1px -1px 0 var(--background),
+      -1px 0 0 var(--background),
+      1px 0 0 var(--background),
       -1px 1px 0 var(--background),
+      0 1px 0 var(--background),
       1px 1px 0 var(--background),
-      0 0 4px var(--background);
+      0 0 3px var(--background),
+      0 0 6px var(--background);
+  }
+
+  /* The divider lines of the rows fade out before the picture, so they never cross it. */
+  .with-article-art .data-sheet-row {
+    border-bottom: 0;
+    background: linear-gradient(to right, var(--raised), var(--raised) 40%, transparent 65%) bottom / 100% 1px
+      no-repeat;
   }
 
   /* As tall as the Article pane and 4:3, flush with its top, right, and bottom edges; cropped at its left when the
