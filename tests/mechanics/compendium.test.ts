@@ -464,7 +464,8 @@ describe('COMP: Compendium article GDR validation', () => {
       [{ see_also: ['soldier'] }, /See also is valid \(soldier\)/],
       [{ see_also: ['test_article'] }, /See also is valid \(test_article\)/],
       [{ see_also: ['guide_panic', 'guide_panic'] }, /See also is valid/],
-      // COMP, CompendiumArticle: `section` only on a Mechanics article without `listed_under`, and a name.
+      // COMP, CompendiumArticle: `section` only on a Mechanics article without `listed_under` or listed under a Type,
+      // and a name.
       [{ section: 'Campaign' }, /Section is valid/],
       [{ category: 'mechanics', formulas: [row('L', 'T')], section: '' }, /Section is valid/],
       [{ category: 'mechanics', formulas: [row('L', 'T')], section: '  ' }, /Section is valid/],
@@ -478,6 +479,20 @@ describe('COMP: Compendium article GDR validation', () => {
       [
         { category: 'mechanics', formulas: [row('L', 'T')], section: 'campaign' },
         /Section is valid \(campaign is not a section/,
+      ],
+      // COMPV, Article sections: one listed under a Type names a section of that Type's category, if any.
+      [
+        {
+          category: 'mechanics',
+          formulas: [row('L', 'T')],
+          listed_under: 'AgentArchetype',
+          section: 'Campaign',
+        },
+        /Section is valid \(Campaign is not a section/,
+      ],
+      [
+        { category: 'mechanics', formulas: [row('L', 'T')], listed_under: 'Weapon', section: 'Assignments' },
+        /Section is valid \(Assignments is not a section/,
       ],
     ];
     for (const [values, message] of cases) {
@@ -502,12 +517,19 @@ describe('COMP: Compendium article GDR validation', () => {
         listed_under: 'AgentArchetype',
         formulas: [row('Label', 'Text')],
       });
+      addArticle(raw, 'test_listed_in_section', {
+        category: 'mechanics',
+        listed_under: 'AgentArchetype',
+        section: 'Agent mechanics',
+        formulas: [row('Label', 'Text')],
+      });
     });
     const byId = new Map(catalog.compendiumArticles.map((article) => [article.id, article]));
     expect(MECHANICS_SECTIONS.map((_, index) => byId.get(`test_section_${index}`)?.section)).toEqual([
       ...MECHANICS_SECTIONS,
     ]);
     expect(byId.get('test_listed')?.section).toBeNull();
+    expect(byId.get('test_listed_in_section')?.section).toBe('Agent mechanics');
   });
 
   it('accepts an article of each category, an empty list of terms, and a term that occurs nowhere', () => {

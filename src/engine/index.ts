@@ -118,7 +118,7 @@ export { groupDigitString } from '../kernel/index.ts';
 /** TUTOR, Tutorial anchors: the anchors the GUI offers, which the TutorialBubble GDRs are checked against. */
 export { TUTORIAL_ANCHORS, type TutorialAnchor } from '../gdr/index.ts';
 /** COMPV, Article sections: the sections of the Mechanics articles, which their GDRs are checked against. */
-export { MECHANICS_SECTIONS } from '../gdr/index.ts';
+export { LISTED_UNDER_SECTIONS, MECHANICS_SECTIONS } from '../gdr/index.ts';
 export type { BuildInfo } from './game-build.ts';
 
 export interface Engine {

@@ -298,23 +298,21 @@ describe('COMPV: Article sections', () => {
     expect(firstArticle(list, plain)).toBe('guide_y');
   });
 
-  it('Mechanics: Campaign, Leads and Missions, Agents, and Assignments, by each article’s section', () => {
+  it('Mechanics: Campaign, Leads and Missions, and Agents, by each article’s section', () => {
     const list = [
-      mechanics('skill', 'Skill', 'Agents'),
-      mechanics('training', 'Training', 'Assignments'),
+      mechanics('agents', 'Agents', 'Agents'),
       mechanics('missions', 'Missions', 'Leads and Missions'),
       mechanics('turns', 'Turns', 'Campaign'),
       mechanics('panic', 'Panic', 'Campaign'),
-      mechanics('health', 'health', 'Agents'),
+      mechanics('upkeep', 'upkeep', 'Agents'),
     ];
     expect(shownSections(list, 'Mechanics')).toEqual([
       ['Campaign', ['Panic', 'Turns']],
       ['Leads and Missions', ['Missions']],
-      ['Agents', ['health', 'Skill']],
-      ['Assignments', ['Training']],
+      ['Agents', ['Agents', 'upkeep']],
     ]);
     // A section with no article is left out with its heading.
-    expect(shownSections([list[0]!], 'Mechanics')).toEqual([['Agents', ['Skill']]]);
+    expect(shownSections([list[0]!], 'Mechanics')).toEqual([['Agents', ['Agents']]]);
   });
 
   it('Mechanics: an article in no section the table names, a data defect, is listed after the sections', () => {
@@ -329,14 +327,21 @@ describe('COMPV: Article sections', () => {
     ]);
   });
 
-  it('Agents: the Subject articles about AgentArchetypes, then the articles listed under AgentArchetype', () => {
+  it('Agents: the AgentArchetypes, Agent mechanics, Assignments, then the other articles listed under AgentArchetype', () => {
+    const listed = (id: string, title: string, section: string | null) =>
+      article(id, title, { category: 'mechanics', listedUnder: 'AgentArchetype', section });
     const list = [
-      article('deployable', 'Deployable Agent', { category: 'mechanics', listedUnder: 'AgentArchetype' }),
+      listed('deployable', 'Deployable Agent', null),
+      listed('training', 'Training', 'Assignments'),
       subject('field_agent', 'Field agent', 'AgentArchetype'),
+      listed('skill', 'Skill', 'Agent mechanics'),
       article('away', 'Away Agent', { category: 'guide', listedUnder: 'AgentArchetype' }),
+      listed('exhaustion', 'Exhaustion', 'Agent mechanics'),
     ];
     expect(shownSections(list, 'Agents')).toEqual([
       ['Overview', ['Field agent']],
+      ['Agent mechanics', ['Exhaustion', 'Skill']],
+      ['Assignments', ['Training']],
       ['Agent properties', ['Away Agent', 'Deployable Agent']],
     ]);
   });

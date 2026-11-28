@@ -697,7 +697,7 @@ export interface CompendiumArticleView {
   readonly subjectType: string | null;
   /** COMP, CompendiumArticle: the subject Type a Guide or Mechanics article is listed under, e.g. `AgentArchetype`. */
   readonly listedUnder: string | null;
-  /** COMP, CompendiumArticle: the `section` of a Mechanics article without `listed_under`, e.g. `Campaign`. */
+  /** COMP, CompendiumArticle: the `section` of a Mechanics article, e.g. `Campaign`. */
   readonly section: string | null;
   /**
    * COMPV, Subject order: the place of the subject among the GDRs of its Type in Subject order, from 0; absent for a

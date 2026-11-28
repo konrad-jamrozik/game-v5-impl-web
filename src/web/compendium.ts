@@ -4,6 +4,7 @@
  * replaces no Placeholder and finds no Article link in a resolved text.
  */
 import {
+  LISTED_UNDER_SECTIONS,
   MECHANICS_SECTIONS,
   type CompendiumArticleView,
   type CurrentLiveWorldStateView,
@@ -94,7 +95,7 @@ export function categoryOf(article: Article): string {
 const CATEGORY_SECTIONS: Readonly<Record<string, readonly string[]>> = {
   [GUIDE]: ['Guides', TUTORIALS],
   [MECHANICS]: MECHANICS_SECTIONS,
-  Agents: ['Overview', 'Agent properties'],
+  Agents: ['Overview', ...(LISTED_UNDER_SECTIONS['AgentArchetype'] ?? []), 'Agent properties'],
   [COMBAT]: ['Overview', 'Combat mechanics'],
   Weapons: ['Weapons', 'Ammo'],
   Upgrades: ['Cap upgrades', 'Other upgrades'],
@@ -131,7 +132,7 @@ export function sectioning(sources: SectionSources): SectionOf {
         return article.subjectType === 'AgentArchetype'
           ? 'Overview'
           : article.listedUnder === 'AgentArchetype'
-            ? 'Agent properties'
+            ? (article.section ?? 'Agent properties')
             : null;
       case 'Weapons':
         return article.subjectType === 'Weapon'

@@ -38,7 +38,15 @@ const PROPERTIES = [
  * COMPV, Article sections: the `section` names the Compendium View accepts for a Mechanics article, in the order it
  * lists them. A Mechanics article without `listed_under` whose `section` is none of them is a data defect.
  */
-export const MECHANICS_SECTIONS = ['Campaign', 'Leads and Missions', 'Agents', 'Assignments'] as const;
+export const MECHANICS_SECTIONS = ['Campaign', 'Leads and Missions', 'Agents'] as const;
+
+/**
+ * COMPV, Article sections: the `section` names the Compendium View accepts for a Mechanics article listed under a Type,
+ * by that Type, in the order it lists them. Such an article with a `section` that is none of them is a data defect.
+ */
+export const LISTED_UNDER_SECTIONS: Readonly<Record<string, readonly string[]>> = {
+  AgentArchetype: ['Agent mechanics', 'Assignments'],
+};
 
 /** COMP, Displayed title: two texts are equal ignoring case exactly when they are equal in lower case. */
 export function ignoringCase(text: string): string {
@@ -161,14 +169,16 @@ export function parseCompendiumArticle(
       listedUnder = raw['listed_under'];
     }
   }
-  // COMP, CompendiumArticle: `section`, only for a Mechanics article without `listed_under`, is a non-empty name.
-  // COMPV, Article sections: such an article without a `section` the Compendium View names is a data defect.
+  // COMP, CompendiumArticle: `section`, only for a Mechanics article without `listed_under` or listed under a Type, is
+  // a non-empty name. COMPV, Article sections: an article without `listed_under` and without a `section` the
+  // Mechanics category names, and an article listed under a Type with a `section` its category does not name, is a
+  // data defect.
   let section: string | null = null;
   const rawSection = raw['section'];
   if (rawSection !== undefined) {
     if (
       category !== 'mechanics' ||
-      raw['listed_under'] !== undefined ||
+      raw['listed_under'] === 'combat' ||
       !isText(rawSection) ||
       rawSection.trim() === ''
     ) {
@@ -184,6 +194,14 @@ export function parseCompendiumArticle(
     !problems.includes('Section is valid')
   ) {
     problems.push(`Section is valid (${section ?? 'none'} is not a section of the Compendium View)`);
+  }
+  const listedUnderType = raw['listed_under'];
+  if (
+    section !== null &&
+    isText(listedUnderType) &&
+    !(LISTED_UNDER_SECTIONS[listedUnderType] ?? []).includes(section)
+  ) {
+    problems.push(`Section is valid (${section} is not a section of the Compendium View)`);
   }
   // Visibility Condition is valid: a valid Condition of the Condition kind `lead_completed` only. That the
   // Lead it names exists is checked across the Game build.

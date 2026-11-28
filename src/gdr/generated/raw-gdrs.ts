@@ -24927,6 +24927,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Assignments",
+        "listed_under": "AgentArchetype",
         "section": "Assignments",
         "terms": [
           "Assignment",
@@ -25816,6 +25817,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Contracting",
+        "listed_under": "AgentArchetype",
         "section": "Assignments",
         "visible_when": {
           "$entries": [
@@ -26146,7 +26148,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Equipment and Storage",
-        "section": "Agents",
+        "listed_under": "AgentArchetype",
+        "section": "Agent mechanics",
         "terms": [
           "Storage",
           "equipment",
@@ -26271,7 +26274,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Exhaustion",
-        "section": "Agents",
+        "listed_under": "AgentArchetype",
+        "section": "Agent mechanics",
         "terms": [
           "exhaustion",
           "exhausted",
@@ -26441,7 +26445,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Experience",
-        "section": "Agents",
+        "listed_under": "AgentArchetype",
+        "section": "Agent mechanics",
         "terms": [
           "Experience"
         ],
@@ -26899,7 +26904,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Health",
-        "section": "Agents",
+        "listed_under": "AgentArchetype",
+        "section": "Agent mechanics",
         "terms": [
           "health",
           "max health"
@@ -26972,7 +26978,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Hiring and upkeep",
-        "section": "Agents",
+        "listed_under": "AgentArchetype",
+        "section": "Agent mechanics",
         "terms": [
           "hire",
           "hires",
@@ -27912,7 +27919,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Recovery",
-        "section": "Agents",
+        "listed_under": "AgentArchetype",
+        "section": "Agent mechanics",
         "terms": [
           "Recovery",
           "recovering",
@@ -28071,7 +28079,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Skill",
-        "section": "Agents",
+        "listed_under": "AgentArchetype",
+        "section": "Agent mechanics",
         "terms": [
           "skill",
           "effective skill"
@@ -28143,7 +28152,8 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Skill gain",
-        "section": "Agents",
+        "listed_under": "AgentArchetype",
+        "section": "Agent mechanics",
         "terms": [
           "skill gain"
         ],
@@ -28276,6 +28286,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Training",
+        "listed_under": "AgentArchetype",
         "section": "Assignments",
         "terms": [
           "Training",
@@ -28361,6 +28372,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "type": "CompendiumArticle",
         "category": "mechanics",
         "title": "Transit",
+        "listed_under": "AgentArchetype",
         "section": "Assignments",
         "terms": [
           "transit",
@@ -31212,34 +31224,6 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         }
       },
       {
-        "id": "foil_sabotage",
-        "type": "MissionSiteArchetype",
-        "kind": "response",
-        "name": "Foil sabotage",
-        "operation_level": 2,
-        "expires_in_turns": 1,
-        "enemies": {
-          "$entries": [
-            [
-              "initiate",
-              2
-            ],
-            [
-              "operative",
-              2
-            ],
-            [
-              "soldier",
-              2
-            ],
-            [
-              "handler",
-              1
-            ]
-          ]
-        }
-      },
-      {
         "id": "foil_supply_theft",
         "type": "MissionSiteArchetype",
         "kind": "response",
@@ -31274,6 +31258,34 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
             ],
             [
               "operative",
+              2
+            ],
+            [
+              "handler",
+              1
+            ]
+          ]
+        }
+      },
+      {
+        "id": "foil_sabotage",
+        "type": "MissionSiteArchetype",
+        "kind": "response",
+        "name": "Foil sabotage",
+        "operation_level": 2,
+        "expires_in_turns": 1,
+        "enemies": {
+          "$entries": [
+            [
+              "initiate",
+              2
+            ],
+            [
+              "operative",
+              2
+            ],
+            [
+              "soldier",
               2
             ],
             [
@@ -31444,37 +31456,37 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         }
       },
       {
-        "id": "counter_civilian_terror",
+        "id": "foil_prison_break",
         "type": "MissionSiteArchetype",
         "kind": "response",
-        "name": "Counter civilian terror",
+        "name": "Foil prison break",
         "operation_level": 4,
         "expires_in_turns": 1,
         "enemies": {
           "$entries": [
             [
               "initiate",
-              30
-            ],
-            [
-              "operative",
               24
             ],
             [
+              "operative",
+              8
+            ],
+            [
               "soldier",
-              16
+              12
             ],
             [
               "elite",
-              2
+              4
             ],
             [
               "handler",
-              10
+              6
             ],
             [
               "lieutenant",
-              4
+              3
             ],
             [
               "commander",
@@ -31520,37 +31532,37 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         }
       },
       {
-        "id": "foil_prison_break",
+        "id": "counter_civilian_terror",
         "type": "MissionSiteArchetype",
         "kind": "response",
-        "name": "Foil prison break",
+        "name": "Counter civilian terror",
         "operation_level": 4,
         "expires_in_turns": 1,
         "enemies": {
           "$entries": [
             [
               "initiate",
-              24
+              30
             ],
             [
               "operative",
-              8
+              24
             ],
             [
               "soldier",
-              12
+              16
             ],
             [
               "elite",
-              4
+              2
             ],
             [
               "handler",
-              6
+              10
             ],
             [
               "lieutenant",
-              3
+              4
             ],
             [
               "commander",
