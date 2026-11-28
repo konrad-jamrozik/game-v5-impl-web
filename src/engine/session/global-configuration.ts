@@ -64,13 +64,38 @@ export const SETTINGS: readonly SettingDescriptor[] = [
     isPermitted: (value): value is SettingValue =>
       typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 100,
   },
-  // TSUM, Tutorials: whether the game teaches the Player as they play; nothing reads it yet.
+  // TUTOR, Tutorials settings: whether the GUI teaches the Player, how many of the Player's Advance turns a Tutorial
+  // bubble stays once opened, how many Advance turns the Player has requested through the GUI, and which bubbles the
+  // Player has opened, each with the Player Turn count when it was first opened, as a JSON object by TutorialBubble ID.
   {
     setting: 'tutorialsOn',
     name: 'Tutorials on',
     gameBuildDefault: true,
     permitted: 'true or false',
     isPermitted: (value): value is SettingValue => typeof value === 'boolean',
+  },
+  {
+    setting: 'tutorialBubbleLifetime',
+    name: 'Tutorial bubble lifetime',
+    gameBuildDefault: 3,
+    permitted: 'A whole number from 1 to 100',
+    isPermitted: (value): value is SettingValue =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 1 && value <= 100,
+  },
+  {
+    setting: 'playerTurnCount',
+    name: 'Player Turn count',
+    gameBuildDefault: 0,
+    permitted: 'A whole number of at least 0',
+    isPermitted: (value): value is SettingValue =>
+      typeof value === 'number' && Number.isSafeInteger(value) && value >= 0,
+  },
+  {
+    setting: 'tutorialProgress',
+    name: 'Tutorial progress',
+    gameBuildDefault: '{}',
+    permitted: 'A JSON object of whole numbers of at least 0, by TutorialBubble ID',
+    isPermitted: (value): value is SettingValue => isJsonProgress(value),
   },
   // CSCR, Autopilot settings: whether the Autopilot controls are shown, and the number of Turns of the Turns field.
   {
@@ -209,6 +234,18 @@ function parsedJson(value: unknown): unknown {
 function isJsonArrayOfText(value: unknown): boolean {
   const parsed = parsedJson(value);
   return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string');
+}
+
+function isJsonProgress(value: unknown): boolean {
+  const parsed = parsedJson(value);
+  return (
+    typeof parsed === 'object' &&
+    parsed !== null &&
+    !Array.isArray(parsed) &&
+    Object.values(parsed as Record<string, unknown>).every(
+      (count) => typeof count === 'number' && Number.isSafeInteger(count) && count >= 0,
+    )
+  );
 }
 
 function isJsonSetup(value: unknown): boolean {

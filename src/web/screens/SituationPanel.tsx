@@ -8,6 +8,7 @@ import { WarningTriangle } from '../condition.tsx';
 import { groupDigits } from '../format.ts';
 import { GROUP_TITLES, situationGroups, type MissionSiteRow, type SituationGroup } from '../situation.ts';
 import { ProgressCircle } from './ProgressCircle.tsx';
+import { TutorialBubble } from './TutorialBubble.tsx';
 
 /** SITP, Mission site urgency: the prohibition icon, a circle crossed by a diagonal, outlined in Danger. */
 function ProhibitionIcon() {
@@ -59,7 +60,10 @@ export function SituationPanel(props: {
   return (
     <section className="situation" data-testid="situation" aria-label="Situation">
       <header className="section-head">
-        <h3>Situation</h3>
+        <h3>
+          Situation
+          <TutorialBubble anchor="campaign_screen.situation" />
+        </h3>
         <span className="label">Turn {groupDigits(state.turn)}</span>
       </header>
       {groups.length === 0 ? (

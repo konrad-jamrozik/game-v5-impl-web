@@ -61,6 +61,22 @@ export function campaignStartEvent(gameData: GameDataView | null): SpecialEventV
   return gameData?.specialEvents.find((event) => event.trigger === 'campaign_start') ?? null;
 }
 
+/**
+ * TUTOR, Tutorial intro: the Special event shown when the Player closes `event`: that of `tutorial_intro` right after
+ * that of `campaign_start` while Tutorials on is true, whether it was shown first or replayed by the Turn summary
+ * button; otherwise none, so that the dialog closes.
+ */
+export function eventAfter(
+  event: SpecialEventView,
+  gameData: GameDataView | null,
+  tutorialsOn: boolean,
+): SpecialEventView | null {
+  if (event.trigger !== 'campaign_start' || !tutorialsOn) {
+    return null;
+  }
+  return gameData?.specialEvents.find((item) => item.trigger === 'tutorial_intro') ?? null;
+}
+
 /** The Campaign screen calls this once it has taken the Special event of `campaign_start`, so it is not shown again. */
 export function clearCampaignStart(): void {
   campaignStartPending = false;

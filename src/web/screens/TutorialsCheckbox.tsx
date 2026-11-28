@@ -1,12 +1,12 @@
 /**
- * TSUM, Tutorials: the checkbox that shows and sets Tutorials on, a setting of Global configuration, so that turning
- * it off reaches every new Campaign. The Special event of campaign_start labels it "Tutorial" and the Settings panel
- * "Tutorials enabled"; both show the same value.
+ * TUTOR, Tutorials settings: the checkbox that shows and sets Tutorials on, a setting of Global configuration, so that
+ * turning it off reaches every new Campaign. The Special event of campaign_start labels it "Tutorial" and the Settings
+ * panel "Tutorials enabled"; both show the same value. It follows a click at once, so that closing the welcome right
+ * after clearing it skips the Tutorial intro.
  */
-import { act, theEngine, type Snapshot } from '../store.ts';
+import { setSetting, type Snapshot } from '../store.ts';
 
 export function TutorialsCheckbox(props: { snapshot: Snapshot; label: string; testId: string }) {
-  const { session } = theEngine();
   const on =
     props.snapshot.configuration.settings.find((item) => item.setting === 'tutorialsOn')?.effectiveValue !==
     false;
@@ -17,7 +17,7 @@ export function TutorialsCheckbox(props: { snapshot: Snapshot; label: string; te
         data-testid={props.testId}
         checked={on}
         onChange={(event) => {
-          act(() => session.globalConfiguration.set('tutorialsOn', event.target.checked));
+          void setSetting('tutorialsOn', event.target.checked);
         }}
       />
       {props.label}

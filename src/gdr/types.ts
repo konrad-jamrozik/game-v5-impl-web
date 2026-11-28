@@ -417,15 +417,47 @@ export interface NameListGdr {
   readonly femaleLastNames: readonly string[];
 }
 
+/** TSUM, Special events: the names of the line drawings a point of a Special event may show beside it. */
+export type SpecialEventPointIcon = 'agents' | 'support' | 'objective' | 'bubble' | 'records' | 'compendium';
+
 /** TSUM, Special events: a story beat the GUI shows when its trigger is met; Display content only. */
 export interface SpecialEventGdr {
   readonly type: 'SpecialEvent';
   readonly id: string;
-  /** When the GUI shows it: `campaign_start`, as soon as it first shows a Campaign just created. */
-  readonly trigger: 'campaign_start';
+  /**
+   * When the GUI shows it: `campaign_start`, as soon as it first shows a Campaign just created; or `tutorial_intro`,
+   * right after it, as TUTOR, Tutorial intro states.
+   */
+  readonly trigger: 'campaign_start' | 'tutorial_intro';
   readonly title: string;
   /** One paragraph. */
   readonly text: string;
+  /** Only for `tutorial_intro`: its points in authored order; empty when it has none. */
+  readonly points: readonly {
+    readonly heading: string;
+    readonly text: string;
+    readonly icon: SpecialEventPointIcon;
+  }[];
+}
+
+/** TUTOR, TutorialBubble, as authored: a Tutorial bubble beside one Tutorial anchor; Display content only. */
+export interface TutorialBubbleGdr {
+  readonly type: 'TutorialBubble';
+  readonly id: string;
+  /** One of the Tutorial anchors of TUTOR, Tutorial anchors. */
+  readonly anchor: string;
+  readonly title: string;
+  /** Templated text, whose Placeholders are resolved as in a Compendium article. */
+  readonly text: string;
+  /** The identifier of the Compendium article its Tutorial note links to, or none. */
+  readonly article: string | null;
+  /** The Condition that must hold for the bubble to be shown; none sets none. */
+  readonly visibleWhen: Condition | null;
+}
+
+/** A TutorialBubble as the catalog holds it: with every Placeholder of its `text` replaced. */
+export interface CatalogTutorialBubble extends Omit<TutorialBubbleGdr, 'text'> {
+  readonly text: ArticleTemplate;
 }
 
 /** GUI, Ranks: how skilled an Agent is when rested; Display content only. */
@@ -490,6 +522,7 @@ export type AnyGdr =
   | CompendiumArticleGdr
   | BackgroundArtworkGdr
   | SpecialEventGdr
+  | TutorialBubbleGdr
   | RankGdr
   | NameListGdr
   | DetachedCombatTeamGdr;
@@ -552,6 +585,8 @@ export interface GdrCatalog {
   readonly backgroundArtworks: readonly BackgroundArtworkGdr[];
   /** TSUM, Special events: every SpecialEvent, in Game build order. */
   readonly specialEvents: readonly SpecialEventGdr[];
+  /** TUTOR, TutorialBubble: every TutorialBubble, in Game build order. */
+  readonly tutorialBubbles: readonly CatalogTutorialBubble[];
   /** GUI, Ranks: every Rank, highest `min_base_skill` first. */
   readonly ranks: readonly RankGdr[];
   /** AGENT, NameList: every NameList, in Game build order. */

@@ -28,7 +28,7 @@ const special = (id: string) => ({
 describe('TSUM: Special events', () => {
   it('come from the SpecialEvent GDRs, and no two share a trigger', () => {
     expect(gameDataView(buildGdrCatalog(eventsFile([special('first')]))).specialEvents).toEqual([
-      { id: 'first', trigger: 'campaign_start', title: 'A title', text: 'A text.' },
+      { id: 'first', trigger: 'campaign_start', title: 'A title', text: 'A text.', points: [] },
     ]);
     expect(() => buildGdrCatalog(eventsFile([special('first'), special('second')]))).toThrow(
       /a second SpecialEvent has trigger campaign_start/,

@@ -21,6 +21,9 @@ test('the Articles pane keeps its width whichever article is shown', async ({ pa
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
   await id(page, 'special-event-continue').click();
+  // TUTOR, Tutorial intro: it follows the welcome while Tutorials on is true, as it is by default.
+  await expect(id(page, 'special-event')).toHaveAttribute('data-trigger', 'tutorial_intro');
+  await id(page, 'special-event-continue').click();
   await id(page, 'open-settings').click();
   await id(page, 'open-developer').click();
   await id(page, 'dev-mode').check();

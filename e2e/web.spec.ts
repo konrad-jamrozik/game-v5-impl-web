@@ -106,6 +106,9 @@ async function newCampaign(page: Page, seed: string): Promise<void> {
   // TSUM, Special events: the welcome stands over a Campaign just created, and Continue closes it.
   await expect(id(page, 'special-event-text')).toContainText('The year is 2030.');
   await id(page, 'special-event-continue').click();
+  // TUTOR, Tutorial intro: it follows the welcome while Tutorials on is true, as it is by default.
+  await expect(id(page, 'special-event')).toHaveAttribute('data-trigger', 'tutorial_intro');
+  await id(page, 'special-event-continue').click();
   await expect(id(page, 'special-event')).toHaveCount(0);
 }
 
@@ -443,4 +446,73 @@ test('CSCR, Globe devastation controls: the developer tools show them at the top
   await id(page, 'globe-devastation-follow').click();
   await expect(id(page, 'globe-devastation-shown')).toHaveText('0%');
   await expect(id(page, 'globe-devastation-follow')).toBeDisabled();
+});
+
+test('TUTOR: a Tutorial bubble opens its note, disappears after its lifetime, and stays in the Compendium', async ({
+  page,
+}) => {
+  await newCampaign(page, 'tutorials');
+  // A Fixture value of the Tutorial bubble lifetime: one of the Player's Advance turns.
+  await id(page, 'open-settings').click();
+  await id(page, 'setting-tutorialBubbleLifetime').fill('1');
+  await id(page, 'setting-tutorialBubbleLifetime').press('Enter');
+  await expect(id(page, 'changed-settings')).toContainText('Tutorial bubble lifetime: 1 Turn');
+  await id(page, 'close-settings').click();
+
+  const bubble = id(page, 'tutorial-bubble-campaign_screen.panic');
+  await expect(bubble).toHaveAttribute('data-look', 'new');
+  await expect(bubble).toHaveAccessibleName(/^Tutorial: \S/);
+  // Just outside the top right corner of the Panic value, covering none of it.
+  const panic = await id(page, 'panic').boundingBox();
+  const box = await bubble.boundingBox();
+  expect(box!.x + box!.width).toBeGreaterThan(panic!.x + panic!.width);
+  expect(box!.y).toBeLessThan(panic!.y);
+
+  // Selecting it opens its note and records it; Escape closes the note and nothing else.
+  await bubble.click();
+  await expect(id(page, 'tutorial-note')).toBeVisible();
+  await expect(id(page, 'tutorial-note-expiry')).toHaveText('Disappears after this Turn');
+  await expect(bubble).toHaveAttribute('data-look', 'seen');
+  await id(page, 'nav-agents').click();
+  await expect(id(page, 'tutorial-note')).toHaveCount(0);
+  await expect(id(page, 'tutorial-bubble-agents_view.hire')).toBeVisible();
+  await id(page, 'tutorial-bubble-agents_view.hire').click();
+  await expect(id(page, 'tutorial-note')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(id(page, 'tutorial-note')).toHaveCount(0);
+  await expect(id(page, 'view-agents')).toBeVisible();
+  // The note never blocks play: a click outside it closes it and still does what it clicks.
+  await id(page, 'tutorial-bubble-agents_view.equip').click();
+  await expect(id(page, 'tutorial-note')).toBeVisible();
+  await expect(id(page, 'select-all')).not.toBeChecked();
+  await id(page, 'select-all').click();
+  await expect(id(page, 'tutorial-note')).toHaveCount(0);
+  await expect(id(page, 'select-all')).toBeChecked();
+
+  // Tutorial progress and the Player Turn count are left out of Changed settings.
+  await id(page, 'open-settings').click();
+  await expect(id(page, 'changed-settings')).not.toContainText('Tutorial progress');
+  await expect(id(page, 'changed-settings')).not.toContainText('Player Turn count');
+  await id(page, 'close-settings').click();
+
+  // After one Advance turn the Player requested, the opened bubbles disappear; the others stay.
+  await page.keyboard.press('Escape');
+  await id(page, 'advance-turn').click();
+  await afterAdvance(page, '2');
+  await expect(bubble).toHaveCount(0);
+  await expect(id(page, 'tutorial-bubble-campaign_screen.advance_turn')).toHaveAttribute('data-look', 'new');
+
+  // TUTOR, Tutorials in the Compendium: what an opened bubble said stays, under Tutorials, right after Guide.
+  await id(page, 'nav-compendium').click();
+  const tabs = id(page, 'compendium-categories').getByRole('tab');
+  await expect(tabs.nth(1)).toHaveText('Tutorials');
+  await tabs.nth(1).click();
+  await expect(id(page, 'compendium-articles').getByRole('button')).toHaveCount(3);
+  await page.keyboard.press('Escape');
+
+  // Reset tutorials makes every bubble new again.
+  await id(page, 'open-settings').click();
+  await id(page, 'reset-tutorials').click();
+  await id(page, 'close-settings').click();
+  await expect(bubble).toHaveAttribute('data-look', 'new');
 });

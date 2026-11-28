@@ -2,7 +2,13 @@
  * COMP (Compendium): Article visibility and Article resolution, both Derived values of the World state they are read
  * in, never stored. No game behavior reads a Compendium article, so nothing here changes Campaign state.
  */
-import type { ArticleTemplate, CatalogCompendiumArticle, GdrCatalog } from '../../../gdr/index.ts';
+import type {
+  ArticleTemplate,
+  CatalogCompendiumArticle,
+  CatalogTutorialBubble,
+  Condition,
+  GdrCatalog,
+} from '../../../gdr/index.ts';
 import { conditionHolds } from '../conditions/conditions.ts';
 import { equippedCounts, isItem, itemUnlocked } from '../equipment/equipment.ts';
 import type { CurrentWorldState } from '../../state/types.ts';
@@ -75,6 +81,19 @@ export function metSubjects(
 }
 
 /**
+ * COMP, Article visibility, and TUTOR, Showing a bubble: whether a `visible_when` Condition holds, or true for none.
+ * It uses only `lead_completed` Conditions, which read no supplied Faction.
+ */
+function visibleWhenHolds(condition: Condition | null, world: LeadWorld): boolean {
+  return condition === null || conditionHolds(condition, world, { faction: null });
+}
+
+/** TUTOR, Showing a bubble: whether the `visible_when` of a TutorialBubble, if any, holds in the World state. */
+export function tutorialBubbleVisible(bubble: CatalogTutorialBubble, world: LeadWorld): boolean {
+  return visibleWhenHolds(bubble.visibleWhen, world);
+}
+
+/**
  * COMP, Article visibility: an article whose `visible_when` does not hold is not Player-visible. Otherwise a Guide
  * article or a Mechanics article is always Player-visible, and a Subject article exactly when its subject is
  * Player-visible, as the specification that owns the subject's Type declares it, and, for an EnemyArchetype, a
@@ -86,8 +105,7 @@ export function articleVisible(
   gdrs: GdrCatalog,
   met?: ReadonlySet<string>,
 ): boolean {
-  // `visible_when` uses only `lead_completed` Conditions, which read no supplied Faction.
-  if (article.visibleWhen !== null && !conditionHolds(article.visibleWhen, world, { faction: null })) {
+  if (!visibleWhenHolds(article.visibleWhen, world)) {
     return false;
   }
   const subject = article.subject;
@@ -122,7 +140,8 @@ export function articleVisible(
     case 'MissionSiteArchetype':
       return missionSiteArchetypeVisible(subject, world, gdrs);
     // Player API reports these GDRs in every World state: `getGameData()`, with every BackgroundArtwork,
-    // SpecialEvent, and Rank, and the Agency, Investigation, and Mission names. A parameter GDR has no `name`, so none can be a subject.
+    // SpecialEvent, and Rank, and the Agency, Investigation, and Mission names; and `getTutorialBubbles()`, with every
+    // TutorialBubble. A parameter GDR has no `name`, so none can be a subject.
     case 'AgentParameters':
     case 'CombatParameters':
     case 'RecoveryParameters':
@@ -136,6 +155,7 @@ export function articleVisible(
     case 'EndingParameters':
     case 'BackgroundArtwork':
     case 'SpecialEvent':
+    case 'TutorialBubble':
     case 'Rank':
       return true;
     // No Player API value includes a Campaign configuration preset or the default-preset choice. FACTION,

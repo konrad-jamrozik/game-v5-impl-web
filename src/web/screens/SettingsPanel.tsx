@@ -12,7 +12,7 @@ import { groupDigits } from '../format.ts';
 import { REFERENCE_WINDOW } from '../screen-limit.ts';
 import { playSound } from '../sound-player.ts';
 import { SOUND, soundSettings } from '../sounds.ts';
-import { act, theEngine, type Snapshot } from '../store.ts';
+import { act, resetSetting, theEngine, type Snapshot } from '../store.ts';
 import { Button, CloseControl, NumberField, Section, VolumeSlider } from '../ui.tsx';
 import { MusicControl, MusicToggle, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
 import { TutorialsCheckbox } from './TutorialsCheckbox.tsx';
@@ -39,6 +39,9 @@ const SET_ELSEWHERE = new Set([
   'artworkTuning',
   'combatReplayOptionsShown',
   'combatReplayAttackerMark',
+  // TUTOR, Tutorials settings: values the GUI records rather than settings the Player sets.
+  'playerTurnCount',
+  'tutorialProgress',
 ]);
 
 /** The label of the checkbox of a setting that is on or off; VIS, Screen limit names the Screen limit's. */
@@ -146,9 +149,21 @@ function SettingsRows(props: {
         </div>
       </div>
       <SoundsRow snapshot={snapshot} />
+      {/* TUTOR, Tutorials settings: the Tutorials checkbox, then the neutral button that empties Tutorial progress, so
+          that every bubble is new again; it leaves the Player Turn count as it is. */}
       <div className="settings-row">
         <div>Tutorials</div>
-        <TutorialsCheckbox snapshot={snapshot} label="Tutorials enabled" testId="settings-tutorials" />
+        <div className="settings-input">
+          <TutorialsCheckbox snapshot={snapshot} label="Tutorials enabled" testId="settings-tutorials" />
+          <Button
+            testId="reset-tutorials"
+            onClick={() => {
+              void resetSetting('tutorialProgress');
+            }}
+          >
+            Reset tutorials
+          </Button>
+        </div>
       </div>
       {snapshot.configuration.settings
         .filter((setting) => !OWN_ROWS.has(setting.setting) && !SET_ELSEWHERE.has(setting.setting))

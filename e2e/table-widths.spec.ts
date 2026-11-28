@@ -353,6 +353,9 @@ test('no table cuts the widest values short, and every table fits its view', asy
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
   await id(page, 'special-event-continue').click();
+  // TUTOR, Tutorial intro: it follows the welcome while Tutorials on is true.
+  await expect(id(page, 'special-event')).toHaveAttribute('data-trigger', 'tutorial_intro');
+  await id(page, 'special-event-continue').click();
   await expect
     .poll(() => page.evaluate(async () => (await indexedDB.databases()).length), { timeout: 10_000 })
     .toBeGreaterThan(0);

@@ -10,6 +10,7 @@ import type {
   GameDataView,
 } from '../engine/index.ts';
 import { decimalText, groupDigits } from './format.ts';
+import { isTutorialArticle, TUTORIALS } from './tutorials.ts';
 
 export const GUIDE = 'Guide';
 export const MECHANICS = 'Mechanics';
@@ -49,6 +50,10 @@ function byTitle(a: Article, b: Article): number {
  * category of that Type, or in Combat when it is listed under the topic `combat`.
  */
 export function categoryOf(article: Article): string {
+  // TUTOR, Tutorials in the Compendium: every bubble the GUI has taught is in the Tutorials category.
+  if (isTutorialArticle(article)) {
+    return TUTORIALS;
+  }
   if (article.listedUnder === COMBAT_TOPIC) {
     return COMBAT;
   }
@@ -84,8 +89,9 @@ export function searchArticles(articles: readonly Article[], search: string): Ar
 }
 
 /**
- * COMPV, Panes: Guide first, then Mechanics, then the categories of the Subject articles sorted by name, except that
- * Combat stands right after Agents, each with the number of its articles; a category with none is left out.
+ * COMPV, Panes: Guide first, then Tutorials, then Mechanics, then the categories of the Subject articles sorted by
+ * name, except that Combat stands right after Agents, each with the number of its articles; a category with none is
+ * left out.
  */
 export function compendiumCategories(
   articles: readonly Article[],
@@ -94,7 +100,7 @@ export function compendiumCategories(
   for (const article of articles) {
     counts.set(categoryOf(article), (counts.get(categoryOf(article)) ?? 0) + 1);
   }
-  const rank = (name: string) => (name === GUIDE ? 0 : name === MECHANICS ? 1 : 2);
+  const rank = (name: string) => (name === GUIDE ? 0 : name === TUTORIALS ? 1 : name === MECHANICS ? 2 : 3);
   // Combat sorts as if it were named right after Agents.
   const key = (name: string) => (name === COMBAT ? 'Agents\u0000' : name);
   return [...counts]
@@ -107,12 +113,12 @@ export function compendiumCategories(
 
 /**
  * COMPV, Panes: the articles of one category, in their groups, each sorted by displayed title ignoring case, e.g. every
- * Weapon, then every AmmoType.
+ * Weapon, then every AmmoType. TUTOR, Tutorials in the Compendium: the bubbles of Tutorials keep their order, that of
+ * the table of Tutorial anchors.
  */
 export function articlesOf(articles: readonly Article[], category: string): Article[] {
-  return articles
-    .filter((article) => categoryOf(article) === category)
-    .sort((a, b) => groupOf(a) - groupOf(b) || byTitle(a, b));
+  const listed = articles.filter((article) => categoryOf(article) === category);
+  return category === TUTORIALS ? listed : listed.sort((a, b) => groupOf(a) - groupOf(b) || byTitle(a, b));
 }
 
 /** COMPV, Panes: the article selected when the Compendium View opens: the first article of the Guide category. */

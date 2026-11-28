@@ -31,6 +31,7 @@ import {
   placeInPlay,
   previewDeployment,
   revealedCompendiumView,
+  tutorialBubblesView,
   revealedLeadsView,
   turnReportView,
   worldStateChanges,
@@ -160,6 +161,9 @@ export function createGameRules(gdrs: GdrCatalog): GameRules<CampaignState> {
       }
       if (query === 'compendiumArticles') {
         return compendiumArticlesView(state, gdrs);
+      }
+      if (query === 'tutorialBubbles') {
+        return tutorialBubblesView(state, gdrs);
       }
       if (query === 'articleForTerm' && isRecord(args)) {
         return articleForTermView(state, gdrs, args['text']);

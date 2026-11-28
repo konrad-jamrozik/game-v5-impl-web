@@ -4,6 +4,7 @@ import type { GdrCatalog } from './types.ts';
 
 export { buildGdrCatalog, COMBAT_GDR_VALUE_NAMES, withCombatGdrValues, type RawGdrFile } from './catalog.ts';
 export { RAW_GDR_FILES };
+export { TUTORIAL_ANCHORS, type TutorialAnchor } from './tutorial-bubbles.ts';
 export type * from './types.ts';
 
 let bootstrap: GdrCatalog | null = null;

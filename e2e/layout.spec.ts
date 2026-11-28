@@ -116,6 +116,10 @@ test('every screen of the Campaign screen fits the Reference window', async ({ p
   await expect(id(page, 'special-event')).toBeVisible();
   await expectFits(page, 'the welcome Special event');
   await id(page, 'special-event-continue').click();
+  // TUTOR, Tutorial intro: it follows the welcome while Tutorials on is true, and its page never scrolls.
+  await expect(id(page, 'special-event')).toHaveAttribute('data-trigger', 'tutorial_intro');
+  await expectFits(page, 'the Tutorial intro');
+  await id(page, 'special-event-continue').click();
   await expect(id(page, 'special-event')).toHaveCount(0);
   await expectFits(page, 'the Campaign screen');
 
@@ -304,6 +308,9 @@ test('the Screen limit draws every screen at the size of the Reference window, c
   await id(page, 'seed-input').fill('layout');
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toBeVisible({ timeout: 60_000 });
+  await id(page, 'special-event-continue').click();
+  // TUTOR, Tutorial intro: it follows the welcome while Tutorials on is true.
+  await expect(id(page, 'special-event')).toHaveAttribute('data-trigger', 'tutorial_intro');
   await id(page, 'special-event-continue').click();
   expect(await boxOf(page, '.campaign'), 'the area of the Campaign screen').toEqual(area);
   for (const viewId of ['agents', 'storage', 'missions', 'history']) {

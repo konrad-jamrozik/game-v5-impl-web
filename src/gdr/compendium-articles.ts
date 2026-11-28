@@ -184,7 +184,7 @@ export function parseCompendiumArticle(
 }
 
 /** Whether a Condition uses a Condition kind other than `lead_completed` at any depth. */
-function usesFactionCondition(condition: Condition): boolean {
+export function usesFactionCondition(condition: Condition): boolean {
   switch (condition.kind) {
     case 'all':
     case 'any':
@@ -335,7 +335,7 @@ const REFERENCE_PROPERTIES: Readonly<Record<string, Readonly<Record<string, stri
 };
 
 /** The GDRs of a Game build as authored, by identifier; an identifier is unique only within a Type. */
-type RawGdrs = ReadonlyMap<string, readonly RawGdr[]>;
+export type RawGdrs = ReadonlyMap<string, readonly RawGdr[]>;
 
 /**
  * COMP, Placeholders: the text that replaces one Placeholder, or what is wrong with the
@@ -400,6 +400,44 @@ function resolvePlaceholder(
   return text === null ? { problem: `${written} names a value that Value formatting cannot show` } : { text };
 }
 
+/** The GDRs of a Game build as authored, by identifier. */
+export function gdrsById(gdrs: readonly RawGdr[]): RawGdrs {
+  const byId = new Map<string, RawGdr[]>();
+  for (const gdr of gdrs) {
+    const id = String(gdr['id']);
+    byId.set(id, [...(byId.get(id) ?? []), gdr]);
+  }
+  return byId;
+}
+
+/**
+ * COMP, Placeholders: a templated text with every Placeholder replaced, as a Compendium article's texts are; `subject`
+ * is the GDR that `{subject.…}` names, or none. Reports each Placeholder that is not valid.
+ */
+export function resolveTemplate(
+  text: string,
+  subject: RawGdr | null,
+  byId: RawGdrs,
+  report: (message: string) => void,
+): ArticleTemplate {
+  const parts = parseTemplate(text);
+  if (typeof parts === 'string') {
+    report(`Placeholders are valid (${parts})`);
+    return [];
+  }
+  return parts.map((part): TemplatePart => {
+    if (part.kind === 'text') {
+      return part;
+    }
+    const resolved = resolvePlaceholder(part, subject, byId);
+    if ('problem' in resolved) {
+      report(`Placeholders are valid (${resolved.problem})`);
+      return { kind: 'value', text: '' };
+    }
+    return { kind: 'value', text: resolved.text };
+  });
+}
+
 /**
  * COMP, CompendiumArticle, Displayed title, and Placeholders: the rules that relate articles, across the Game build.
  * Returns each article with its displayed title, the Type of its subject, and every Placeholder replaced. `gdrs`
@@ -411,11 +449,7 @@ export function validateCompendiumArticles(
   gdrs: readonly RawGdr[],
   problems: string[],
 ): CatalogCompendiumArticle[] {
-  const byId = new Map<string, RawGdr[]>();
-  for (const gdr of gdrs) {
-    const id = String(gdr['id']);
-    byId.set(id, [...(byId.get(id) ?? []), gdr]);
-  }
+  const byId = gdrsById(gdrs);
   const articleIds = new Set(articles.map((article) => article.id));
   const titles = new Set<string>();
   const subjects = new Set<string>();
@@ -489,25 +523,7 @@ export function validateCompendiumArticles(
         report(`Visibility Condition is valid (${lead})`);
       }
     }
-    // COMP, Placeholders: Placeholders are valid.
-    const template = (text: string): ArticleTemplate => {
-      const parts = parseTemplate(text);
-      if (typeof parts === 'string') {
-        report(`Placeholders are valid (${parts})`);
-        return [];
-      }
-      return parts.map((part): TemplatePart => {
-        if (part.kind === 'text') {
-          return part;
-        }
-        const resolved = resolvePlaceholder(part, subject, byId);
-        if ('problem' in resolved) {
-          report(`Placeholders are valid (${resolved.problem})`);
-          return { kind: 'value', text: '' };
-        }
-        return { kind: 'value', text: resolved.text };
-      });
-    };
+    const template = (text: string): ArticleTemplate => resolveTemplate(text, subject, byId, report);
     return {
       type: article.type,
       id: article.id,

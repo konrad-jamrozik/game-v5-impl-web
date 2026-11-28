@@ -924,6 +924,23 @@ export function effect(kind: string, value: unknown): { $entries: [string, unkno
 }
 
 /**
+ * TUTOR, TutorialBubble: an `article` must name a CompendiumArticle, so a test Game build without the article a
+ * TutorialBubble links to keeps the bubble without its link.
+ */
+export function unlinkMissingArticles(files: readonly { gdrs: RawGdr[] }[]): void {
+  const articles = new Set(
+    files.flatMap((file) =>
+      file.gdrs.filter((gdr) => gdr['type'] === 'CompendiumArticle').map((gdr) => gdr['id']),
+    ),
+  );
+  for (const gdr of files.flatMap((file) => file.gdrs)) {
+    if (gdr['type'] === 'TutorialBubble' && gdr['article'] !== undefined && !articles.has(gdr['article'])) {
+      delete gdr['article'];
+    }
+  }
+}
+
+/**
  * A changeable copy of the GDR files of the test Game build with Red Dawn only, for tests that use test GDRs or check
  * GDR validation.
  */
@@ -977,6 +994,7 @@ export function rawGdrs(): {
         // A file in a directory of one file per GDR leaves with its GDR; see GDR, GDR file layout.
         files.splice(index, 1);
       }
+      unlinkMissingArticles(files);
     },
   };
 }

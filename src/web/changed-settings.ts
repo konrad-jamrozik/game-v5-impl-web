@@ -24,6 +24,10 @@ const WORDING: Readonly<Record<string, { readonly name: string; readonly words: 
   soundsOn: { name: 'Sounds', words: onOff },
   soundsVolume: { name: 'Sounds volume', words: percent },
   tutorialsOn: { name: 'Tutorials', words: onOff },
+  tutorialBubbleLifetime: {
+    name: 'Tutorial bubble lifetime',
+    words: (value) => (value === 1 ? '1 Turn' : `${groupDigits(Number(value))} Turns`),
+  },
   autopilotControlsShown: {
     name: 'Autopilot controls',
     words: (value) => (value === true ? 'shown' : 'hidden'),
@@ -67,7 +71,13 @@ export function changedSettingLine(setting: SettingReport): string {
   return `${wording.name}: ${wording.words(setting.effectiveValue)} (default ${wording.words(setting.gameBuildDefault)})`;
 }
 
+/**
+ * TUTOR, Tutorials settings: Tutorial progress and the Player Turn count are left out of the list, since the Player does
+ * not set them; the "Reset tutorials" button is the Player's way to start over.
+ */
+const RECORDED = new Set(['playerTurnCount', 'tutorialProgress']);
+
 /** The changed settings, in the order the report lists them, which is the order of the Global configuration table. */
 export function changedSettings(settings: readonly SettingReport[]): readonly SettingReport[] {
-  return settings.filter((setting) => setting.stored);
+  return settings.filter((setting) => setting.stored && !RECORDED.has(setting.setting));
 }

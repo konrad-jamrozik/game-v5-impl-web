@@ -31,13 +31,15 @@ import { setSidePanelHidden, useSidePanelHidden } from '../side-panel.ts';
 import { useCtrlHeld } from '../ctrl-held.ts';
 import { STEP_LABELS, stepButtonKind, undoRedoStep, type UndoRedoForm } from '../undo-redo.ts';
 import { activeInvestigationRows, leadsToInvestigate, lostMissionSites } from '../situation.ts';
-import { act, leaveCampaign, run, theEngine, type Snapshot } from '../store.ts';
+import { act, leaveCampaign, run, setSetting, theEngine, type Snapshot } from '../store.ts';
 import {
   campaignStartEvent,
   clearCampaignStart,
+  eventAfter,
   pendingCampaignStart,
   type SpecialEventView,
 } from '../special-events.ts';
+import { playerTurnCountAfter, tutorialSettings } from '../tutorials.ts';
 import { showsTurnSummary, turnSummary, turnSummaryHasContent } from '../turn-summary.ts';
 import { Button, CloseControl, Fact, Meter, typingIn, withShortcut } from '../ui.tsx';
 import { turnsSinceLastFactionActivity } from '../faction-activity.ts';
@@ -64,6 +66,7 @@ import { SettingsDialog } from './SettingsPanel.tsx';
 import { SituationPanel, type SituationTarget } from './SituationPanel.tsx';
 import { TurnReportView, type ReportTarget } from './TurnReportView.tsx';
 import { SpecialEvent } from './SpecialEvent.tsx';
+import { TutorialBubble, TutorialLinks } from './TutorialBubble.tsx';
 import { TurnSummary } from './TurnSummary.tsx';
 import { UpgradesView } from './UpgradesView.tsx';
 import { StorageView } from './EquipmentViews.tsx';
@@ -202,6 +205,14 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       setSpecialEvent(pending);
     }
   }, [gameData]);
+  /** TUTOR, Tutorial intro: closing the welcome shows the Tutorial intro in the same dialog, while Tutorials on. */
+  const dismissSpecialEvent = () => {
+    setSpecialEvent((current) =>
+      current === null
+        ? null
+        : eventAfter(current, snapshot.gameData, tutorialSettings(snapshot.configuration).on),
+    );
+  };
 
   // TSUM, Showing and dismissing: the Player reopens the Turn summary from the Turn Report View, at any time.
   const [reopened, setReopened] = useState(false);
@@ -222,7 +233,17 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     const audible = !autopilotActive && actions?.advanceTurn.available === true;
     // Set before the Advance turn commits, so that the Turn summary appears in the same render as its new Turn.
     setRequestedTurn(ending);
-    void run(() => player.actions.advanceTurn()).then(() => {
+    void run(() => player.actions.advanceTurn()).then((outcome) => {
+      // TUTOR, Tutorials settings: an Advance turn the Player requested through the GUI adds 1 to the Player Turn
+      // count once it is committed; Global configuration is read again, so that the count never goes back.
+      const configuration = session.globalConfiguration.get();
+      if (configuration.ok) {
+        const count = tutorialSettings(configuration.value).playerTurnCount;
+        const next = playerTurnCountAfter(count, outcome);
+        if (next !== count) {
+          void setSetting('playerTurnCount', next);
+        }
+      }
       const report = player.queries.getTurnReport();
       // SOUNDS, Turn summary: the Advance turn plays one Sound, chosen when it ends: interesting-turn-summary at
       // once as the Turn summary appears, and main-click otherwise.
@@ -357,6 +378,21 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
     openPlace(to.id, to.item);
   };
 
+  /**
+   * TUTOR, Tutorial notes, Compendium link: the Compendium View opens with that article shown, as a Follow from the
+   * open Detail view, so that its Back control returns there, or afresh over the globe.
+   */
+  const tutorialLinks = {
+    openArticle: (article: string) => {
+      if (open === null) {
+        setTrail([]);
+      } else {
+        followFrom();
+      }
+      openPlace('compendium', article);
+    },
+  };
+
   const placeContext: PlaceContextValue = {
     restored: open?.restored ?? NOTHING_RESTORED,
     restoredScrollTop: open?.scrollTop ?? 0,
@@ -407,7 +443,7 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
       if (specialEvent !== null) {
         if (key === 'escape') {
           playSound(SOUND.back);
-          setSpecialEvent(null);
+          dismissSpecialEvent();
           event.preventDefault();
         }
         return;
@@ -575,428 +611,436 @@ export function Campaign({ snapshot, state }: { snapshot: Snapshot; state: Curre
   }
 
   return (
-    // CSCR, Hiding the Side panel: while the Compendium View is open, the status bar and the Side panel are left out
-    // and the Compendium View covers the whole screen.
-    <div className={wholeScreenOpen ? 'campaign whole-screen-open' : 'campaign'}>
-      {wholeScreenOpen ? null : (
-        <header className="statusbar">
-          <div className="status-facts">
-            <Fact label="Turn" testId="turn">
-              {groupDigits(state.turn)}
-            </Fact>
-            <div className="fact">
-              <span className="fact-label">Money</span>
-              <span className="fact-value">
-                <span data-testid="money">{groupDigits(state.agency.money)}</span>
-                {/* VIS, Status bar: the projected change of a value follows it in Positive or Danger; Money's gain
+    <TutorialLinks value={tutorialLinks}>
+      {/* CSCR, Hiding the Side panel: while the Compendium View is open, the status bar and the Side panel are left out
+        and the Compendium View covers the whole screen. */}
+      <div className={wholeScreenOpen ? 'campaign whole-screen-open' : 'campaign'}>
+        {wholeScreenOpen ? null : (
+          <header className="statusbar">
+            <div className="status-facts">
+              <Fact label="Turn" testId="turn">
+                {groupDigits(state.turn)}
+              </Fact>
+              <div className="fact">
+                <span className="fact-label">Money</span>
+                <span className="fact-value">
+                  <span data-testid="money">{groupDigits(state.agency.money)}</span>
+                  {/* VIS, Status bar: the projected change of a value follows it in Positive or Danger; Money's gain
                   and loss stack in one column after it, the gain above the loss, so that they widen the bar once. */}
-                <span className="fact-changes">
-                  <span className="fact-change tone-good" title="Projected income">
-                    +{groupDigits(state.agency.projectedIncome)}
+                  <span className="fact-changes">
+                    <span className="fact-change tone-good" title="Projected income">
+                      +{groupDigits(state.agency.projectedIncome)}
+                    </span>
+                    <span className="fact-change tone-bad" title="Projected upkeep">
+                      −{groupDigits(state.agency.projectedUpkeep)}
+                    </span>
                   </span>
-                  <span className="fact-change tone-bad" title="Projected upkeep">
-                    −{groupDigits(state.agency.projectedUpkeep)}
-                  </span>
                 </span>
-              </span>
-            </div>
-            <Fact label="Funding">{groupDigits(state.agency.funding)}</Fact>
-            <Fact label="Agents">
-              {groupDigits(state.agency.servingAgents)}/{groupDigits(state.agency.agentCap)}
-            </Fact>
-            <div className="fact">
-              <span className="fact-label">Panic</span>
-              <span
-                className="meter-figure"
-                data-testid="panic"
-                style={
-                  {
-                    '--meter-colour': nearLimitColor(state.panicHundredths, state.panicLimit * 100),
-                  } as CSSProperties
-                }
-              >
-                <span>
-                  {decimalText(state.panicHundredths)} / {groupDigits(state.panicLimit)}%
-                </span>
-                <Meter
-                  value={state.panicHundredths}
-                  max={state.panicLimit * 100}
-                  label={`Panic ${panicText(state.panicHundredths)}`}
-                />
-              </span>
-            </div>
-            {/* CSCR, Status bar values, 6: Enemy quiet, written with "T", with its full name as its tooltip. VIS,
-              Status bar: a unit follows its value in the 13 px Figure style and Text muted. */}
-            <div className="fact" title="Turns since last enemy activity">
-              <span className="fact-label">Enemy quiet</span>
-              <span className="fact-value">
-                <span data-testid="turns-since-faction-activity">
-                  {groupDigits(
-                    turnsSinceLastFactionActivity(state.turn, [
-                      ...state.missionSites,
-                      ...(snapshot.retired?.missionSites ?? []),
-                    ]),
-                  )}
-                </span>
-                <span className="fact-unit">T</span>
-              </span>
-            </div>
-          </div>
-          <div className="status-actions">
-            {(['undo', 'redo'] as const).map((which) => {
-              const step = steps[which];
-              // CSCR, Undo and redo: with Ctrl held and no Turn step, the disabled button is labelled for a Turn step.
-              const form: UndoRedoForm = step?.form ?? (ctrlHeld ? 'turn' : 'action');
-              return (
-                <Button
-                  key={which}
-                  kind={stepButtonKind(step)}
-                  className="undo-redo"
-                  shortcut={which === 'undo' ? 'U' : 'R'}
-                  testId={which}
-                  tooltip={step?.tooltip}
-                  disabledReason={
-                    locked ??
-                    (step === null ? (which === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.') : null)
+              </div>
+              <Fact label="Funding">{groupDigits(state.agency.funding)}</Fact>
+              <Fact label="Agents">
+                {groupDigits(state.agency.servingAgents)}/{groupDigits(state.agency.agentCap)}
+              </Fact>
+              <div className="fact">
+                <span className="fact-label">Panic</span>
+                <span
+                  className="meter-figure"
+                  data-testid="panic"
+                  style={
+                    {
+                      '--meter-colour': nearLimitColor(state.panicHundredths, state.panicLimit * 100),
+                    } as CSSProperties
                   }
-                  onClick={() => {
-                    takeStep(which);
-                  }}
                 >
-                  {/* CSCR, Undo and redo: the button keeps one width, that of its widest label. */}
-                  <span className="label-swap">
-                    {(['action', 'turn', 'autopilot'] as const).map((item) => (
-                      <span
-                        key={item}
-                        className={item === form ? '' : 'label-off'}
-                        aria-hidden={item === form ? undefined : true}
-                      >
-                        {STEP_LABELS[which][item]}
-                      </span>
-                    ))}
+                  <span>
+                    {decimalText(state.panicHundredths)} / {groupDigits(state.panicLimit)}%
                   </span>
-                </Button>
-              );
-            })}
-            <Button
-              testId="save"
-              disabledReason={locked}
-              onClick={() => {
-                act(() => session.saves.save(), 'Campaign saved.');
-              }}
-            >
-              Save
-            </Button>
-            <Button
-              testId="to-menu"
-              disabledReason={locked}
-              onClick={() => {
-                void leaveCampaign();
-              }}
-            >
-              Main menu
-            </Button>
-            {/* CSCR, Status bar controls: Settings, which stays enabled while an Autopilot engagement is active. */}
-            <button
-              type="button"
-              className="btn btn-plain settings-button"
-              aria-label="Settings"
-              title="Settings"
-              data-testid="open-settings"
-              onClick={() => {
-                setSettings(true);
-              }}
-            >
-              <Cogwheel />
-            </button>
-            <Button
-              kind="primary"
-              main
-              shortcut="N"
-              testId="advance-turn"
-              sound="none"
-              disabledReason={
-                locked ??
-                (actions?.advanceTurn.available === true
-                  ? null
-                  : (actions?.advanceTurn.message ?? 'Unavailable.'))
-              }
-              onClick={advance}
-            >
-              Advance turn
-            </Button>
+                  <Meter
+                    value={state.panicHundredths}
+                    max={state.panicLimit * 100}
+                    label={`Panic ${panicText(state.panicHundredths)}`}
+                  />
+                  <TutorialBubble anchor="campaign_screen.panic" />
+                </span>
+              </div>
+              {/* CSCR, Status bar values, 6: Enemy quiet, written with "T", with its full name as its tooltip. VIS,
+              Status bar: a unit follows its value in the 13 px Figure style and Text muted. */}
+              <div className="fact" title="Turns since last enemy activity">
+                <span className="fact-label">Enemy quiet</span>
+                <span className="fact-value">
+                  <span data-testid="turns-since-faction-activity">
+                    {groupDigits(
+                      turnsSinceLastFactionActivity(state.turn, [
+                        ...state.missionSites,
+                        ...(snapshot.retired?.missionSites ?? []),
+                      ]),
+                    )}
+                  </span>
+                  <span className="fact-unit">T</span>
+                </span>
+              </div>
+            </div>
+            <div className="status-actions">
+              {(['undo', 'redo'] as const).map((which) => {
+                const step = steps[which];
+                // CSCR, Undo and redo: with Ctrl held and no Turn step, the disabled button is labelled for a Turn step.
+                const form: UndoRedoForm = step?.form ?? (ctrlHeld ? 'turn' : 'action');
+                return (
+                  <Button
+                    key={which}
+                    kind={stepButtonKind(step)}
+                    className="undo-redo"
+                    shortcut={which === 'undo' ? 'U' : 'R'}
+                    testId={which}
+                    tooltip={step?.tooltip}
+                    disabledReason={
+                      locked ??
+                      (step === null ? (which === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.') : null)
+                    }
+                    onClick={() => {
+                      takeStep(which);
+                    }}
+                  >
+                    {/* CSCR, Undo and redo: the button keeps one width, that of its widest label. */}
+                    <span className="label-swap">
+                      {(['action', 'turn', 'autopilot'] as const).map((item) => (
+                        <span
+                          key={item}
+                          className={item === form ? '' : 'label-off'}
+                          aria-hidden={item === form ? undefined : true}
+                        >
+                          {STEP_LABELS[which][item]}
+                        </span>
+                      ))}
+                    </span>
+                  </Button>
+                );
+              })}
+              <Button
+                testId="save"
+                disabledReason={locked}
+                onClick={() => {
+                  act(() => session.saves.save(), 'Campaign saved.');
+                }}
+              >
+                Save
+              </Button>
+              <Button
+                testId="to-menu"
+                disabledReason={locked}
+                onClick={() => {
+                  void leaveCampaign();
+                }}
+              >
+                Main menu
+              </Button>
+              {/* CSCR, Status bar controls: Settings, which stays enabled while an Autopilot engagement is active. */}
+              <button
+                type="button"
+                className="btn btn-plain settings-button"
+                aria-label="Settings"
+                title="Settings"
+                data-testid="open-settings"
+                onClick={() => {
+                  setSettings(true);
+                }}
+              >
+                <Cogwheel />
+              </button>
+              <Button
+                kind="primary"
+                main
+                shortcut="N"
+                testId="advance-turn"
+                sound="none"
+                disabledReason={
+                  locked ??
+                  (actions?.advanceTurn.available === true
+                    ? null
+                    : (actions?.advanceTurn.message ?? 'Unavailable.'))
+                }
+                onClick={advance}
+              >
+                Advance turn
+                <TutorialBubble anchor="campaign_screen.advance_turn" />
+              </Button>
+            </div>
+          </header>
+        )}
+
+        {state.ending === null || wholeScreenOpen ? null : (
+          <div
+            className={`ending ending-${state.ending.ending.toLowerCase()}`}
+            data-testid="ending"
+            role="status"
+          >
+            <strong>{state.ending.ending}</strong> in Turn {groupDigits(state.ending.turn)}:{' '}
+            {state.ending.reasons.map((reason) => REASONS[reason] ?? reason).join(' and ')}. The Campaign has
+            ended; you can still look around, undo, or return to an Autosave.
           </div>
-        </header>
-      )}
+        )}
 
-      {state.ending === null || wholeScreenOpen ? null : (
-        <div
-          className={`ending ending-${state.ending.ending.toLowerCase()}`}
-          data-testid="ending"
-          role="status"
-        >
-          <strong>{state.ending.ending}</strong> in Turn {groupDigits(state.ending.turn)}:{' '}
-          {state.ending.reasons.map((reason) => REASONS[reason] ?? reason).join(' and ')}. The Campaign has
-          ended; you can still look around, undo, or return to an Autosave.
-        </div>
-      )}
-
-      {/* CSCR, Hiding the Side panel: the Compendium View leaves the Side panel out, with no strip, and takes the whole
+        {/* CSCR, Hiding the Side panel: the Compendium View leaves the Side panel out, with no strip, and takes the whole
           width; another place brings it back as the Player last left it. */}
-      <div
-        className={
-          wholeScreenOpen
-            ? 'campaign-body side-none'
-            : sidePanelHidden
-              ? 'campaign-body side-hidden'
-              : 'campaign-body'
-        }
-      >
-        <main className="globe-stage" data-testid="globe-stage">
-          <Globe covered={open !== null} devastation={devastation} />
-          {/* CSCR, Globe devastation controls: at its top left corner, hidden while a Detail view covers it. */}
-          {open === null && devastationControls ? <GlobeDevastationControls shown={devastation} /> : null}
-          {/* MUSIC, Music control on the Globe stage: at its bottom right corner, hidden while a Detail view covers
+        <div
+          className={
+            wholeScreenOpen
+              ? 'campaign-body side-none'
+              : sidePanelHidden
+                ? 'campaign-body side-hidden'
+                : 'campaign-body'
+          }
+        >
+          <main className="globe-stage" data-testid="globe-stage">
+            <Globe covered={open !== null} devastation={devastation} />
+            {/* CSCR, Globe devastation controls: at its top left corner, hidden while a Detail view covers it. */}
+            {open === null && devastationControls ? <GlobeDevastationControls shown={devastation} /> : null}
+            {/* MUSIC, Music control on the Globe stage: at its bottom right corner, hidden while a Detail view covers
               it. */}
-          {open === null ? <MusicControl snapshot={snapshot} onGlobeStage /> : null}
-          {open === null ? null : (
-            <PlaceContext value={placeContext}>
-              <OpenDetailView
-                key={`${open.id}-${open.serial}`}
-                open={open}
-                snapshot={snapshot}
-                state={state}
-                locked={locked}
-                selected={selected}
-                onSelect={(ids) => {
-                  setPicked(new Set(ids));
-                }}
-                onShow={followTo}
-                onOpenSummary={() => {
-                  // TRVIEW, Turn summary button: while there is no Turn report yet, it replays the Special event of
-                  // campaign_start.
-                  if (snapshot.report === null) {
-                    setSpecialEvent(campaignStartEvent(snapshot.gameData));
-                  } else {
-                    setReopened(true);
-                  }
-                }}
-                onClose={close}
-              />
-            </PlaceContext>
-          )}
-        </main>
+            {open === null ? <MusicControl snapshot={snapshot} onGlobeStage /> : null}
+            {open === null ? null : (
+              <PlaceContext value={placeContext}>
+                <OpenDetailView
+                  key={`${open.id}-${open.serial}`}
+                  open={open}
+                  snapshot={snapshot}
+                  state={state}
+                  locked={locked}
+                  selected={selected}
+                  onSelect={(ids) => {
+                    setPicked(new Set(ids));
+                  }}
+                  onShow={followTo}
+                  onOpenSummary={() => {
+                    // TRVIEW, Turn summary button: while there is no Turn report yet, it replays the Special event of
+                    // campaign_start, and TUTOR, Tutorial intro: closing it shows the Tutorial intro while Tutorials on.
+                    if (snapshot.report === null) {
+                      setSpecialEvent(campaignStartEvent(snapshot.gameData));
+                    } else {
+                      setReopened(true);
+                    }
+                  }}
+                  onClose={close}
+                />
+              </PlaceContext>
+            )}
+          </main>
 
-        {wholeScreenOpen ? null : sidePanelHidden ? (
-          // CSCR, Hiding the Side panel: a strip along the right edge holds the button that shows it again.
-          <aside className="side-strip" aria-label="Side panel hidden">
-            <button
-              type="button"
-              className="btn side-toggle"
-              aria-label="Show the Side panel"
-              title={withShortcut('Show the Side panel', 'V')}
-              data-testid="show-side-panel"
-              data-sound="select"
-              onClick={() => {
-                setSidePanelHidden(false);
-              }}
-            >
-              «
-            </button>
-          </aside>
-        ) : (
-          <aside className="side-panel" aria-label="Side panel">
-            <nav className="side-nav">
-              {/* CSCR, Navigation: a button for every Detail view, in view at all times. VIS, Navigation groups: the
+          {wholeScreenOpen ? null : sidePanelHidden ? (
+            // CSCR, Hiding the Side panel: a strip along the right edge holds the button that shows it again.
+            <aside className="side-strip" aria-label="Side panel hidden">
+              <button
+                type="button"
+                className="btn side-toggle"
+                aria-label="Show the Side panel"
+                title={withShortcut('Show the Side panel', 'V')}
+                data-testid="show-side-panel"
+                data-sound="select"
+                onClick={() => {
+                  setSidePanelHidden(false);
+                }}
+              >
+                «
+              </button>
+            </aside>
+          ) : (
+            <aside className="side-panel" aria-label="Side panel">
+              <nav className="side-nav">
+                {/* CSCR, Navigation: a button for every Detail view, in view at all times. VIS, Navigation groups: the
                   groups one under another, each its name over its buttons. */}
-              {DETAIL_VIEW_GROUPS.map((group, groupIndex) => (
-                <div key={group.name} className="nav-group">
-                  <div className="nav-group-head">
-                    <span className="label">{group.name}</span>
-                    {/* CSCR, Hiding the Side panel: the » button at the right end of the first group's line. */}
-                    {groupIndex === 0 ? (
-                      <button
-                        type="button"
-                        className="btn side-toggle"
-                        aria-label="Hide the Side panel"
-                        title={withShortcut('Hide the Side panel', 'V')}
-                        data-testid="hide-side-panel"
-                        data-sound="select"
-                        onClick={() => {
-                          setSidePanelHidden(true);
-                        }}
-                      >
-                        »
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="nav-buttons">
-                    {group.views.map((view) => {
-                      const count = counts[view.id];
-                      const numberKey = numberKeyOf(view.id);
-                      return (
+                {DETAIL_VIEW_GROUPS.map((group, groupIndex) => (
+                  <div key={group.name} className="nav-group">
+                    <div className="nav-group-head">
+                      <span className="label">
+                        {group.name}
+                        {group.name === 'Operations' ? (
+                          <TutorialBubble anchor="campaign_screen.operations" />
+                        ) : null}
+                      </span>
+                      {/* CSCR, Hiding the Side panel: the » button at the right end of the first group's line. */}
+                      {groupIndex === 0 ? (
                         <button
-                          key={view.id}
                           type="button"
-                          className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
-                          aria-pressed={open?.id === view.id}
-                          data-sound={open?.id === view.id ? 'back' : 'main'}
-                          title={numberKey === null ? undefined : `Shortcut: ${numberKey}`}
-                          data-testid={`nav-${view.id}`}
+                          className="btn side-toggle"
+                          aria-label="Hide the Side panel"
+                          title={withShortcut('Hide the Side panel', 'V')}
+                          data-testid="hide-side-panel"
+                          data-sound="select"
                           onClick={() => {
-                            toggleView(view.id);
+                            setSidePanelHidden(true);
                           }}
                         >
-                          <span>{view.name}</span>
-                          {count === undefined || count === 0 ? null : (
-                            <span className="count">{groupDigits(count)}</span>
-                          )}
+                          »
                         </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </nav>
-
-            <SituationPanel
-              state={state}
-              leads={leads}
-              lost={lostMissionSites(snapshot.report, snapshot.retired)}
-              onShow={show}
-            />
-
-            {/* CSCR, Side panel: the footer holds the Autopilot controls while Dev mode is enabled and Autopilot
-                controls shown is on; otherwise the Side panel has no footer. */}
-            {snapshot.status.devMode && autopilotSettings(snapshot.configuration.settings).shown ? (
-              <footer className="side-footer">
-                <AutopilotBar
-                  snapshot={snapshot}
-                  onOneTurn={() => {
-                    // TSUM, Showing and dismissing: Autopilot playing one Turn shows its Turn summary once it ends.
-                    setRequestedTurn(state.turn);
-                  }}
-                />
-              </footer>
-            ) : null}
-          </aside>
-        )}
-      </div>
-
-      {settings ? (
-        <SettingsDialog
-          snapshot={snapshot}
-          onClose={() => {
-            setSettings(false);
-          }}
-          onShortcuts={() => {
-            setSettings(false);
-            setHelp(true);
-          }}
-          onDeveloper={() => {
-            setSettings(false);
-            setDrawer(true);
-          }}
-        />
-      ) : null}
-
-      {help ? (
-        // CSCR, Keyboard shortcuts: a dialog titled Keyboard shortcuts, with its close control and no buttons at its
-        // bottom, like the Settings panel. It takes the full width a dialog may have and never scrolls sideways.
-        <div className="scrim">
-          <div
-            className="dialog shortcuts-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="shortcuts-title"
-            data-testid="shortcuts"
-          >
-            <header className="dialog-head">
-              <h2 id="shortcuts-title">Keyboard shortcuts</h2>
-            </header>
-            <CloseControl
-              testId="close-shortcuts"
-              onClose={() => {
-                setHelp(false);
-              }}
-            />
-            <div className="dialog-body shortcuts-body">
-              <dl className="shortcuts">
-                {SHORTCUTS.map((shortcut) => (
-                  <div key={shortcut.keys.join(' ')} className="shortcut-row">
-                    <dt>
-                      {shortcut.keys.map((key, index) => (
-                        <Fragment key={key}>
-                          {index === 0 ? null : (
-                            <span className="keycap-between">{shortcut.between ?? '/'}</span>
-                          )}
-                          <kbd className="keycap">{key}</kbd>
-                        </Fragment>
-                      ))}
-                    </dt>
-                    <dd>{shortcut.what}</dd>
+                      ) : null}
+                    </div>
+                    <div className="nav-buttons">
+                      {group.views.map((view) => {
+                        const count = counts[view.id];
+                        const numberKey = numberKeyOf(view.id);
+                        return (
+                          <button
+                            key={view.id}
+                            type="button"
+                            className={`nav-button${open?.id === view.id ? ' nav-button-open' : ''}`}
+                            aria-pressed={open?.id === view.id}
+                            data-sound={open?.id === view.id ? 'back' : 'main'}
+                            title={numberKey === null ? undefined : `Shortcut: ${numberKey}`}
+                            data-testid={`nav-${view.id}`}
+                            onClick={() => {
+                              toggleView(view.id);
+                            }}
+                          >
+                            <span>{view.name}</span>
+                            {count === undefined || count === 0 ? null : (
+                              <span className="count">{groupDigits(count)}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
-              </dl>
+              </nav>
+
+              <SituationPanel
+                state={state}
+                leads={leads}
+                lost={lostMissionSites(snapshot.report, snapshot.retired)}
+                onShow={show}
+              />
+
+              {/* CSCR, Side panel: the footer holds the Autopilot controls while Dev mode is enabled and Autopilot
+                controls shown is on; otherwise the Side panel has no footer. */}
+              {snapshot.status.devMode && autopilotSettings(snapshot.configuration.settings).shown ? (
+                <footer className="side-footer">
+                  <AutopilotBar
+                    snapshot={snapshot}
+                    onOneTurn={() => {
+                      // TSUM, Showing and dismissing: Autopilot playing one Turn shows its Turn summary once it ends.
+                      setRequestedTurn(state.turn);
+                    }}
+                  />
+                </footer>
+              ) : null}
+            </aside>
+          )}
+        </div>
+
+        {settings ? (
+          <SettingsDialog
+            snapshot={snapshot}
+            onClose={() => {
+              setSettings(false);
+            }}
+            onShortcuts={() => {
+              setSettings(false);
+              setHelp(true);
+            }}
+            onDeveloper={() => {
+              setSettings(false);
+              setDrawer(true);
+            }}
+          />
+        ) : null}
+
+        {help ? (
+          // CSCR, Keyboard shortcuts: a dialog titled Keyboard shortcuts, with its close control and no buttons at its
+          // bottom, like the Settings panel. It takes the full width a dialog may have and never scrolls sideways.
+          <div className="scrim">
+            <div
+              className="dialog shortcuts-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="shortcuts-title"
+              data-testid="shortcuts"
+            >
+              <header className="dialog-head">
+                <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+              </header>
+              <CloseControl
+                testId="close-shortcuts"
+                onClose={() => {
+                  setHelp(false);
+                }}
+              />
+              <div className="dialog-body shortcuts-body">
+                <dl className="shortcuts">
+                  {SHORTCUTS.map((shortcut) => (
+                    <div key={shortcut.keys.join(' ')} className="shortcut-row">
+                      <dt>
+                        {shortcut.keys.map((key, index) => (
+                          <Fragment key={key}>
+                            {index === 0 ? null : (
+                              <span className="keycap-between">{shortcut.between ?? '/'}</span>
+                            )}
+                            <kbd className="keycap">{key}</kbd>
+                          </Fragment>
+                        ))}
+                      </dt>
+                      <dd>{shortcut.what}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {summaryOpen && snapshot.report !== null ? (
-        <TurnSummary
-          model={turnSummary(
-            snapshot.report,
-            state,
-            snapshot.retired,
-            (archetype) => siteArchetypeName(snapshot, archetype),
-            snapshot.gameData,
-          )}
-          currentTurn={state.turn}
-          index={summaryIndex}
-          onIndexChange={setSummaryIndex}
-          onDismiss={dismissSummary}
-          onOpenReport={() => {
-            openFromSummary(NOTHING_RESTORED);
-          }}
-          onOpenReplay={(mission) => {
-            // TSUM, Links: the Turn Report View opens with that Mission's Combat replay one step away.
-            openFromSummary({ combat: mission, logOpen: false, replay: true });
-          }}
-          onOpenSite={(missionSite) => {
-            // TSUM, Links: the Missions View opens with that Mission site selected.
-            openFromSummary(NOTHING_RESTORED, 'missions', missionSite);
-          }}
-          onOpenAgents={() => {
-            // TSUM, Summary events: the line of an Investigation that unlocked Contracting opens the Agents View.
-            openFromSummary(NOTHING_RESTORED, 'agents');
-          }}
-          onOpenLeads={(lead) => {
-            // TSUM, Summary events, Lead discovered: the Leads View opens with that Lead selected.
-            openFromSummary(NOTHING_RESTORED, 'leads', lead);
-          }}
-        />
-      ) : null}
+        {summaryOpen && snapshot.report !== null ? (
+          <TurnSummary
+            model={turnSummary(
+              snapshot.report,
+              state,
+              snapshot.retired,
+              (archetype) => siteArchetypeName(snapshot, archetype),
+              snapshot.gameData,
+            )}
+            currentTurn={state.turn}
+            index={summaryIndex}
+            onIndexChange={setSummaryIndex}
+            onDismiss={dismissSummary}
+            onOpenReport={() => {
+              openFromSummary(NOTHING_RESTORED);
+            }}
+            onOpenReplay={(mission) => {
+              // TSUM, Links: the Turn Report View opens with that Mission's Combat replay one step away.
+              openFromSummary({ combat: mission, logOpen: false, replay: true });
+            }}
+            onOpenSite={(missionSite) => {
+              // TSUM, Links: the Missions View opens with that Mission site selected.
+              openFromSummary(NOTHING_RESTORED, 'missions', missionSite);
+            }}
+            onOpenAgents={() => {
+              // TSUM, Summary events: the line of an Investigation that unlocked Contracting opens the Agents View.
+              openFromSummary(NOTHING_RESTORED, 'agents');
+            }}
+            onOpenLeads={(lead) => {
+              // TSUM, Summary events, Lead discovered: the Leads View opens with that Lead selected.
+              openFromSummary(NOTHING_RESTORED, 'leads', lead);
+            }}
+          />
+        ) : null}
 
-      {specialEvent !== null ? (
-        <SpecialEvent
-          event={specialEvent}
-          snapshot={snapshot}
-          onDismiss={() => {
-            setSpecialEvent(null);
-          }}
-        />
-      ) : null}
+        {specialEvent !== null ? (
+          <SpecialEvent
+            key={specialEvent.id}
+            event={specialEvent}
+            snapshot={snapshot}
+            onDismiss={dismissSpecialEvent}
+          />
+        ) : null}
 
-      {drawer ? (
-        <DeveloperDrawer
-          snapshot={snapshot}
-          onClose={() => {
-            setDrawer(false);
-          }}
-        />
-      ) : null}
-    </div>
+        {drawer ? (
+          <DeveloperDrawer
+            snapshot={snapshot}
+            onClose={() => {
+              setDrawer(false);
+            }}
+          />
+        ) : null}
+      </div>
+    </TutorialLinks>
   );
 }
 
@@ -1075,7 +1119,7 @@ function OpenDetailView(props: {
     case 'charts':
       return <ChartsView snapshot={snapshot} onClose={onClose} />;
     case 'compendium':
-      return <CompendiumView snapshot={snapshot} state={state} onClose={onClose} />;
+      return <CompendiumView snapshot={snapshot} state={state} initial={open.item} onClose={onClose} />;
   }
 }
 

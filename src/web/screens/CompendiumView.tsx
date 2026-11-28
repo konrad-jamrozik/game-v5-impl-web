@@ -35,6 +35,7 @@ import { usePlaceState } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { theEngine, type Snapshot } from '../store.ts';
+import { tutorialArticles, tutorialSettings } from '../tutorials.ts';
 import { typingIn, withShortcut } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
@@ -226,13 +227,14 @@ const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
       </>
     ),
   },
-  // Two crossed swords, points up, blades crossing at the centre and hilts at the lower corners.
+  // Two crossed swords at right angles, each 45 degrees from upright, points up, blades crossing at the centre and
+  // crossguards clear of each other.
   Combat: {
     color: 'var(--tracer-red)',
     glyph: (
       <>
-        <path transform="rotate(40 50 50)" d={SWORD} />
-        <path transform="rotate(-40 50 50)" d={SWORD} />
+        <path transform="rotate(45 50 50)" d={SWORD} />
+        <path transform="rotate(-45 50 50)" d={SWORD} />
       </>
     ),
   },
@@ -275,6 +277,17 @@ const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
       </>
     ),
   },
+  // TUTOR: what teaches the Player is drawn in Tutorial gold; a "?" in a circle, the glyph of the Tutorial intro.
+  Tutorials: {
+    color: 'var(--tutorial)',
+    glyph: (
+      <>
+        <circle cx="50" cy="50" r="40" />
+        <path d="M39 39a11 11 0 1 1 14 10.5c-2 .8-3 2.4-3 5v4" />
+        <circle cx="50" cy="70" r="1.5" />
+      </>
+    ),
+  },
   Other: {
     color: 'var(--text-muted)',
     glyph: (
@@ -314,10 +327,22 @@ function ArticleArt(props: { category: string }) {
 export function CompendiumView(props: {
   snapshot: Snapshot;
   state: CurrentLiveWorldStateView;
+  /** TUTOR, Tutorial notes, Compendium link: the article to show first, in place of the first Guide article. */
+  initial?: string | null;
   onClose: () => void;
 }) {
   const { snapshot, state } = props;
-  const all: readonly CompendiumArticleView[] = snapshot.articles ?? [];
+  const articles: readonly CompendiumArticleView[] = snapshot.articles ?? [];
+  // TUTOR, Tutorials in the Compendium: the bubbles the GUI has taught, in the Tutorials category.
+  const all: readonly CompendiumArticleView[] = [
+    ...articles,
+    ...tutorialArticles(
+      snapshot.tutorialBubbles,
+      tutorialSettings(snapshot.configuration),
+      snapshot.revealed,
+      articles,
+    ),
+  ];
   const searchField = useRef<HTMLInputElement>(null);
   useCompendiumKeys(searchField);
   // CSCR, View trail: the search text and the Article history are part of the place of the Compendium View.
@@ -325,7 +350,11 @@ export function CompendiumView(props: {
   useEscapeClearsSearch(search, () => {
     setSearch('');
   });
-  const [stored, setHistory] = usePlaceState<ArticleHistory>('history', openHistory(firstArticle(all)));
+  const opening =
+    props.initial !== undefined && props.initial !== null && all.some((item) => item.id === props.initial)
+      ? props.initial
+      : firstArticle(all);
+  const [stored, setHistory] = usePlaceState<ArticleHistory>('history', openHistory(opening));
   // COMPV, Following links, No longer Player-visible: e.g. after an undo, an article leaves the Article history.
   const history = visibleHistory(stored, new Set(all.map((item) => item.id)), firstArticle(all));
   if (history !== stored) {

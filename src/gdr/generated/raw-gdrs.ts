@@ -31672,6 +31672,186 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "trigger": "campaign_start",
         "title": "Situation Report",
         "text": "The year is 2030. Humanity is waging a secret war against enemies numerous and unknown. You take the helm of a clandestine organization known as **Continuity**. Your mission is to discover, infiltrate, and neutralize the gravest threats to the human race."
+      },
+      {
+        "id": "tutorial_intro",
+        "type": "SpecialEvent",
+        "trigger": "tutorial_intro",
+        "title": "Agency Field Manual",
+        "text": "Six things to know before your first Turn.",
+        "points": [
+          {
+            "$entries": [
+              [
+                "heading",
+                "Manage your Agents"
+              ],
+              [
+                "text",
+                "Hire Agents, assign them to investigate Leads, and deploy them to Mission sites."
+              ],
+              [
+                "icon",
+                "agents"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "heading",
+                "Support them"
+              ],
+              [
+                "text",
+                "Send Agents to Training, buy Upgrades, and equip them as new equipment becomes available."
+              ],
+              [
+                "icon",
+                "support"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "heading",
+                "Win the Campaign"
+              ],
+              [
+                "text",
+                "Follow the Leads to the one that ends the threat. Missions keep Panic down and the Agency funded. Lose control of either and the Campaign is lost."
+              ],
+              [
+                "icon",
+                "objective"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "heading",
+                "Look for the gold"
+              ],
+              [
+                "text",
+                "Every screen has a few of these. Select one to learn about what it marks. Once opened, it stops pulsing and disappears a few Turns later. Everything it said stays in the Compendium under Tutorials."
+              ],
+              [
+                "icon",
+                "bubble"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "heading",
+                "Read the records"
+              ],
+              [
+                "text",
+                "The Turn report, Charts, and History show what happened and why."
+              ],
+              [
+                "icon",
+                "records"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "heading",
+                "Dig into the Compendium"
+              ],
+              [
+                "text",
+                "Every formula of the game, explained, for when you want to know exactly how a hit or a Lead's progress is decided."
+              ],
+              [
+                "icon",
+                "compendium"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "path": "tutorials/tutorial_bubbles.yaml",
+    "gdrs": [
+      {
+        "id": "tutorial_intro_bubble",
+        "type": "TutorialBubble",
+        "anchor": "tutorial_intro.bubble",
+        "title": "Tutorial bubbles",
+        "text": "A bubble opens a short note about the thing beside it. Select it again, or anywhere else, to close the note."
+      },
+      {
+        "id": "campaign_screen_panic_bubble",
+        "type": "TutorialBubble",
+        "anchor": "campaign_screen.panic",
+        "title": "Panic",
+        "text": "How alarmed the public is. It rises when threats go unanswered and falls after some won Missions. If it reaches its limit, the Campaign is lost.",
+        "article": "mechanics_panic"
+      },
+      {
+        "id": "campaign_screen_advance_turn_bubble",
+        "type": "TutorialBubble",
+        "anchor": "campaign_screen.advance_turn",
+        "title": "Advance turn",
+        "text": "When your orders are set, advance the Turn. Agents work, Missions are fought, and the world moves on. A summary of what happened follows.",
+        "article": "mechanics_turns"
+      },
+      {
+        "id": "campaign_screen_operations_bubble",
+        "type": "TutorialBubble",
+        "anchor": "campaign_screen.operations",
+        "title": "Operations",
+        "text": "Every view where you give orders. A number on a button shows how many things there are to look at, e.g. Leads you can start investigating. Start with Agents.",
+        "article": "guide_agency"
+      },
+      {
+        "id": "campaign_screen_situation_bubble",
+        "type": "TutorialBubble",
+        "anchor": "campaign_screen.situation",
+        "title": "Situation",
+        "text": "What is under way and what is waiting for you. Each item says the one thing you need to know about it now. Select an item to open the view where you act on it."
+      },
+      {
+        "id": "agents_view_hire_bubble",
+        "type": "TutorialBubble",
+        "anchor": "agents_view.hire",
+        "title": "Hire",
+        "text": "A new Agent costs money and starts on Standby. More Agents get more work done each Turn, but every Agent you keep costs upkeep.",
+        "article": "mechanics_hiring_and_upkeep"
+      },
+      {
+        "id": "agents_view_assign_to_bubble",
+        "type": "TutorialBubble",
+        "anchor": "agents_view.assign_to",
+        "title": "Assign to",
+        "text": "Select Agents in the table, then choose their work. Training raises skill and Standby rests them. Leads are investigated from the Leads View.",
+        "article": "mechanics_assignments"
+      },
+      {
+        "id": "agents_view_equip_bubble",
+        "type": "TutorialBubble",
+        "anchor": "agents_view.equip",
+        "title": "Equip",
+        "text": "Give Agents Weapons and Armor from Storage. Better equipment wins Combats that skill alone would lose.",
+        "article": "mechanics_equipment"
+      },
+      {
+        "id": "agents_view_exhaustion_column_bubble",
+        "type": "TutorialBubble",
+        "anchor": "agents_view.exhaustion_column",
+        "title": "Exhaustion",
+        "text": "Work wears Agents down. Above a free amount, exhaustion lowers how well an Agent works and fights. Rest on Standby brings it back down, and an Agent too exhausted is not fit to start work.",
+        "article": "mechanics_exhaustion"
       }
     ]
   },

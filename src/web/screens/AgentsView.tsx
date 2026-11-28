@@ -55,6 +55,7 @@ import { DetailView } from './DetailView.tsx';
 import { EquipmentPicker } from './EquipmentPicker.tsx';
 import { EquipTable } from './EquipTable.tsx';
 import { WholeScreen } from './ChartFullScreen.tsx';
+import { TutorialBubble } from './TutorialBubble.tsx';
 import type { ReportTarget } from './TurnReportView.tsx';
 import { rankOf, type RankThreshold } from '../rank.ts';
 import { RankText } from '../rank-insignia.tsx';
@@ -638,6 +639,7 @@ export function AgentsView(props: {
             }}
           >
             Equip
+            <TutorialBubble anchor="agents_view.equip" />
           </button>
           <button
             type="button"
@@ -663,8 +665,10 @@ export function AgentsView(props: {
           }}
         >
           Hire · {groupDigits(state.agency.hireCost)}
+          <TutorialBubble anchor="agents_view.hire" />
         </Button>
         <div className="control-group control-row" role="group" aria-labelledby="assign-to-label">
+          <TutorialBubble anchor="agents_view.assign_to" />
           <span className="label" id="assign-to-label">
             Assign to
           </span>
@@ -777,6 +781,9 @@ export function AgentsView(props: {
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}
                     <SortMark tiers={tiers} column={header.column.id} />
+                    {header.column.id === 'exhaustion' ? (
+                      <TutorialBubble anchor="agents_view.exhaustion_column" />
+                    ) : null}
                   </th>
                 ))}
               </tr>

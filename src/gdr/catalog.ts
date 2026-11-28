@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { EngineDefect, Rational, q } from '../kernel/index.ts';
 import { parseCompendiumArticle, validateCompendiumArticles, type RawGdr } from './compendium-articles.ts';
+import { SPECIAL_EVENT_POINT_ICONS, validateTutorialBubbles } from './tutorial-bubbles.ts';
 import { WEAPON_SHOTS } from './types.ts';
 import type {
   AgentParametersGdr,
@@ -22,6 +23,7 @@ import type {
   NameListGdr,
   RankGdr,
   SpecialEventGdr,
+  TutorialBubbleGdr,
 } from './types.ts';
 
 export interface RawGdrFile {
@@ -787,16 +789,67 @@ const schemas = {
       image: g.image,
       opacityPct: g.opacity_pct,
     })),
-  // TSUM, Special events: the exhaustive properties of a SpecialEvent.
+  // TSUM, Special events: the exhaustive properties of a SpecialEvent and of each of its points.
   SpecialEvent: z
     .strictObject({
       id,
       type: z.literal('SpecialEvent'),
-      trigger: z.literal('campaign_start'),
+      trigger: z.enum(['campaign_start', 'tutorial_intro']),
       title: name,
       text: name,
+      points: z
+        .array(
+          // A nested mapping arrives as its entries in authored order; a point's properties are read by name.
+          entries(z.unknown())
+            .transform((point) => Object.fromEntries(point))
+            .pipe(
+              z.strictObject({
+                heading: name,
+                text: name,
+                icon: z.enum(SPECIAL_EVENT_POINT_ICONS as [string, ...string[]]),
+              }),
+            ),
+        )
+        .min(1)
+        .optional(),
     })
-    .transform((g) => ({ type: g.type, id: g.id, trigger: g.trigger, title: g.title, text: g.text })),
+    // TSUM, Special events: `points` only for `tutorial_intro`.
+    .refine((g) => g.points === undefined || g.trigger === 'tutorial_intro', {
+      message: 'points are only for the trigger tutorial_intro',
+    })
+    .transform((g): SpecialEventGdr => ({
+      type: g.type,
+      id: g.id,
+      trigger: g.trigger,
+      title: g.title,
+      text: g.text,
+      points: (g.points ?? []).map((point) => ({
+        heading: point.heading,
+        text: point.text,
+        icon: point.icon as SpecialEventGdr['points'][number]['icon'],
+      })),
+    })),
+  // TUTOR, TutorialBubble: the exhaustive properties of a TutorialBubble; those that relate it to the Game build are
+  // checked across it.
+  TutorialBubble: z
+    .strictObject({
+      id,
+      type: z.literal('TutorialBubble'),
+      anchor: name,
+      title: name,
+      text: name,
+      article: id.optional(),
+      visible_when: condition.optional(),
+    })
+    .transform((g): TutorialBubbleGdr => ({
+      type: g.type,
+      id: g.id,
+      anchor: g.anchor,
+      title: g.title,
+      text: g.text,
+      article: g.article ?? null,
+      visibleWhen: g.visible_when ?? null,
+    })),
   // AGENT, NameList: the exhaustive properties of a NameList; AGENT, Agent names checks the names themselves.
   NameList: z
     .strictObject({
@@ -1116,6 +1169,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   const articles = all<CompendiumArticleGdr>('CompendiumArticle');
   const backgroundArtworks = all<BackgroundArtworkGdr>('BackgroundArtwork');
   const specialEvents = all<SpecialEventGdr>('SpecialEvent');
+  const bubbles = all<TutorialBubbleGdr>('TutorialBubble');
   const detachedCombatTeams = all<DetachedCombatTeamGdr>('DetachedCombatTeam');
   const ranks = [...all<RankGdr>('Rank')].sort((a, b) => b.minBaseSkill - a.minBaseSkill);
   const nameLists = all<NameListGdr>('NameList');
@@ -1384,6 +1438,13 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
   // COMP, CompendiumArticle, Displayed title, and Placeholders: the rules that relate articles. Those of one article
   // are checked by the schema.
   const compendiumArticles = validateCompendiumArticles(articles, authored, problems);
+  // TUTOR, TutorialBubble and Tutorial anchors: the rules that relate a bubble to the Game build.
+  const tutorialBubbles = validateTutorialBubbles(
+    bubbles,
+    authored,
+    new Set(articles.map((article) => article.id)),
+    problems,
+  );
 
   if (
     problems.length > 0 ||
@@ -1430,6 +1491,7 @@ export function buildGdrCatalog(files: readonly RawGdrFile[]): GdrCatalog {
     compendiumArticles,
     backgroundArtworks,
     specialEvents,
+    tutorialBubbles,
     ranks,
     nameLists,
     detachedCombatTeams,

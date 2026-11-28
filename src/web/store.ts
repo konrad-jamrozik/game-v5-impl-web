@@ -22,6 +22,7 @@ import {
   type SessionStatus,
   type TimelineStatus,
   type TurnReport,
+  type TutorialBubbleView,
 } from '../engine/index.ts';
 import { canReveal, revealInEffect } from './reveal.ts';
 
@@ -50,6 +51,8 @@ export interface Snapshot {
    * Compendium (COMPV).
    */
   readonly articles: readonly CompendiumArticleView[] | null;
+  /** TUTOR, TutorialBubble: every Tutorial bubble, with whether its `visible_when` holds; absent without a Campaign. */
+  readonly tutorialBubbles: readonly TutorialBubbleView[] | null;
   /**
    * GUI, Reveal hidden content: whether its checkbox is checked. `revealed` says whether the GUI presents the Current
    * campaign under Revealed presentation now, which it does not while Autopilot is engaged; `retired.leads` and
@@ -371,6 +374,7 @@ export function snapshot(): Snapshot {
         : has
           ? valueOf(game.player.queries.getCompendiumArticles())
           : null,
+    tutorialBubbles: has ? valueOf(game.player.queries.getTutorialBubbles()) : null,
     revealHiddenContent,
     revealed,
     revealedTerms: compendium?.terms ?? null,

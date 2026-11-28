@@ -639,9 +639,15 @@ export interface GameDataView {
   /** TSUM, Special events: every SpecialEvent GDR, in Game build order; display content. */
   readonly specialEvents: readonly {
     readonly id: string;
-    readonly trigger: 'campaign_start';
+    readonly trigger: 'campaign_start' | 'tutorial_intro';
     readonly title: string;
     readonly text: string;
+    /** Only for `tutorial_intro`: its points in authored order; empty when it has none. */
+    readonly points: readonly {
+      readonly heading: string;
+      readonly text: string;
+      readonly icon: 'agents' | 'support' | 'objective' | 'bubble' | 'records' | 'compendium';
+    }[];
   }[];
   /** GUI, Ranks: every Rank GDR, highest `min_base_skill` first; display content. */
   readonly ranks: readonly {
@@ -697,6 +703,23 @@ export interface CompendiumArticleView {
   }[];
   /** COMP, See also: the See also entries in authored order, each under the displayed title of its article. */
   readonly seeAlso: readonly ArticleLinkView[];
+}
+
+/**
+ * TUTOR, TutorialBubble: one Tutorial bubble, its `text` with every Placeholder replaced as in a Compendium article.
+ * Whether it is shown also depends on Global configuration, which the GUI reads.
+ */
+export interface TutorialBubbleView {
+  readonly id: string;
+  /** Its Tutorial anchor, e.g. `agents_view.exhaustion_column`. */
+  readonly anchor: string;
+  readonly title: string;
+  /** Plain text and Inserted values only; a bubble's text has no Article links. */
+  readonly text: readonly ArticleSegmentView[];
+  /** The identifier of the Compendium article its Tutorial note links to, or none. */
+  readonly article: string | null;
+  /** Whether its `visible_when`, if any, holds in the Current world state. */
+  readonly visible: boolean;
 }
 
 /** The Combat ratings of a team of Agents and of a Mission site's Enemies, and whether deploying is accepted. */
@@ -778,6 +801,11 @@ export interface PlayerApi {
      * an Article term equal to the text ignoring case, or null when there is none.
      */
     getArticleForTerm(text: string): Result<string | null>;
+    /**
+     * TUTOR, TutorialBubble: every TutorialBubble GDR, in Game build order, with whether its `visible_when` holds in
+     * the Current world state; display content for the GUI.
+     */
+    getTutorialBubbles(): Result<readonly TutorialBubbleView[]>;
     previewDeployment(missionSite: string | null, agents: readonly string[]): Result<DeploymentPreview>;
     /**
      * INVSTG, Team progress estimate: the gain per Advance turn, in hundredths of a progress point, of a team of

@@ -19,6 +19,7 @@ import type {
   HistoryView,
   LeadView,
   PlayerApi,
+  TutorialBubbleView,
 } from './player-api.ts';
 import type { Result } from './result.ts';
 import {
@@ -114,6 +115,8 @@ export { BUILD_INFO, GAME_BUILD };
 export { gameBuildId } from './game-build.ts';
 /** GUI, Digit grouping: shared with every user interface, so that each groups digits as the Compendium texts do. */
 export { groupDigitString } from '../kernel/index.ts';
+/** TUTOR, Tutorial anchors: the anchors the GUI offers, which the TutorialBubble GDRs are checked against. */
+export { TUTORIAL_ANCHORS, type TutorialAnchor } from '../gdr/index.ts';
 export type { BuildInfo } from './game-build.ts';
 
 export interface Engine {
@@ -267,6 +270,8 @@ function playerApi(core: EngineCore<CampaignState>, principal: Principal): Playe
         core.playerQuery(principal, 'compendiumArticles') as Result<readonly CompendiumArticleView[]>,
       getArticleForTerm: (text) =>
         core.playerQuery(principal, 'articleForTerm', { text }) as Result<string | null>,
+      getTutorialBubbles: () =>
+        core.playerQuery(principal, 'tutorialBubbles') as Result<readonly TutorialBubbleView[]>,
       previewDeployment: (missionSite, agents) =>
         core.playerQuery(principal, 'previewDeployment', {
           missionSite,

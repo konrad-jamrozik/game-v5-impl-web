@@ -31,6 +31,9 @@ test('the globe is kept, not built again, when the Player goes to the Main menu 
   await id(page, 'new-campaign').click();
   await expect(id(page, 'turn')).toHaveText('1');
   await id(page, 'special-event-continue').click();
+  // TUTOR, Tutorial intro: it follows the welcome while Tutorials on is true, as it is by default.
+  await expect(id(page, 'special-event')).toHaveAttribute('data-trigger', 'tutorial_intro');
+  await id(page, 'special-event-continue').click();
   await expect(page.locator('.globe')).toHaveCount(1);
   await page.locator('.globe').evaluate((globe) => {
     globe.setAttribute('data-kept', 'yes');
@@ -51,6 +54,9 @@ test('the globe is kept, not built again, when the Player goes to the Main menu 
   await id(page, 'nav-report').click();
   await id(page, 'reopen-summary').click();
   await expect(id(page, 'special-event-text')).toContainText('The year is 2030.');
+  await id(page, 'special-event-continue').click();
+  // TUTOR, Tutorial intro: the button replays it right after the welcome while Tutorials on is true.
+  await expect(id(page, 'special-event')).toHaveAttribute('data-trigger', 'tutorial_intro');
   await id(page, 'special-event-continue').click();
   await expect(id(page, 'special-event')).toHaveCount(0);
 });

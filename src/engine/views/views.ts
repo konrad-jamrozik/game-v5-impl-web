@@ -74,6 +74,7 @@ import {
 import {
   articleForTerm,
   resolveArticles,
+  tutorialBubbleVisible,
   visibleArticles,
   type ResolvedArticle,
 } from '../mechanics/compendium/compendium.ts';
@@ -100,6 +101,7 @@ import type {
   LeadView,
   MissionSiteView,
   MissionView,
+  TutorialBubbleView,
   WorldStateChanges,
 } from '../player-api.ts';
 import { reject, type Rejection } from '../result.ts';
@@ -1120,6 +1122,23 @@ function articleView({ article, body, formulas, seeAlso }: ResolvedArticle): Com
   };
 }
 
+/**
+ * `player.queries.getTutorialBubbles()`: TUTOR, TutorialBubble. Every TutorialBubble of the Game build, in Game build
+ * order, with its `text` resolved and whether its `visible_when` holds in the Current world state.
+ */
+export function tutorialBubblesView(state: CampaignState, gdrs: GdrCatalog): readonly TutorialBubbleView[] {
+  return deepFreeze<TutorialBubbleView[]>(
+    gdrs.tutorialBubbles.map((bubble) => ({
+      id: bubble.id,
+      anchor: bubble.anchor,
+      title: bubble.title,
+      text: bubble.text.map((part) => ({ ...part })),
+      article: bubble.article,
+      visible: tutorialBubbleVisible(bubble, state.world.current),
+    })),
+  );
+}
+
 /** One article of the Revealed Compendium, with whether it is Player-visible in the Current world state. */
 export interface RevealedArticleView extends CompendiumArticleView {
   readonly playerVisible: boolean;
@@ -1292,6 +1311,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         trigger: event.trigger,
         title: event.title,
         text: event.text,
+        points: event.points.map((point) => ({ ...point })),
       })),
       ranks: gdrs.ranks.map((rank) => ({
         id: rank.id,
