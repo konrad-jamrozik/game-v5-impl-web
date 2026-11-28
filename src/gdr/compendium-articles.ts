@@ -17,6 +17,8 @@ import { groupDigitString } from '../kernel/index.ts';
 export type RawGdr = Readonly<Record<string, unknown>>;
 
 const CATEGORIES: readonly ArticleCategory[] = ['guide', 'mechanics', 'subject'];
+/** COMP, CompendiumArticle: the topic that `listed_under` may name instead of a Type. */
+export const COMBAT_TOPIC = 'combat';
 const PROPERTIES = [
   'id',
   'type',
@@ -418,8 +420,9 @@ export function validateCompendiumArticles(
   const titles = new Set<string>();
   const subjects = new Set<string>();
   const terms = new Set<string>();
-  // COMP, CompendiumArticle: the Types that the subject of some Subject article has, which `listed_under` may name.
-  const subjectTypes = new Set(
+  // COMP, CompendiumArticle: the Types that the subject of some Subject article has, which `listed_under` may name, and
+  // the topic `combat`, which it may name instead.
+  const subjectTypes = new Set<string>(
     articles.flatMap((article) =>
       article.subject === null
         ? []
@@ -428,6 +431,7 @@ export function validateCompendiumArticles(
             .map((gdr) => String(gdr['type'])),
     ),
   );
+  subjectTypes.add(COMBAT_TOPIC);
 
   return articles.map((article) => {
     const report = (message: string) => {

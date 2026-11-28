@@ -13,6 +13,9 @@ import { decimalText, groupDigits } from './format.ts';
 
 export const GUIDE = 'Guide';
 export const MECHANICS = 'Mechanics';
+/** COMPV, Panes, Category tabs: the category of the articles listed under the topic `combat`, right after Agents. */
+export const COMBAT = 'Combat';
+const COMBAT_TOPIC = 'combat';
 /** COMPV, Subject data sheets: the category of a Subject article whose subject has a Type without a Data sheet. */
 export const OTHER = 'Other';
 
@@ -43,9 +46,12 @@ function byTitle(a: Article, b: Article): number {
 
 /**
  * COMPV, Panes: the category an article is listed under: a Guide or Mechanics article with a `listed_under` is in the
- * category of that Type.
+ * category of that Type, or in Combat when it is listed under the topic `combat`.
  */
 export function categoryOf(article: Article): string {
+  if (article.listedUnder === COMBAT_TOPIC) {
+    return COMBAT;
+  }
   if (article.listedUnder !== null) {
     return SUBJECT_TYPES[article.listedUnder]?.category ?? OTHER;
   }
@@ -78,8 +84,8 @@ export function searchArticles(articles: readonly Article[], search: string): Ar
 }
 
 /**
- * COMPV, Panes: Guide first, then Mechanics, then the categories of the Subject articles sorted by name, each with the
- * number of its articles; a category with none is left out.
+ * COMPV, Panes: Guide first, then Mechanics, then the categories of the Subject articles sorted by name, except that
+ * Combat stands right after Agents, each with the number of its articles; a category with none is left out.
  */
 export function compendiumCategories(
   articles: readonly Article[],
@@ -89,9 +95,14 @@ export function compendiumCategories(
     counts.set(categoryOf(article), (counts.get(categoryOf(article)) ?? 0) + 1);
   }
   const rank = (name: string) => (name === GUIDE ? 0 : name === MECHANICS ? 1 : 2);
+  // Combat sorts as if it were named right after Agents.
+  const key = (name: string) => (name === COMBAT ? 'Agents\u0000' : name);
   return [...counts]
     .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => rank(a.name) - rank(b.name) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    .sort(
+      (a, b) =>
+        rank(a.name) - rank(b.name) || (key(a.name) < key(b.name) ? -1 : key(a.name) > key(b.name) ? 1 : 0),
+    );
 }
 
 /**

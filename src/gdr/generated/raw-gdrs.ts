@@ -24572,6 +24572,188 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
     ]
   },
   {
+    "path": "compendium/compendium_articles/mechanics_able_to_fight.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_able_to_fight",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Able to fight",
+        "terms": [
+          "able to fight",
+          "unable to fight"
+        ],
+        "body": "A Combatant able to fight is alive and not Incapacitated: it still attacks on its Combat turn, and it can still be attacked. A side that has no Combatant able to fight has lost the Combat. An Incapacitated Combatant is alive, so an Incapacitated Agent survives the Combat.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Able to fight"
+              ],
+              [
+                "text",
+                "Health above 0, and neither of the two conditions below"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Too weakened"
+              ],
+              [
+                "text",
+                "Effective skill at or below {combat_parameters.incapacitation_skill_fraction} × skill"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Too worn down"
+              ],
+              [
+                "text",
+                "Exhaustion of {agent_parameters.exhaustion_incapacitation} or more"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Checked"
+              ],
+              [
+                "text",
+                "For every Combatant when the Combat starts, and for the defender and the attacker after each attack"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Once Incapacitated"
+              ],
+              [
+                "text",
+                "Stays so until the Combat ends, and neither attacks nor is attacked"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "In the Combat rating"
+              ],
+              [
+                "text",
+                "Only Combatants able to fight add to the Combat rating of their side"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_combatant",
+          "mechanics_incapacitated_agent",
+          "mechanics_combat_outcome",
+          "mechanics_exhaustion"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_agent_target_selection.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_agent_target_selection",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Agent target selection",
+        "terms": [
+          "Agent target selection",
+          "selection weight"
+        ],
+        "body": "An Agent picks its target at random, but it is drawn to an Enemy it is likely but not certain to hit, and away from an Enemy with so little health and armor left that much of a hit would be wasted on it. So it neither wastes attacks on long shots nor spends them all finishing off the weakest Enemy. Every Enemy able to fight can still be its target.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Candidates"
+              ],
+              [
+                "text",
+                "Every Enemy able to fight at that moment"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Chance to be picked"
+              ],
+              [
+                "text",
+                "An Enemy's selection weight ÷ the sum of the selection weights of every candidate"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Hit-chance weight"
+              ],
+              [
+                "text",
+                "{combat_parameters.target_base_weight} minus one for each whole hundredth by which the hit chance on the Enemy lies above or below {combat_parameters.target_preferred_hit_chance}"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Usefulness"
+              ],
+              [
+                "text",
+                "The share of the Agent's weapon damage that the Enemy's health and armor can still take, at most 1"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Selection weight"
+              ],
+              [
+                "text",
+                "Hit-chance weight × usefulness, rounded up, so at least 1"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_enemy_target_selection",
+          "mechanics_hit_chance",
+          "mechanics_damage",
+          "mechanics_combat_turn"
+        ]
+      }
+    ]
+  },
+  {
     "path": "compendium/compendium_articles/mechanics_agents.yaml",
     "gdrs": [
       {
@@ -24648,6 +24830,90 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
           "mechanics_recovering_agent",
           "mechanics_incapacitated_agent",
           "field_agent_article"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_ammo_in_combat.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_ammo_in_combat",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Ammo in a Combat",
+        "terms": [
+          "run out of ammo",
+          "runs out of ammo"
+        ],
+        "body": "Your Agents fight with the rounds of ammo the Agency has in Storage. An Agent whose rounds run out fights on with its knife until the Combat ends. Enemies never run out.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Each attack of an Agent"
+              ],
+              [
+                "text",
+                "Spends one round of the ammo its weapon uses, hit or miss"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "The last round"
+              ],
+              [
+                "text",
+                "The attack that spends it still hits with the weapon"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Out of ammo"
+              ],
+              [
+                "text",
+                "The Agent's weapon damage becomes that of its knife, in its attacks and in its Combat rating"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "A weapon without ammo"
+              ],
+              [
+                "text",
+                "Spends nothing, e.g. a knife"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Shared"
+              ],
+              [
+                "text",
+                "Every Agent whose weapon uses one ammo draws on the same rounds"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_equipment",
+          "mechanics_damage",
+          "knife_article"
         ]
       }
     ]
@@ -24806,6 +25072,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "id": "mechanics_combat",
         "type": "CompendiumArticle",
         "category": "mechanics",
+        "listed_under": "combat",
         "title": "Combat",
         "terms": [
           "Combat",
@@ -24817,11 +25084,11 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
             "$entries": [
               [
                 "label",
-                "Chance to hit"
+                "Who fights"
               ],
               [
                 "text",
-                "A² ÷ (A² + D²), rounded down to a tenth of a percent and kept from 0.1% to 99.9%, where A is the effective skill of the attacker and D that of the defender"
+                "Your deployed team against the Enemies at the Mission site; you give no orders once it starts"
               ]
             ]
           },
@@ -24829,35 +25096,11 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
             "$entries": [
               [
                 "label",
-                "Order"
+                "Each round"
               ],
               [
                 "text",
-                "Within a side, from the highest to the lowest effective skill at the start of its part of the round"
-              ]
-            ]
-          },
-          {
-            "$entries": [
-              [
-                "label",
-                "Enemy target"
-              ],
-              [
-                "text",
-                "Any Agent able to fight, each equally likely"
-              ]
-            ]
-          },
-          {
-            "$entries": [
-              [
-                "label",
-                "Agent target"
-              ],
-              [
-                "text",
-                "Any Enemy able to fight, with a weight of {combat_parameters.target_base_weight} minus one for each whole hundredth by which the chance to hit it lies above or below {combat_parameters.target_preferred_hit_chance}, times the share of the Agent's weapon damage that the Enemy's health and armor can still take, rounded up"
+                "The Agents' phase, then the Enemies' phase; each Combatant able to fight takes one Combat turn and attacks once"
               ]
             ]
           },
@@ -24877,18 +25120,6 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
             "$entries": [
               [
                 "label",
-                "Incapacitated"
-              ],
-              [
-                "text",
-                "Alive but unable to fight: effective skill at or below {combat_parameters.incapacitation_skill_fraction} × skill, or exhaustion of {agent_parameters.exhaustion_incapacitation} or more"
-              ]
-            ]
-          },
-          {
-            "$entries": [
-              [
-                "label",
                 "End of the Combat"
               ],
               [
@@ -24899,11 +25130,200 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
           }
         ],
         "see_also": [
+          "mechanics_combatant",
+          "mechanics_combat_round",
+          "mechanics_hit_chance",
+          "mechanics_agent_target_selection",
+          "mechanics_combat_outcome",
           "mechanics_combat_rating",
           "mechanics_damage",
           "mechanics_retreat",
-          "mechanics_skill",
-          "mechanics_missions"
+          "mechanics_combat_report"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_combat_outcome.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_combat_outcome",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Combat outcome",
+        "terms": [
+          "Combat outcome",
+          "Combat outcomes",
+          "Wiped"
+        ],
+        "body": "Every Combat ends with one Combat outcome, which decides whether its Mission is won. The Combat stops at once when one side has no Combatant able to fight, even in the middle of a phase, and your team may also withdraw between rounds.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Won"
+              ],
+              [
+                "text",
+                "No Enemy is able to fight: the Mission is won"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Wiped"
+              ],
+              [
+                "text",
+                "No Agent of your team is able to fight: the Mission is lost"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Retreated"
+              ],
+              [
+                "text",
+                "Your team withdrew after a round: the Mission is lost, but the survivors come home"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Checked"
+              ],
+              [
+                "text",
+                "Won and Wiped after every attack, in that order; Retreated after the Enemies' phase of each round"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Both sides out at once"
+              ],
+              [
+                "text",
+                "Won, because it is checked first"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Before any attack"
+              ],
+              [
+                "text",
+                "A Combat in which no Enemy, or no Agent, is able to fight when it starts ends at once, with 0 rounds"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_retreat",
+          "mechanics_able_to_fight",
+          "mechanics_missions",
+          "mechanics_combat_report"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_combat_phase.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_combat_phase",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Combat phase",
+        "terms": [
+          "Combat phase",
+          "Combat phases",
+          "Agents' phase",
+          "Enemies' phase",
+          "phase order"
+        ],
+        "body": "Each Combat round has two phases: the Agents' phase, in which every Agent takes its Combat turn, and then the Enemies' phase, in which every Enemy does. Within a phase the most skilled Combatant goes first, so a strong Agent often strikes before a weaker one is put at risk.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Agents' phase"
+              ],
+              [
+                "text",
+                "Each Agent of your team takes one Combat turn"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Enemies' phase"
+              ],
+              [
+                "text",
+                "Each Enemy takes one Combat turn"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Phase order"
+              ],
+              [
+                "text",
+                "From the highest to the lowest effective skill at the start of the phase"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Ties"
+              ],
+              [
+                "text",
+                "The Combatant listed earlier in its side goes first"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Set for the phase"
+              ],
+              [
+                "text",
+                "The order does not change within a phase, even when a Combatant is hit and loses effective skill"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_combat_round",
+          "mechanics_combat_turn",
+          "mechanics_skill"
         ]
       }
     ]
@@ -24915,6 +25335,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "id": "mechanics_combat_rating",
         "type": "CompendiumArticle",
         "category": "mechanics",
+        "listed_under": "combat",
         "title": "Combat rating",
         "terms": [
           "Combat rating",
@@ -25033,10 +25454,354 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         ],
         "see_also": [
           "mechanics_combat",
+          "mechanics_team_combat_rating_adjustment",
           "mechanics_retreat",
           "mechanics_damage",
           "mechanics_skill",
           "mechanics_missions"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_combat_report.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_combat_report",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Combat report",
+        "terms": [
+          "Combat report",
+          "Combat reports",
+          "Combat log",
+          "Combat replay"
+        ],
+        "body": "Every Combat leaves a Combat report, a full account from which you can follow every attack: who attacked whom, the hit chance and the hit roll, the damage, and who fell. The Turn report holds it, and the Combat replay plays it back as shots between the figures of the Combatants.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Outcome"
+              ],
+              [
+                "text",
+                "The Combat outcome and the number of rounds"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Combatants"
+              ],
+              [
+                "text",
+                "Each with its values at the start and at the end, the damage it dealt and took, and, for an Agent, what it learned"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Combat ratings"
+              ],
+              [
+                "text",
+                "Of each side at the start and after every round"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Ammo"
+              ],
+              [
+                "text",
+                "The rounds at hand at the start and left at the end"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Combat log"
+              ],
+              [
+                "text",
+                "Every attack, in order"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Kept"
+              ],
+              [
+                "text",
+                "In full in the Turn report of its turn; a short summary in the History for the rest of the Campaign"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_combat_outcome",
+          "mechanics_hit_chance",
+          "mechanics_combat_rating"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_combat_round.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_combat_round",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Combat round",
+        "terms": [
+          "Combat round",
+          "Combat rounds"
+        ],
+        "body": "A Combat round is one pass of a Combat in which every Combatant able to fight attacks once. Your Agents act first, in the Agents' phase, and the Enemies answer in the Enemies' phase. Rounds follow one another until the Combat ends.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Numbered"
+              ],
+              [
+                "text",
+                "From 1; a Combat that ends as it starts has 0 rounds"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Parts"
+              ],
+              [
+                "text",
+                "The Agents' phase, then the Enemies' phase"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Effects of an attack"
+              ],
+              [
+                "text",
+                "Apply at once, so an Enemy killed in the Agents' phase does not attack in the Enemies' phase of the same round"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "After each round"
+              ],
+              [
+                "text",
+                "Your team weighs whether to retreat"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "How many"
+              ],
+              [
+                "text",
+                "No limit: every attack tires someone, so the Combatants of one side are in the end too worn down to fight"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_combat_phase",
+          "mechanics_combat_turn",
+          "mechanics_retreat",
+          "mechanics_combat"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_combat_turn.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_combat_turn",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Combat turn",
+        "terms": [
+          "Combat turn",
+          "Combat turns"
+        ],
+        "body": "A Combat turn is one Combatant's part in a phase: it picks a target and attacks it once. A Combat turn is not a turn of the Campaign: a whole Combat, with all its rounds, is fought within one turn.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Able to fight"
+              ],
+              [
+                "text",
+                "Selects a target among the Combatants of the other side able to fight, and attacks it once"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Not able to fight"
+              ],
+              [
+                "text",
+                "Does nothing"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "The attack"
+              ],
+              [
+                "text",
+                "Hits with its hit chance; a hit deals damage, and the attack tires both sides, hit or miss"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Ends the Combat"
+              ],
+              [
+                "text",
+                "When the attack leaves one side with no Combatant able to fight; no further Combat turn is taken"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_combat_phase",
+          "mechanics_hit_chance",
+          "mechanics_agent_target_selection",
+          "mechanics_enemy_target_selection",
+          "mechanics_damage"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_combatant.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_combatant",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Combatant",
+        "terms": [
+          "Combatant",
+          "Combatants"
+        ],
+        "body": "A Combatant is anyone who takes part in a Combat: each Agent of your deployed team and each Enemy at the Mission site. Agents and Enemies fight by the same rules, with a few differences: only Agents spend rounds of ammo and choose whom they attack, and only Agents can recover afterwards.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "What it fights with"
+              ],
+              [
+                "text",
+                "Its effective skill, its health, the weapon damage of its weapon, and the armor it wears"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Effective skill"
+              ],
+              [
+                "text",
+                "Falls as it loses health and tires, so a worn-down Combatant hits less often and is hit more often"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Armor"
+              ],
+              [
+                "text",
+                "Starts each Combat whole and absorbs the damage of hits before its health does"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Leaving the Combat"
+              ],
+              [
+                "text",
+                "Killed when its health reaches 0, or Incapacitated while still alive"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "An Enemy"
+              ],
+              [
+                "text",
+                "Belongs to its Mission site, never runs out of ammo, and never recovers"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_able_to_fight",
+          "mechanics_combat",
+          "mechanics_damage",
+          "mechanics_skill",
+          "mechanics_health"
         ]
       }
     ]
@@ -25152,6 +25917,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "id": "mechanics_damage",
         "type": "CompendiumArticle",
         "category": "mechanics",
+        "listed_under": "combat",
         "title": "Damage",
         "terms": [
           "damage",
@@ -25318,6 +26084,53 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
           "mechanics_in_base_agent",
           "mechanics_incapacitated_agent",
           "mechanics_missions"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_enemy_target_selection.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_enemy_target_selection",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Enemy target selection",
+        "terms": [
+          "Enemy target selection"
+        ],
+        "body": "Enemies have no such judgement as your Agents: an Enemy strikes at whichever Agent is in reach, so its attacks spread evenly over your team. A larger team shares the Enemies' attacks among more Agents.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Candidates"
+              ],
+              [
+                "text",
+                "Every Agent of your team able to fight at that moment"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Chance to be picked"
+              ],
+              [
+                "text",
+                "Equal for each candidate"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_agent_target_selection",
+          "mechanics_combat_turn",
+          "mechanics_team_combat_rating_adjustment"
         ]
       }
     ]
@@ -26232,6 +27045,79 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
     ]
   },
   {
+    "path": "compendium/compendium_articles/mechanics_hit_chance.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_hit_chance",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Hit chance",
+        "terms": [
+          "hit chance",
+          "chance to hit"
+        ],
+        "body": "The hit chance is how likely one attack is to hit. It depends only on how the attacker's effective skill compares with the defender's: equal skill gives an even chance, and twice the skill hits four times in five. No attack is ever certain to hit or to miss.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Chance to hit"
+              ],
+              [
+                "text",
+                "A² ÷ (A² + D²), rounded down to a tenth of a percent and kept from 0.1% to 99.9%, where A is the effective skill of the attacker and D that of the defender"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Read when"
+              ],
+              [
+                "text",
+                "At the moment of the attack, so wounds and exhaustion taken earlier in the Combat count"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Hit roll"
+              ],
+              [
+                "text",
+                "A number from 0 to 999 that the Combat report shows beside each attack; the attack hits when it is below the hit chance in tenths of a percent"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "A hit"
+              ],
+              [
+                "text",
+                "Deals damage"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_damage",
+          "mechanics_skill",
+          "mechanics_agent_target_selection",
+          "mechanics_combat_report"
+        ]
+      }
+    ]
+  },
+  {
     "path": "compendium/compendium_articles/mechanics_in_base_agent.yaml",
     "gdrs": [
       {
@@ -27094,6 +27980,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         "id": "mechanics_retreat",
         "type": "CompendiumArticle",
         "category": "mechanics",
+        "listed_under": "combat",
         "title": "Retreat",
         "terms": [
           "retreat",
@@ -27153,6 +28040,7 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
         ],
         "see_also": [
           "mechanics_combat",
+          "mechanics_combat_outcome",
           "mechanics_missions"
         ]
       }
@@ -27272,6 +28160,91 @@ export const RAW_GDR_FILES: readonly { readonly path: string; readonly gdrs: rea
           "mechanics_training",
           "mechanics_experience",
           "training_skill_gain_article"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "compendium/compendium_articles/mechanics_team_combat_rating_adjustment.yaml",
+    "gdrs": [
+      {
+        "id": "mechanics_team_combat_rating_adjustment",
+        "type": "CompendiumArticle",
+        "category": "mechanics",
+        "listed_under": "combat",
+        "title": "Team Combat rating adjustment",
+        "terms": [
+          "Team Combat rating adjustment",
+          "team size factor",
+          "skill evenness factor"
+        ],
+        "body": "A side is worth more than the sum of its Combatants, because more Combatants share the other side's attacks. Your team is also worth less when a few skilled Agents carry it, because every Agent dies to the same harm whatever its skill, so such a team loses most of its strength with its first few dead. The Team Combat rating adjustment multiplies the Combat rating of a side by both.",
+        "formulas": [
+          {
+            "$entries": [
+              [
+                "label",
+                "Team size factor"
+              ],
+              [
+                "text",
+                "n ^ ({combat_parameters.rating_team_size_exponent} − 1), where n is the number of Combatants of the side able to fight"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Skill evenness factor"
+              ],
+              [
+                "text",
+                "1 − {combat_parameters.rating_agent_skill_gini_penalty} × the Gini coefficient of your Agents' effective skill"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Gini coefficient"
+              ],
+              [
+                "text",
+                "0 when every Agent has the same effective skill, and nearer 1 the more of it a few Agents hold: Agents of skill 900, 100, 100, and 100 have 0.5"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Enemies"
+              ],
+              [
+                "text",
+                "The team size factor"
+              ]
+            ]
+          },
+          {
+            "$entries": [
+              [
+                "label",
+                "Your team"
+              ],
+              [
+                "text",
+                "The team size factor × the skill evenness factor"
+              ]
+            ]
+          }
+        ],
+        "see_also": [
+          "mechanics_combat_rating",
+          "mechanics_enemy_target_selection",
+          "mechanics_skill"
         ]
       }
     ]

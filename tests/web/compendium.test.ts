@@ -192,6 +192,27 @@ describe('COMPV: Panes', () => {
     ]);
   });
 
+  it('lists the articles listed under the topic combat in Combat, right after Agents, by displayed title', () => {
+    const combat = [
+      subject('rifle', 'Rifle', 'Weapon'),
+      article('mechanics_hit_chance', 'Hit chance', { category: 'mechanics', listedUnder: 'combat' }),
+      subject('soldier', 'Soldier', 'EnemyArchetype'),
+      article('mechanics_combat', 'Combat', { category: 'mechanics', listedUnder: 'combat' }),
+      subject('field_agent', 'Field agent', 'AgentArchetype'),
+      subject('standard_uniform', 'Standard uniform', 'Armor'),
+      article('mechanics_skill', 'Skill', { category: 'mechanics' }),
+    ];
+    expect(compendiumCategories(combat).map((category) => category.name)).toEqual([
+      'Mechanics',
+      'Agents',
+      'Combat',
+      'Armor',
+      'Enemies',
+      'Weapons',
+    ]);
+    expect(articlesOf(combat, 'Combat').map((item) => item.title)).toEqual(['Combat', 'Hit chance']);
+  });
+
   it('searches the displayed titles of every category, ignoring case, and leaves out an empty category', () => {
     const found = searchArticles(articles, 'GUI');
     expect(found.map((item) => item.id)).toEqual(['guide_b', 'guide_a']);

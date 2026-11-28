@@ -220,6 +220,11 @@ const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
       </>
     ),
   },
+  // Two crossed blades, each with a guard near its hilt.
+  Combat: {
+    color: 'var(--tracer-red)',
+    glyph: <path d="M18 18l60 60M82 18L22 78M64 84l20-20M16 64l20 20M70 78l8 8M30 78l-8 8" />,
+  },
   Armor: {
     color: 'var(--positive)',
     glyph: <path d="M50 10l32 12v26c0 22-14 36-32 44-18-8-32-22-32-44V22zM50 22v58" />,
