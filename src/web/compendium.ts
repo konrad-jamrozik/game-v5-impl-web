@@ -3,12 +3,14 @@
  * its Article history, and the Data sheet of each kind of subject. Pure presentation over what Player API reports; it
  * replaces no Placeholder and finds no Article link in a resolved text.
  */
-import type {
-  CompendiumArticleView,
-  CurrentLiveWorldStateView,
-  CurrentRetiredWorldStateView,
-  GameDataView,
+import {
+  MECHANICS_SECTIONS,
+  type CompendiumArticleView,
+  type CurrentLiveWorldStateView,
+  type CurrentRetiredWorldStateView,
+  type GameDataView,
 } from '../engine/index.ts';
+import { capUpgradeIds } from './agency-charts.ts';
 import { decimalText, groupDigits } from './format.ts';
 import { isTutorialArticle, TUTORIALS } from './tutorials.ts';
 
@@ -20,10 +22,7 @@ const COMBAT_TOPIC = 'combat';
 /** COMPV, Subject data sheets: the category of a Subject article whose subject has a Type without a Data sheet. */
 export const OTHER = 'Other';
 
-/**
- * COMPV, Subject data sheets: the category name and the Data sheet heading of each subject Type, in the table's order,
- * which orders the Subject articles of one category, e.g. Weapons before AmmoTypes.
- */
+/** COMPV, Subject data sheets: the category name and the Data sheet heading of each subject Type. */
 const SUBJECT_TYPES: Readonly<Record<string, { readonly category: string; readonly heading: string }>> = {
   AgentArchetype: { category: 'Agents', heading: 'New Agent' },
   EnemyArchetype: { category: 'Enemies', heading: 'Enemy' },
@@ -50,10 +49,6 @@ function byTitle(a: Article, b: Article): number {
  * category of that Type, or in Combat when it is listed under the topic `combat`.
  */
 export function categoryOf(article: Article): string {
-  // TUTOR, Tutorials in the Compendium: every bubble the GUI has taught is in the Tutorials category.
-  if (isTutorialArticle(article)) {
-    return TUTORIALS;
-  }
   if (article.listedUnder === COMBAT_TOPIC) {
     return COMBAT;
   }
@@ -69,17 +64,109 @@ export function categoryOf(article: Article): string {
   return SUBJECT_TYPES[article.subjectType ?? '']?.category ?? OTHER;
 }
 
+/** COMPV, Article sections: the Article sections of each category that has them, in the order they stand. */
+const CATEGORY_SECTIONS: Readonly<Record<string, readonly string[]>> = {
+  [GUIDE]: ['Guides', TUTORIALS],
+  [MECHANICS]: MECHANICS_SECTIONS,
+  Agents: ['Overview', 'Agent properties'],
+  Weapons: ['Weapons', 'Ammo'],
+  Upgrades: ['Cap upgrades', 'Other upgrades'],
+  'Mission sites': ['Initiative', 'Response'],
+  Leads: ['One-time', 'Initiative', 'Interrogations'],
+};
+
+/** What places an article in an Article section, beyond the article itself: what Player API reports of its subject. */
+export interface SectionSources {
+  /** The MissionSiteArchetypes, each with its `kind`, as Game data reports them. */
+  readonly missionSiteArchetypes: readonly { readonly id: string; readonly kind: string }[];
+  /** The Upgrades, each with its `effect`, as the Agency reports them. */
+  readonly upgrades: readonly { readonly id: string; readonly effect: string }[];
+}
+
+/** The name of the Article section an article is in within its category, or null when it is in none. */
+export type SectionOf = (article: Article) => string | null;
+
 /**
- * COMPV, Panes: the group of an article within its category: its Subject articles first, by the order of their
- * subjects' Types in the Subject data sheets table, then the articles listed under it.
+ * COMPV, Article sections: the Article section of each article, read from its GDRs as Player API reports them. A Lead
+ * is Initiative when its `on_completion` creates a Mission site, otherwise Interrogations when its `discovered_when`
+ * names a Won Mission, otherwise One-time.
  */
-const TYPE_ORDER = Object.keys(SUBJECT_TYPES);
-function groupOf(article: Article): number {
-  if (article.subjectType === null) {
-    return TYPE_ORDER.length + 1;
-  }
-  const index = TYPE_ORDER.indexOf(article.subjectType);
-  return index === -1 ? TYPE_ORDER.length : index;
+export function sectioning(sources: SectionSources): SectionOf {
+  const caps = capUpgradeIds(sources.upgrades);
+  const kinds = new Map(sources.missionSiteArchetypes.map((site) => [site.id, site.kind]));
+  return (article) => {
+    switch (categoryOf(article)) {
+      case GUIDE:
+        return isTutorialArticle(article) ? TUTORIALS : 'Guides';
+      case MECHANICS:
+        return article.section;
+      case 'Agents':
+        return article.subjectType === 'AgentArchetype'
+          ? 'Overview'
+          : article.listedUnder === 'AgentArchetype'
+            ? 'Agent properties'
+            : null;
+      case 'Weapons':
+        return article.subjectType === 'Weapon'
+          ? 'Weapons'
+          : article.subjectType === 'AmmoType'
+            ? 'Ammo'
+            : null;
+      case 'Upgrades':
+        return article.subjectType === 'Upgrade' && caps.has(article.subject ?? '')
+          ? 'Cap upgrades'
+          : 'Other upgrades';
+      case 'Mission sites': {
+        const kind =
+          article.subjectType === 'MissionSiteArchetype' ? kinds.get(article.subject ?? '') : undefined;
+        return kind === 'initiative' ? 'Initiative' : kind === 'response' ? 'Response' : null;
+      }
+      case 'Leads': {
+        const lead = article.subjectLead;
+        return lead === null
+          ? null
+          : lead.createsMissionSite
+            ? 'Initiative'
+            : lead.discoveredByWonMission
+              ? 'Interrogations'
+              : 'One-time';
+      }
+      default:
+        return null;
+    }
+  };
+}
+
+/** One Article section as the Articles pane lists it: its name, or null for a list without a heading. */
+export interface ArticleSection {
+  readonly name: string | null;
+  readonly articles: readonly Article[];
+}
+
+/**
+ * COMPV, Panes and Article sections: the articles of one category, in its Article sections in their order, each sorted
+ * by displayed title ignoring case; a section with no article is left out. A category without Article sections is one
+ * list without a heading, and so are, after the sections, the articles of a category with sections that are in none of
+ * them, e.g. a Mechanics article whose `section` the GDR checks reported as a data defect.
+ */
+export function sectionsOf(
+  articles: readonly Article[],
+  category: string,
+  sectionOf: SectionOf,
+): ArticleSection[] {
+  const listed = articles.filter((article) => categoryOf(article) === category).sort(byTitle);
+  const names = CATEGORY_SECTIONS[category] ?? [];
+  const sections: ArticleSection[] = names.map((name) => ({
+    name,
+    articles: listed.filter((article) => sectionOf(article) === name),
+  }));
+  const rest = listed.filter((article) => !names.includes(sectionOf(article) ?? ''));
+  return [...sections, { name: null, articles: rest }].filter((section) => section.articles.length > 0);
+}
+
+/** COMPV, Panes: the articles of one category in the order the Articles pane lists them. */
+export function articlesOf(articles: readonly Article[], category: string, sectionOf: SectionOf): Article[] {
+  return sectionsOf(articles, category, sectionOf).flatMap((section) => section.articles);
 }
 
 /** COMPV, Panes: the articles whose displayed title contains the search text, ignoring case. */
@@ -89,9 +176,8 @@ export function searchArticles(articles: readonly Article[], search: string): Ar
 }
 
 /**
- * COMPV, Panes: Guide first, then Tutorials, then Mechanics, then the categories of the Subject articles sorted by
- * name, except that Combat stands right after Agents, each with the number of its articles; a category with none is
- * left out.
+ * COMPV, Panes: Guide first, then Mechanics, then the categories of the Subject articles sorted by name, except that
+ * Combat stands right after Agents, each with the number of its articles; a category with none is left out.
  */
 export function compendiumCategories(
   articles: readonly Article[],
@@ -100,7 +186,7 @@ export function compendiumCategories(
   for (const article of articles) {
     counts.set(categoryOf(article), (counts.get(categoryOf(article)) ?? 0) + 1);
   }
-  const rank = (name: string) => (name === GUIDE ? 0 : name === TUTORIALS ? 1 : name === MECHANICS ? 2 : 3);
+  const rank = (name: string) => (name === GUIDE ? 0 : name === MECHANICS ? 1 : 2);
   // Combat sorts as if it were named right after Agents.
   const key = (name: string) => (name === COMBAT ? 'Agents\u0000' : name);
   return [...counts]
@@ -112,31 +198,30 @@ export function compendiumCategories(
 }
 
 /**
- * COMPV, Panes: the articles of one category, in their groups, each sorted by displayed title ignoring case, e.g. every
- * Weapon, then every AmmoType. TUTOR, Tutorials in the Compendium: the bubbles of Tutorials keep their order, that of
- * the table of Tutorial anchors.
+ * COMPV, Panes: the article selected when the Compendium View opens: the first article of the Guide category, i.e. the
+ * first of its Guides section.
  */
-export function articlesOf(articles: readonly Article[], category: string): Article[] {
-  const listed = articles.filter((article) => categoryOf(article) === category);
-  return category === TUTORIALS ? listed : listed.sort((a, b) => groupOf(a) - groupOf(b) || byTitle(a, b));
-}
-
-/** COMPV, Panes: the article selected when the Compendium View opens: the first article of the Guide category. */
-export function firstArticle(articles: readonly Article[]): string | null {
+export function firstArticle(articles: readonly Article[], sectionOf: SectionOf): string | null {
   return (
-    (articlesOf(articles, GUIDE)[0] ?? articlesOf(articles, compendiumCategories(articles)[0]?.name ?? '')[0])
-      ?.id ?? null
+    (
+      articlesOf(articles, GUIDE, sectionOf)[0] ??
+      articlesOf(articles, compendiumCategories(articles)[0]?.name ?? '', sectionOf)[0]
+    )?.id ?? null
   );
 }
 
 /**
- * COMPV, Panes: the article the Enter key in the search field shows, i.e. the first article of the first category
- * listed under the search text, or null when no article matches.
+ * COMPV, Panes: the article the Enter key in the search field shows, i.e. the first article listed under the search
+ * text: the first of the first Article section of the first category listed, or null when no article matches.
  */
-export function firstMatchingArticle(articles: readonly Article[], search: string): string | null {
+export function firstMatchingArticle(
+  articles: readonly Article[],
+  search: string,
+  sectionOf: SectionOf,
+): string | null {
   const matching = searchArticles(articles, search);
   const category = compendiumCategories(matching)[0];
-  return category === undefined ? null : (articlesOf(matching, category.name)[0]?.id ?? null);
+  return category === undefined ? null : (articlesOf(matching, category.name, sectionOf)[0]?.id ?? null);
 }
 
 /**

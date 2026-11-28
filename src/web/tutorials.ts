@@ -1,11 +1,10 @@
 /**
  * TUTOR (Tutorials): the rules of the Tutorial bubbles that need no browser. Which bubbles are shown and how, when one
  * disappears, what its Tutorial note says of that, how opening one records it in Tutorial progress, how the Player
- * Turn count grows, and which bubbles the Tutorials category of the Compendium View lists. Tutorials belong to the GUI
+ * Turn count grows, and which bubbles the Tutorials section of the Compendium View lists. Tutorials belong to the GUI
  * alone and change no Campaign state: everything here reads and writes Global configuration.
  */
 import {
-  TUTORIAL_ANCHORS,
   type CompendiumArticleView,
   type GlobalConfigurationReport,
   type TutorialAnchor,
@@ -132,7 +131,7 @@ export function bubbleText(bubble: TutorialBubbleView): string {
   return bubble.text.map((segment) => segment.text).join('');
 }
 
-/** COMPV, Panes, Category tabs: the category of the bubbles the GUI has taught, right after Guide. */
+/** COMPV, Article sections: the Article section of the Guide category that lists the bubbles, after Guides. */
 export const TUTORIALS = 'Tutorials';
 
 const TUTORIAL_ARTICLE_PREFIX = 'tutorial:';
@@ -145,31 +144,24 @@ export function tutorialArticleId(bubble: string): string {
   return `${TUTORIAL_ARTICLE_PREFIX}${bubble}`;
 }
 
-/** Whether an article of the Compendium View is a bubble of the Tutorials category. */
+/** Whether an article of the Compendium View is a bubble of the Tutorials section. */
 export function isTutorialArticle(article: { readonly id: string }): boolean {
   return article.id.startsWith(TUTORIAL_ARTICLE_PREFIX);
 }
 
 /**
- * TUTOR, Tutorials in the Compendium: every bubble the Player has opened, whether or not it has disappeared, or, under
- * Revealed presentation, every bubble, sorted by its place in the table of Tutorial anchors. Each is shown as a Guide
- * article is: under its `title`, with its resolved `text` as its body and, when it has an `article` that is listed,
- * that article as its only See also entry. None while Tutorials on is false.
+ * TUTOR, Tutorials in the Compendium: every bubble whose `visible_when`, if any, holds in the Current world state,
+ * whether or not it has been opened or has disappeared, and whatever Tutorials on is; under Revealed presentation,
+ * every bubble. Each is shown as a Guide article is: under its `title`, with its resolved `text` as its body and, when
+ * it has an `article` that is listed, that article as its only See also entry. The Compendium View sorts them.
  */
 export function tutorialArticles(
   bubbles: readonly TutorialBubbleView[] | null,
-  settings: TutorialSettings,
   revealed: boolean,
   articles: readonly CompendiumArticleView[],
 ): CompendiumArticleView[] {
-  if (!settings.on || bubbles === null) {
-    return [];
-  }
-  const place = (bubble: TutorialBubbleView) =>
-    (TUTORIAL_ANCHORS as readonly string[]).indexOf(bubble.anchor);
-  return bubbles
-    .filter((bubble) => revealed || settings.progress[bubble.id] !== undefined)
-    .sort((a, b) => place(a) - place(b))
+  return (bubbles ?? [])
+    .filter((bubble) => revealed || bubble.visible)
     .map((bubble) => {
       const linked = articles.find((article) => article.id === bubble.article);
       return {
@@ -179,6 +171,8 @@ export function tutorialArticles(
         subject: null,
         subjectType: null,
         listedUnder: null,
+        section: null,
+        subjectLead: null,
         body: bubble.text,
         formulas: [],
         seeAlso: linked === undefined ? [] : [{ kind: 'link', text: linked.title, article: linked.id }],

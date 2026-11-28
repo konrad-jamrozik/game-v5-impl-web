@@ -695,6 +695,17 @@ export interface CompendiumArticleView {
   readonly subjectType: string | null;
   /** COMP, CompendiumArticle: the subject Type a Guide or Mechanics article is listed under, e.g. `AgentArchetype`. */
   readonly listedUnder: string | null;
+  /** COMP, CompendiumArticle: the `section` of a Mechanics article without `listed_under`, e.g. `Campaign`. */
+  readonly section: string | null;
+  /**
+   * COMPV, Article sections: what the GDR of the Lead a Subject article is about tells of its kind; absent for an
+   * article about anything else. Whether its `on_completion` creates a Mission site, and whether its
+   * `discovered_when` names a Won Mission, by a `mission_won` or a `mission_won_with_enemy` Condition anywhere in it.
+   */
+  readonly subjectLead: {
+    readonly createsMissionSite: boolean;
+    readonly discoveredByWonMission: boolean;
+  } | null;
   readonly body: readonly ArticleSegmentView[];
   /** The resolved formula rows in authored order; empty unless the article is a Mechanics article. */
   readonly formulas: readonly {

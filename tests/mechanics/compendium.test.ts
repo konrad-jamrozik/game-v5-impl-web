@@ -13,7 +13,11 @@ import {
   compendiumArticlesView,
   revealedCompendiumView,
 } from '../../src/engine/views/views.ts';
-import { formatPlaceholderValue, parseTemplate } from '../../src/gdr/compendium-articles.ts';
+import {
+  formatPlaceholderValue,
+  MECHANICS_SECTIONS,
+  parseTemplate,
+} from '../../src/gdr/compendium-articles.ts';
 import { bootstrapGdrCatalog, type CatalogCompendiumArticle, type GdrCatalog } from '../../src/gdr/index.ts';
 import { ok, startEngine } from '../helpers/engine.ts';
 import type { rawGdrs } from '../helpers/game.ts';
@@ -118,6 +122,7 @@ const entry = (
   terms,
   seeAlso,
   listedUnder: null,
+  section: null,
   visibleWhen: null,
 });
 const bodyOf = (list: readonly CatalogCompendiumArticle[], id: string) =>
@@ -354,6 +359,7 @@ describe('COMP: Placeholders', () => {
           catalogWith((raw) =>
             addArticle(raw, 'test_article', {
               category: 'mechanics',
+              section: 'Campaign',
               formulas: [row('Label', body)],
             }),
           ),
@@ -458,6 +464,21 @@ describe('COMP: Compendium article GDR validation', () => {
       [{ see_also: ['soldier'] }, /See also is valid \(soldier\)/],
       [{ see_also: ['test_article'] }, /See also is valid \(test_article\)/],
       [{ see_also: ['guide_panic', 'guide_panic'] }, /See also is valid/],
+      // COMP, CompendiumArticle: `section` only on a Mechanics article without `listed_under`, and a name.
+      [{ section: 'Campaign' }, /Section is valid/],
+      [{ category: 'mechanics', formulas: [row('L', 'T')], section: '' }, /Section is valid/],
+      [{ category: 'mechanics', formulas: [row('L', 'T')], section: '  ' }, /Section is valid/],
+      [{ category: 'mechanics', formulas: [row('L', 'T')], section: 5 }, /Section is valid/],
+      [
+        { category: 'mechanics', formulas: [row('L', 'T')], listed_under: 'combat', section: 'Campaign' },
+        /Section is valid/,
+      ],
+      // COMPV, Article sections: a Mechanics article without `listed_under` names one of the sections.
+      [{ category: 'mechanics', formulas: [row('L', 'T')] }, /Section is valid \(none is not a section/],
+      [
+        { category: 'mechanics', formulas: [row('L', 'T')], section: 'campaign' },
+        /Section is valid \(campaign is not a section/,
+      ],
     ];
     for (const [values, message] of cases) {
       expect(
@@ -467,11 +488,34 @@ describe('COMP: Compendium article GDR validation', () => {
     }
   });
 
+  it('accepts every section of the Compendium View, and a Mechanics article listed under a Type without one', () => {
+    const catalog = catalogWith((raw) => {
+      for (const [index, section] of MECHANICS_SECTIONS.entries()) {
+        addArticle(raw, `test_section_${index}`, {
+          category: 'mechanics',
+          section,
+          formulas: [row('Label', 'Text')],
+        });
+      }
+      addArticle(raw, 'test_listed', {
+        category: 'mechanics',
+        listed_under: 'AgentArchetype',
+        formulas: [row('Label', 'Text')],
+      });
+    });
+    const byId = new Map(catalog.compendiumArticles.map((article) => [article.id, article]));
+    expect(MECHANICS_SECTIONS.map((_, index) => byId.get(`test_section_${index}`)?.section)).toEqual([
+      ...MECHANICS_SECTIONS,
+    ]);
+    expect(byId.get('test_listed')?.section).toBeNull();
+  });
+
   it('accepts an article of each category, an empty list of terms, and a term that occurs nowhere', () => {
     const catalog = catalogWith((raw) => {
       addArticle(raw, 'test_guide', { terms: [], see_also: ['test_mechanics'] });
       addArticle(raw, 'test_mechanics', {
         category: 'mechanics',
+        section: 'Campaign',
         terms: ['a term found in no article'],
         formulas: [row('Label', 'Text')],
       });
@@ -523,6 +567,7 @@ describe('COMP: Article links', () => {
       });
       addArticle(raw, 'mechanics_exhaustion', {
         category: 'mechanics',
+        section: 'Agent strength',
         title: 'Exhaustion',
         terms: ['exhaustion', 'exhausted'],
         body: 'Exhaustion measures how tired an Agent is. Work and fighting raise it, and rest lowers it.',
@@ -820,8 +865,10 @@ describe('COMP: Article visibility and Player-visible information', () => {
         'formulas',
         'id',
         'listedUnder',
+        'section',
         'seeAlso',
         'subject',
+        'subjectLead',
         'subjectType',
         'title',
       ].sort(),

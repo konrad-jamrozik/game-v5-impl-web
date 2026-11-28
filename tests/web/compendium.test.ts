@@ -28,11 +28,16 @@ import {
   openHistory,
   previousArticle,
   searchArticles,
+  sectioning,
+  sectionsOf,
   showArticle,
   visibleHistory,
   type DataSheet,
+  type SectionSources,
   type SheetPart,
 } from '../../src/web/compendium.ts';
+import { tutorialArticles } from '../../src/web/tutorials.ts';
+import type { Condition } from '../../src/gdr/index.ts';
 import { q, roundDown, roundUp } from '../../src/kernel/index.ts';
 import { catalogWith, completeLead, gdrs, newCampaign, tweak } from '../helpers/game.ts';
 
@@ -57,6 +62,8 @@ const article = (
   subject: null,
   subjectType: null,
   listedUnder: null,
+  section: null,
+  subjectLead: null,
   body: [],
   formulas: [],
   seeAlso: [],
@@ -116,11 +123,14 @@ function everythingVisible(): CampaignState {
   return state;
 }
 
+/** No Mission site or Upgrade to place: enough for the articles that need nothing beyond themselves. */
+const plain = sectioning({ missionSiteArchetypes: [], upgrades: [] });
+
 describe('COMPV: Panes', () => {
   const articles = [
     subject('rifle', 'Rifle', 'Weapon'),
-    article('mechanics_skill', 'skill gain', { category: 'mechanics' }),
-    article('mechanics_combat', 'Combat', { category: 'mechanics' }),
+    article('mechanics_skill', 'skill gain', { category: 'mechanics', section: 'Agent strength' }),
+    article('mechanics_combat', 'Combat', { category: 'mechanics', section: 'Operations' }),
     subject('soldier', 'Soldier', 'EnemyArchetype'),
     article('guide_b', 'b guide'),
     article('guide_a', 'A guide'),
@@ -148,11 +158,14 @@ describe('COMPV: Panes', () => {
   });
 
   it('sorts the articles of a category by displayed title ignoring case', () => {
-    expect(articlesOf(articles, 'Guide').map((item) => item.title)).toEqual(['A guide', 'b guide']);
-    expect(articlesOf(articles, 'Mechanics').map((item) => item.title)).toEqual(['Combat', 'skill gain']);
+    expect(articlesOf(articles, 'Guide', plain).map((item) => item.title)).toEqual(['A guide', 'b guide']);
+    expect(articlesOf(articles, 'Mechanics', plain).map((item) => item.title)).toEqual([
+      'Combat',
+      'skill gain',
+    ]);
     // When the Compendium View opens, the Guide category and its first article are selected.
-    expect(firstArticle(articles)).toBe('guide_a');
-    expect(firstArticle([])).toBeNull();
+    expect(firstArticle(articles, plain)).toBe('guide_a');
+    expect(firstArticle([], plain)).toBeNull();
   });
 
   it('lists every Weapon, then every AmmoType, under Weapons', () => {
@@ -163,7 +176,7 @@ describe('COMPV: Panes', () => {
       subject('basic_pistol', 'Basic pistol', 'Weapon'),
     ];
     expect(categoryOf(weapons[0]!)).toBe('Weapons');
-    expect(articlesOf(weapons, 'Weapons').map((item) => item.title)).toEqual([
+    expect(articlesOf(weapons, 'Weapons', plain).map((item) => item.title)).toEqual([
       'Basic pistol',
       'Rifle',
       'Pistol ammo',
@@ -185,7 +198,7 @@ describe('COMPV: Panes', () => {
       { name: 'Mechanics', count: 1 },
       { name: 'Agents', count: 3 },
     ]);
-    expect(articlesOf(agents, 'Agents').map((item) => item.title)).toEqual([
+    expect(articlesOf(agents, 'Agents', plain).map((item) => item.title)).toEqual([
       'Field agent',
       'Away Agent',
       'Deployable Agent',
@@ -210,7 +223,7 @@ describe('COMPV: Panes', () => {
       'Enemies',
       'Weapons',
     ]);
-    expect(articlesOf(combat, 'Combat').map((item) => item.title)).toEqual(['Combat', 'Hit chance']);
+    expect(articlesOf(combat, 'Combat', plain).map((item) => item.title)).toEqual(['Combat', 'Hit chance']);
   });
 
   it('searches the displayed titles of every category, ignoring case, and leaves out an empty category', () => {
@@ -230,12 +243,216 @@ describe('COMPV: Panes', () => {
 
   it('Enter in the search field shows the first article of the first category listed, or nothing', () => {
     // "r" matches no Guide or Mechanics article, so the first category listed is Enemies.
-    expect(firstMatchingArticle(articles, 'r')).toBe('soldier_article');
-    expect(firstMatchingArticle(articles, 'GUI')).toBe('guide_a');
-    expect(firstMatchingArticle(articles, 'skill')).toBe('mechanics_skill');
-    expect(firstMatchingArticle(articles, 'no such title')).toBeNull();
+    expect(firstMatchingArticle(articles, 'r', plain)).toBe('soldier_article');
+    expect(firstMatchingArticle(articles, 'GUI', plain)).toBe('guide_a');
+    expect(firstMatchingArticle(articles, 'skill', plain)).toBe('mechanics_skill');
+    expect(firstMatchingArticle(articles, 'no such title', plain)).toBeNull();
     // An empty search lists every article, so Enter shows the first article of Guide.
-    expect(firstMatchingArticle(articles, '')).toBe('guide_a');
+    expect(firstMatchingArticle(articles, '', plain)).toBe('guide_a');
+  });
+});
+
+describe('COMPV: Article sections', () => {
+  /** The sections of a category as [name, displayed titles] pairs. */
+  const shownSections = (
+    list: readonly CompendiumArticleView[],
+    category: string,
+    sources: SectionSources = { missionSiteArchetypes: [], upgrades: [] },
+  ) =>
+    sectionsOf(list, category, sectioning(sources)).map((section) => [
+      section.name,
+      section.articles.map((item) => item.title),
+    ]);
+  const mechanics = (id: string, title: string, section: string | null) =>
+    article(id, title, { category: 'mechanics', section });
+  const lead = (id: string, title: string, createsMissionSite: boolean, discoveredByWonMission: boolean) =>
+    article(`${id}_article`, title, {
+      category: 'subject',
+      subject: id,
+      subjectType: 'Lead',
+      subjectLead: { createsMissionSite, discoveredByWonMission },
+    });
+
+  it('Guide: the Guides, then the Tutorial bubbles, each sorted by displayed title ignoring case', () => {
+    const bubbles = tutorialArticles(
+      [
+        {
+          id: 'b',
+          anchor: 'campaign_screen.panic',
+          title: 'b bubble',
+          text: [],
+          article: null,
+          visible: true,
+        },
+        { id: 'a', anchor: 'agents_view.hire', title: 'A bubble', text: [], article: null, visible: true },
+      ],
+      false,
+      [],
+    );
+    const list = [article('guide_z', 'Z guide'), ...bubbles, article('guide_y', 'y guide')];
+    expect(shownSections(list, 'Guide')).toEqual([
+      ['Guides', ['y guide', 'Z guide']],
+      ['Tutorials', ['A bubble', 'b bubble']],
+    ]);
+    // When the Compendium View opens, the first article of the Guides section is selected.
+    expect(firstArticle(list, plain)).toBe('guide_y');
+  });
+
+  it('Mechanics: Campaign, Operations, Agent work, and Agent strength, by each article’s section', () => {
+    const list = [
+      mechanics('skill', 'Skill', 'Agent strength'),
+      mechanics('training', 'Training', 'Agent work'),
+      mechanics('missions', 'Missions', 'Operations'),
+      mechanics('turns', 'Turns', 'Campaign'),
+      mechanics('panic', 'Panic', 'Campaign'),
+      mechanics('health', 'health', 'Agent strength'),
+    ];
+    expect(shownSections(list, 'Mechanics')).toEqual([
+      ['Campaign', ['Panic', 'Turns']],
+      ['Operations', ['Missions']],
+      ['Agent work', ['Training']],
+      ['Agent strength', ['health', 'Skill']],
+    ]);
+    // A section with no article is left out with its heading.
+    expect(shownSections([list[0]!], 'Mechanics')).toEqual([['Agent strength', ['Skill']]]);
+  });
+
+  it('Mechanics: an article in no section the table names, a data defect, is listed after the sections', () => {
+    const list = [
+      mechanics('turns', 'Turns', 'Campaign'),
+      mechanics('lore', 'Lore', 'Lore'),
+      mechanics('x', 'X', null),
+    ];
+    expect(shownSections(list, 'Mechanics')).toEqual([
+      ['Campaign', ['Turns']],
+      [null, ['Lore', 'X']],
+    ]);
+  });
+
+  it('Agents: the Subject articles about AgentArchetypes, then the articles listed under AgentArchetype', () => {
+    const list = [
+      article('deployable', 'Deployable Agent', { category: 'mechanics', listedUnder: 'AgentArchetype' }),
+      subject('field_agent', 'Field agent', 'AgentArchetype'),
+      article('away', 'Away Agent', { category: 'guide', listedUnder: 'AgentArchetype' }),
+    ];
+    expect(shownSections(list, 'Agents')).toEqual([
+      ['Overview', ['Field agent']],
+      ['Agent properties', ['Away Agent', 'Deployable Agent']],
+    ]);
+  });
+
+  it('Weapons: the Weapons, then the AmmoTypes', () => {
+    const list = [
+      subject('rifle_ammo', 'Rifle ammo', 'AmmoType'),
+      subject('rifle', 'Rifle', 'Weapon'),
+      subject('knife', 'Knife', 'Weapon'),
+    ];
+    expect(shownSections(list, 'Weapons')).toEqual([
+      ['Weapons', ['Knife', 'Rifle']],
+      ['Ammo', ['Rifle ammo']],
+    ]);
+  });
+
+  it('Upgrades: the Cap Upgrades, which raise the Agent, Transport, or Training cap, then the rest', () => {
+    const upgrades = [
+      { id: 'agent_cap', effect: 'agent_cap' },
+      { id: 'transport_cap', effect: 'transport_cap' },
+      { id: 'training_cap', effect: 'training_cap' },
+      { id: 'health_recovery', effect: 'health_recovery' },
+      { id: 'max_health', effect: 'agent_max_health' },
+    ];
+    const list = upgrades.map((item) => subject(item.id, item.id.replace('_', ' '), 'Upgrade'));
+    expect(shownSections(list, 'Upgrades', { missionSiteArchetypes: [], upgrades })).toEqual([
+      ['Cap upgrades', ['agent cap', 'training cap', 'transport cap']],
+      ['Other upgrades', ['health recovery', 'max health']],
+    ]);
+  });
+
+  it('Mission sites: the Initiative, then the Response MissionSiteArchetypes, by their kind', () => {
+    const missionSiteArchetypes = [
+      { id: 'raid', kind: 'initiative' },
+      { id: 'foil', kind: 'response' },
+      { id: 'apprehend', kind: 'initiative' },
+    ];
+    const list = missionSiteArchetypes.map((item) => subject(item.id, item.id, 'MissionSiteArchetype'));
+    expect(shownSections(list, 'Mission sites', { missionSiteArchetypes, upgrades: [] })).toEqual([
+      ['Initiative', ['apprehend', 'raid']],
+      ['Response', ['foil']],
+    ]);
+  });
+
+  it('Leads: One-time, Initiative, and Interrogations, Initiative winning over Interrogations', () => {
+    const list = [
+      lead('interrogate', 'Interrogate', false, true),
+      lead('locate_hq', 'Locate HQ', true, true),
+      lead('profile', 'Profile', false, false),
+      lead('locate_member', 'Locate member', true, false),
+    ];
+    expect(shownSections(list, 'Leads')).toEqual([
+      ['One-time', ['Profile']],
+      ['Initiative', ['Locate HQ', 'Locate member']],
+      ['Interrogations', ['Interrogate']],
+    ]);
+  });
+
+  it('Leads: each Lead of the Game build is of the kind its GDR tells', () => {
+    const namesWonMission = (condition: Condition): boolean =>
+      condition.kind === 'mission_won' || condition.kind === 'mission_won_with_enemy'
+        ? true
+        : condition.kind === 'all' || condition.kind === 'any'
+          ? condition.conditions.some(namesWonMission)
+          : condition.kind === 'not'
+            ? namesWonMission(condition.condition)
+            : false;
+    const state = newCampaign();
+    const revealed = revealedCompendiumView(state, gdrs).articles;
+    const sectionOf = sectioning({
+      missionSiteArchetypes: gameDataView(gdrs).missionSiteArchetypes,
+      upgrades: currentLiveWorldStateView(state, gdrs).agency.upgrades,
+    });
+    for (const item of gdrs.leads) {
+      const about = revealed.find((other) => other.subjectType === 'Lead' && other.subject === item.id);
+      if (about === undefined) {
+        continue;
+      }
+      const expected =
+        item.onCompletion.createMissionSite !== null
+          ? 'Initiative'
+          : item.discoveredWhen !== null && namesWonMission(item.discoveredWhen)
+            ? 'Interrogations'
+            : 'One-time';
+      expect(sectionOf(about), item.id).toBe(expected);
+    }
+    // Every article of the Game build is in a section of a category that has them.
+    for (const item of revealed) {
+      const category = categoryOf(item);
+      if (
+        ['Guide', 'Mechanics', 'Agents', 'Weapons', 'Upgrades', 'Mission sites', 'Leads'].includes(category)
+      ) {
+        expect(sectionOf(item), item.id).not.toBeNull();
+      }
+    }
+  });
+
+  it('a category without Article sections is one list without a heading', () => {
+    const list = [
+      subject('soldier', 'Soldier', 'EnemyArchetype'),
+      subject('elite', 'elite', 'EnemyArchetype'),
+    ];
+    expect(shownSections(list, 'Enemies')).toEqual([[null, ['elite', 'Soldier']]]);
+  });
+
+  it('the search leaves out a section without a match, and Enter shows the first article of the first section', () => {
+    const list = [
+      mechanics('zeta', 'Zeta rate', 'Campaign'),
+      mechanics('alpha', 'Alpha rate', 'Operations'),
+      mechanics('turns', 'Turns', 'Campaign'),
+    ];
+    expect(shownSections(searchArticles(list, 'alpha'), 'Mechanics')).toEqual([
+      ['Operations', ['Alpha rate']],
+    ]);
+    expect(firstMatchingArticle(list, 'rate', plain)).toBe('zeta');
+    expect(firstMatchingArticle(list, '', plain)).toBe('turns');
   });
 });
 

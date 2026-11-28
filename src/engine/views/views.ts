@@ -47,6 +47,8 @@ import {
 } from '../mechanics/investigations/investigations.ts';
 import {
   activeInvestigationOf,
+  createsMissionSite,
+  discoveredByWonMission,
   completionCount,
   factionOfLead,
   initiativeOperationLevels,
@@ -1099,13 +1101,21 @@ export function compendiumArticlesView(
   if (cached?.key === key) {
     return cached.view;
   }
-  const view = deepFreeze<CompendiumArticleView[]>(resolveArticles(visible).map(articleView));
+  const view = deepFreeze<CompendiumArticleView[]>(
+    resolveArticles(visible).map((item) => articleView(item, gdrs)),
+  );
   articlesCache.set(gdrs, { key, view });
   return view;
 }
 
 /** The reported form of one resolved article, detached from the catalog. */
-function articleView({ article, body, formulas, seeAlso }: ResolvedArticle): CompendiumArticleView {
+function articleView(
+  { article, body, formulas, seeAlso }: ResolvedArticle,
+  gdrs: GdrCatalog,
+): CompendiumArticleView {
+  // COMPV, Article sections: the kind of a Lead is read from its GDR, through the rules that own its parts.
+  const lead =
+    article.subjectType === 'Lead' ? gdrs.leads.find((item) => item.id === article.subject) : undefined;
   return {
     id: article.id,
     category: article.category,
@@ -1113,6 +1123,14 @@ function articleView({ article, body, formulas, seeAlso }: ResolvedArticle): Com
     subject: article.subject,
     subjectType: article.subjectType,
     listedUnder: article.listedUnder,
+    section: article.section,
+    subjectLead:
+      lead === undefined
+        ? null
+        : {
+            createsMissionSite: createsMissionSite(lead),
+            discoveredByWonMission: discoveredByWonMission(lead),
+          },
     body: body.map((segment) => ({ ...segment })),
     formulas: formulas.map((row) => ({
       label: row.label.map((segment) => ({ ...segment })),
@@ -1172,7 +1190,10 @@ export function revealedCompendiumView(state: CampaignState, gdrs: GdrCatalog): 
         terms[term.toLowerCase()] ??= article.id;
       }
     }
-    revealed = deepFreeze({ articles: resolveArticles(gdrs.compendiumArticles).map(articleView), terms });
+    revealed = deepFreeze({
+      articles: resolveArticles(gdrs.compendiumArticles).map((item) => articleView(item, gdrs)),
+      terms,
+    });
     revealedCache.set(gdrs, revealed);
   }
   const visible = new Set(visibleArticles(state.world.current, gdrs).map((article) => article.id));

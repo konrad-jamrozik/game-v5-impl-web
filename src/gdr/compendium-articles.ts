@@ -30,8 +30,15 @@ const PROPERTIES = [
   'terms',
   'see_also',
   'listed_under',
+  'section',
   'visible_when',
 ];
+
+/**
+ * COMPV, Article sections: the `section` names the Compendium View accepts for a Mechanics article, in the order it
+ * lists them. A Mechanics article without `listed_under` whose `section` is none of them is a data defect.
+ */
+export const MECHANICS_SECTIONS = ['Campaign', 'Operations', 'Agent work', 'Agent strength'] as const;
 
 /** COMP, Displayed title: two texts are equal ignoring case exactly when they are equal in lower case. */
 export function ignoringCase(text: string): string {
@@ -154,6 +161,30 @@ export function parseCompendiumArticle(
       listedUnder = raw['listed_under'];
     }
   }
+  // COMP, CompendiumArticle: `section`, only for a Mechanics article without `listed_under`, is a non-empty name.
+  // COMPV, Article sections: such an article without a `section` the Compendium View names is a data defect.
+  let section: string | null = null;
+  const rawSection = raw['section'];
+  if (rawSection !== undefined) {
+    if (
+      category !== 'mechanics' ||
+      raw['listed_under'] !== undefined ||
+      !isText(rawSection) ||
+      rawSection.trim() === ''
+    ) {
+      problems.push('Section is valid');
+    } else {
+      section = rawSection;
+    }
+  }
+  if (
+    category === 'mechanics' &&
+    raw['listed_under'] === undefined &&
+    (section === null || !(MECHANICS_SECTIONS as readonly string[]).includes(section)) &&
+    !problems.includes('Section is valid')
+  ) {
+    problems.push(`Section is valid (${section ?? 'none'} is not a section of the Compendium View)`);
+  }
   // Visibility Condition is valid: a valid Condition of the Condition kind `lead_completed` only. That the
   // Lead it names exists is checked across the Game build.
   let visibleWhen: Condition | null = null;
@@ -178,6 +209,7 @@ export function parseCompendiumArticle(
       terms,
       seeAlso,
       listedUnder,
+      section,
       visibleWhen,
     },
   };
@@ -536,6 +568,7 @@ export function validateCompendiumArticles(
       terms: article.terms,
       seeAlso: article.seeAlso,
       listedUnder: article.listedUnder,
+      section: article.section,
       visibleWhen: article.visibleWhen,
     };
   });

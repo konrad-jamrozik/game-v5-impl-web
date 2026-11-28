@@ -378,6 +378,8 @@ export interface CompendiumArticleGdr {
   readonly seeAlso: readonly string[];
   /** COMP, CompendiumArticle: the subject Type a Guide or Mechanics article is listed under, or none. */
   readonly listedUnder: string | null;
+  /** COMP, CompendiumArticle: the `section` of a Mechanics article without `listed_under`, or none. */
+  readonly section: string | null;
   /** COMP, Article visibility: the Condition that must hold for the article to be Player-visible; none sets none. */
   readonly visibleWhen: Condition | null;
 }
@@ -548,6 +550,8 @@ export interface CatalogCompendiumArticle {
   readonly seeAlso: readonly string[];
   /** COMP, CompendiumArticle: the `listed_under` subject Type, or none. */
   readonly listedUnder: string | null;
+  /** COMP, CompendiumArticle: the `section`, or none. */
+  readonly section: string | null;
   /** COMP, Article visibility: the `visible_when` Condition, or none. */
   readonly visibleWhen: Condition | null;
 }

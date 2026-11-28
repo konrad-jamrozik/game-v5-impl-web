@@ -11,7 +11,7 @@ import { GlobalConfiguration } from '../../src/engine/session/global-configurati
 import { compendiumArticlesView, gameDataView, tutorialBubblesView } from '../../src/engine/views/views.ts';
 import { formatPlaceholderValue } from '../../src/gdr/compendium-articles.ts';
 import { changedSettingLine, changedSettings } from '../../src/web/changed-settings.ts';
-import { articlesOf, categoryOf, compendiumCategories } from '../../src/web/compendium.ts';
+import { categoryOf, compendiumCategories, sectioning, sectionsOf } from '../../src/web/compendium.ts';
 import { campaignStartEvent, eventAfter } from '../../src/web/special-events.ts';
 import {
   bubbleGone,
@@ -173,51 +173,66 @@ describe('TUTOR: Tutorials in the Compendium', () => {
     subject: null,
     subjectType: null,
     listedUnder: null,
+    section: 'Campaign',
+    subjectLead: null,
     body: [],
     formulas: [],
     seeAlso: [],
   };
-  const guide: CompendiumArticleView = { ...article, id: 'some_guide', category: 'guide', title: 'A guide' };
+  const guide: CompendiumArticleView = {
+    ...article,
+    id: 'some_guide',
+    category: 'guide',
+    title: 'A guide',
+    section: null,
+  };
   const bubbles = [
     bubble('exhaustion', 'agents_view.exhaustion_column', { article: 'some_article' }),
     bubble('panic', 'campaign_screen.panic', { article: 'not_listed' }),
     bubble('intro', 'tutorial_intro.bubble'),
+    bubble('hidden', 'agents_view.hire', { visible: false }),
   ];
 
-  it('lists every opened bubble, disappeared or not, by its place in the table of Tutorial anchors', () => {
-    const opened = settings({ playerTurnCount: 100, progress: { exhaustion: 0, intro: 99 } });
-    const listed = tutorialArticles(bubbles, opened, false, [article]);
-    expect(listed.map((item) => item.id)).toEqual([
-      tutorialArticleId('intro'),
-      tutorialArticleId('exhaustion'),
-    ]);
-    expect(listed[1]).toMatchObject({
+  it('lists every bubble whose visible_when holds, shown as a Guide article', () => {
+    const listed = tutorialArticles(bubbles, false, [article]);
+    expect(listed.map((item) => item.id)).toEqual(
+      ['exhaustion', 'panic', 'intro'].map((id) => tutorialArticleId(id)),
+    );
+    expect(listed[0]).toMatchObject({
+      category: 'guide',
       title: 'Title of exhaustion',
       body: bubbles[0]!.text,
       seeAlso: [{ kind: 'link', text: 'Some article', article: 'some_article' }],
     });
     // An article that is not listed is no See also entry.
-    expect(
-      tutorialArticles(bubbles, settings({ progress: { panic: 0 } }), false, [article])[0]?.seeAlso,
-    ).toEqual([]);
+    expect(listed[1]?.seeAlso).toEqual([]);
+    // Reveal hidden content lists every bubble.
+    expect(tutorialArticles(bubbles, true, [])).toHaveLength(bubbles.length);
   });
 
-  it('has no tab while Tutorials on is false or no bubble has been opened; Reveal hidden content lists all', () => {
-    expect(tutorialArticles(bubbles, settings(), false, [])).toEqual([]);
-    expect(tutorialArticles(bubbles, settings({ on: false, progress: { panic: 0 } }), false, [])).toEqual([]);
-    expect(tutorialArticles(bubbles, settings(), true, [])).toHaveLength(bubbles.length);
+  it('lists the bubbles whatever Tutorials on is, and whether or not one was opened or has disappeared', () => {
+    // The list reads no Tutorials setting: what the Global configuration of either Player holds changes nothing.
+    const off = tutorialSettings(report({ tutorialsOn: false }));
+    const gone = settings({ playerTurnCount: 100, progress: { exhaustion: 0 } });
+    expect(off.on).toBe(false);
+    expect(bubbleGone('exhaustion', gone)).toBe(true);
+    expect(bubbleShown(bubbles[1]!, off, false)).toBe(false);
+    expect(tutorialArticles(bubbles, false, []).map((item) => item.id)).toContain(
+      tutorialArticleId('exhaustion'),
+    );
+    expect(tutorialArticles(bubbles, false, []).map((item) => item.id)).toContain(tutorialArticleId('panic'));
   });
 
-  it('stands right after Guide, keeps the order of the anchors, and is shown as a Guide article', () => {
-    const listed = tutorialArticles(bubbles, settings(), true, []);
+  it('is the Tutorials section of Guide, after its Guides, each sorted by displayed title', () => {
+    const listed = tutorialArticles(bubbles, true, []);
     const all = [article, guide, ...listed];
-    expect(compendiumCategories(all).map((category) => category.name)).toEqual([
-      'Guide',
-      TUTORIALS,
-      'Mechanics',
-    ]);
-    expect(listed.every((item) => categoryOf(item) === TUTORIALS && item.category === 'guide')).toBe(true);
-    expect(articlesOf(all, TUTORIALS).map((item) => item.id)).toEqual(listed.map((item) => item.id));
+    expect(compendiumCategories(all).map((category) => category.name)).toEqual(['Guide', 'Mechanics']);
+    expect(listed.every((item) => categoryOf(item) === 'Guide')).toBe(true);
+    const sections = sectionsOf(all, 'Guide', sectioning({ missionSiteArchetypes: [], upgrades: [] }));
+    expect(sections.map((section) => section.name)).toEqual(['Guides', TUTORIALS]);
+    expect(sections[1]?.articles.map((item) => item.title)).toEqual(
+      listed.map((item) => item.title).sort((a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : 1)),
+    );
   });
 });
 

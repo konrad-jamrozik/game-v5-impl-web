@@ -503,16 +503,35 @@ test('TUTOR: a Tutorial bubble opens its note, disappears after its lifetime, an
   await expect(bubble).toHaveCount(0);
   await expect(id(page, 'tutorial-bubble-campaign_screen.advance_turn')).toHaveAttribute('data-look', 'new');
 
-  // TUTOR, Tutorials in the Compendium: what an opened bubble said stays, under Tutorials, right after Guide.
+  // TUTOR, Tutorials in the Compendium: the Tutorials section of Guide, after its Guides, lists every bubble the Player
+  // can see, whether opened or not and whether disappeared or not: the three opened ones and at least the new one
+  // beside Advance turn. Tutorials is no category tab of its own.
   await id(page, 'nav-compendium').click();
   const tabs = id(page, 'compendium-categories').getByRole('tab');
-  await expect(tabs.nth(1)).toHaveText('Tutorials');
-  await tabs.nth(1).click();
-  await expect(id(page, 'compendium-articles').getByRole('button')).toHaveCount(3);
+  await expect(tabs.nth(0)).toHaveText('Guide');
+  await expect(tabs.filter({ hasText: /^Tutorials$/ })).toHaveCount(0);
+  const sections = id(page, 'compendium-articles').locator('.list-group');
+  await expect(sections.nth(0)).toHaveAttribute('data-testid', 'article-section-Guides');
+  await expect(sections.nth(1)).toHaveAttribute('data-testid', 'article-section-Tutorials');
+  await expect(sections.nth(1).locator('.sit-group-head')).toHaveText('Tutorials');
+  const tutorials = id(page, 'article-section-Tutorials').locator('.list-row');
+  const listed = await tutorials.count();
+  expect(listed).toBeGreaterThanOrEqual(4);
+  await page.keyboard.press('Escape');
+
+  // Whatever Tutorials on is, the section lists the same bubbles.
+  await id(page, 'open-settings').click();
+  await id(page, 'settings-tutorials').uncheck();
+  await id(page, 'close-settings').click();
+  await expect(bubble).toHaveCount(0);
+  await expect(id(page, 'tutorial-bubble-campaign_screen.advance_turn')).toHaveCount(0);
+  await id(page, 'nav-compendium').click();
+  await expect(tutorials).toHaveCount(listed);
   await page.keyboard.press('Escape');
 
   // Reset tutorials makes every bubble new again.
   await id(page, 'open-settings').click();
+  await id(page, 'settings-tutorials').check();
   await id(page, 'reset-tutorials').click();
   await id(page, 'close-settings').click();
   await expect(bubble).toHaveAttribute('data-look', 'new');

@@ -26,6 +26,8 @@ import {
   openHistory,
   previousArticle,
   searchArticles,
+  sectioning,
+  sectionsOf,
   showArticle,
   visibleHistory,
   type ArticleHistory,
@@ -35,7 +37,7 @@ import { usePlaceState } from '../place.tsx';
 import { playSound } from '../sound-player.ts';
 import { SOUND } from '../sounds.ts';
 import { theEngine, type Snapshot } from '../store.ts';
-import { tutorialArticles, tutorialSettings } from '../tutorials.ts';
+import { tutorialArticles } from '../tutorials.ts';
 import { typingIn, withShortcut } from '../ui.tsx';
 import { DetailView } from './DetailView.tsx';
 
@@ -277,17 +279,6 @@ const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
       </>
     ),
   },
-  // TUTOR: what teaches the Player is drawn in Tutorial gold; a "?" in a circle, the glyph of the Tutorial intro.
-  Tutorials: {
-    color: 'var(--tutorial)',
-    glyph: (
-      <>
-        <circle cx="50" cy="50" r="40" />
-        <path d="M39 39a11 11 0 1 1 14 10.5c-2 .8-3 2.4-3 5v4" />
-        <circle cx="50" cy="70" r="1.5" />
-      </>
-    ),
-  },
   Other: {
     color: 'var(--text-muted)',
     glyph: (
@@ -333,16 +324,16 @@ export function CompendiumView(props: {
 }) {
   const { snapshot, state } = props;
   const articles: readonly CompendiumArticleView[] = snapshot.articles ?? [];
-  // TUTOR, Tutorials in the Compendium: the bubbles the GUI has taught, in the Tutorials category.
+  // TUTOR, Tutorials in the Compendium: the bubbles, in the Tutorials section of the Guide category.
   const all: readonly CompendiumArticleView[] = [
     ...articles,
-    ...tutorialArticles(
-      snapshot.tutorialBubbles,
-      tutorialSettings(snapshot.configuration),
-      snapshot.revealed,
-      articles,
-    ),
+    ...tutorialArticles(snapshot.tutorialBubbles, snapshot.revealed, articles),
   ];
+  // COMPV, Article sections: read from what Player API reports of each article's subject.
+  const sectionOf = sectioning({
+    missionSiteArchetypes: snapshot.gameData?.missionSiteArchetypes ?? [],
+    upgrades: state.agency.upgrades,
+  });
   const searchField = useRef<HTMLInputElement>(null);
   useCompendiumKeys(searchField);
   // CSCR, View trail: the search text and the Article history are part of the place of the Compendium View.
@@ -353,10 +344,10 @@ export function CompendiumView(props: {
   const opening =
     props.initial !== undefined && props.initial !== null && all.some((item) => item.id === props.initial)
       ? props.initial
-      : firstArticle(all);
+      : firstArticle(all, sectionOf);
   const [stored, setHistory] = usePlaceState<ArticleHistory>('history', openHistory(opening));
   // COMPV, Following links, No longer Player-visible: e.g. after an undo, an article leaves the Article history.
-  const history = visibleHistory(stored, new Set(all.map((item) => item.id)), firstArticle(all));
+  const history = visibleHistory(stored, new Set(all.map((item) => item.id)), firstArticle(all, sectionOf));
   if (history !== stored) {
     setHistory(history);
   }
@@ -376,7 +367,7 @@ export function CompendiumView(props: {
     selected !== null && matched.has(selected)
       ? selected
       : (tabs.find((category) => matched.has(category.name))?.name ?? null);
-  const listed = shownCategory === null ? [] : articlesOf(matching, shownCategory);
+  const sections = shownCategory === null ? [] : sectionsOf(matching, shownCategory, sectionOf);
 
   /** COMPV, Following links, Show another article. */
   const show = (id: string) => {
@@ -431,7 +422,7 @@ export function CompendiumView(props: {
               disabled={!matched.has(category.name)}
               onClick={() => {
                 // Selecting a category shows the first article of that category.
-                const first = articlesOf(matching, category.name)[0];
+                const first = articlesOf(matching, category.name, sectionOf)[0];
                 if (first !== undefined) {
                   show(first.id);
                 }
@@ -462,7 +453,7 @@ export function CompendiumView(props: {
               return;
             }
             event.preventDefault();
-            const first = firstMatchingArticle(all, search);
+            const first = firstMatchingArticle(all, search, sectionOf);
             if (first === null) {
               return;
             }
@@ -477,19 +468,33 @@ export function CompendiumView(props: {
       <div className="panes panes-compendium">
         <div className="pane pane-list" data-testid="compendium-articles">
           {shownCategory === null ? <p className="muted">No article matches.</p> : null}
-          {listed.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`list-row${item.id === article?.id ? ' list-row-on' : ''}`}
-              data-testid={`article-${item.id}`}
-              data-sound="select"
-              onClick={() => {
-                show(item.id);
-              }}
+          {/* COMPV, Article sections: each under a Group heading; a list without a name has none. */}
+          {sections.map((section) => (
+            <div
+              key={section.name ?? ''}
+              className="list-group"
+              data-testid={`article-section-${section.name ?? 'unnamed'}`}
             >
-              <span className="list-name">{item.title}</span>
-            </button>
+              {section.name === null ? null : (
+                <div className="sit-group-head">
+                  <span className="label">{section.name}</span>
+                </div>
+              )}
+              {section.articles.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`list-row${item.id === article?.id ? ' list-row-on' : ''}`}
+                  data-testid={`article-${item.id}`}
+                  data-sound="select"
+                  onClick={() => {
+                    show(item.id);
+                  }}
+                >
+                  <span className="list-name">{item.title}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </div>
         <article
