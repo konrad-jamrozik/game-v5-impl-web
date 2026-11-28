@@ -103,20 +103,10 @@ const SERVING_WIDTHS = [
  * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by high-commander-12" (211 px). Base,
  * Exp., Ended, and Turns hold four digits with their comma, e.g. "1,234", because a base skill, the experience that
  * grows it, and a Turn reach 1,000 in a long Campaign; every header holds its label with its sort arrow, e.g.
- * "Missions▼" (94 px). Where is the table's one column of free text: it takes the width the others leave, and a longer
- * value ends in "…".
+ * "Missions▼" (94 px). Where is the table's one column of free text: it takes all the width the others leave in the
+ * Memorial, which covers the whole screen, at least 114 px, and a longer value ends in "…".
  */
-const MEMORIAL_WIDTHS = [
-  AGENT_COLUMN_WIDTH,
-  '72px',
-  '68px',
-  '80px',
-  '212px',
-  '96px',
-  '80px',
-  '72px',
-  '114px',
-];
+const MEMORIAL_WIDTHS = [AGENT_COLUMN_WIDTH, '72px', '68px', '80px', '212px', '96px', '80px', '72px', 'auto'];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
 type RowFilter = 'all' | 'fit' | 'inBase' | 'away' | 'memorial';
@@ -468,29 +458,6 @@ export function AgentsView(props: {
     );
   }
 
-  // AVIEW, Equip table: one step away, in place of the Agent table, covering the whole screen as the Combat replay
-  // does; the Back control and Escape return to the Agent table.
-  if (equipOpen && !memorial) {
-    return (
-      <WholeScreen active>
-        <DetailView id="agents" title="Equip" onClose={props.onClose}>
-          <div className="equip-view" data-testid="equip-view">
-            <EquipTable
-              agents={rows}
-              state={state}
-              retired={snapshot.retired}
-              ranks={ranks}
-              levels={levels}
-              locked={locked}
-              onOpenDetails={openDetails}
-              onShow={onShow}
-            />
-          </div>
-        </DetailView>
-      </WholeScreen>
-    );
-  }
-
   const count = selected.length;
   const none = count === 0 ? 'Select Agents first.' : null;
   const terminatedReason = memorial ? 'No Player action acts on a Terminated Agent.' : null;
@@ -549,6 +516,48 @@ export function AgentsView(props: {
     </button>
   );
 
+  // AVIEW, Row filters: All, Fit, In base, and Away, without a Label, on a Control backdrop; the Agent table and the
+  // Equip table both show them, in their title rows.
+  const rosterFilters = (
+    <div className="chips agents-row-filters control-backdrop" role="group" aria-label="Show agents">
+      {rowFilterButton('all', 'All', state.agents.length)}
+      {rowFilterButton('fit', 'Fit', state.agents.filter(fitToStartWorkNow).length)}
+      {rowFilterButton('inBase', 'In base', state.agents.filter((agent) => agent.inBase).length)}
+      {rowFilterButton('away', 'Away', state.agents.filter((agent) => agent.away).length)}
+    </div>
+  );
+  const hideChecksGroup = (
+    <div className="control-row control-backdrop agents-filters hide-checks">
+      {hideCheck('hideExhausted', 'Hide too exhausted to start work')}
+      {hideCheck('hideRecovering', 'Hide recovering')}
+    </div>
+  );
+
+  // AVIEW, Equip table: one step away, in place of the Agent table, covering the whole screen as the Combat replay
+  // does; the Back control and Escape return to the Agent table. AVIEW, Row filters: it shows the Agent table's own
+  // row filters and Hide checkboxes, so a change in either table holds in the other.
+  if (equipOpen && !memorial) {
+    return (
+      <WholeScreen active>
+        <DetailView id="agents" title="Equip" lead={rosterFilters} onClose={props.onClose}>
+          <div className="agents-second-row">{hideChecksGroup}</div>
+          <div className="equip-view" data-testid="equip-view">
+            <EquipTable
+              agents={rows}
+              state={state}
+              retired={snapshot.retired}
+              ranks={ranks}
+              levels={levels}
+              locked={locked}
+              onOpenDetails={openDetails}
+              onShow={onShow}
+            />
+          </div>
+        </DetailView>
+      </WholeScreen>
+    );
+  }
+
   // AVIEW, Header: Contracting, its Assignment filter, and its places free are shown only while the Contracting cap is
   // at least 1, i.e. once a Lead has unlocked Contracting.
   const contractingShown = state.agency.contractingCap >= 1;
@@ -556,252 +565,246 @@ export function AgentsView(props: {
     (assignment) => assignment !== 'Contracting' || contractingShown,
   );
 
+  // AVIEW, Memorial: while Memorial is on, the Agents View covers the whole screen as the Equip table does, so that
+  // Where has room; turning another row filter on returns it to the Globe stage.
   return (
-    <DetailView
-      id="agents"
-      title="Agents"
-      aside={
-        // AVIEW, Header: the places still free under the Agent cap, the Training cap, and, while it is at least 1, the
-        // Contracting cap, each with its cap bar.
-        <span className="cap-figures">
-          <CapFigure
-            label="Agent places free"
-            testId="agent-places-free"
-            model={capBar(state.agency.servingAgents, state.agency.agentCap)}
-          />
-          <CapFigure
-            label="Training places free"
-            testId="training-places-free"
-            model={capBar(state.agency.trainingAgents, state.agency.trainingCap)}
-          />
-          {contractingShown && (
+    <WholeScreen active={memorial}>
+      <DetailView
+        id="agents"
+        title="Agents"
+        aside={
+          // AVIEW, Header: the places still free under the Agent cap, the Training cap, and, while it is at least 1, the
+          // Contracting cap, each with its cap bar.
+          <span className="cap-figures">
             <CapFigure
-              label="Contracting places free"
-              testId="contracting-places-free"
-              model={capBar(state.agency.contractingAgents, state.agency.contractingCap)}
+              label="Agent places free"
+              testId="agent-places-free"
+              model={capBar(state.agency.servingAgents, state.agency.agentCap)}
             />
-          )}
-        </span>
-      }
-      // AVIEW, Row filters: the five row filters stand in the title row after the places free, without a Label.
-      lead={
-        <div className="chips agents-row-filters control-backdrop" role="group" aria-label="Show agents">
-          {rowFilterButton('all', 'All', state.agents.length)}
-          {rowFilterButton('fit', 'Fit', state.agents.filter(fitToStartWorkNow).length)}
-          {rowFilterButton('inBase', 'In base', state.agents.filter((agent) => agent.inBase).length)}
-          {rowFilterButton('away', 'Away', state.agents.filter((agent) => agent.away).length)}
-        </div>
-      }
-      onClose={props.onClose}
-    >
-      {/* VIS, Detail views and navigation, Rows of controls: the row under the title's row holds the two Hide
-          checkboxes at its left, on a Control backdrop (VIS, Colours) and disabled for the Memorial, and the Equip
-          button and the Memorial row filter at its right; the buttons take the next row. */}
-      <div className="agents-second-row">
-        <div className="control-row control-backdrop agents-filters hide-checks">
-          {hideCheck('hideExhausted', 'Hide too exhausted to start work')}
-          {hideCheck('hideRecovering', 'Hide recovering')}
-        </div>
-        <div className="chips agents-row-filters control-backdrop">
-          {/* AVIEW, Equip table: the Equip button shows it one step away; while Memorial is on, it first turns back
-              on the row filter that was on before Memorial. */}
-          <button
-            type="button"
-            className="chip"
-            data-testid="open-equip"
-            title="Show the Equip table"
-            onClick={() => {
-              if (memorial) {
-                // AVIEW, Equip table: the place left behind is the roster under the row filter that was on before
-                // Memorial, so that going back from the Equip table shows it rather than the Memorial.
-                setRowFilter(rosterFilter);
-                place.live.current['rowFilter'] = rosterFilter;
-              }
-              place.follow();
-              setEquipOpen(true);
-            }}
-          >
-            Equip
-          </button>
-          {rowFilterButton('memorial', 'Memorial', terminated.length)}
-        </div>
-      </div>
-      <div className="toolbar agents-toolbar">
-        <Button
-          shortcut="H"
-          testId="hire"
-          disabledReason={locked ?? hirePreview}
-          onClick={() => {
-            act(() => player.actions.hireAgents(1));
-          }}
-        >
-          Hire · {groupDigits(state.agency.hireCost)}
-        </Button>
-        <div className="control-group control-row" role="group" aria-labelledby="assign-to-label">
-          <span className="label" id="assign-to-label">
-            Assign to
-          </span>
-          <div className="actions">
-            {shownAssignments.map((assignment) => {
-              const on = !memorial && assignmentFilter === assignment;
-              return (
-                <span key={assignment} className="button-pair">
-                  <Button
-                    shortcut={assignment.charAt(0)}
-                    testId={`order-${assignment.toLowerCase()}`}
-                    disabledReason={orderReason(assignment)}
-                    onClick={() => {
-                      // AVIEW, Header: at once and without a confirmation, because Undo Action takes it back.
-                      const agents = [...selected];
-                      act(() => player.actions.assignAgents(agents, assignment));
-                    }}
-                  >
-                    {assignment}
-                  </Button>
-                  <button
-                    type="button"
-                    className={on ? 'btn filter-toggle chip-on' : 'btn filter-toggle'}
-                    aria-pressed={on}
-                    disabled={memorial}
-                    aria-label={`Allow selecting only the Agents that can be assigned to ${assignment}`}
-                    title={`Allow selecting only the Agents that can be assigned to ${assignment}`}
-                    data-testid={`filter-to-${assignment.toLowerCase()}`}
-                    data-sound="select"
-                    onClick={() => {
-                      // AVIEW, Agent table: turning one on locks the selectable-first tier above the Player's
-                      // tiers; turning it off drops that tier and keeps the tiers the Player chose.
-                      setAssignmentFilter(on ? null : assignment);
-                    }}
-                  >
-                    <FunnelIcon />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-        </div>
-        <Button
-          kind="danger"
-          testId="dismiss"
-          disabledReason={dismissReason}
-          onClick={() => {
-            if (confirmOrGoBack(`Dismiss ${selected.join(', ')}? A Dismissed Agent never returns.`)) {
-              const agents = [...selected];
-              act(() => player.actions.dismissAgents(agents));
-            }
-          }}
-        >
-          Dismiss
-        </Button>
-        {memorial ? null : (
-          <span className="selection-figures">
-            <span className="muted small" data-testid="agents-selected">
-              {groupDigits(count)} selected
-            </span>
-            {selectionCombatRating === null ? null : (
-              <span className="combat-rating" data-testid="selection-combat-rating">
-                <span className="label">Combat rating</span>
-                <span className="figure tone-accent">{groupDigits(selectionCombatRating)}</span>
-              </span>
+            <CapFigure
+              label="Training places free"
+              testId="training-places-free"
+              model={capBar(state.agency.trainingAgents, state.agency.trainingCap)}
+            />
+            {contractingShown && (
+              <CapFigure
+                label="Contracting places free"
+                testId="contracting-places-free"
+                model={capBar(state.agency.contractingAgents, state.agency.contractingCap)}
+              />
             )}
           </span>
-        )}
-      </div>
-      {memorial ? (
-        <Memorial
-          agents={terminated}
-          state={state}
-          retired={snapshot.retired}
-          onOpen={(id) => {
-            openDetails(id);
-          }}
-        />
-      ) : (
-        <div className="table-scroll">
-          <Grid widths={SERVING_WIDTHS} className="agents-grid" testId="agents-grid" scroll={false}>
-            <thead>
-              {table.getHeaderGroups().map((group) => (
-                <tr key={group.id}>
-                  <th className="check">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all"
-                      title={withShortcut('Select all', 'A')}
-                      data-testid="select-all"
-                      checked={selectAll}
-                      disabled={selectableIds.length === 0 && !selectAll}
-                      onChange={() => {
-                        // SOUNDS, Select click: checking or unchecking Select all.
-                        playSound(SOUND.select);
-                        if (selectAll) {
-                          setSelectAll(false);
-                          onSelect([]);
-                        } else {
-                          setSelectAll(true);
-                          onSelect(selectableIds);
-                        }
-                      }}
-                    />
-                  </th>
-                  {group.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className={NUMERIC.has(header.column.id) ? 'sortable num' : 'sortable'}
-                      title={HEADER_TOOLTIPS[header.column.id]}
-                      aria-sort={ariaSort(sortTiers, header.column.id)}
-                      data-testid={`agents-sort-${header.column.id}`}
+        }
+        // AVIEW, Row filters: the five row filters stand in the title row after the places free, without a Label.
+        lead={rosterFilters}
+        onClose={props.onClose}
+      >
+        {/* VIS, Detail views and navigation, Rows of controls: the row under the title's row holds the two Hide
+          checkboxes at its left, on a Control backdrop (VIS, Colours) and disabled for the Memorial, and the Equip
+          button and the Memorial row filter at its right; the buttons take the next row. */}
+        <div className="agents-second-row">
+          {hideChecksGroup}
+          <div className="chips agents-row-filters control-backdrop">
+            {/* AVIEW, Equip table: the Equip button shows it one step away; while Memorial is on, it first turns back
+              on the row filter that was on before Memorial. */}
+            <button
+              type="button"
+              className="chip"
+              data-testid="open-equip"
+              title="Show the Equip table"
+              onClick={() => {
+                if (memorial) {
+                  // AVIEW, Equip table: the place left behind is the roster under the row filter that was on before
+                  // Memorial, so that going back from the Equip table shows it rather than the Memorial.
+                  setRowFilter(rosterFilter);
+                  place.live.current['rowFilter'] = rosterFilter;
+                }
+                place.follow();
+                setEquipOpen(true);
+              }}
+            >
+              Equip
+            </button>
+            {rowFilterButton('memorial', 'Memorial', terminated.length)}
+          </div>
+        </div>
+        <div className="toolbar agents-toolbar">
+          <Button
+            shortcut="H"
+            testId="hire"
+            disabledReason={locked ?? hirePreview}
+            onClick={() => {
+              act(() => player.actions.hireAgents(1));
+            }}
+          >
+            Hire · {groupDigits(state.agency.hireCost)}
+          </Button>
+          <div className="control-group control-row" role="group" aria-labelledby="assign-to-label">
+            <span className="label" id="assign-to-label">
+              Assign to
+            </span>
+            <div className="actions">
+              {shownAssignments.map((assignment) => {
+                const on = !memorial && assignmentFilter === assignment;
+                return (
+                  <span key={assignment} className="button-pair">
+                    <Button
+                      shortcut={assignment.charAt(0)}
+                      testId={`order-${assignment.toLowerCase()}`}
+                      disabledReason={orderReason(assignment)}
                       onClick={() => {
-                        setTiers(
-                          pressHeaderUnderLock(
-                            tiers,
-                            header.column.id,
-                            DESCENDING_FIRST.has(header.column.id),
-                            locksSelectable ? SELECTABLE_FIRST : null,
-                          ),
-                        );
+                        // AVIEW, Header: at once and without a confirmation, because Undo Action takes it back.
+                        const agents = [...selected];
+                        act(() => player.actions.assignAgents(agents, assignment));
                       }}
                     >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      <SortMark tiers={tiers} column={header.column.id} />
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className={`${selected.includes(row.id) ? 'row-selected' : ''} ${canSelect(row.id) ? '' : 'row-busy'}`}
-                  data-testid={`agent-${row.id}`}
-                  {...selection.row(row.id)}
-                >
-                  {/* AVIEW, Agent table: the tooltip of a disabled checkbox says why its Agent cannot be selected. */}
-                  <td
-                    className="check"
-                    title={row.original.blockedBy === '' ? undefined : row.original.blockedBy}
-                  >
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${row.original.name}`}
-                      data-testid={`select-${row.id}`}
-                      data-blocked-by={row.original.blockedBy}
-                      {...selection.checkbox(row.id)}
-                    />
-                  </td>
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className={NUMERIC.has(cell.column.id) ? 'num' : undefined}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </Grid>
-          {rows.length === 0 ? <p className="muted pad">No Agents to show.</p> : null}
+                      {assignment}
+                    </Button>
+                    <button
+                      type="button"
+                      className={on ? 'btn filter-toggle chip-on' : 'btn filter-toggle'}
+                      aria-pressed={on}
+                      disabled={memorial}
+                      aria-label={`Allow selecting only the Agents that can be assigned to ${assignment}`}
+                      title={`Allow selecting only the Agents that can be assigned to ${assignment}`}
+                      data-testid={`filter-to-${assignment.toLowerCase()}`}
+                      data-sound="select"
+                      onClick={() => {
+                        // AVIEW, Agent table: turning one on locks the selectable-first tier above the Player's
+                        // tiers; turning it off drops that tier and keeps the tiers the Player chose.
+                        setAssignmentFilter(on ? null : assignment);
+                      }}
+                    >
+                      <FunnelIcon />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          <Button
+            kind="danger"
+            testId="dismiss"
+            disabledReason={dismissReason}
+            onClick={() => {
+              if (confirmOrGoBack(`Dismiss ${selected.join(', ')}? A Dismissed Agent never returns.`)) {
+                const agents = [...selected];
+                act(() => player.actions.dismissAgents(agents));
+              }
+            }}
+          >
+            Dismiss
+          </Button>
+          {memorial ? null : (
+            <span className="selection-figures">
+              <span className="muted small" data-testid="agents-selected">
+                {groupDigits(count)} selected
+              </span>
+              {selectionCombatRating === null ? null : (
+                <span className="combat-rating" data-testid="selection-combat-rating">
+                  <span className="label">Combat rating</span>
+                  <span className="figure tone-accent">{groupDigits(selectionCombatRating)}</span>
+                </span>
+              )}
+            </span>
+          )}
         </div>
-      )}
-    </DetailView>
+        {memorial ? (
+          <Memorial
+            agents={terminated}
+            state={state}
+            retired={snapshot.retired}
+            onOpen={(id) => {
+              openDetails(id);
+            }}
+          />
+        ) : (
+          <div className="table-scroll">
+            <Grid widths={SERVING_WIDTHS} className="agents-grid" testId="agents-grid" scroll={false}>
+              <thead>
+                {table.getHeaderGroups().map((group) => (
+                  <tr key={group.id}>
+                    <th className="check">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all"
+                        title={withShortcut('Select all', 'A')}
+                        data-testid="select-all"
+                        checked={selectAll}
+                        disabled={selectableIds.length === 0 && !selectAll}
+                        onChange={() => {
+                          // SOUNDS, Select click: checking or unchecking Select all.
+                          playSound(SOUND.select);
+                          if (selectAll) {
+                            setSelectAll(false);
+                            onSelect([]);
+                          } else {
+                            setSelectAll(true);
+                            onSelect(selectableIds);
+                          }
+                        }}
+                      />
+                    </th>
+                    {group.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className={NUMERIC.has(header.column.id) ? 'sortable num' : 'sortable'}
+                        title={HEADER_TOOLTIPS[header.column.id]}
+                        aria-sort={ariaSort(sortTiers, header.column.id)}
+                        data-testid={`agents-sort-${header.column.id}`}
+                        onClick={() => {
+                          setTiers(
+                            pressHeaderUnderLock(
+                              tiers,
+                              header.column.id,
+                              DESCENDING_FIRST.has(header.column.id),
+                              locksSelectable ? SELECTABLE_FIRST : null,
+                            ),
+                          );
+                        }}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        <SortMark tiers={tiers} column={header.column.id} />
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.map((row) => (
+                  <tr
+                    key={row.id}
+                    className={`${selected.includes(row.id) ? 'row-selected' : ''} ${canSelect(row.id) ? '' : 'row-busy'}`}
+                    data-testid={`agent-${row.id}`}
+                    {...selection.row(row.id)}
+                  >
+                    {/* AVIEW, Agent table: the tooltip of a disabled checkbox says why its Agent cannot be selected. */}
+                    <td
+                      className="check"
+                      title={row.original.blockedBy === '' ? undefined : row.original.blockedBy}
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${row.original.name}`}
+                        data-testid={`select-${row.id}`}
+                        data-blocked-by={row.original.blockedBy}
+                        {...selection.checkbox(row.id)}
+                      />
+                    </td>
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className={NUMERIC.has(cell.column.id) ? 'num' : undefined}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </Grid>
+            {rows.length === 0 ? <p className="muted pad">No Agents to show.</p> : null}
+          </div>
+        )}
+      </DetailView>
+    </WholeScreen>
   );
 }
 
@@ -1023,8 +1026,9 @@ function AgentDetails(props: {
   return (
     <div className="stack" data-testid={`agent-details-view-${agent.id}`}>
       <dl className="pairs">
-        {/* GUI, Agent shown by name: the one place where the GUI shows an Agent's Instance ID. */}
-        <dt>Instance ID</dt>
+        {/* GUI, Agent shown by name: the one place where the GUI shows an Agent's Instance ID, labelled "ID" (AVIEW,
+            Agent details). */}
+        <dt>ID</dt>
         <dd className="figure" data-testid="details-instance-id">
           {agent.id}
         </dd>

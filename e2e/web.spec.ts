@@ -360,7 +360,7 @@ test('LVIEW, Team: an Agent name opens the Agent details, and Escape returns to 
   await expect(id(page, `agent-details-view-${agentId}`)).toBeVisible();
   // AVIEW, Agent details: the Rank, by its `name`, stands right under the Instance ID.
   const labels = id(page, `agent-details-view-${agentId}`).locator('dl.pairs > dt');
-  await expect(labels.nth(0)).toHaveText('Instance ID');
+  await expect(labels.nth(0)).toHaveText('ID');
   await expect(labels.nth(1)).toHaveText('Rank');
   await expect(id(page, 'details-rank')).not.toBeEmpty();
   await page.keyboard.press('Escape');
