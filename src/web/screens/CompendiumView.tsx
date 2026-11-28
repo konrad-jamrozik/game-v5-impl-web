@@ -195,10 +195,10 @@ function SheetValue(props: { parts: readonly SheetPart[]; onOpen: (article: stri
  * as the page "Compendium Image Slot" shows them; a category not named here, e.g. Other, uses the last entry.
  */
 /**
- * One pistol pointing right in the 100 × 100 box: the slide, the grip raked back, and the trigger guard. Its barrel
- * passes through (50, 42) near the muzzle, where the two pistols of the Combat placeholder cross.
+ * One upright sword in the 100 × 100 box, its blade crossing the centre: the pointed blade, the crossguard below it,
+ * the grip, and the pommel.
  */
-const PISTOL = 'M8 36h56v12H8zM12 48h13l-6 24H6zM25 48v6a5 5 0 0 0 10 0v-6';
+const SWORD = 'M47 66V18l3-10 3 10v48zM36 66h28v5H36zM47.5 71h5v14h-5zM50 85a4 4 0 1 1 0 8a4 4 0 1 1 0-8z';
 
 const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
   Guide: {
@@ -226,13 +226,13 @@ const ART_PLACEHOLDERS: Record<string, { color: string; glyph: ReactNode }> = {
       </>
     ),
   },
-  // Two crossed pistols, muzzles up and outward, barrels crossing at the centre: one pistol, tilted, and its mirror.
+  // Two crossed swords, points up, blades crossing at the centre and hilts at the lower corners.
   Combat: {
     color: 'var(--tracer-red)',
     glyph: (
       <>
-        <path transform="rotate(-40 50 42)" d={PISTOL} />
-        <path transform="translate(100 0) scale(-1 1) rotate(-40 50 42)" d={PISTOL} />
+        <path transform="rotate(40 50 50)" d={SWORD} />
+        <path transform="rotate(-40 50 50)" d={SWORD} />
       </>
     ),
   },
