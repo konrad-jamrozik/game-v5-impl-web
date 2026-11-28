@@ -157,7 +157,8 @@ export function MainMenu({ snapshot, onOpenSimulator }: { snapshot: Snapshot; on
         <div>
           <h1>Continuity – Demo</h1>
           <p className="secondary" data-testid="menu-subtitle">
-            Lead a clandestine organization to wage a secret war to protect humanity, in a turn-based strategy.
+            Lead a clandestine organization to wage a secret war to protect humanity, in a turn-based
+            strategy.
           </p>
         </div>
         <div className="menu-head-side">

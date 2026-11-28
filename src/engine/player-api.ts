@@ -598,6 +598,8 @@ export interface GameDataView {
     readonly baseHealth: number;
     readonly weapon: string;
     readonly armor: string;
+    /** COMBAT, Enemy creation: the Combat rating of an Enemy of it as created. */
+    readonly combatRating: number;
   }[];
   readonly missionSiteArchetypes: readonly {
     readonly id: string;
@@ -697,6 +699,11 @@ export interface CompendiumArticleView {
   readonly listedUnder: string | null;
   /** COMP, CompendiumArticle: the `section` of a Mechanics article without `listed_under`, e.g. `Campaign`. */
   readonly section: string | null;
+  /**
+   * COMPV, Subject order: the place of the subject among the GDRs of its Type in Subject order, from 0; absent for a
+   * Guide article, a Mechanics article, or a subject of a Type without a Data sheet.
+   */
+  readonly subjectOrder: number | null;
   /**
    * COMPV, Article sections: what the GDR of the Lead a Subject article is about tells of its kind; absent for an
    * article about anything else. Whether its `on_completion` creates a Mission site, and whether it can be investigated

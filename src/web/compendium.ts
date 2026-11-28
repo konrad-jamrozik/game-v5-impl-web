@@ -44,6 +44,32 @@ function byTitle(a: Article, b: Article): number {
   return left < right ? -1 : left > right ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+const TYPE_ORDER = Object.keys(SUBJECT_TYPES);
+
+/**
+ * COMPV, Panes and Subject order: Subject articles first, in Subject order, i.e. by the order of their Types in the
+ * table of Subject data sheets and, within a Type, by the place Player API reports; then Subject articles of a Type
+ * without a Data sheet, and then the other articles, each by displayed title ignoring case.
+ */
+function listOrder(a: Article, b: Article): number {
+  const rank = (article: Article): readonly number[] => {
+    const type = TYPE_ORDER.indexOf(article.subjectType ?? '');
+    if (type >= 0 && article.subjectOrder !== null) {
+      return [0, type, article.subjectOrder];
+    }
+    return [article.category === 'subject' ? 1 : 2];
+  };
+  const left = rank(a);
+  const right = rank(b);
+  for (let i = 0; i < Math.max(left.length, right.length); i += 1) {
+    const difference = (left[i] ?? 0) - (right[i] ?? 0);
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+  return byTitle(a, b);
+}
+
 /**
  * COMPV, Panes: the category an article is listed under: a Guide or Mechanics article with a `listed_under` is in the
  * category of that Type, or in Combat when it is listed under the topic `combat`.
@@ -150,8 +176,8 @@ export interface ArticleSection {
 }
 
 /**
- * COMPV, Panes and Article sections: the articles of one category, in its Article sections in their order, each sorted
- * by displayed title ignoring case; a section with no article is left out. A category without Article sections is one
+ * COMPV, Panes and Article sections: the articles of one category, in its Article sections in their order, each in
+ * the order of `listOrder`; a section with no article is left out. A category without Article sections is one
  * list without a heading, and so are, after the sections, the articles of a category with sections that are in none of
  * them, e.g. a Mechanics article whose `section` the GDR checks reported as a data defect.
  */
@@ -160,7 +186,7 @@ export function sectionsOf(
   category: string,
   sectionOf: SectionOf,
 ): ArticleSection[] {
-  const listed = articles.filter((article) => categoryOf(article) === category).sort(byTitle);
+  const listed = articles.filter((article) => categoryOf(article) === category).sort(listOrder);
   const names = CATEGORY_SECTIONS[category] ?? [];
   const sections: ArticleSection[] = names.map((name) => ({
     name,
@@ -433,7 +459,7 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
     const about = aboutSubject(subjectType, id);
     return about === undefined ? { text: name } : { text: name, article: about.id };
   };
-  /** Subject articles listed: each by its displayed title as an Article link, sorted by it, one a line. */
+  /** Subject articles listed: each by its displayed title as an Article link, in Subject order, one a line. */
   const listed = (subjectType: string | readonly string[], includes: (id: string) => boolean): SheetPart[] =>
     joined(
       articles
@@ -445,7 +471,7 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
             ) &&
             includes(item.subject),
         )
-        .sort(byTitle)
+        .sort(listOrder)
         .map((item) => [{ text: item.title, article: item.id }]),
     );
   const weaponValue = (id: string): SheetPart[] => {
@@ -642,10 +668,21 @@ export function dataSheet(article: Article, sources: SheetSources): DataSheet | 
           'Expires in',
           [figure(site.expiresInTurns), { text: site.expiresInTurns === 1 ? ' turn' : ' turns' }],
         ]);
+        // COMPV, Subject order: by the Combat rating of an Enemy of each EnemyArchetype as created, ties in the
+        // EnemyArchetype order, i.e. the order Game data reports them in.
+        const enemyPlace = (id: string) => {
+          const index = gameData.enemyArchetypes.findIndex((enemy) => enemy.id === id);
+          return { rating: gameData.enemyArchetypes[index]?.combatRating ?? 0, index };
+        };
+        const siteEnemies = site.enemies.toSorted((a, b) => {
+          const left = enemyPlace(a.enemyArchetype);
+          const right = enemyPlace(b.enemyArchetype);
+          return left.rating - right.rating || left.index - right.index;
+        });
         rows.push([
           'Enemies',
           joined(
-            site.enemies.map((item) => {
+            siteEnemies.map((item) => {
               const enemy = gameData.enemyArchetypes.find((other) => other.id === item.enemyArchetype);
               return [
                 figure(item.count),

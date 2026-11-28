@@ -174,6 +174,7 @@ describe('TUTOR: Tutorials in the Compendium', () => {
     subjectType: null,
     listedUnder: null,
     section: 'Campaign',
+    subjectOrder: null,
     subjectLead: null,
     body: [],
     formulas: [],

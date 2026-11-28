@@ -62,6 +62,7 @@ const article = (
   subjectType: null,
   listedUnder: null,
   section: null,
+  subjectOrder: null,
   subjectLead: null,
   body: [],
   formulas: [],
@@ -444,6 +445,67 @@ describe('COMPV: Article sections', () => {
     }
   });
 
+  it('Subject order: Subject articles by the place Player API reports, by Type, then the others by title', () => {
+    const ranked = (id: string, title: string, subjectType: string, subjectOrder: number) =>
+      article(`${id}_article`, title, { category: 'subject', subject: id, subjectType, subjectOrder });
+    const list = [
+      ranked('raid_hq', 'Raid HQ', 'MissionSiteArchetype', 5),
+      ranked('apprehend_member', 'Apprehend member', 'MissionSiteArchetype', 0),
+      ranked('raid_outpost', 'Raid outpost', 'MissionSiteArchetype', 2),
+    ];
+    expect(articlesOf(list, 'Mission sites', plain).map((item) => item.title)).toEqual([
+      'Apprehend member',
+      'Raid outpost',
+      'Raid HQ',
+    ]);
+    // Within a category of two Types, the Types stand in the order of the table of Subject data sheets, and an
+    // article that is not a Subject article stands after the Subject articles.
+    const weapons = [
+      ranked('pistol_ammo', 'Pistol ammo', 'AmmoType', 0),
+      article('mechanics_ammo', 'About ammo', { category: 'mechanics', listedUnder: 'Weapon' }),
+      ranked('rifle', 'Rifle', 'Weapon', 3),
+      ranked('knife', 'Knife', 'Weapon', 0),
+    ];
+    expect(articlesOf(weapons, 'Weapons', plain).map((item) => item.title)).toEqual([
+      'Knife',
+      'Rifle',
+      'Pistol ammo',
+      'About ammo',
+    ]);
+  });
+
+  it('Subject order: the Game build, e.g. Raid HQ last, Peace on Earth last, and Enemies by Combat rating', () => {
+    const state = newCampaign();
+    const revealed = revealedCompendiumView(state, gdrs).articles;
+    const sectionOf = sectioning({
+      missionSiteArchetypes: gameDataView(gdrs).missionSiteArchetypes,
+      upgrades: currentLiveWorldStateView(state, gdrs).agency.upgrades,
+    });
+    const section = (category: string, name: string | null) =>
+      sectionsOf(revealed, category, sectionOf)
+        .find((item) => item.name === name)!
+        .articles.map((item) => item.subject);
+    const initiative = section('Mission sites', 'Initiative');
+    expect(initiative[0]).toBe('apprehend_member');
+    expect(initiative.at(-1)).toBe('raid_hq');
+    // Response MissionSiteArchetypes by `operation_level`, ties in authored order.
+    const levels = section('Mission sites', 'Response').map(
+      (id) => gdrs.missionSiteArchetypes.find((site) => site.id === id)!.operationLevel!,
+    );
+    expect(levels).toEqual(levels.toSorted((a, b) => a - b));
+    expect(section('Leads', 'One-time').at(-1)).toBe('peace_on_earth');
+    // Every EnemyArchetype by the Combat rating of an Enemy of it as created, ascending.
+    const ratings = new Map(
+      gameDataView(gdrs).enemyArchetypes.map((enemy) => [enemy.id, enemy.combatRating]),
+    );
+    const enemies = section('Enemies', null).map((id) => ratings.get(id!)!);
+    expect(enemies.length).toBe(gdrs.enemyArchetypes.size);
+    expect(enemies).toEqual(enemies.toSorted((a, b) => a - b));
+    // Weapons in authored order, e.g. the Knife first.
+    const weapons = section('Weapons', 'Weapons');
+    expect(weapons).toEqual([...gdrs.weapons.keys()].filter((id) => weapons.includes(id)));
+  });
+
   it('a category without Article sections is one list without a heading', () => {
     const list = [
       subject('soldier', 'Soldier', 'EnemyArchetype'),
@@ -578,10 +640,10 @@ describe('COMPV: Subject data sheets', () => {
     const sheet = sheetOf(everythingVisible(), 'soldier');
     expect(sheet?.heading).toBe('Enemy');
     const appears = sheet?.rows.find((row) => row.label === 'Appears at');
+    // COMPV, Subject order: the Initiative MissionSiteArchetypes in authored order, e.g. Raid HQ last.
     const names = gdrs.missionSiteArchetypes
       .filter((site) => site.kind === 'initiative' && site.enemies.some(([enemy]) => enemy === 'soldier'))
-      .map((site) => site.name)
-      .sort((a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : 1));
+      .map((site) => site.name);
     expect(names.length).toBeGreaterThan(0);
     expect(text(appears?.value ?? [])).toBe(names.map((name) => `[${name}]`).join(' · '));
   });
@@ -707,8 +769,14 @@ describe('COMPV: Subject data sheets', () => {
     expect(rows['Appears']).toBe('When an Investigation completes');
     // COMPV, Mission site data sheet: `expires_in_turns` with "turns", and with "turn" for 1, as below.
     expect(rows['Expires in']).toBe(expiresText(site.expiresInTurns));
+    // COMPV, Subject order: by the Combat rating of an Enemy of each EnemyArchetype as created, ties in the
+    // EnemyArchetype order.
+    const enemyOrder = gameDataView(gdrs).enemyArchetypes;
+    const place = (id: string) => enemyOrder.findIndex((enemy) => enemy.id === id);
+    const rating = (id: string) => enemyOrder[place(id)]!.combatRating;
     expect(rows['Enemies']).toBe(
       site.enemies
+        .toSorted(([a], [b]) => rating(a) - rating(b) || place(a) - place(b))
         .map(([enemy, count]) => `${count} × [${gdrs.enemyArchetypes.get(enemy)!.name}]`)
         .join(' · '),
     );

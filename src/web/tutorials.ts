@@ -172,6 +172,7 @@ export function tutorialArticles(
         subjectType: null,
         listedUnder: null,
         section: null,
+        subjectOrder: null,
         subjectLead: null,
         body: bubble.text,
         formulas: [],

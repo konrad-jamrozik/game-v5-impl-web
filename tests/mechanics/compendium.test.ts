@@ -869,6 +869,7 @@ describe('COMP: Article visibility and Player-visible information', () => {
         'seeAlso',
         'subject',
         'subjectLead',
+        'subjectOrder',
         'subjectType',
         'title',
       ].sort(),

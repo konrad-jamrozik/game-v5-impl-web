@@ -61,6 +61,7 @@ import {
 import {
   archetypeEnemiesCombatRating,
   consequencesOf,
+  createEnemy,
   enemiesCombatRating,
   isDeployableAgent,
   type ConsequenceAmounts,
@@ -1107,6 +1108,64 @@ export function compendiumArticlesView(
   return view;
 }
 
+/** COMBAT, Enemy creation: the Combat rating of an Enemy of an EnemyArchetype as created. */
+function createdEnemyCombatRating(enemy: Parameters<typeof createEnemy>[2], gdrs: GdrCatalog): number {
+  const created = createEnemy(
+    'rated',
+    'rated',
+    enemy,
+    must(gdrs.weapons.get(enemy.weapon), `Weapon ${enemy.weapon}`),
+    must(gdrs.armors.get(enemy.armor), `Armor ${enemy.armor}`),
+  );
+  return combatRating(
+    [enemyCombatant(created.state)],
+    gdrs.combatParameters,
+    gdrs.agentParameters,
+    'enemies',
+  );
+}
+
+const subjectOrderCache = new WeakMap<GdrCatalog, ReadonlyMap<string, ReadonlyMap<string, number>>>();
+
+/**
+ * COMPV, Subject order: the place of each GDR among those of its Type, by Type: the authored order, except that
+ * EnemyArchetypes stand in ascending order of the Combat rating of an Enemy of each as created, ties in the
+ * EnemyArchetype order, and MissionSiteArchetypes of kind response in ascending order of `operation_level`, ties in
+ * authored order.
+ */
+function subjectOrders(gdrs: GdrCatalog): ReadonlyMap<string, ReadonlyMap<string, number>> {
+  const cached = subjectOrderCache.get(gdrs);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const places = (ids: readonly string[]) => new Map(ids.map((id, index) => [id, index]));
+  const enemies = [...gdrs.enemyArchetypes.values()].map((enemy, index) => ({
+    id: enemy.id,
+    rating: createdEnemyCombatRating(enemy, gdrs),
+    index,
+  }));
+  enemies.sort((a, b) => a.rating - b.rating || a.index - b.index);
+  const sites = gdrs.missionSiteArchetypes.map((site, index) => ({
+    id: site.id,
+    level: site.kind === 'response' ? (site.operationLevel ?? 0) : 0,
+    index,
+  }));
+  sites.sort((a, b) => a.level - b.level || a.index - b.index);
+  const orders = new Map<string, ReadonlyMap<string, number>>([
+    ['AgentArchetype', places([gdrs.agentArchetype.id])],
+    ['EnemyArchetype', places(enemies.map((enemy) => enemy.id))],
+    ['Weapon', places([...gdrs.weapons.keys()])],
+    ['Armor', places([...gdrs.armors.keys()])],
+    ['AmmoType', places([...gdrs.ammoTypes.keys()])],
+    ['Upgrade', places(gdrs.upgrades.map((upgrade) => upgrade.id))],
+    ['FactionArchetype', places(gdrs.factionArchetypes.map((faction) => faction.id))],
+    ['Lead', places(gdrs.leads.map((lead) => lead.id))],
+    ['MissionSiteArchetype', places(sites.map((site) => site.id))],
+  ]);
+  subjectOrderCache.set(gdrs, orders);
+  return orders;
+}
+
 /** The reported form of one resolved article, detached from the catalog. */
 function articleView(
   { article, body, formulas, seeAlso }: ResolvedArticle,
@@ -1123,6 +1182,10 @@ function articleView(
     subjectType: article.subjectType,
     listedUnder: article.listedUnder,
     section: article.section,
+    subjectOrder:
+      article.subjectType === null || article.subject === null
+        ? null
+        : (subjectOrders(gdrs).get(article.subjectType)?.get(article.subject) ?? null),
     subjectLead:
       lead === undefined
         ? null
@@ -1295,6 +1358,7 @@ export function gameDataView(gdrs: GdrCatalog): GameDataView {
         baseHealth: enemy.baseHealth,
         weapon: enemy.weapon,
         armor: enemy.armor,
+        combatRating: createdEnemyCombatRating(enemy, gdrs),
       })),
       missionSiteArchetypes: gdrs.missionSiteArchetypes.map((archetype) => ({
         id: archetype.id,
