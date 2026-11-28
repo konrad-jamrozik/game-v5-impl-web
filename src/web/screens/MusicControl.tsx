@@ -1,7 +1,7 @@
 /**
- * MUSIC, Music control: the Music toggle, the Skip button, and the Track title of the Current Track. It is shown above
- * the Settings panel of the Main menu and on the Globe stage of the Campaign screen. MUSIC, Music volume
- * slider: the row of the Settings panel that sets the Music volume.
+ * MUSIC, Music control: the Music toggle, the Skip button, and the Track title of the Current Track. It is shown on the
+ * Globe stage of the Campaign screen and as the Playback row of the Settings panel on both screens. MUSIC, Music
+ * volume slider: the row of the Settings panel that sets the Music volume.
  */
 import { useState, useSyncExternalStore } from 'react';
 import { music } from '../music-player.ts';
@@ -40,8 +40,7 @@ export function Speaker({ off }: { off: boolean }) {
 }
 
 /**
- * MUSIC, Music control: the Music toggle, which sets Music on to the opposite value. MUSIC, Music volume slider: the
- * Music row of the Settings panel holds one too, showing the same Music on.
+ * MUSIC, Music control: the Music toggle, which sets Music on to the opposite value.
  */
 export function MusicToggle(props: { snapshot: Snapshot; buttonClass: string; testId: string }) {
   const { session } = theEngine();
@@ -66,9 +65,19 @@ export function MusicToggle(props: { snapshot: Snapshot; buttonClass: string; te
 
 /**
  * `onGlobeStage`: MUSIC, Music control on the Globe stage: one row with the Track title first, at the bottom right
- * corner of the Globe stage, its buttons drawn as the globe's own controls are.
+ * corner of the Globe stage, its buttons drawn as the globe's own controls are. Otherwise, MUSIC, Music control in the
+ * Settings panel: the Playback row, with neutral buttons first and the Track title after them; `testIdPrefix` keeps
+ * its test IDs apart from those of the Music control on the Globe stage.
  */
-export function MusicControl({ snapshot, onGlobeStage }: { snapshot: Snapshot; onGlobeStage?: boolean }) {
+export function MusicControl({
+  snapshot,
+  onGlobeStage,
+  testIdPrefix = '',
+}: {
+  snapshot: Snapshot;
+  onGlobeStage?: boolean;
+  testIdPrefix?: string;
+}) {
   const { on } = musicSettings(snapshot);
   const status = useSyncExternalStore(music.subscribe, music.getStatus);
   const buttonClass = onGlobeStage === true ? 'globe-stage-button' : 'btn btn-plain';
@@ -78,20 +87,20 @@ export function MusicControl({ snapshot, onGlobeStage }: { snapshot: Snapshot; o
     <span
       className={`music-title${on ? '' : ' muted'}`}
       title={on && status.title !== null ? status.title : undefined}
-      data-testid="music-title"
+      data-testid={`${testIdPrefix}music-title`}
     >
       {title}
     </span>
   );
   const buttons = (
     <>
-      <MusicToggle snapshot={snapshot} buttonClass={buttonClass} testId="music-toggle" />
+      <MusicToggle snapshot={snapshot} buttonClass={buttonClass} testId={`${testIdPrefix}music-toggle`} />
       <button
         type="button"
         className={`${buttonClass} music-skip`}
         aria-label="Next Track"
         title="Next Track"
-        data-testid="music-skip"
+        data-testid={`${testIdPrefix}music-skip`}
         disabled={!on || status.title === null}
         onClick={() => {
           music.skip();
@@ -112,7 +121,7 @@ export function MusicControl({ snapshot, onGlobeStage }: { snapshot: Snapshot; o
   }
 
   return (
-    <div className="music-control" data-testid="music-control">
+    <div className="music-control" data-testid={`${testIdPrefix}music-control`}>
       {buttons}
       {titleLine}
     </div>

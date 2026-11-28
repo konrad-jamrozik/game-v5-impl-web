@@ -255,7 +255,18 @@ test('the Main menu and the Combat simulator fit the Reference window', async ({
   await expect(id(page, 'music-title')).toHaveCount(0);
   await expect(id(page, 'advanced-fields')).toHaveCount(0);
   await id(page, 'open-settings').click();
-  await expect(id(page, 'settings-music-toggle')).toHaveCount(0);
+  // MUSIC, Music control in the Settings panel: the Playback row; before the music starts its Skip button is disabled.
+  await expect(id(page, 'settings-music-toggle')).toBeVisible();
+  await expect(id(page, 'settings-music-skip')).toBeDisabled();
+  // VIS, Close controls: the Settings panel's close control stands in the dialog's upper right corner, on the title's
+  // line, above the Playback row rather than over it.
+  const dialogBox = await id(page, 'settings').boundingBox();
+  const closeBox = await id(page, 'close-settings').boundingBox();
+  const playbackBox = await id(page, 'settings-music-control').boundingBox();
+  expect(dialogBox !== null && closeBox !== null && closeBox.y - dialogBox.y <= 24).toBe(true);
+  expect(closeBox !== null && playbackBox !== null && closeBox.y + closeBox.height <= playbackBox.y).toBe(
+    true,
+  );
   await id(page, 'close-settings').click();
   await expectFits(page, 'the Main menu');
   await id(page, 'advanced-options').click();

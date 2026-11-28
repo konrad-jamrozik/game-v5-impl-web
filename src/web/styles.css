@@ -1336,7 +1336,11 @@ input::placeholder {
   background: var(--scrim);
 }
 
+/* VIS, Close controls: a dialog's close control is inset by the dialog's own 18 px padding, never by an inset that the
+   screen under it sets for its own close control, e.g. the Main menu's. */
 .dialog {
+  --close-inset-top: 18px;
+  --close-inset-right: 18px;
   position: relative;
   display: flex;
   flex-direction: column;

@@ -1,6 +1,6 @@
 /**
  * GUI, Settings panel: the one place where the Player sets Global configuration, on both screens. Its rows, from top
- * to bottom, are the Music row, the Sounds row, the Tutorials row, one row for each other
+ * to bottom, are the Playback row, the Music volume row, the Sounds volume row, the Tutorials row, one row for each other
  * setting except the Autopilot settings, the Changed settings row, and, on the Campaign screen only, the Tools row. On
  * both screens it opens from a Settings button as a dialog over a Scrim with no buttons at its bottom, closed with its
  * close control or the Escape key.
@@ -13,10 +13,13 @@ import { playSound } from '../sound-player.ts';
 import { SOUND, soundSettings } from '../sounds.ts';
 import { act, resetSetting, theEngine, type Snapshot } from '../store.ts';
 import { Button, CloseControl, NumberField, VolumeSlider } from '../ui.tsx';
-import { MusicToggle, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
+import { MusicControl, MusicVolumeSlider, Speaker } from './MusicControl.tsx';
 import { TutorialsCheckbox } from './TutorialsCheckbox.tsx';
 
-/** GUI, Settings panel: these settings have no rows of their own beyond the Music, Sounds, and Tutorials rows. */
+/**
+ * GUI, Settings panel: these settings have no rows of their own beyond the Playback, Music volume, Sounds volume, and
+ * Tutorials rows.
+ */
 const OWN_ROWS = new Set(['musicOn', 'musicVolume', 'soundsOn', 'soundsVolume', 'tutorialsOn']);
 
 /**
@@ -78,14 +81,14 @@ function ChangedSettingsRow({ snapshot }: { snapshot: Snapshot }) {
   );
 }
 
-/** SOUNDS, Sound settings: the Sounds toggle and the Sounds volume slider, in one row labelled Sounds. */
+/** SOUNDS, Sound settings: the Sounds toggle and the Sounds volume slider, in one row labelled Sounds volume. */
 function SoundsRow({ snapshot }: { snapshot: Snapshot }) {
   const { session } = theEngine();
   const { on, volume } = soundSettings(snapshot.configuration.settings);
   const [dragging, setDragging] = useState<number | null>(null);
   return (
     <div className="settings-row">
-      <div>Sounds</div>
+      <div>Sounds volume</div>
       <div className="settings-input">
         {/* SOUNDS, Main click: turning Sounds on plays main-click, and turning them off plays no Sound. */}
         <button
@@ -139,17 +142,19 @@ function SettingsRows(props: {
   const { session } = theEngine();
   return (
     <>
-      {/* MUSIC, Music volume slider: the Music row holds a Music toggle and the Music volume slider; GUI, Settings
-          panel: on the Campaign screen only. */}
-      {tools === undefined ? null : (
-        <div className="settings-row">
-          <div>Music</div>
-          <div className="settings-input">
-            <MusicToggle snapshot={snapshot} buttonClass="btn btn-plain" testId="settings-music-toggle" />
-            <MusicVolumeSlider snapshot={snapshot} />
-          </div>
+      {/* MUSIC, Music control in the Settings panel: the Playback row, on both screens; before the music starts on
+          the Main menu its Skip button is disabled and its Track title reads nothing. */}
+      <div className="settings-row settings-music">
+        <div>Playback</div>
+        <MusicControl snapshot={snapshot} testIdPrefix="settings-" />
+      </div>
+      {/* MUSIC, Music volume slider: the Music volume row holds the Music volume slider alone. */}
+      <div className="settings-row">
+        <div>Music volume</div>
+        <div className="settings-input">
+          <MusicVolumeSlider snapshot={snapshot} />
         </div>
-      )}
+      </div>
       <SoundsRow snapshot={snapshot} />
       {/* TUTOR, Tutorials settings: the Tutorials checkbox, then the neutral button that empties Tutorial progress, so
           that every bubble is new again; it leaves the Player Turn count as it is. */}
