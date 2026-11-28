@@ -59,6 +59,7 @@ import { TutorialBubble } from './TutorialBubble.tsx';
 import type { ReportTarget } from './TurnReportView.tsx';
 import { rankOf, type RankThreshold } from '../rank.ts';
 import { RankText } from '../rank-insignia.tsx';
+import { TableLink } from '../table-link.tsx';
 
 /** AVIEW, Row filters: the checkboxes are unchecked whenever the Agents View opens. */
 const NO_HIDING: HideChecks = { hideRecovering: false, hideExhausted: false };
@@ -100,14 +101,26 @@ const SERVING_WIDTHS = [
   ASSIGNMENT_COLUMN_WIDTH,
 ];
 /**
- * VIS, Tables: the fixed widths of the Memorial table, 1068 px in all. AVIEW, Memorial: Cause holds "Killed by" and
+ * VIS, Tables: the fixed widths of the Memorial table, 1182 px in all. AVIEW, Memorial: Rank follows the Agent name as
+ * in the Agent table, and Cause holds "Killed by" and
  * the longest Enemy label of the GDRs with a two-digit number, e.g. "Killed by high-commander-12" (211 px). Base,
  * Exp., Ended, and Turns hold four digits with their comma, e.g. "1,234", because a base skill, the experience that
  * grows it, and a Turn reach 1,000 in a long Campaign; every header holds its label with its sort arrow, e.g.
- * "Missions▼" (94 px). Where is the table's one column of free text: it takes all the width the others leave in the
- * Memorial, which covers the whole screen, at least 114 px, and a longer value ends in "…".
+ * "Missions▼" (94 px). Mission site is the table's one column of free text: it takes all the width the others leave in
+ * the Memorial, which covers the whole screen, at least 114 px, and a longer value ends in "…".
  */
-const MEMORIAL_WIDTHS = [AGENT_COLUMN_WIDTH, '72px', '68px', '80px', '212px', '96px', '80px', '72px', 'auto'];
+const MEMORIAL_WIDTHS = [
+  AGENT_COLUMN_WIDTH,
+  RANK_COLUMN_WIDTH,
+  '72px',
+  '68px',
+  '80px',
+  '212px',
+  '96px',
+  '80px',
+  '72px',
+  'auto',
+];
 
 /** AVIEW, Row filters: exactly one is on at a time. */
 type RowFilter = 'all' | 'fit' | 'inBase' | 'away';
@@ -540,9 +553,11 @@ export function AgentsView(props: {
             agents={terminated}
             state={state}
             retired={snapshot.retired}
+            ranks={ranks}
             onOpen={(id) => {
               openDetails(id);
             }}
+            onShow={onShow}
           />
         </DetailView>
       </WholeScreen>
@@ -827,6 +842,7 @@ export function AgentsView(props: {
 
 type MemorialKey =
   | 'id'
+  | 'rank'
   | 'skill'
   | 'experience'
   | 'turnTerminated'
@@ -834,7 +850,7 @@ type MemorialKey =
   | 'missions'
   | 'turns'
   | 'kills'
-  | 'where';
+  | 'missionSite';
 
 /** AVIEW, Memorial, Cause: "Dismissed", or "Killed by" and the Enemy label of the Enemy that killed the Agent. */
 function memorialCause(agent: AgentView, death: MemorialDeath | null): string {
@@ -844,12 +860,21 @@ function memorialCause(agent: AgentView, death: MemorialDeath | null): string {
   return death === null ? 'Killed' : `Killed by ${death.killedBy}`;
 }
 
+/** AVIEW, Memorial: the Rank of an Agent by its base skill, as the Agent table shows it. */
+function MemorialRank(props: { skillHundredths: number; ranks: readonly RankThreshold[] }) {
+  const rank = rankOf(props.skillHundredths, props.ranks);
+  return rank === null ? null : <RankText rank={rank} abbreviated />;
+}
+
 /** AVIEW, Memorial: one row per Terminated Agent, newest Turn terminated first, sorted by any column header. */
 function Memorial(props: {
   agents: readonly AgentView[];
   state: CurrentLiveWorldStateView;
   retired: CurrentRetiredWorldStateView | null;
+  ranks: readonly RankThreshold[];
   onOpen: (id: string) => void;
+  /** GUI, Links in tables: opens the Missions View with a Mission site selected, as a Follow. */
+  onShow: (target: ReportTarget) => void;
 }) {
   // VIS, Tables: up to four sort tiers over the default order, newest Turn terminated first and then by Instance ID.
   const [tiers, setTiers] = usePlaceState<SortTier<MemorialKey>[]>('memorialTiers', []);
@@ -863,6 +888,8 @@ function Memorial(props: {
     switch (key) {
       case 'id':
         return row.agent.name;
+      // AVIEW, Agent table: the Rank column sorts by base skill.
+      case 'rank':
       case 'skill':
         return row.agent.skillHundredths;
       case 'experience':
@@ -877,8 +904,8 @@ function Memorial(props: {
         return row.turns;
       case 'kills':
         return row.kills;
-      case 'where':
-        return row.death === null ? '' : `${row.death.where.name} ${row.death.where.number}`;
+      case 'missionSite':
+        return row.death === null ? '' : `${row.death.missionSite.name} ${row.death.missionSite.number}`;
     }
   };
   const rows = sortRows(unsorted, tiers, value);
@@ -889,7 +916,8 @@ function Memorial(props: {
       aria-sort={ariaSort(tiers, key)}
       data-testid={`memorial-sort-${key}`}
       onClick={() => {
-        setTiers(pressHeader(tiers, key, numeric));
+        // AVIEW, Agent table: Rank sorts by base skill, so it starts descending as a number column does.
+        setTiers(pressHeader(tiers, key, numeric || key === 'rank'));
       }}
     >
       {label}
@@ -902,6 +930,7 @@ function Memorial(props: {
         <thead>
           <tr>
             {header('id', 'Agent', false)}
+            {header('rank', 'Rank', false)}
             {header('skill', 'Base', true, 'Base skill')}
             {header('experience', 'Exp.', true, 'Experience')}
             {header('turnTerminated', 'Ended', true, 'Turn terminated')}
@@ -909,7 +938,7 @@ function Memorial(props: {
             {header('missions', 'Missions', true)}
             {header('turns', 'Turns', true, 'Turns with the Agency')}
             {header('kills', 'Kills', true, 'Enemies killed')}
-            {header('where', 'Where', false)}
+            {header('missionSite', 'Mission site', false)}
           </tr>
         </thead>
         <tbody>
@@ -926,6 +955,10 @@ function Memorial(props: {
                 >
                   {row.agent.name}
                 </button>
+              </td>
+              {/* AVIEW, Memorial: the Rank as the Agent table shows it. */}
+              <td data-testid={`memorial-rank-${row.agent.id}`}>
+                <MemorialRank skillHundredths={row.agent.skillHundredths} ranks={props.ranks} />
               </td>
               <td className="num">{wholeText(row.agent.skillHundredths)}</td>
               <td className="num">{groupDigits(row.agent.experience)}</td>
@@ -948,11 +981,17 @@ function Memorial(props: {
               <td className="num">{groupDigits(row.missions)}</td>
               <td className="num">{groupDigits(row.turns)}</td>
               <td className="num">{groupDigits(row.kills)}</td>
-              <td data-testid={`memorial-where-${row.agent.id}`}>
+              {/* GUI, Links in tables: the Mission site opens in the Missions View, as a Concluded Mission site. */}
+              <td data-testid={`memorial-mission-site-${row.agent.id}`}>
                 {row.death === null ? null : (
-                  <>
-                    {row.death.where.name} <span className="figure muted">{row.death.where.number}</span>
-                  </>
+                  <TableLink
+                    testId={`memorial-mission-site-link-${row.agent.id}`}
+                    target={{ kind: 'missionSite', missionSite: row.death.missionSite.id }}
+                    onShow={props.onShow}
+                  >
+                    {row.death.missionSite.name}{' '}
+                    <span className="figure muted">{row.death.missionSite.number}</span>
+                  </TableLink>
                 )}
               </td>
             </tr>

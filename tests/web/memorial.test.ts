@@ -1,4 +1,4 @@
-/** AVIEW, Memorial: the Killed by and Where columns. */
+/** AVIEW, Memorial: the Killed by and Mission site columns. */
 import { describe, expect, it } from 'vite-plus/test';
 import { memorialDeath } from '../../src/web/memorial.ts';
 
@@ -21,7 +21,7 @@ describe('AVIEW: Memorial', () => {
   it('names the Enemy by its Enemy label and the Mission site by its name and number', () => {
     expect(memorialDeath({ enemy: 'enemy-302', missionSite: 'mission-site-75' }, [site])).toEqual({
       killedBy: 'soldier-2',
-      where: { name: 'Raid outpost', number: '#75' },
+      missionSite: { id: 'mission-site-75', name: 'Raid outpost', number: '#75' },
     });
     expect(memorialDeath({ enemy: 'enemy-303', missionSite: 'mission-site-75' }, [site])?.killedBy).toBe(
       'high-commander-1',

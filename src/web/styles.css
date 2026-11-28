@@ -706,11 +706,11 @@ input::placeholder {
   cursor: pointer;
 }
 
-/* AVIEW, Memorial; VIS, Tables: the Memorial fills the width of the whole screen it covers, and Where, its one column
-   without a fixed width, takes what the others leave, at least 114 px, i.e. 1068 px for the table in all. */
+/* AVIEW, Memorial; VIS, Tables: the Memorial fills the width of the whole screen it covers, and Mission site, its one
+   column without a fixed width, takes what the others leave, at least 114 px, i.e. 1182 px for the table in all. */
 .memorial-grid {
   width: 100%;
-  min-width: 1068px;
+  min-width: 1182px;
 }
 
 .memorial-grid td {
@@ -4343,13 +4343,16 @@ label:has(> input[type='checkbox']:disabled) {
   z-index: 20;
   top: calc(100% + 4px);
   left: 0;
-  display: flex;
+  /* AVIEW, Equipment picker: the rows share the columns of one grid, each as wide as its widest value, with a clear gap
+     between them, so that a long AmmoType name and its rounds never run into how many Storage holds. */
+  display: grid;
   min-width: 400px;
-  flex-direction: column;
   padding: 4px 0;
   border: 1px solid var(--border);
   background: var(--background);
   box-shadow: 0 8px 24px rgb(0 0 0 / 50%);
+  column-gap: 20px;
+  grid-template-columns: repeat(4, max-content);
 }
 
 .equipment-options > button {
@@ -4360,7 +4363,8 @@ label:has(> input[type='checkbox']:disabled) {
   background: none;
   color: var(--text);
   font: 13px var(--font-body);
-  grid-template-columns: 130px 44px 1fr 80px;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   text-align: left;
   cursor: pointer;
 }

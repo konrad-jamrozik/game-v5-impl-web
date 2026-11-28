@@ -37,6 +37,7 @@ import { turnSummaryHasContent } from '../turn-summary.ts';
 import { backLabel, turnSummaryPlace } from '../view-trail.ts';
 import { Button, Grid } from '../ui.tsx';
 import { CopySetupSeedButton } from '../copy-setup-seed.tsx';
+import { TableLink } from '../table-link.tsx';
 import { CombatReplay } from './CombatReplay.tsx';
 import { DetailView } from './DetailView.tsx';
 
@@ -262,6 +263,7 @@ export function TurnReportView(props: {
           levels={exhaustionLevels(snapshot.gameData)}
           logOpen={logOpen}
           onToggleLog={setLogOpen}
+          onOpen={props.onOpen}
         />
       </DetailView>
     );
@@ -723,9 +725,20 @@ function CombatReportDetails(props: {
   /** The `name` of an Item or AmmoType, and of the Fallback Weapon. */
   itemName: (id: string) => string;
   fallbackWeaponName: string;
+  /** GUI, Links in tables: opens an Agent's details, as a Follow. */
+  onOpen: (target: ReportTarget) => void;
 }) {
   const { combat } = props;
   const sideOf = (id: string) => combat.participants.find((who) => who.id === id)?.side ?? 'enemy';
+  /** GUI, Links in tables: an Agent's name is a link to its Agent details; an Enemy's label is plain text. */
+  const named = (id: string, testId: string) =>
+    sideOf(id) === 'agent' ? (
+      <TableLink target={{ kind: 'agent', agent: id }} onShow={props.onOpen} testId={testId}>
+        {props.nameOf(id)}
+      </TableLink>
+    ) : (
+      props.nameOf(id)
+    );
   const group = (side: 'agent' | 'enemy') => combat.participants.filter((who) => who.side === side);
   return (
     <div className="stack" data-testid="combat-report">
@@ -780,7 +793,7 @@ function CombatReportDetails(props: {
                       title={`Weapon damage ${groupDigits(who.start.weaponDamage)}`}
                       data-testid={`participant-name-${who.id}`}
                     >
-                      {props.nameOf(who.id)}
+                      {named(who.id, `participant-link-${who.id}`)}
                     </th>
                     <td className="num">{wholeText(who.start.skillHundredths)}</td>
                     <td className="num">
@@ -896,7 +909,7 @@ function CombatReportDetails(props: {
                   <tr key={index} className={`log-${row.tint}`} data-testid={`combat-log-row-${index}`}>
                     <td className="num">{groupDigits(attack.round)}</td>
                     <td>
-                      {props.nameOf(attack.attacker)}
+                      {named(attack.attacker, `combat-log-attacker-${index}`)}
                       {attack.outOfAmmo === null ? null : (
                         <span className="muted">
                           {' '}
@@ -904,7 +917,7 @@ function CombatReportDetails(props: {
                         </span>
                       )}
                     </td>
-                    <td>{props.nameOf(attack.defender)}</td>
+                    <td>{named(attack.defender, `combat-log-defender-${index}`)}</td>
                     <td className="num">
                       {hitChanceText(attack.hitChance)} ({groupDigits(attack.a)} vs {groupDigits(attack.d)})
                     </td>

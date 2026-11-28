@@ -227,7 +227,7 @@ const FOUR = '1,234';
 const RULES: Record<string, TableRules> = {
   'agents-grid': { widest: { CR: FOUR, Health: '123/123', 'Exh.': '123' } },
   'memorial-grid': {
-    freeText: 'Where',
+    freeText: 'Mission site',
     widest: {
       Base: FOUR,
       'Exp.': FOUR,
